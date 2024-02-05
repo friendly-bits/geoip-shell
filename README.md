@@ -1,7 +1,9 @@
 # geoip-shell
-Geoip blocker for Linux focusing on reliability, compatibility and ease of use. Utilizes the 'nftables' firewall management utility ('iptables' is supported in the legacy version of the suite). This is a continuation of the 'geoblocker-bash' project.
+Geoip blocker for Linux focusing on reliability, compatibility and ease of use. Utilizes the 'nftables' firewall management utility (iptables is supported in the legacy version of the suite which will be made available shortly).
 
-Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware.
+This is a continuation of the **geoblocker-bash** project. To learn what's changed, check out release notes for the 1st public release (which will be added shortly).
+
+Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host (configured during installation).
 
 Supports ipv4 and ipv6.
 
@@ -18,38 +20,43 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 **Reliability**:
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
-- Downloaded ip lists go through validation process, which safeguards against application of corrupted or incomplete lists to the firewall.
+- Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
+- Utilizes nftables atomic rules replacement to completely eliminate time when geoip is disabled during an autoupdate.
 
 <details> <summary>Read more:</summary>
 
-- All scripts perform extensive error detection and handling, so if something goes wrong, chances for bad consequences are low.
+- All scripts perform extensive error detection and handling.
+- Verifies firewall rules coherence after each action.
 - Automatic backup of the firewall state (optional, enabled by default).
+- Automatic recovery of the firewall in case of unexpected errors.
 </details>
 
 **Efficiency**:
-- Optimized for low memory use
-- Only performs necessary actions. For example, if a list is up-to-date and already active in the firewall, it won't be re-validated and re-applied to the firewall until the source data timestamp changes.
+- Optimizes the firewall for low memory consumption.
+- The code itself is very fast.
+- Supports the 'ipdeny' source which provides compacted ip lists, which is useful for embedded devices with limited memory.
 
 <details><summary>Read more:</summary>
 
-- Creating and updating ip sets is done efficiently, so normally it takes less than a second for a very large list (depending on the CPU).
+- Implements smart autoupdate of ip lists via data timestamp checks, which avoids unnecessary reconfiguration of the firewall.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
 
 </details>
 
 **Ease of use**:
-- Installation is easy, doesn't require many complex command line arguments and normally takes a few seconds.
+- Installation is easy, doesn't require many complex command line arguments and normally takes a very short time.
 - Detailed installation and usage guides are provided (check the [**Installation**](#Installation) and [**Usage**](#Usage) sections)
 
 <details><summary>Read more:</summary>
 
+- To simplify the installation procedure, implements autodetection of local subnets (for hosts) and WAN interfaces (for routers).
 - Comes with an *uninstall script which completely removes the suite and geoip firewall rules. No restart is required.
-- Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases.
+- Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
-- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to manage and change geoip config (adding or removing country codes, changing the cron schedule etc).
+- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, add or remove country codes, change the cron schedule etc).
 - Post-installation, provides a command _('geoip-shell status')_ to check geoip blocking status, which also reports if there are any issues.
-- Lots of comments in the code, in case you want to change something in it or learn how the scripts are working.
+- The code is intentionally made in a way that is easy read, in case you want to change something in it or learn how the scripts are working.
 - Most scripts display detailed 'usage' info when executed with the '-h' option.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
 </details>
@@ -61,8 +68,6 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 ## **Installation**
 
-_Recommended to read the [NOTES.md](/NOTES.md) file._
-
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's the package manager.
@@ -71,19 +76,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
-_<details><summary>4) Optional:</summary>_
-
-- If intended use is whitelist and you want to install geoip-shell on a remote machine, you can run the `check-ip-in-source.sh` script before Installation to make sure that your public ip addresses are included in the fetched ip list.
-
-_Example: (for US):_ `sh check-ip-in-source.sh -c US -i "8.8.8.8 8.8.4.4"` _(if checking multiple ip addresses, use double quotes)_
-
-- If intended use is blacklist and you know in advance some of the ip addresses you want to block, you can use the check-ip-in-source.sh script to verify that those ip addresses are included in the fetched ip list. The syntax is the same as above.
-
-**Note**: check-ip-in-source.sh has an additional pre-requisite: grepcidr. Install it with your distro's package manager.
-
-</details>
-
-**5)** run `sh geoip-shell-install -m <whitelist|blacklist> -c <"country_codes">`.
+**4)** run `sh geoip-shell-install -m <whitelist|blacklist> -c <"country_codes">`.
 _<details><summary>Examples:</summary>_
 
 - example (whitelist Germany and block all other countries): `sh geoip-shell-install -m whitelist -c DE`
@@ -92,7 +85,9 @@ _<details><summary>Examples:</summary>_
 (if specifying multiple countries, use double quotes)
 </details>
 
-- **NOTE**: If your distro (or you) have enabled automatic nftables persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+- **NOTE**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+
+**5)** The `-install.sh` script will ask you several questions to gather data required for correct installation, then initiate download and application of the ip lists. If you are not sure how to answer some of them, read [INSTALLATION-FAQ.md](/INSTALLATION-FAQ.md).
 
 **6)** That's it! By default, ip lists will be updated daily at 4am local time (4 o'clock at night) - you can verify that automatic updates work by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro).
 
@@ -103,9 +98,7 @@ Generally, once the installation completes, you don't have to do anything else f
 
 **To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
 
-**To add or remove ip lists for countries:** run `geoip-shell <action> [-c <"country_codes">]`
-
-where 'action' is either `add` or `remove`.
+**To add or remove ip lists for countries:** run `geoip-shell <add|remove> [-c <"country_codes">]`
 
 _<details><summary>Examples:</summary>_
 - example (to add ip lists for Germany and Netherlands): `geoip-shell add -c "DE NL"`
@@ -129,6 +122,7 @@ _<details><summary>Example</summary>_
 **To uninstall:** run `geoip-shell-uninstall`
 
 **To switch mode (from whitelist to blacklist or the opposite):** re-install
+**To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
 
 For additional notes and recommendations for using the suite, check out the [NOTES.md](/NOTES.md) file.
 
@@ -138,10 +132,9 @@ For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
 (if a pre-requisite is missing, the -install script will tell you which)
 - Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- standard utilities including awk, sed, grep, psid which are included with every server/desktop linux distro. For embedded, may require installing a few packages that don't come by default.
-- for persistence and autoupdate functionality, requires the cron service to be enabled
-
-Additional mandatory pre-requisites: `wget` or `curl`
+- standard utilities including awk, sed, grep, psid which are included with every server/desktop linux distro. For embedded, may require installing some packages that don't come by default.
+- `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
+- for persistence and autoupdate functionality, requires the cron service to be enabled.
 
 **Optional**: the _check-ip-in-source.sh_ script requires grepcidr. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
