@@ -26,7 +26,7 @@ Usage: $me <action> [-l <"list_ids">] [-d] [-h]
 Switches geoip blocking on/off, or loads/removes ip sets and firewall rules for specified lists.
 
 Actions:
-    on|off           : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
+    on|off           : enable or disable the geoip blocking chain (via a rule in the base chain)
     add|remove       : Add or remove ip sets and firewall rules for lists specified with the '-l' option
 
 Options:
