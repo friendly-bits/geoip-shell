@@ -30,11 +30,11 @@ Usage: $me <action> [-d] [-h]
 - if restore from backup fails, calls the *reset script to deactivate geoip blocking
 
 Actions:
-    create-backup|restore  : create a backup of, or restore config, geoip ip sets and firewall rules
+create-backup|restore  : create a backup of, or restore config, geoip ip sets and firewall rules
 
 Options:
-    -d                     : Debug
-    -h                     : This help
+-d    : Debug
+-h    : This help
 
 EOF
 }
