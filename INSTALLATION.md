@@ -18,7 +18,7 @@ You will see this question if installing the suite in whitelist mode and you cho
 If you are absolutely sure that you will not need to access the machine from the LAN then you can type in 's' to skip.
 Otherwise I recommend to add LAN subnets to the whitelist.
 The autodetection code should, in most cases, detect correct LAN subnets. However, it is up to you to verify that it's done its job correctly.
-One way to do that is by typing in 'c' to confirm and once installation completes, verifying that you can still access said device from LAN (note that if you have an active connection to that machine, for example through SSH, it will most likely continue to work until disconnection even if whitelisting of LAN subnets did not work out correctly).
+One way to do that is by typing in 'c' to confirm and once installation completes, verifying that you can still access to the machine from LAN (note that if you have an active connection to that machine, for example through SSH, it will likely continue to work until disconnection even if whitelisting of LAN subnets did not work out correctly).
 Of course, this is risky in cases where you do not have physical access to the machine.
 Another way to do that is by examining your network configuration (which is generally configured on your router) and making sure that the autodetected subnets match those in the configuration.
 If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets which you want to whitelist. I would also appreciate if you let me know about that so I can improve the autodetection code (I will need some details about your network).
