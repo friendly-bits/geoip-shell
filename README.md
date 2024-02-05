@@ -14,7 +14,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 * ip lists are fetched either from RIPE (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from ipdeny. Both sources provide updated ip lists for all regions.
 
-* All configuration changes required for geoip blocking to work are automatically applied to the firewall during installation.
+* All configuration changes required for geoip blocking to work are applied to the firewall during installation.
 
 * Implements optional (enabled by default) persistence of geoip blocking across system reboots and automatic updates of the ip lists.
 
