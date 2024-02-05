@@ -54,9 +54,9 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
 - Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, add or remove country codes, change the cron schedule etc).
 - Post-installation, provides a command _('geoip-shell status')_ to check geoip blocking status, which also reports if there are any issues.
-- The code is intentionally made in a way that is easy read, in case you want to change something in it or learn how the scripts are working.
-- Most scripts display detailed 'usage' info when executed with the '-h' option.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
+- Most scripts display detailed 'usage' info when executed with the '-h' option.
+- The code should be fairly easy to read and includes a healthy amount of comments.
 </details>
 
 **Compatibility**:
@@ -130,7 +130,7 @@ For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
 (if a pre-requisite is missing, the _-install_ script will tell you which)
 - Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- standard utilities including awk, sed, grep, psid which are included with every server/desktop linux distro. For embedded, may require installing some packages that don't come by default.
+- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distro. For embedded, may require installing some packages if some of these utilities don't come by default.
 - `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
 - for persistence and autoupdate functionality, requires the cron service to be enabled.
 
