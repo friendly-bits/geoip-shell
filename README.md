@@ -44,7 +44,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 </details>
 
-**Ease of use**:
+**User-friendliness**:
 - Installation is easy, doesn't require many complex command line arguments and normally takes a very short time.
 - Detailed installation and usage guides are provided (check the [**Installation**](#Installation) and [**Usage**](#Usage) sections)
 
@@ -94,7 +94,7 @@ _<details><summary>Examples:</summary>_
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools to change geoip settings and check geoip blocking state.
+Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking on current geoip blocking state.
 
 **To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
 
@@ -129,7 +129,7 @@ For additional notes and recommendations for using the suite, check out the [NOT
 For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
 
 ## **Pre-requisites**:
-(if a pre-requisite is missing, the -install script will tell you which)
+(if a pre-requisite is missing, the _-install_ script will tell you which)
 - Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - standard utilities including awk, sed, grep, psid which are included with every server/desktop linux distro. For embedded, may require installing some packages that don't come by default.
