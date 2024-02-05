@@ -480,7 +480,7 @@ check_cron() {
 	dir="/usr/local/bin"
 	case "$PATH" in *:"$dir":*|"$dir"|*:"$dir"|"$dir":* );;	*) export PATH="$PATH:$dir"; esac
 
-	check_deps tr cut sort wc awk sed grep logger || die
+	check_deps nft tr cut sort wc awk sed grep logger || die
 	checkutil "uclient-fetch" && export ucl_f_exists="true"
 	checkutil "curl" && export curl_exists="true"
 	checkutil "wget" && export wget_exists="true"
