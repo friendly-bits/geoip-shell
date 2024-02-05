@@ -33,7 +33,7 @@ Actions:
     add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
     schedule    : change the cron schedule
     status      : check on the current status of geoip blocking
-	reset       : reset geoip config and firewall geoip rules
+    reset       : reset geoip config and firewall geoip rules
     restore     : re-apply geoip blocking rules from the config
 
 Options:
