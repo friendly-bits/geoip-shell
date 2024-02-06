@@ -116,7 +116,7 @@ Generally, once the installation completes, you don't have to do anything else f
 
 **To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
 
-**To add or remove ip lists for countries:** run `geoip-shell <add|remove> [-c <"country_codes">]`
+**To add or remove ip lists for countries:** run `geoip-shell <add|remove> -c <"country_codes">`
 
 _<details><summary>Examples:</summary>_
 - example (to add ip lists for Germany and Netherlands): `geoip-shell add -c "DE NL"`
@@ -127,7 +127,7 @@ _<details><summary>Examples:</summary>_
 
 **To enable or change the autoupdate schedule**, use the `-s` option followed by the cron schedule expression in doulbe quotes:
 
-`geoip-shell schedule -s <"cron_schdedule_expression">`
+`geoip-shell schedule -s <"schdedule_expression">`
 
 _<details><summary>Example</summary>_
 
