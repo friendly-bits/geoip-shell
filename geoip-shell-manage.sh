@@ -209,14 +209,14 @@ incoherence_detected() {
 # if that fails, restore from backup
 restore_from_config() {
 	check_reapply() {
-		check_lists_coherence && { echo "Successfully re-applied previous $list_type ip lists."; return 0; }
+		check_lists_coherence && { echolog "Successfully re-applied previous $list_type ip lists."; return 0; }
 
-		echo "Failed to re-apply previous $list_type lists." >&2
+		echolog -err "Failed to re-apply previous $list_type lists." >&2
 		report_incoherence
 		return 1
 	}
 
-	echo "Restoring lists '$config_lists_str' from the config file... "
+	echolog "Restoring lists '$config_lists_str' from the config file... "
 	case "$config_lists_str" in
 		'') echolog -err "Error: no ip lists registered in the config file." ;;
 		*) call_script "$script_dir/${proj_name}-uninstall.sh" -l || return 1
@@ -330,7 +330,7 @@ case "$action" in
 	status) report_status; exit 0 ;;
 	on|off)
 		case "$action" in
-			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to insert the main blocking rule."
+			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
@@ -442,7 +442,7 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	nl2sp "$failed_lists" failed_lists_str
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
-	echo "Warning: failed to apply new $list_type rules for ip lists: $failed_lists_str." >&2
+	echolog -err "Warning: failed to apply new $list_type rules for ip lists: $failed_lists_str."
 	# if the error encountered during installation, exit with error to fail the installation
 	[ "$in_install" ] && die
 	get_difference "$lists_to_change" "$failed_lists" ok_lists
