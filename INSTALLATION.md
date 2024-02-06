@@ -8,9 +8,9 @@ If you answer this question, the _-manage_ script will check that the changes in
 
 Answering this question is mandatory because the firewall is configured differently for each case. Answering it incorrectly may cause unexpected results, including having no geoip blocking or losing remote access to your machine.
 
-If you do not know what is a router or a host then I suggest you to read up before using this project.
+For a router, geoip rules are applied to traffic arriving from the WAN interface(s).
 
-For a router, geoip rules are applied to traffic arriving from the WAN interface(s). For a host, geoip rules are applied to traffic arriving from anywhere. When the suite is installed in whitelist mode, additional rules are created for a host which add LAN subnets to the whitelist in order to avoid blocking them.
+For a host, geoip rules are applied to traffic arriving from anywhere. When the suite is installed in whitelist mode, additional rules are created for a host which add LAN subnets to the whitelist in order to avoid blocking them. This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. That is because while the 'drop' verdict is final, the 'accept' verdict is not - it just means that the accepted packet will not be evaluated again within the chain it was accepted in. It will continue to traverse the subsequent chains and may be dropped in any of them.
 
 ## **'Autodetected ipvX LAN subnets: ... (c)onfirm, c(h)ange, (s)kip or (a)bort installation?'**
 
