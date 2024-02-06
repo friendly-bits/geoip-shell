@@ -130,7 +130,7 @@ For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
 (if a pre-requisite is missing, the _-install_ script will tell you which)
 - Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distro. For embedded, may require installing some packages if some of these utilities don't come by default.
+- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
 - `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
 - for persistence and autoupdate functionality, requires the cron service to be enabled.
 
