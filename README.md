@@ -135,7 +135,7 @@ _<details><summary>Example</summary>_
 
 </details>
 
-**To disable ip lists autoupdates**, use the '-s' option followed by the word `disable`: `geoip-shell schedule -s disable`
+**To disable ip lists autoupdates:** `geoip-shell schedule -s disable`
 
 **To uninstall:** run `geoip-shell-uninstall.sh`
 
