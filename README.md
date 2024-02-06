@@ -32,11 +32,11 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 **Efficiency**:
 - Optimizes the firewall for low memory consumption.
 - The code itself is very fast.
-- Supports the 'ipdeny' source which provides compacted ip lists, which is useful for embedded devices with limited memory.
+- Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
 
 <details><summary>Read more:</summary>
 
-- Implements smart autoupdate of ip lists via data timestamp checks, which avoids unnecessary reconfiguration of the firewall.
+- Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
 
