@@ -151,7 +151,7 @@ echolog() {
 
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${_new_line}$me_short: $arg"
+			_msg="${_new_line}$yellow$me_short$n_c: $arg"
 			case "$msg_is_err" in
 				'') printf '%s\n' "$_msg" ;;
 				*) printf '%s\n' "$_msg" >&2
