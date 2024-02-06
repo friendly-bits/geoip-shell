@@ -32,10 +32,9 @@ The syntax to check in multiple subnets (note the double quotes):
 
 (also works for ipv6 addresses)
 
-If the ip address is in range, grepcidr will print it, otherwise it will not.
-(you may need to install grepcidr using your distribution's package manager)
+If the ip address is in range, grepcidr will print it, otherwise it will not. You may need to install grepcidr using your distribution's package manager.
 
-Alternatively, you can use an online service which will do the same check for you. There are multiple services providing this functionality. To find them, use 'IP Address In CIDR Range Check' with your preferred online search engine.
+Alternatively, you can use an online service which will do the same check for you. There are multiple services providing this functionality. To find them, look up 'IP Address In CIDR Range Check' in your preferred online search engine.
 
 A third way to do that is by examining your network configuration (which is in your router) and making sure that the autodetected subnets match those in the configuration.
 
