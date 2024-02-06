@@ -149,7 +149,10 @@ if [ "$action_apply" = add ]; then
 	getstatus "$status_file" FetchedLists lists
 	getstatus "$status_file" FailedLists failed_lists
 
-	[ "$failed_lists" ] && echolog -err "Failed to fetch and validate lists '$failed_lists'."
+	[ "$failed_lists" ] && {
+		echolog -err "Failed to fetch and validate lists '$failed_lists'."
+		[ "$action_run" = add ] && { set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; die 254 "Aborting the action 'add'."; }
+	}
 
 	fast_el_cnt "$failed_lists" " " failed_lists_cnt
 
