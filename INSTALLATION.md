@@ -20,10 +20,18 @@ If you are absolutely sure that you will not need to access the machine from the
 Otherwise I recommend to add LAN subnets to the whitelist.
 
 The autodetection code should, in most cases, detect correct LAN subnets. However, it is up to you to verify that it's done its job correctly.
+
 One way to do that is by typing in 'c' to confirm and once installation completes, verifying that you can still access to the machine from LAN (note that if you have an active connection to that machine, for example through SSH, it will likely continue to work until disconnection even if whitelisting of LAN subnets did not work out correctly).
 Of course, this is risky in cases where you do not have physical access to the machine.
 
-Another way to do that is by examining your network configuration (which is generally configured on your router) and making sure that the autodetected subnets match those in the configuration.
+Another way to do that is by checking which ip address you need to access the machine from, and then verifying that said ip address is included in of the autodetected subnets. For example, if your other machine's ip is `192.168.1.5` and one of the autodetected subnets is `192.168.1.0/24` then you will want to check that `192.168.1.5` is included in subnet `192.168.1.0/24`. Provided you don't know how to make this calculation manually, you can use the `grepcidr` tool this way:
+`echo "192.168.1.1" | grepcidr "192.168.1.0/24"`
+If the ip address is in range, grepcidr will print it, otherwise it will not.
+(you may need to install grepcidr using your distribution's package manager)
+
+Alternatively, you can use an online service which will do the same check for you. There are multiple services providing this functionality. To find them, use 'IP Address In CIDR Range Check' with your preferred online search engine.
+
+A third way to do that is by examining your network configuration (which is in your router) and making sure that the autodetected subnets match those in the configuration.
 
 If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets which you want to whitelist. I would also appreciate if you let me know about that so I can improve the autodetection code (I will need some details about your network).
 
