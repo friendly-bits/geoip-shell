@@ -458,7 +458,7 @@ for i in 1 2 3 4 5; do
 done
 oldifs cca
 
-ucl_f_cmd="uclient-fetch -T 7"
+ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=7"
 
