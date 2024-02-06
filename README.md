@@ -8,8 +8,8 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 ## Table of contents
 - [Features](#features)
 - [Installation](#installation)
-- [Usage](#usage)
 - [Pre-requisites](#pre-requisites)
+- [Usage](#usage)
 - [Notes](#notes)
 - [In detail](#in-detail)
 - [Privacy](#privacy)
@@ -99,6 +99,16 @@ _<details><summary>Examples:</summary>_
 
 **6)** That's it! By default, ip lists will be updated daily at 4am local time (4 o'clock at night) - you can verify that automatic updates work by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro).
 
+## **Pre-requisites**
+(if a pre-requisite is missing, the _-install.sh_ script will tell you which)
+- Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
+- nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
+- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
+- `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
+- for persistence and autoupdate functionality, requires the cron service to be enabled.
+
+**Optional**: the _check-ip-in-source.sh_ script requires grepcidr. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
+
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
@@ -136,16 +146,6 @@ _<details><summary>Example</summary>_
 For additional notes and recommendations for using the suite, check out the [NOTES.md](/NOTES.md) file.
 
 For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
-
-## **Pre-requisites**
-(if a pre-requisite is missing, the _-install.sh_ script will tell you which)
-- Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
-- nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
-- `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
-- for persistence and autoupdate functionality, requires the cron service to be enabled.
-
-**Optional**: the _check-ip-in-source.sh_ script requires grepcidr. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/NOTES.md).
