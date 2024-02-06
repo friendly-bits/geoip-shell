@@ -125,7 +125,7 @@ report_status() {
 
 	wl_rule="$(printf %s "$curr_geotable" | grep "drop comment \"${geotag}_whitelist_block\"")"
 
-	case "$(printf %s "$curr_geotable" | grep "jump $geochain comment \"${geotag}_main\"")" in
+	case "$(printf %s "$curr_geotable" | grep "jump $geochain comment \"${geotag}_enable\"")" in
 		'') chain_status="$X_sym"; incr_issues ;;
 		*) chain_status="$V_sym"
 	esac
