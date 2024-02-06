@@ -195,7 +195,7 @@ pick_iface() {
 
 	printf '\n%s\n' "Firewall rules will be applied to the WAN interfaces of your router."
 	[ "$wan_ifaces" ] && {
-		printf '\n%s\n%s\n%s\n' "All network interfaces: $all_ifaces" \
+		printf '\n%s\n%s\n\n%s\n' "All network interfaces: $all_ifaces" \
 			"Autodetected WAN interfaces: $wan_ifaces" "(c)onfirm, c(h)ange, or (a)bort installation? "
 		pick_opt "c|h|a"
 		case "$REPLY" in
