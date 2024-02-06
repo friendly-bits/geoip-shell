@@ -11,6 +11,11 @@ get_nft_family() {
 
 ### Tables and chains
 
+is_geochain_on() {
+	force_read_geotable=1
+	get_matching_line "$(nft_get_chain "$base_geochain")" "*" "${geotag}_enable" "*"
+}
+
 nft_get_geotable() {
 	[ -z "$force_read_geotable" ] && [ -n "$_geotable_cont" ] &&  { printf '%s\n' "$_geotable_cont"; return 0; }
 
@@ -42,13 +47,6 @@ mk_nft_rm_cmd() {
 	for tag in "$@"; do
 		printf '%s\n' "$_chain_cont" | sed -n "/$tag/"'s/^.* # handle/'"delete rule inet $geotable $chain handle"'/p' || return 1
 	done
-}
-
-nft_add_georule_main() {
-	printf %s "Applying the main geoip blocking rule... "
-	printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_main" |
-			nft -f - || { echo "Failed."; echolog -err "Error when applying the main geoblocking rule."; return 1; }
-	echo "Ok."
 }
 
 ### (ip)sets
