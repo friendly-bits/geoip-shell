@@ -255,7 +255,7 @@ getconfig() {
 # 2 - leading '*' wildcard (if required)
 # 3 - filter string
 # 4 - trailing '*' wildcard (if required)
-# 5 - var name for output
+# 5 - optional var name for output
 # outputs only the 1st match
 get_matching_line() {
 	newifs "$_nl" gml
