@@ -74,11 +74,11 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
-**4)** run `sh geoip-shell-install -m <whitelist|blacklist> -c <"country_codes">`.
+**4)** run `sh geoip-shell-install.sh -m <whitelist|blacklist> -c <"country_codes">`.
 _<details><summary>Examples:</summary>_
 
-- example (whitelist Germany and block all other countries): `sh geoip-shell-install -m whitelist -c DE`
-- example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install -m blacklist -c "DE NL"`
+- example (whitelist Germany and block all other countries): `sh geoip-shell-install.sh -m whitelist -c DE`
+- example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install.sh -m blacklist -c "DE NL"`
 
 (if specifying multiple countries, use double quotes)
 </details>
@@ -117,9 +117,10 @@ _<details><summary>Example</summary>_
 
 **To disable ip lists autoupdates**, use the '-s' option followed by the word `disable`: `geoip-shell schedule -s disable`
 
-**To uninstall:** run `geoip-shell-uninstall`
+**To uninstall:** run `geoip-shell-uninstall.sh`
 
 **To switch mode (from whitelist to blacklist or the opposite):** re-install
+
 **To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
 
 For additional notes and recommendations for using the suite, check out the [NOTES.md](/NOTES.md) file.
