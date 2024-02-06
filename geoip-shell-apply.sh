@@ -122,7 +122,6 @@ case "$action" in
 		mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" | nft -f -; rv=$?
 		[ $rv != 0 ] || is_geochain_on && { echo "Failed."; die "Error: Failed to remove nft rule."; }
 		echo "Ok."
-		setconfig "NoBlock=1"
 		exit 0 ;;
 	on) [ -n "$geochain_on" ] && { echo "Geoip chain is already switched on."; exit 0; }
 		[ -z "$base_chain_cont" ] && missing_chain="base geoip"
@@ -133,7 +132,6 @@ case "$action" in
 		printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable" | nft -f -; rv=$?
 		[ $rv != 0 ] || ! is_geochain_on && { echo "Failed."; die "Error: Failed to add nft rule."; }
 		echo "Ok."
-		setconfig "NoBlock="
 		exit 0
 esac
 
