@@ -70,22 +70,12 @@ debugentermsg
 #### FUNCTIONS
 
 die_a() {
-	printf '%s\n' "$*"
-	destroy_new_ipsets; die 254
-}
-
-critical() {
-	echolog -err "Removing geoip rules..."
-	nft_rm_all_georules
-	sleep "0.1" 2>/dev/null || sleep 1
-	die "$1"
-}
-
-destroy_new_ipsets() {
-	echolog -err "Destroying temporary ipsets..."
+	echolog -err "$*"
+	echo "Destroying temporary ipsets..."
 	for new_ipset in $new_ipsets; do
 		nft delete set inet "$geotable" "$new_ipset" 1>/dev/null 2>/dev/null
 	done
+	die 254
 }
 
 
@@ -174,8 +164,9 @@ for list_id in $list_ids; do
 	[ "$action" = "add" ] && new_ipsets="$new_ipsets$ipset "
 done
 
+
 ### create the table
-nft add table inet $geotable || die_a "Failed to create table '$geotable'"
+nft add table inet $geotable || die "Failed to create table '$geotable'"
 
 ### apply the action 'add' for ipsets
 for new_ipset in $new_ipsets; do
@@ -188,7 +179,7 @@ for new_ipset in $new_ipsets; do
 	[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | wc -w)"
 	debugprint "\nip count in the iplist file '$iplist_file': $ip_cnt"
 
-	# read $iplist_file, feed to nftables
+	# read $iplist_file into new set
 	{
 		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy memory; "
 		cat "$iplist_file"
@@ -217,19 +208,17 @@ nft_cmd_chain="$(
 	printf '%s\n%s\n' "add chain inet $geotable $base_geochain { type filter hook prerouting priority mangle; policy accept; }" \
 		"add chain inet $geotable $geochain"
 
-	### Remove existing geoip rules
-
 	## Remove the whitelist blocking rule and the auxiliary rules
 	mk_nft_rm_cmd "$geochain" "$geochain_cont" "${geotag}_whitelist_block" "${geotag_aux}" || exit 1
 
 	## Remove the geoip enable rule
 	mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" || exit 1
 
-	## Remove rules for old ipsets
+	## Remove old ipsets and their rules
 	for old_ipset in $old_ipsets; do
 		mk_nft_rm_cmd "$geochain" "$geochain_cont" "$old_ipset" || exit 1
+		printf '%s\n' "delete set inet $geotable $old_ipset"
 	done
-
 
 	### Create new rules
 
@@ -244,11 +233,9 @@ nft_cmd_chain="$(
 		# whitelist lan subnets
 		for family in $families; do
 			[ ! "$autodetect" ] && eval "lan_subnets=\"\$lan_subnets_$family\"" || {
-				printf %s "Detecting local $family subnets... " >&2
 				lan_subnets="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || a_d_failed=1
 				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && {
 					echolog -err "Failed to autodetect $family local subnets."; exit 1; }
-				echo "Ok." >&2
 			}
 			[ -n "$lan_subnets" ] && {
 				get_nft_family
@@ -284,22 +271,14 @@ nft_cmd_chain="$(
 	[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
 
 	exit 0
-)" || die_a "Error: Failed to assemble nftables commands."
+)" || die_a 254 "Error: Failed to assemble nftables commands."
 echo "Ok."
 
 # debugprint "new rules: $newline'$nft_cmd_chain'"
 
 ### Apply new rules
 printf %s "Applying new firewall rules... "
-printf '%s\n' "$nft_cmd_chain" | nft -f - || critical "Error: Failed to apply new firewall rules"
-echo "Ok."
-
-### Remove old ipsets
-sleep "0.1" 2>/dev/null || sleep 1
-printf %s "Removing old ip sets... "
-for old_ipset in $old_ipsets; do
-	printf '%s\n' "delete set inet $geotable $old_ipset"
-done | nft -f - || { echo "Failed."; echolog -err "Warning: Failed to destroy ip sets '$old_ipsets'."; exit 254; }
+printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "Error: Failed to apply new firewall rules"
 echo "Ok."
 
 [ -n "$noblock" ] && echolog -err "WARNING: Geoip blocking is disabled via config."
