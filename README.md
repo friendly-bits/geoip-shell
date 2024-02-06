@@ -1,11 +1,21 @@
-# geoip-shell
+# **geoip-shell**
 Geoip blocker for Linux. Utilizes the **nftables** firewall management utility (iptables is supported in the legacy version of the suite which will be made available shortly).
 
 This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
 
 Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports ipv4 and ipv6.
 
-## Features
+## Table of contents
+- [**Features**](#features)
+- [**Installation**](#installation)
+- [**Usage**](#usage)
+- [**Pre-requisites**](#pre-requisites)
+- [**Notes**](#notes)
+- [**In detail**](#in-detail)
+- [**Privacy**](#privacy)
+- [**P.s.**](#ps)
+
+## **Features**
 _(for installation instructions, skip to the [**Installation**](#Installation) section)_
 
 * Core functionality is creating either a whitelist or a blacklist in the firewall using automatically downloaded ip lists for user-specified countries.
@@ -16,7 +26,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 * Implements optional (enabled by default) persistence of geoip blocking across system reboots and automatic updates of the ip lists.
 
-**Reliability**:
+### **Reliability**:
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
 - Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
 - Utilizes nftables atomic rules replacement to completely eliminate time when geoip is disabled during an autoupdate.
@@ -29,7 +39,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 - Automatic recovery of the firewall in case of unexpected errors.
 </details>
 
-**Efficiency**:
+### **Efficiency**:
 - Optimizes the firewall for low memory consumption.
 - The code itself is very fast.
 - Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
@@ -42,7 +52,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 
 </details>
 
-**User-friendliness**:
+### **User-friendliness**:
 - Installation is easy, doesn't require many complex command line arguments and normally takes a very short time.
 - Detailed installation and usage guides are provided (check the [**Installation**](#Installation) and [**Usage**](#Usage) sections)
 
@@ -59,7 +69,7 @@ _(for installation instructions, skip to the [**Installation**](#Installation) s
 - The code should be fairly easy to read and includes a healthy amount of comments.
 </details>
 
-**Compatibility**:
+### **Compatibility**:
 - Since the project is written in shell code, is is basically compatible with everything Linux (as long as it has the pre-requisites).
 - The project avoids using non-common utilities by implementing their functionality in custom shell code, which makes it faster and compatible with a wider range of systems.
 </details>
@@ -127,8 +137,8 @@ For additional notes and recommendations for using the suite, check out the [NOT
 
 For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
 
-## **Pre-requisites**:
-(if a pre-requisite is missing, the _-install_ script will tell you which)
+## **Pre-requisites**
+(if a pre-requisite is missing, the _-install.sh_ script will tell you which)
 - Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
