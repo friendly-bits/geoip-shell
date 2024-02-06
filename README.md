@@ -6,14 +6,14 @@ This is a continuation of the [**geoblocker-bash**](https://github.com/blunderfu
 Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports ipv4 and ipv6.
 
 ## Table of contents
-- [**Features**](#features)
-- [**Installation**](#installation)
-- [**Usage**](#usage)
-- [**Pre-requisites**](#pre-requisites)
-- [**Notes**](#notes)
-- [**In detail**](#in-detail)
-- [**Privacy**](#privacy)
-- [**P.s.**](#ps)
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Pre-requisites](#pre-requisites)
+- [Notes](#notes)
+- [In detail](#in-detail)
+- [Privacy](#privacy)
+- [P.s.](#ps)
 
 ## **Features**
 * Core functionality is creating either a whitelist or a blacklist in the firewall using automatically downloaded ip lists for user-specified countries.
