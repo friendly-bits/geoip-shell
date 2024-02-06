@@ -76,6 +76,8 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
+**0)** If geoblocker-bash is installed, uninstall it first.
+
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
 
 **2)** Download the latest realease: https://github.com/blunderful-scripts/geoip-shell/releases
