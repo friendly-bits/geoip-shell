@@ -313,10 +313,10 @@ check_files "$script_files cca2.list" || die "Error: missing files: $missing_fil
 
 if [ "$cron_schedule" != "disable" ] || [ ! "$no_persistence" ]; then
 	# check cron service
-	check_cron || {
-		die "Error: cron seems to not be enabled." "Enable the cron service before using this script." \
+	check_cron || die "Error: cron seems to not be enabled." "Enable the cron service before using this script." \
 			"Or run with options '-n' '-s disable' which will disable persistence and autoupdates."
-	}
+	[ ! "$cron_reboot" ] && [ ! "$no_persistence" ] && die "Error: cron-based persistence doesn't work with Busybox." \
+		"If you want to install without persistence support, run with option '-n'"
 fi
 
 # validate cron schedule from arguments
