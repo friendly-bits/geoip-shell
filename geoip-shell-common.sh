@@ -131,9 +131,10 @@ get_json_lines() {
 echolog() {
 	unset msg_args msg_is_err noecho _new_line
 
+	highlight="$blue"
 	for arg in "$@"; do
 		case "$arg" in
-			"-err" ) msg_is_err="true" ;;
+			"-err" ) msg_is_err="true"; highlight="$yellow" ;;
 			"-noecho" ) noecho="true" ;;
 			'') ;;
 			* ) msg_args="$msg_args$arg$delim"
@@ -151,7 +152,7 @@ echolog() {
 
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${_new_line}$yellow$me_short$n_c: $arg"
+			_msg="${_new_line}$highlight$me_short$n_c: $arg"
 			case "$msg_is_err" in
 				'') printf '%s\n' "$_msg" ;;
 				*) printf '%s\n' "$_msg" >&2
