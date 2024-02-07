@@ -458,7 +458,7 @@ detect_init() {
 
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
-	cron_rv=0
+	cron_rv=0; cron_reboot=''
 	case "$(detect_init)" in
 		systemd )
 			# check if cron service is enabled
@@ -468,6 +468,9 @@ check_cron() {
 			if ! pidof cron 1>/dev/null && ! pidof crond 1>/dev/null; then cron_rv=1; else cron_rv=0; fi ;;
 	esac
 	export cron_rv
+	cron_cmd="$(command -v crond; command -v cron)"
+	[ "$cron_cmd" ] && case "$(ls -l "$cron_cmd")" in *busybox*) ;; *) export cron_reboot=1; esac
+
 	return "$cron_rv"
 }
 
