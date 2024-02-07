@@ -142,7 +142,28 @@ report_status() {
 		# report geoip rules
 		printf '\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
 		nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep . || printf '%s\n' "${red}None $X_sym"
-		printf '\n'
+
+		printf '\n%s' "Ip ranges count in active ip sets: "
+		case "$active_ccodes" in
+			'') printf '%s\n' "${red}None $X_sym" ;;
+			*) printf '\n'
+				curr_ipsets="$(nft list sets inet)"
+				for ccode in $active_ccodes; do
+					el_summary=''
+					printf %s "${blue}${ccode}${n_c}: "
+					for family in $active_families; do
+						ipset="$(printf '%s\n' "$curr_ipsets" | grep -o "${ccode}_${family}.*_$geotag")"
+						el_cnt=0
+						[ -n "$ipset" ] && el_cnt="$(nft_cnt_elements "$ipset")"
+						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" X_sym"; incr_issues; }
+						el_summary="$el_summary$family - $el_cnt$list_empty, "
+						total_el_cnt=$((total_el_cnt+el_cnt))
+					done
+					printf '%s\n' "${el_summary%, }"
+				done
+		esac
+		printf '\n%s\n\n' "Total number of ip ranges: $total_el_cnt"
+
 	fi
 
 	# check if cron service is enabled
