@@ -1,13 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2155,SC2034
 
-# TODO: add verification of the backend
 
 ### General
 
 get_nft_family() {
 	nft_family="${family%ipv4}"; nft_family="ip${nft_family#ipv}"
 }
+
 
 ### Tables and chains
 
@@ -36,6 +36,7 @@ nft_rm_all_georules() {
 	echo "Ok."
 }
 
+
 ### Rules
 
 # 1 - chain name
@@ -48,6 +49,7 @@ mk_nft_rm_cmd() {
 		printf '%s\n' "$_chain_cont" | sed -n "/$tag/"'s/^.* # handle/'"delete rule inet $geotable $chain handle"'/p' || return 1
 	done
 }
+
 
 ### (ip)sets
 
@@ -62,6 +64,13 @@ get_ipset_id() {
 			return 1
 	esac
 }
+
+# 1 - set name
+nft_cnt_elements() {
+	nft list set inet "$geotable" "$1" |
+		sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \} | wc -w
+}
+
 
 #### High-level functions
 
