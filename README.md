@@ -38,7 +38,7 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 </details>
 
 ### **Efficiency**:
-- Optimizes the firewall for low memory consumption.
+- Optimizes geoip blocking for low memory consumption or for performance, depending on user preference.
 - The code itself is very fast.
 - Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
 
@@ -93,7 +93,9 @@ _<details><summary>Examples:</summary>_
 (if specifying multiple countries, use double quotes)
 </details>
 
-- **NOTE**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+- **NOTE1**: If your machine has enough memory, consider installing with the `-p` option. For more detailed explanation, check out [NOTES.md](/NOTES.md). 
+
+- **NOTE2**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
 **5)** The `-install.sh` script will ask you several questions to gather data required for correct installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/INSTALLATION.md).
 
