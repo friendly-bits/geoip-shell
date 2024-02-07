@@ -81,8 +81,9 @@ die_a() {
 
 #### VARIABLES
 
-for entry in "Datadir datadir" "Families families" "NoBlock noblock" "ListType list_type" "Autodetect autodetect_opt" \
-		"DeviceType devtype" "WAN_ifaces wan_ifaces" "LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
+for entry in "Datadir datadir" "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
+		"Autodetect autodetect_opt" "DeviceType devtype" "WAN_ifaces wan_ifaces" \
+		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
@@ -99,6 +100,7 @@ action="$(tolower "$action")"
 
 geotag_aux="${proj_name}_aux"
 
+: "${perf_opt:=memory}"
 
 #### CHECKS
 
@@ -179,7 +181,7 @@ for new_ipset in $new_ipsets; do
 
 	# read $iplist_file into new set
 	{
-		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy memory; "
+		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $perf_opt; "
 		cat "$iplist_file"
 		printf '%s\n' "; }"
 	} | nft -f - || die_a "Failed to import the iplist from '$iplist_file' into ip set '$new_ipset'."
