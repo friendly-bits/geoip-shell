@@ -151,11 +151,15 @@ report_status() {
 		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
 		for family in $families; do
 			eval "lan_subnets=\"\$lan_subnets_$family\""
+			[ -n "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}"|| lan_subnets="${red}None${n_c}"
 			printf '%s\n' "$family: $lan_subnets"
 		done
 	fi
 
-	[ "$devtype" = "router" ] && printf '\n%s\n' "Geoip rules applied to network interfaces '$wan_ifaces'"
+	[ "$devtype" = "router" ] && {
+		[ -n "$wan_ifaces" ] && wan_ifaces="'${blue}$wan_ifaces$n_c' $V_sym" || { wan_ifaces="${red}None $X_sym"; incr_issues; }
+		printf '\n%s\n' "Geoip rules applied to network interfaces $wan_ifaces"
+	}
 
 	if [ "$verb_status" ]; then
 		# report geoip rules
