@@ -103,7 +103,6 @@ restorebackup() {
 	call_script "$script_dir/${proj_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && restore_failed "Failed to restore the firewall state from backup." "reset"
-	echo "Ok."
 
 	rm "$temp_file" 2>/dev/null
 	return 0
@@ -114,7 +113,7 @@ restore_failed() {
 	rm "$iplist_dir/"*.iplist.new 2>/dev/null
 	printf '%s\n' "$1" >&2
 	[ "$2" = reset ] && {
-		echo "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***" >&2
+		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
 		call_script "$script_dir/${proj_name}-uninstall.sh" -c
 	}
 	exit 1
