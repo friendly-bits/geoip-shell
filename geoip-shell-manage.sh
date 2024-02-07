@@ -158,8 +158,8 @@ report_status() {
 	fi
 
 	[ "$devtype" = "router" ] && {
-		[ -n "$wan_ifaces" ] && wan_ifaces="'${blue}$wan_ifaces$n_c' $V_sym" || { wan_ifaces="${red}None $X_sym"; incr_issues; }
-		printf '\n%s\n\n' "Geoip rules applied to network interfaces $wan_ifaces"
+		[ -n "$wan_ifaces" ] && wan_ifaces="${blue}$wan_ifaces$n_c" || { wan_ifaces="${red}None $X_sym"; incr_issues; }
+		printf '\n%s\n\n' "Geoip rules applied to network interfaces: $wan_ifaces"
 	}
 
 	if [ "$verb_status" ]; then
