@@ -143,11 +143,11 @@ report_status() {
 		printf '\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
 		nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep . || printf '%s\n' "${red}None $X_sym"
 
-		printf '\n%s' "Ip ranges count in active ip sets: "
+		printf '\n%s' "Ip ranges count in active geoip sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $X_sym" ;;
 			*) printf '\n'
-				curr_ipsets="$(nft list sets inet)"
+				curr_ipsets="$(nft -t list sets inet)"
 				for ccode in $active_ccodes; do
 					el_summary=''
 					printf %s "${blue}${ccode}${n_c}: "
