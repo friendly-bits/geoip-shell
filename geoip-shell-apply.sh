@@ -224,11 +224,13 @@ nft_cmd_chain="$(
 	if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
 		# whitelist lan subnets
 		for family in $families; do
-			[ ! "$autodetect" ] && eval "lan_subnets=\"\$lan_subnets_$family\"" || {
+			if [ ! "$autodetect" ]; then
+				eval "lan_subnets=\"\$lan_subnets_$family\""
+			else
 				lan_subnets="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || a_d_failed=1
-				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && {
-					echolog -err "Failed to autodetect $family local subnets."; exit 1; }
-			}
+				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "Failed to autodetect $family local subnets."; exit 1; }
+				setconfig "LanSubnets_$family" "$lan_subnets"
+			fi
 			[ -n "$lan_subnets" ] && {
 				get_nft_family
 				nft_get_geotable | grep "${geotag}_lansubnets_$family" >/dev/null &&
