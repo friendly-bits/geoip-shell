@@ -185,15 +185,7 @@ for new_ipset in $new_ipsets; do
 	} | nft -f - || die_a "Failed to import the iplist from '$iplist_file' into ip set '$new_ipset'."
 	printf '%s\n' "Ok"
 
-	[ "$debugmode" ] && {
-		ipset_el_cnt="$(nft list set inet $geotable $new_ipset | grep -c ',')"
-		if [ "$ipset_el_cnt" = 0 ]; then
-			ipset_el_cnt="$(nft list set inet $geotable $new_ipset | grep -c 'elements')"
-		else
-			ipset_el_cnt=$((ipset_el_cnt+1))
-		fi
-	}
-	debugprint "subnets in the new ipset: $ipset_el_cnt"
+	[ "$debugmode" ] && debugprint "elements in $new_ipset: $(nft_cnt_elements "$new_ipset")"
 done
 
 #### Assemble commands for nft
