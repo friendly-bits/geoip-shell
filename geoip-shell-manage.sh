@@ -95,9 +95,18 @@ report_status() {
 	Q_sym="${red}?${n_c}"
 	issues=0
 
+	for entry in "DeviceType devtype" "Source ipsource" "WAN_ifaces wan_ifaces" \
+			"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
+		getconfig "${entry% *}" "${entry#* }"
+	done
+
+	getconfig DeviceType devtype
+	getconfig Source ipsource
+
 	printf '\n%s\n' "${purple}Geoip blocking status report:${n_c}"
 
-	printf '\n%s\n' "Geoip blocking mode: ${blue}${list_type}${n_c}"
+	printf '\n%s\n%s\n%s\n' "Geoip blocking mode: ${blue}${list_type}${n_c}" "Configured for device type: ${blue}${devtype}${n_c}" \
+		"Ip lists source: ${blue}${ipsource}${n_c}"
 
 	check_lists_coherence && lists_coherent=" $V_sym" || { report_incoherence; incr_issues; lists_coherent=" $Q_sym"; }
 
@@ -137,6 +146,16 @@ report_status() {
 		esac
 		printf '%s\n' "Whitelist blocking rule: $wl_rule_status"
 	}
+
+	if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
+		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
+		for family in $families; do
+			eval "lan_subnets=\"\$lan_subnets_$family\""
+			printf '%s\n' "$family: $lan_subnets"
+		done
+	fi
+
+	[ "$devtype" = "router" ] && printf '\n%s\n' "Geoip rules applied to network interfaces '$wan_ifaces'"
 
 	if [ "$verb_status" ]; then
 		# report geoip rules
