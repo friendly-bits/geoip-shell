@@ -33,7 +33,7 @@ usage() {
 cat <<EOF
 
 Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>]
-            [ -f <"families"> ] [-u <ripe|ipdeny>] [-o] [-n] [-k] [-d] [-h]
+            [ -f <"families"> ] [-u <ripe|ipdeny>] [-p] [-o] [-n] [-k] [-d] [-h]
 
 Installer for geoip blocking suite of shell scripts.
 Must be run as root.
@@ -51,19 +51,20 @@ Core Options:
 [-u <ripe|ipdeny>]            : Force using this source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
 
 Extra Options:
-[-o]  : No backup. Will not create a backup of previous firewall state after applying changes.
-[-n]  : No persistence. Geoip blocking may not work after reboot.
-[-k]  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
-            (everything will be installed and configured but geoip blocking will not be enabled)
-[-d]  : Debug
-[-h]  : This help
+-p  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
+-o  : No backup. Will not create a backup of previous firewall state after applying changes.
+-n  : No persistence. Geoip blocking may not work after reboot.
+-k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
+           (everything will be installed and configured but geoip blocking will not be enabled)
+-d  : Debug
+-h  : This help
 
 EOF
 }
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:onkdh" opt; do
+while getopts ":c:m:s:f:u:ponkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
@@ -71,6 +72,7 @@ while getopts ":c:m:s:f:u:onkdh" opt; do
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
 
+		p) perf_opt="performance" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
 		k) noblock=1 ;;
@@ -345,7 +347,7 @@ printf %s "Setting initial config... "
 
 setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "Installdir=$install_dir" "Datadir=$datadir" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
-	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" \
+	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" "PerfOpt=$perf_opt" \
 	"DeviceType=$devtype" "LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile="
 printf '%s\n' "Ok."
