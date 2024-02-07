@@ -32,17 +32,22 @@ After installation, the user interface is provided by running "geoip-shell", whi
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
 - Required arguments are `-c <"country_codes">` and `-m <whitelist|blacklist>`
 - Accepts optional custom cron schedule expression for the autoupdate schedule with the '-s' option. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
-- Accepts the '-u' option to specify source for fetching ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
-- Accepts the '-f' option to specify the ip protocol family (ipv4 or ipv6). Defaults to both.
-- Accepts the '-n' option to disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
-- Accepts the '-o' option to disable automatic backups of the firewall geoip rules and geoip config.
-- Accepts the '-k' option to skip creating the main blocking rule. This can be used if you want to check everything before commiting to geoip blocking. To enable blocking later, use the *manage script.
+
+Advanced options:
+- `-u`: specify source for fetching ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
+- `-f`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
+- `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
+- `-o`: disable automatic backups of the firewall geoip rules and geoip config.
+- `-k`: skip adding the geoip 'enable' rule. This can be used if you want to check everything before commiting to geoip blocking. To enable blocking later, use the *manage script.
+- `-p`: create ip sets with the 'performance' policy (defaults to 'memory' policy for low memory consumption)
 
 **geoip-shell-uninstall.sh**
 - Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/local/bin
-- if called with the `-l` option, cleans up previous firewall geoip rules and resets the ip lists in the config
-- if called with the `-c` option, cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
-- if called with the `-r` option, prepares the system for re-installation of the suite: cleans up previous firewall geoip rules and removes the config
+
+Advanced options:
+- `-l`: cleans up previous firewall geoip rules and resets the ip lists in the config
+- `-c`: cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
+- `-r`: prepares the system for re-installation of the suite: cleans up previous firewall geoip rules and removes the config
 
 **geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges.
 
@@ -118,7 +123,7 @@ List id has the format of <country_code>_<family>. For example, **US_ipv4** and 
 
 `sh detect-local-subnets-AIO.sh [-f <inet|inet6>] [-s] [-d]`
 
-Optional arguments:
+Options:
 - `-f <inet|inet6>` : only detect subnets for the specified family.
 - `-s` : only output the subnets (doesn't output the ip addresses and other text)
 - `-d` : debug
