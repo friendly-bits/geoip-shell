@@ -1,6 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2155,SC2034
 
+# library for interacting with nftables
 
 ### General
 
