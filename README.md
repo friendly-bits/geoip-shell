@@ -114,7 +114,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking on current geoip blocking state.
 
-**To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
+**To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list, run `geoip-shell status -v`.
 
 **To add or remove ip lists for countries:** run `geoip-shell <add|remove> -c <"country_codes">`
 
