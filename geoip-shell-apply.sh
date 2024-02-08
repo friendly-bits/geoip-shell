@@ -255,11 +255,11 @@ nft_cmd_chain="$(
 	for new_ipset in $new_ipsets; do
 		get_ipset_id "$new_ipset" || exit 1
 		get_nft_family
-		printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces $nft_family saddr @$new_ipset $iplist_verdict"
+		printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces $nft_family saddr @$new_ipset counter $iplist_verdict"
 	done
 
 	## whitelist blocking rule
-	[ "$list_type" = whitelist ] && printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces drop comment ${geotag}_whitelist_block"
+	[ "$list_type" = whitelist ] && printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces counter drop comment ${geotag}_whitelist_block"
 
 	## geoip enable rule
 	[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
