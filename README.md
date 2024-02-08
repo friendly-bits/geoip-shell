@@ -70,7 +70,7 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 </details>
 
 ### **Compatibility**:
-- Since the project is written in shell code, is is basically compatible with everything Linux (as long as it has the pre-requisites).
+- Since the project is written in shell code, it is compatible with virtually every Linux system (as long as it has the pre-requisites).
 - The project avoids using non-common utilities by implementing their functionality in custom shell code, which makes it faster and compatible with a wider range of systems.
 </details>
 
