@@ -100,9 +100,6 @@ report_status() {
 		getconfig "${entry% *}" "${entry#* }"
 	done
 
-	getconfig DeviceType devtype
-	getconfig Source ipsource
-
 	printf '\n%s\n' "${purple}Geoip blocking status report:${n_c}"
 
 	printf '\n%s\n%s\n%s\n' "Geoip blocking mode: ${blue}${list_type}${n_c}" "Configured for device type: ${blue}${devtype}${n_c}" \
@@ -130,7 +127,7 @@ report_status() {
 	esac
 
 	curr_geotable="$(nft_get_geotable)" ||
-		{ echo "Error: failed to read the firewall state or firewall table $geotable does not exist."; incr_issues; }
+		{ echo "Error: failed to read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
 
 	wl_rule="$(printf %s "$curr_geotable" | grep "drop comment \"${geotag}_whitelist_block\"")"
 
@@ -171,15 +168,15 @@ report_status() {
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $X_sym" ;;
 			*) printf '\n'
-				curr_ipsets="$(nft -t list sets inet)"
+				ipsets="$(nft -t list sets inet | grep -o ".._ipv._.*_$geotag")"
 				for ccode in $active_ccodes; do
 					el_summary=''
 					printf %s "${blue}${ccode}${n_c}: "
 					for family in $active_families; do
-						ipset="$(printf '%s\n' "$curr_ipsets" | grep -o "${ccode}_${family}.*_$geotag")"
+						get_matching_line "$ipsets" "" "${ccode}_${family}" "*" ipset
 						el_cnt=0
 						[ -n "$ipset" ] && el_cnt="$(nft_cnt_elements "$ipset")"
-						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" X_sym"; incr_issues; }
+						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $X_sym"; incr_issues; }
 						el_summary="$el_summary$family - $el_cnt$list_empty, "
 						total_el_cnt=$((total_el_cnt+el_cnt))
 					done
