@@ -116,7 +116,7 @@ _<details><summary>Examples:</summary>_
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking on current geoip blocking state.
+Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking current geoip blocking status.
 
 **To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list, run `geoip-shell status -v`.
 
@@ -147,15 +147,11 @@ _<details><summary>Example</summary>_
 
 **To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
 
-For additional notes and recommendations for using the suite, check out the [NOTES.md](/NOTES.md) file.
-
-For specifics about each script, read the [DETAILS.md](/DETAILS.md) file.
-
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/NOTES.md).
 
 ## **In detail**
-For more detailed description of each script, read [DETAILS.md](/DETAILS.md).
+For specifics about each script, read [DETAILS.md](/DETAILS.md).
 
 ## **Privacy**
 These scripts do not share your data with anyone, as long as you downloaded them from the official source, which is
