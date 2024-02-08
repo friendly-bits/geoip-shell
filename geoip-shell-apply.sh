@@ -88,8 +88,8 @@ for entry in "Datadir datadir" "Families families" "NoBlock noblock" "ListType l
 done
 
 case "$list_type" in
-	whitelist) iplist_verdict="accept"; geochain_policy="drop" ;;
-	blacklist) iplist_verdict="drop"; geochain_policy="accept" ;;
+	whitelist) iplist_verdict="accept" ;;
+	blacklist) iplist_verdict="drop" ;;
 	*) die "Unknown firewall mode '$list_type'."
 esac
 
