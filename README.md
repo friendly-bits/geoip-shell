@@ -95,7 +95,7 @@ _<details><summary>Examples:</summary>_
 (if specifying multiple countries, use double quotes)
 </details>
 
-- **NOTE1**: If your machine has enough memory, consider installing with the `-p` option. For more detailed explanation, check out [NOTES.md](/NOTES.md). 
+- **NOTE1**: If your machine has enough memory, consider installing with the `-p` option (for "performance"). For more detailed explanation, check out (4) in [NOTES.md](/NOTES.md). 
 
 - **NOTE2**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
