@@ -46,9 +46,9 @@ Core Options:
 [-s <"expression"|disable>]   : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
                                       must be inside double quotes
                                       default is "15 4 * * *" (4:15 am every day)
-                                "disable" will disables automatic updates of the ip lists
+                                "disable" will disable automatic updates of the ip lists
 [-f <ipv4|ipv6|"ipv4 ipv6">]  : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
-[-u <ripe|ipdeny>]            : Force using this source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+[-u <ripe|ipdeny>]            : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
 
 Extra Options:
 -p  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
