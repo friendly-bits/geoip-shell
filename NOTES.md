@@ -9,23 +9,23 @@
 
 5) Note that cron jobs will be run as root.
 
-7) The run, fetch and apply scripts write to syslog in case an error occurs. The run and fetch scripts also write to syslog upon success. To verify that cron jobs ran successfully, on Debian and derivatives run ```sudo cat /var/log/syslog | grep geoip-shell```. On other distributions, you may need to figure out how to access the syslog.
+6) The run, fetch and apply scripts write to syslog in case an error occurs. The run and fetch scripts also write to syslog upon success. To verify that cron jobs ran successfully, on Debian and derivatives run `cat /var/log/syslog | grep geoip-shell`. On other distributions, you may need to figure out how to access the syslog.
 
-8) These scripts will not run in the background consuming resources (except for a short time when triggered by the cron jobs). All the actual blocking is done by the system firewall. The scripts offer an easy and relatively fool-proof interface with the firewall, config persistence, automated subnet lists fetching and auto-update.
+7) These scripts will not run in the background consuming resources (except for a short time when triggered by the cron jobs). All the actual blocking is done by the netfilter component in the kernel. The scripts offer an easy and relatively fool-proof interface with netfilter, config persistence, automated ip lists fetching and auto-update.
 
-9) Sometimes the RIPE server is temporarily unavailable and if you're unlucky enough to attempt installation during that time frame, the fetch script will fail which will cause the installation to fail as well. Try again after some time or use the ipdeny source. Once the installation succeeds, an occasional fetch failure during autoupdate won't cause any issues as last successfully fetched ip list will be used until the next autoupdate cycle succeeds.
+8) Sometimes ip list source servers are temporarily unavailable and if you're unlucky enough to attempt installation during that time frame, the fetch script will fail which will cause the installation to fail as well. Try again after some time or use another source. Once the installation succeeds, an occasional fetch failure during autoupdate won't cause any issues as last successfully fetched ip list will be used until the next autoupdate cycle succeeds.
 
-10) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation - I just think it's handy)
+9) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
 
-11) To test before deployment:
+10) To test before deployment:
 <details> <summary>Read more:</summary>
   
-- If you want to use the whitelist functionality, you can run the install script with the "-p" (noblock) option to apply all actions except actually blocking incoming connections (will NOT set the PREROUTING chain policy to DROP). This way, you can make sure no errors are encountered, and check resulting iptables config before commiting to actual blocking. To enable blocking later, reinstall without the "-p" option. (the 'noblock' option has no effect on blacklist function)
-- You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot, which is normally not the case). For example: ```sudo sh geoip-shell-install -c <country_code> -m whitelist -n -s disable```. To enable persistence and autoupdate later, reinstall without both options.
+- You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
+- You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
 
 </details>
 
-12) How to get yourself locked out of your remote server and how to prevent this:
+11) How to get yourself locked out of your remote server and how to prevent this:
 <details> <summary>Read more:</summary>
   
 There are 3 ways to get yourself locked out of your remote server with this suite:
