@@ -26,7 +26,7 @@ set -- $arguments; oldifs
 usage() {
     cat <<EOF
 
-Usage: $me [-r] [-h]
+Usage: $me [-l] [-c] [-r] [-h]
 
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
@@ -48,7 +48,7 @@ EOF
 while getopts ":rlch" opt; do
 	case $opt in
 		l) resetonly_lists="-l" ;;
-		c) reset_only_lists_cron=1 ;;
+		c) reset_only_lists_cron="-c" ;;
 		r) resetonly="-r" ;;
 		h) usage; exit 0;;
 		*) unknownopt
@@ -66,7 +66,7 @@ debugentermsg
 ### VARIABLES
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${proj_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
-	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" && exit 0
+	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
 }
 
 iplist_dir="${datadir}/ip_lists"
