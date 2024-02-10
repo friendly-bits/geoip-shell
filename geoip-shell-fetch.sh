@@ -462,12 +462,12 @@ ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=7"
 
-if [ "$ucl_f_exists" ]; then
-	fetch_cmd="$ucl_f_cmd -O -"
-	fetch_cmd_q="$ucl_f_cmd -q -O -"
-elif [ "$curl_exists" ]; then
+if [ "$curl_exists" ]; then
 	fetch_cmd="$curl_cmd --progress-bar"
 	fetch_cmd_q="$curl_cmd -s"
+elif [ "$ucl_f_exists" ]; then
+	fetch_cmd="$ucl_f_cmd -O -"
+	fetch_cmd_q="$ucl_f_cmd -q -O -"
 elif [ "$wget_exists" ]; then
 	fetch_cmd="$wget_cmd --show-progress -O -"
 	fetch_cmd_q="$wget_cmd -O -"
