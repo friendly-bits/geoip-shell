@@ -119,7 +119,7 @@ rm_cron_job() {
 #### Variables
 
 for entry in "CronSchedule schedule_conf" "DefaultSchedule schedule_default" "NoPersistence no_persistence" \
-		"RebootSleep sleeptime" "Installdir install_dir" "Lists config_lists"; do
+		"RebootSleep sleeptime" "Lists config_lists"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
