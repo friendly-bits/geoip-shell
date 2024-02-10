@@ -72,9 +72,6 @@ iplist_dir="${datadir}/ip_lists"
 conf_dir="${conf_dir:-/etc/${proj_name}}"
 status_file="${datadir}/ip_lists/status"
 
-#### CHECKS
-
-check_deps iptables-save ip6tables-save ipset || die
 
 #### MAIN
 
