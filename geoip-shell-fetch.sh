@@ -111,7 +111,7 @@ get_source_list_dates_ipdeny() {
 		server_html_file="${tmp_file_path}_dl_page_${family}.tmp"
 		server_plaintext_file="${tmp_file_path}_plaintext_${family}.tmp"
 		# debugprint "timestamp fetch command: '$fetch_cmd \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_quiet "$server_url" > "$server_html_file"
+		$fetch_cmd_q "$server_url" > "$server_html_file"
 
 		debugprint "Processing $family listing on the IPDENY server..."
 
@@ -150,7 +150,7 @@ get_source_list_dates_ripe() {
 		[ ! "$server_url" ] && { echolog -err "get_source_list_dates_ripe(): $server_url variable should not be empty!"; return 1; }
 
 		# debugprint "timestamp fetch command: '$fetch_cmd \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_quiet "$server_url" > "$server_html_file"
+		$fetch_cmd_q "$server_url" > "$server_html_file"
 
 		debugprint "Processing the listing..."
 		# gets a listing and filters it by something like '-xxxxxxxx.md5' where x's are numbers,
@@ -466,10 +466,10 @@ if [ "$ucl_f_exists" ]; then
 	fetch_cmd_q="$ucl_f_cmd -q -O -"
 elif [ "$curl_exists" ]; then
 	fetch_cmd="$curl_cmd --progress-bar"
-	fetch_cmd_quiet="$curl_cmd -s"
+	fetch_cmd_q="$curl_cmd -s"
 elif [ "$wget_exists" ]; then
 	fetch_cmd="$wget_cmd --show-progress -O -"
-	fetch_cmd_quiet="$wget_cmd -O -"
+	fetch_cmd_q="$wget_cmd -O -"
 fi
 
 valid_sources="ripe${_nl}ipdeny"
