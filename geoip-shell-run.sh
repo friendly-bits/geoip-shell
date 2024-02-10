@@ -99,8 +99,7 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps iptables-save ip6tables-save iptables-restore ip6tables-restore ipset "$script_dir/${proj_name}-fetch.sh" \
-	"$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
+check_deps "$script_dir/${proj_name}-fetch.sh" "$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
 
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Run the installation script again."
