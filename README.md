@@ -1,5 +1,7 @@
 # **geoip-shell**
-Geoip blocker for Linux. Utilizes the **nftables** firewall management utility (iptables is supported in the legacy version of the suite which will be made available shortly).
+Geoip blocker for Linux. Utilizes the **nftables** firewall management utility.
+
+**iptables** is supported in the [iptables branch](https://github.com/blunderful-scripts/geoip-shell/tree/geoip-shell-iptables).
 
 This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
 
