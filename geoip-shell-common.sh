@@ -490,7 +490,7 @@ init_geoscript
 	! [ "$in_install" ] && getconfig PATH PATH
 	export PATH
 
-	check_deps nft tr cut sort wc awk sed grep logger || die
+	check_deps ipset iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore tr cut sort wc awk sed grep logger || die
 	checkutil "uclient-fetch" && export ucl_f_exists="true"
 	checkutil "curl" && export curl_exists="true"
 	checkutil "wget" && export wget_exists="true"
