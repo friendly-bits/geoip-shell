@@ -69,11 +69,10 @@ debugentermsg
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type" \
-		"Datadir datadir" "BackupFile bk_file"; do
+for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
-export config_lists list_type datadir
+export config_lists list_type
 
 nobackup="${nobackup_args:-$nobackup_conf}"
 
@@ -102,7 +101,7 @@ failed_lists_cnt=0
 check_deps "$script_dir/${proj_name}-fetch.sh" "$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Run the installation script again."
+[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Re-install $proj_name."
 
 [ ! "$iplist_dir" ] && die "Error: iplist file path can not be empty!"
 
@@ -118,14 +117,15 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;; # if firewall is in incoherent state, force re-fetch
 	remove) action_apply=remove ;;
 	restore)
-		if [ ! "$bk_file" ] || [ ! -f "$bk_file" ] || [ "$nobackup" ]; then
+		if [ "$nobackup" ]; then
 			action_run=update; action_apply=add; force="-f" # if backup file doesn't exist, force re-fetch
 		else
-			if call_script "$script_dir/${proj_name}-backup.sh" "restore"; then
-				getconfig Lists lists
+			call_script "$script_dir/${proj_name}-backup.sh" "restore"; rv_cs=$?
+			getconfig Lists lists
+			if [ "$rv_cs" = 0 ]; then
 				nobackup=1
 			else
-				echolog -err "Restore from backup failed."
+				echolog -err "Restore from backup failed. Attempting to restore from config."
 				nft_rm_all_georules || die "Error removing firewall rules."
 				action_run=update; action_apply=add; force="-f" # if restore failed, force re-fetch
 			fi
@@ -181,8 +181,9 @@ if check_lists_coherence; then
 	echolog "Successfully executed action '$action_run' for lists '$lists'."
 else
 	echolog -err "Warning: actual $list_type firewall config differs from the config file!"
-	[ "$unexp_lists" ] && echolog -err "Unexpected ip lists in the firewall: '$unexp_lists'"
-	[ "$missing_lists" ] && echolog -err "Missing ip lists in the firewall: '$missing_lists'"
+	for opt in unexpected missing; do
+		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
+	done
 	exit 1
 fi
 
