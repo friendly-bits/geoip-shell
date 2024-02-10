@@ -19,7 +19,7 @@ export nolog="1" manualmode="1" in_install="1"
 makepath=1
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/ip-regex.sh"
+
 
 check_root
 
@@ -34,7 +34,7 @@ usage() {
 cat <<EOF
 
 Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>]
-            [ -f <"families"> ] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-p] [-o] [-n] [-k] [-d] [-h]
+            [ -f <"families"> ] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-o] [-n] [-k] [-d] [-h]
 
 Installer for geoip blocking suite of shell scripts.
 Must be run as root.
@@ -54,7 +54,6 @@ Core Options:
 
 Extra Options:
 -a  : Autodetect LAN subnets (for hosts) or WAN interfaces (for routers). If not specified, asks during installation.
--p  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
 -o  : No backup. Will not create a backup of previous firewall state after applying changes.
 -n  : No persistence. Geoip blocking may not work after reboot.
 -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
@@ -67,7 +66,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:t:aponkdh" opt; do
+while getopts ":c:m:s:f:u:t:aonkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
@@ -77,7 +76,6 @@ while getopts ":c:m:s:f:u:t:aponkdh" opt; do
 		t) devtype_arg=$OPTARG ;;
 
 		a) autodetect=1 ;;
-		p) perf_opt="performance" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
 		k) noblock=1 ;;
@@ -87,6 +85,7 @@ while getopts ":c:m:s:f:u:t:aponkdh" opt; do
 	esac
 done
 shift $((OPTIND-1))
+
 extra_args "$@"
 
 echo
@@ -261,17 +260,16 @@ pick_subnets() {
 	case "$REPLY" in a|A) autodetect="1"; esac
 }
 
-
 #### CONSTANTS
 
 iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
 
-for f in fetch apply manage cronsetup run common uninstall backup nft; do
+for f in fetch apply manage cronsetup run common uninstall backup ipt; do
 	script_files="$script_files${proj_name}-$f.sh "
 done
 script_files="$script_files validate-cron-schedule.sh check-ip-in-source.sh \
-	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh ip-regex.sh"
+	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh ip-regex.sh "
 
 #### VARIABLES
 
@@ -300,6 +298,8 @@ export list_type="$(tolower "$list_type")"
 
 #### CHECKS
 
+check_deps iptables-save iptables-restore ipset || die
+
 # Check for valid country codes
 [ ! "$ccodes" ] && { usage; die "Specify country codes with '-c <\"country_codes\">'!"; }
 rv=0
@@ -327,9 +327,10 @@ if [ "$cron_schedule" != "disable" ] || [ ! "$no_persistence" ]; then
 fi
 
 # validate cron schedule from arguments
-[ "$cron_schedule_args" ] && [ "$cron_schedule" != "disable" ] && {
+[ "$cron_schedule_args" ] && {
 	sh "$script_dir/validate-cron-schedule.sh" -x "$cron_schedule_args" || die "Error validating cron schedule '$cron_schedule'."
 }
+
 
 #### MAIN
 
@@ -351,7 +352,7 @@ case "$REPLY" in
 	h|H) devtype="host"; [ "$list_type" = "whitelist" ] && pick_subnets
 esac
 
-## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
+## run the *uninstall script to reset associated cron jobs, iptables rules and ipsets
 call_script "$script_dir/${proj_name}-uninstall.sh" -r || die "Pre-install cleanup failed."
 
 # Create the directory for config and, if required, parent directories
@@ -362,9 +363,9 @@ printf %s "Setting initial config... "
 
 setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
-	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
+	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" \
 	"DeviceType=$devtype" "LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
-	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock"
+	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile="
 printf '%s\n' "Ok."
 
 # Create the directory for downloaded lists and, if required, parent directories

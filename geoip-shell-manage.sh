@@ -9,7 +9,7 @@ proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/${proj_name}-nft.sh" || exit 1
+. "$script_dir/${proj_name}-ipt.sh" || exit 1
 
 export list_type nolog=1 manualmode=1
 
@@ -29,11 +29,11 @@ Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>] [-v] [-f]
 Provides interface to configure geoip blocking.
 
 Actions:
-    on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
+    on|off      : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
     add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
-    schedule    : change the cron schedule
+    schedule    : change the cron schedule (has no effect on iptables rules)
     status      : check on the current status of geoip blocking
-    reset       : reset geoip config and firewall geoip rules
+	reset       : reset geoip config and firewall geoip rules
     restore     : re-apply geoip blocking rules from the config
 
 Options:
@@ -107,7 +107,7 @@ report_status() {
 
 	check_lists_coherence && lists_coherent=" $V_sym" || { report_incoherence; incr_issues; lists_coherent=" $Q_sym"; }
 
-	# check ipsets and firewall rules for active ccodes
+	# check ipsets and iptables rules for active ccodes
 	for list_id in $active_lists; do
 		active_ccodes="$active_ccodes${list_id%_*} "
 		active_families="$active_families${list_id#*_} "
@@ -119,28 +119,15 @@ report_status() {
 		'') printf '%s\n' "${red}None $X_sym"; incr_issues ;;
 		*) printf '%s\n' "${blue}${active_ccodes}${n_c}${lists_coherent}"
 	esac
-	printf %s "IP families in firewall rules: "
+	printf %s "IP families in $list_type: "
 	case "$active_families" in
 		'') printf '%s\n\n' "${red}None${n_c} $X_sym" ;;
-		*) printf '%s\n\n' "${blue}${active_families}${n_c}${lists_coherent}"
+		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
-	curr_geotable="$(nft_get_geotable)" ||
-		{ echo "Error: failed to read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
-
-	wl_rule="$(printf %s "$curr_geotable" | grep "drop comment \"${geotag}_whitelist_block\"")"
-
-	case "$(printf %s "$curr_geotable" | grep "jump $geochain comment \"${geotag}_enable\"")" in
-		'') chain_status="$X_sym"; incr_issues ;;
-		*) chain_status="$V_sym"
-	esac
-	printf '%s\n' "Geoip firewall chain enabled: $chain_status"
-	[ "$list_type" = whitelist ] && {
-		case "$wl_rule" in
-			'') wl_rule=''; wl_rule_status="$X_sym"; incr_issues ;;
-			*) wl_rule="$_nl$wl_rule"; wl_rule_status="$V_sym"
-		esac
-		printf '%s\n' "Whitelist blocking rule: $wl_rule_status"
+	[ "$devtype" = "router" ] && {
+		[ -n "$wan_ifaces" ] && wan_ifaces="${blue}$wan_ifaces$n_c" || { wan_ifaces="${red}None $X_sym"; incr_issues; }
+		printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces"
 	}
 
 	if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
@@ -148,33 +135,55 @@ report_status() {
 		for family in $families; do
 			eval "lan_subnets=\"\$lan_subnets_$family\""
 			[ -n "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}"|| lan_subnets="${red}None${n_c}"
-			printf '%s\n' "$family: $lan_subnets"
+			printf '%s\n' "$lan_subnets"
 		done
-		printf '\n'
 	fi
+	printf '\n'
 
-	[ "$devtype" = "router" ] && {
-		[ -n "$wan_ifaces" ] && wan_ifaces="${blue}$wan_ifaces$n_c" || { wan_ifaces="${red}None $X_sym"; incr_issues; }
-		printf '\n%s\n\n' "Geoip rules applied to network interfaces: $wan_ifaces"
-	}
+	dashes="$(printf '%120s' ' ' | tr ' ' '-')"
+	for family in $families; do
+		set_ipt_cmds
+		ipt_output="$($ipt_cmd -vL)" || die "Error: failed to get $family iptables state."
+
+		wl_rule="$(printf %s "$ipt_output" | filter_ipt_rules "${proj_name}_whitelist_block" "DROP")"
+		ipt_header="$dashes$_nl${blue}$(printf %s "$ipt_output" | grep -m1 -o "target.*destination")${n_c}$_nl$dashes"
+
+		case "$(printf %s "$ipt_output" | filter_ipt_rules "${proj_name}_enable" "$geochain")" in
+			'') chain_status="$X_sym"; incr_issues ;;
+			*) chain_status="$V_sym"
+		esac
+		printf '%s\n' "Geoip firewall chain enabled ($family): $chain_status"
+		[ "$list_type" = whitelist ] && {
+			case "$wl_rule" in
+				'') wl_rule=''; wl_rule_status="$X_sym"; incr_issues ;;
+				*) wl_rule="$_nl$wl_rule"; wl_rule_status="$V_sym"
+			esac
+			printf '%s\n' "Whitelist blocking rule ($family): $wl_rule_status"
+		}
+
+		if [ "$verb_status" ]; then
+			# report geoip rules
+			printf '\n%s\n%s\n' "${purple}Firewall rules in the $geochain chain ($family)${n_c}:" "$ipt_header"
+			printf %s "$ipt_output" | sed -n -e /"^Chain $geochain"/\{n\;:1 -e n\;/^Chain\ /q\;/^$/q\;p\;b1 -e \} |
+				awk '{sub("([[:space:]]*[^[:space:]]+[[:space:]]+){2}", "");print $0}' | grep . || printf '%s\n' "${red}None $X_sym"
+		fi
+		printf '\n\n'
+	done
 
 	if [ "$verb_status" ]; then
-		# report geoip rules
-		printf '%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
-		nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep . || printf '%s\n' "${red}None $X_sym"
-
-		printf '\n%s' "Ip ranges count in active geoip sets: "
+		total_el_cnt=0
+		printf '%s' "Ip ranges count in active geoip sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $X_sym" ;;
 			*) printf '\n'
-				ipsets="$(nft -t list sets inet | grep -o ".._ipv._.*_$geotag")"
+				ipsets="$(ipset list -t)"
 				for ccode in $active_ccodes; do
 					el_summary=''
 					printf %s "${blue}${ccode}${n_c}: "
-					for family in $active_families; do
-						get_matching_line "$ipsets" "" "${ccode}_${family}" "*" ipset
-						el_cnt=0
-						[ -n "$ipset" ] && el_cnt="$(nft_cnt_elements "$ipset")"
+					for family in $families; do
+						el_cnt="$(printf %s "$ipsets" |
+							sed -n -e /"${ccode}_$family"/\{:1 -e n\;/Number\ of\ entries/\{s/.*:\ //p\; -e q\; -e \}\;b1 -e \})"
+						: "${el_cnt:=0}"
 						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $X_sym"; incr_issues; }
 						el_summary="$el_summary$family - $el_cnt$list_empty, "
 						total_el_cnt=$((total_el_cnt+el_cnt))
@@ -182,8 +191,7 @@ report_status() {
 					printf '%s\n' "${el_summary%, }"
 				done
 		esac
-		printf '\n%s\n\n' "Total number of ip ranges: $total_el_cnt"
-
+		printf '\n%s\n\n\n' "Total number of ip ranges: $total_el_cnt"
 	fi
 
 	# check if cron service is enabled
@@ -221,7 +229,7 @@ report_status() {
 }
 
 report_incoherence() {
-	printf '\n%s\n' "${red}Warning${n_c}: Discrepancy detected between the firewall state and the config file." >&2
+	printf '\n%s\n' "${red}Warning${n_c}: Discrepancy detected between the firewall status and the config file." >&2
 	for opt in unexpected missing; do
 		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
 	done
@@ -231,8 +239,8 @@ report_incoherence() {
 incoherence_detected() {
 	report_incoherence
 
-	printf '%s\n\n%s\n' "Re-apply the rules from the config file to fix this?" \
-		"'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
+	echo "Re-apply the rules from the config file to fix this?"
+	printf '\n%s\n' "'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
 
 	while true; do
 		printf %s "(Y/N/S) "
@@ -250,14 +258,14 @@ incoherence_detected() {
 # if that fails, restore from backup
 restore_from_config() {
 	check_reapply() {
-		check_lists_coherence && { echolog "Successfully re-applied previous $list_type ip lists."; return 0; }
+		check_lists_coherence && { echo "Successfully re-applied previous $list_type ip lists."; return 0; }
 
-		echolog -err "Failed to re-apply previous $list_type lists." >&2
+		echo "Failed to re-apply previous $list_type lists." >&2
 		report_incoherence
 		return 1
 	}
 
-	echolog "Restoring lists '$config_lists_str' from the config file... "
+	echo "Restoring lists '$config_lists_str' from the config file... "
 	case "$config_lists_str" in
 		'') echolog -err "Error: no ip lists registered in the config file." ;;
 		*) call_script "$script_dir/${proj_name}-uninstall.sh" -l || return 1
@@ -334,6 +342,8 @@ run_command="$install_dir/${proj_name}-run.sh"
 
 #### CHECKS
 
+check_deps iptables-save ip6tables-save iptables-restore ip6tables-restore ipset || die
+
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 
@@ -371,7 +381,7 @@ case "$action" in
 	status) report_status; exit 0 ;;
 	on|off)
 		case "$action" in
-			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
+			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to insert the enable rule."
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
@@ -452,13 +462,18 @@ nl2sp "$lists_to_change" lists_to_change_str
 
 if [ "$lockout_msg" ]; then
 		printf '\n%s\n\n%s\n' "${red}Warning${n_c}: $lockout_msg" "Proceed?"
-		pick_opt "y|n"
-		case "$REPLY" in
-			y|Y) printf '\n%s\n' "Proceeding..." ;;
-			n|N) [ ! "$in_install" ] && printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$config_lists_str${n_c}'."
+		while true; do
+			printf %s "(Y/N) "
+			read -r REPLY
+			case "$REPLY" in
+			[Yy] ) printf '\n%s\n' "Proceeding..."; break ;;
+			[Nn] ) [ ! "$in_install" ] && printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$config_lists_str${n_c}'."
 				echo
 				die "Aborted action '$action' for ip lists '$lists_to_change_str'."
-		esac
+				;;
+			* ) printf '\n%s\n' "Enter 'y/n'."
+			esac
+		done
 fi
 
 ### Call the *run script
@@ -483,7 +498,7 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	nl2sp "$failed_lists" failed_lists_str
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
-	echolog -err "Warning: failed to apply new $list_type rules for ip lists: $failed_lists_str."
+	echo "Warning: failed to apply new $list_type rules for ip lists: $failed_lists_str." >&2
 	# if the error encountered during installation, exit with error to fail the installation
 	[ "$in_install" ] && die
 	get_difference "$lists_to_change" "$failed_lists" ok_lists
@@ -491,6 +506,6 @@ if [ "$failed_lists" ]; then
 fi
 
 printf '\n%s\n\n' "Ip lists in the final $list_type: '${blue}$planned_lists_str${n_c}'."
-[ ! "$in_install" ] && printf '%s\n\n' "View geoip blocking status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+[ ! "$in_install" ] && printf '%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
 
 exit 0

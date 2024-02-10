@@ -11,7 +11,7 @@ proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/geoip-shell-nft.sh" || exit 1
+. "$script_dir/${proj_name}-ipt.sh" || exit 1
 
 nolog=1
 
@@ -28,15 +28,13 @@ usage() {
 
 Usage: $me [-r] [-h]
 
-1) Removes geoip firewall rules
-2) Removes geoip cron jobs
-3) Deletes scripts' data folder /var/lib/geoip-shell
-4) Deletes the scripts from /usr/local/bin
-5) Deletes the config folder /etc/geoip-shell
+1) Removes associated cron jobs, iptables rules and ipsets
+2) Deletes scripts' data folder /var/lib/geoip-shell
+3) Deletes the scripts from /usr/local/bin
+4) Deletes the config folder /etc/geoip-shell
 
 Options:
 -l  : Reset ip lists and remove firewall geoip rules, don't uninstall
--c  : Reset ip lists and remove firewall geoip rules and cron jobs, don't uninstall
 -r  : Remove cron jobs, geoip config and firewall geoip rules, don't uninstall
 -h  : This help
 
@@ -45,10 +43,9 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":rlch" opt; do
+while getopts ":rlh" opt; do
 	case $opt in
 		l) resetonly_lists="-l" ;;
-		c) reset_only_lists_cron=1 ;;
 		r) resetonly="-r" ;;
 		h) usage; exit 0;;
 		*) unknownopt
@@ -75,12 +72,14 @@ status_file="${datadir}/ip_lists/status"
 
 #### CHECKS
 
+check_deps iptables-save ip6tables-save ipset || die
+
 #### MAIN
 
 echo "Cleaning up..."
 
-### Remove geoip firewall rules
-nft_rm_all_georules >/dev/null || die 1
+### Remov geoip iptables rules and ipsets
+rm_all_ipt_rules || die 1
 
 [ -f "$conf_file" ] && setconfig "Lists="
 set +f; rm "$iplist_dir"/* 2>/dev/null
@@ -89,8 +88,6 @@ set +f; rm "$iplist_dir"/* 2>/dev/null
 
 ### Remove geoip cron jobs
 crontab -u root -l 2>/dev/null |  grep -v "${proj_name}-run.sh" | crontab -u root -
-
-[ "$resetonly_lists_cron" ] && exit 0
 
 # Delete the config file
 rm "$conf_file" 2>/dev/null
@@ -106,7 +103,7 @@ rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "${install_dir}/${proj_name}" 2>/dev/null
-for script_name in fetch apply manage cronsetup run common uninstall backup nft; do
+for script_name in fetch apply manage cronsetup run common uninstall backup ipt; do
 	rm "$install_dir/${proj_name}-${script_name}.sh" 2>/dev/null
 done
 for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO posix-arrays-a-mini ip-regex; do

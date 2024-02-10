@@ -156,7 +156,7 @@ for ip in $ips; do
 		0) ;;
 		1) die "${red}Error${n_c}: grep reported an error but returned a non-empty '\$validated_ip'. Something is wrong." ;;
 		2) die "${red}Error${n_c}: grep didn't report any error but returned an empty '\$validated_ip'. Something is wrong." ;;
-		3) invalid_ips="$invalid_ips$ip " ;;
+		3) invalid_ips="$invalid_ips'$ip' " ;;
 		*) die "${red}Error${n_c}: unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong." ;;
 	esac
 done
@@ -186,7 +186,7 @@ for family in $families; do
 
 	list_file="/tmp/iplist-$list_id.tmp"
 
-	sh "$fetch_script" -r -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" ||
+	sh "$fetch_script" -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" ||
 		die "Failed to fetch ip lists."
 
 	# read *fetch results from the status file

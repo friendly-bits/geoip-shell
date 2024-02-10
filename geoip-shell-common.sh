@@ -122,10 +122,6 @@ check_deps() {
 	return 0
 }
 
-get_json_lines() {
-	sed -n -e /"$1"/\{:1 -e n\;/"$2"/q\;p\;b1 -e \}
-}
-
 # outputs arguments to stdout and writes them to syslog
 # if one of the arguments is "-err" then redirect output to stderr
 echolog() {
@@ -256,15 +252,15 @@ getconfig() {
 # 2 - leading '*' wildcard (if required)
 # 3 - filter string
 # 4 - trailing '*' wildcard (if required)
-# 5 - optional var name for output
-# outputs the 1st match
+# 5 - var name for output
+# outputs only the 1st match
 get_matching_line() {
 	newifs "$_nl" gml
 	_rv=1; _res=''
 	for _line in $1; do
 		case "$_line" in $2"$3"$4) _res="$_line"; _rv=0; break; esac
 	done
-	[ "$5" ] && eval "$5"='$_res'
+	eval "$5"='$_res'
 	oldifs gml
 	return $_rv
 }
@@ -475,8 +471,8 @@ check_cron() {
 }
 
 makepath() {
-	dir="/usr/local/bin"
-	case "$PATH" in *:"$dir":*|"$dir"|*:"$dir"|"$dir":* );; *) export PATH="$PATH:$dir"; esac
+	d="$install_dir"
+	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) export PATH="$PATH:$d"; esac
 }
 
 [ -n "$makepath" ] && makepath
@@ -486,8 +482,8 @@ init_geoscript
 [ ! "$_nl" ] && {
 	export LC_ALL=C
 	export conf_dir="/etc/${proj_name}" install_dir="/usr/local/bin" datadir="/var/lib/${proj_name}"
-
-	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
+	export delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')"
+	export conf_file="${conf_dir}/${proj_name}.conf" _nl='
 '
 	set_colors
 

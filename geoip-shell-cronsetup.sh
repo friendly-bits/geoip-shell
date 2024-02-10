@@ -60,7 +60,7 @@ create_cron_job() {
 		autoupdate)
 			[ -z "$schedule" ] && die "Error: cron schedule in the config file is empty!"
 			# Validate cron schedule
-			debugprint "\nValidating cron schedule: '$schedule'."
+			debugprint "Validating cron schedule: '$schedule'."
 			call_script "$install_dir/validate-cron-schedule.sh" -x "$schedule"; rv=$?
 			case "$rv" in
 				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;

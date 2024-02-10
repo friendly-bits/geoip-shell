@@ -8,7 +8,7 @@ proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/${proj_name}-nft.sh" || exit 1
+. "$script_dir/${proj_name}-ipt.sh" || exit 1
 
 check_root
 
@@ -32,7 +32,7 @@ Actions:
     restore     : Restore previously downloaded lists (skip fetching)
 
 Options:
-    -l <"list_ids">  : List id's in the format <countrycode>_<family>. if passing multiple list id's, use double quotes.
+    -l <"list_ids">  : List id's in the format <countrycode>_<family>. If passing multiple list id's, use double quotes.
     -o               : No backup: don't create backup of current firewall state after the action.
 
     -d               : Debug
@@ -69,7 +69,7 @@ debugentermsg
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type"; do
+for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type" "BackupFile bk_file"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 export config_lists list_type
@@ -89,6 +89,7 @@ fi
 trim_spaces "$lists" lists
 fast_el_cnt "$lists" " " lists_cnt
 
+knowngood_file="$datadir/iptables_knowngood.bak"
 iplist_dir="$datadir/ip_lists"
 
 status_file="$iplist_dir/status"
@@ -98,10 +99,13 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps "$script_dir/${proj_name}-fetch.sh" "$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
+check_deps iptables-save ip6tables-save iptables-restore ip6tables-restore ipset "$script_dir/${proj_name}-fetch.sh" \
+	"$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Re-install $proj_name."
+[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Run the installation script again."
+
+[ ! "$knowngood_file" ] && die "Error: Known-good file path can not be empty!"
 
 [ ! "$iplist_dir" ] && die "Error: iplist file path can not be empty!"
 
@@ -117,7 +121,7 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;; # if firewall is in incoherent state, force re-fetch
 	remove) action_apply=remove ;;
 	restore)
-		if [ "$nobackup" ]; then
+		if [ ! "$bk_file" ] || [ ! -f "$bk_file" ]; then
 			action_run=update; action_apply=add; force="-f" # if backup file doesn't exist, force re-fetch
 		else
 			call_script "$script_dir/${proj_name}-backup.sh" "restore"; rv_cs=$?
@@ -126,7 +130,7 @@ case "$action_run" in
 				nobackup=1
 			else
 				echolog -err "Restore from backup failed. Attempting to restore from config."
-				nft_rm_all_georules || die "Error removing firewall rules."
+				rm_all_ipt_rules || die "Error removing firewall rules and ipsets."
 				action_run=update; action_apply=add; force="-f" # if restore failed, force re-fetch
 			fi
 		fi
@@ -149,10 +153,7 @@ if [ "$action_apply" = add ]; then
 	getstatus "$status_file" FetchedLists lists
 	getstatus "$status_file" FailedLists failed_lists
 
-	[ "$failed_lists" ] && {
-		echolog -err "Failed to fetch and validate lists '$failed_lists'."
-		[ "$action_run" = add ] && { set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; die 254 "Aborting the action 'add'."; }
-	}
+	[ "$failed_lists" ] && echolog -err "Failed to fetch and validate lists '$failed_lists'."
 
 	fast_el_cnt "$failed_lists" " " failed_lists_cnt
 
@@ -170,8 +171,7 @@ case "$action_run" in update|add|remove)
 	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null
 	case "$apply_rv" in
 		0) ;;
-		254) [ "$in_install" ] && die
-			echolog -err "Error: *apply exited with code '254'. Failed to execute action '$action_apply'." ;;
+		254) echolog -err "Error: *apply exited with code '254'. Failed to execute action '$action_apply'." ;;
 		*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 	esac
 esac
@@ -180,14 +180,18 @@ esac
 if check_lists_coherence; then
 	echolog "Successfully executed action '$action_run' for lists '$lists'."
 else
-	echolog -err "Warning: actual $list_type firewall config differs from the config file!"
-	for opt in unexpected missing; do
-		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
-	done
+	echolog -err "Warning: actual $list_type firewall config differs from the config file!" \
+		"Please run '$proj_name restore' to restore config coherence!" \
+		"If it's a recurring issue, please consider filing a bug report!"
+		for opt in unexpected missing; do
+			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
+		done
+	echo
 	exit 1
 fi
 
 if [ "$apply_rv" = 0 ] && [ ! "$nobackup" ]; then
+	# create a backup of config, ipsets and firewall state
 	call_script "$script_dir/${proj_name}-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
