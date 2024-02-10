@@ -64,15 +64,11 @@ debugentermsg
 
 
 ### VARIABLES
-install_dir="/usr/local/bin"
-
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${proj_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
 	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" && exit 0
 }
 
-getconfig "Datadir" "datadir" "" -nodie
-datadir="${datadir:-/var/lib/${proj_name}}"
 iplist_dir="${datadir}/ip_lists"
 conf_dir="${conf_dir:-/etc/${proj_name}}"
 status_file="${datadir}/ip_lists/status"
@@ -81,9 +77,9 @@ status_file="${datadir}/ip_lists/status"
 
 #### MAIN
 
-printf '%s\n' "Cleaning up..."
+echo "Cleaning up..."
 
-### Delete geoip firewall rules
+### Remove geoip firewall rules
 nft_rm_all_georules >/dev/null || die 1
 
 [ -f "$conf_file" ] && setconfig "Lists="
@@ -99,12 +95,17 @@ crontab -u root -l 2>/dev/null |  grep -v "${proj_name}-run.sh" | crontab -u roo
 # Delete the config file
 rm "$conf_file" 2>/dev/null
 
-[ "$resetonly" ] && exit 0
+[ "$resetonly" ] && [ ! "$in_install" ] && {
+	makepath
+	setconfig "PATH=$PATH"
+	exit 0
+}
 
+printf '%s\n' "Deleting script's data folder $datadir..."
 rm -rf "$datadir"
 
-rm "${install_dir}/${proj_name}"
-
+printf '%s\n' "Deleting scripts from $install_dir..."
+rm "${install_dir}/${proj_name}" 2>/dev/null
 for script_name in fetch apply manage cronsetup run common uninstall backup nft; do
 	rm "$install_dir/${proj_name}-${script_name}.sh" 2>/dev/null
 done
@@ -112,6 +113,7 @@ for script_name in validate-cron-schedule check-ip-in-source detect-local-subnet
 	rm "$install_dir/${script_name}.sh" 2>/dev/null
 done
 
+echo "Deleting config..."
 rm -rf "$conf_dir" 2>/dev/null
 
 printf '%s\n\n' "Uninstall complete."
