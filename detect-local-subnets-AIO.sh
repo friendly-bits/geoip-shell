@@ -96,10 +96,12 @@ validate_ip() {
 
 	# using the 'ip route get' command to put the address through kernel's validation
 	# it normally returns 0 if the ip address is correct and it has a route, 1 if the address is invalid
-	# 2 if validation successful but for some reason it doesn't want to check the route ('permission denied')
+	# 2 if validation successful but for some reason it can't check the route
 	for address in $addr; do
-		ip route get "$address" 1>/dev/null 2>/dev/null ||
+		ip route get "$address" 1>/dev/null 2>/dev/null
+		case $? in 0|2) ;; *)
 			{ printf '%s\n' "validate_ip: Error: ip address'$address' failed kernel validation." >&2; return 1; }
+		esac
 	done
 
 	## regex validation
@@ -187,7 +189,7 @@ get_local_subnets() {
 				ip -o -f inet addr show "$iface" | grep -oE "$subnet_regex_ipv4"
 			done
 		else
-			ip -o -f inet6 addr show | grep -oE "(fd[0-9a-f]{0,2}:|fe80:)(([[:alnum:]:/])+)" | grep -oE "^$subnet_regex_ipv6$"
+			ip -o -f inet6 addr show | grep -oE "inet6[[:space:]]+(fd[0-9a-f]{0,2}:|fe80:)(([[:alnum:]:/])+)" | grep -oE "$subnet_regex_ipv6$"
 		fi |
 
 		while read -r subnet; do
