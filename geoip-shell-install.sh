@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2086,SC1090,SC2154,SC2155
+# shellcheck disable=SC2317,SC2086,SC1090,SC2154,SC2155,SC2034
 
 # geoip-shell-install.sh
 
@@ -15,10 +15,11 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+export nolog="1" manualmode="1" in_install="1"
+makepath=1
+
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
-
-export nolog="1" manualmode="1" in_install="1"
 
 check_root
 
@@ -33,24 +34,26 @@ usage() {
 cat <<EOF
 
 Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>]
-            [ -f <"families"> ] [-u <ripe|ipdeny>] [-p] [-o] [-n] [-k] [-d] [-h]
+            [ -f <"families"> ] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-p] [-o] [-n] [-k] [-d] [-h]
 
 Installer for geoip blocking suite of shell scripts.
 Must be run as root.
 
 Core Options:
--c <"country_codes">          : 2-letter country codes to fetch and apply the iplists for.
-                                      (if passing multiple country codes, use double quotes)
--m <whitelist|blacklist>      : geoip blocking mode: whitelist or blacklist
-                                      (to change the mode after installation, run the *install script again)
-[-s <"expression"|disable>]   : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                      must be inside double quotes
-                                      default is "15 4 * * *" (4:15 am every day)
-                                "disable" will disable automatic updates of the ip lists
-[-f <ipv4|ipv6|"ipv4 ipv6">]  : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
-[-u <ripe|ipdeny>]            : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+-c <"country_codes">        : 2-letter country codes to fetch and apply the iplists for.
+                                (if passing multiple country codes, use double quotes)
+-m <whitelist|blacklist>    : geoip blocking mode: whitelist or blacklist
+                                (to change the mode after installation, run the *install script again)
+-s <"expression"|disable>   : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
+                                must be inside double quotes
+                                default is "15 4 * * *" (4:15 am every day)
+                              "disable" will disable automatic updates of the ip lists
+-f <ipv4|ipv6|"ipv4 ipv6">  : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
+-u <ripe|ipdeny>            : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+-t <host|router>            : Device type to configure the suite for. If not specified, asks during installation.
 
 Extra Options:
+-a  : Autodetect LAN subnets (for hosts) or WAN interfaces (for routers). If not specified, asks during installation.
 -p  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
 -o  : No backup. Will not create a backup of previous firewall state after applying changes.
 -n  : No persistence. Geoip blocking may not work after reboot.
@@ -64,14 +67,16 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:ponkdh" opt; do
+while getopts ":c:m:s:f:u:t:aponkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
 		s) cron_schedule_args=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
+		t) devtype_arg=$OPTARG ;;
 
+		a) autodetect=1 ;;
 		p) perf_opt="performance" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
@@ -82,7 +87,6 @@ while getopts ":c:m:s:f:u:ponkdh" opt; do
 	esac
 done
 shift $((OPTIND-1))
-
 extra_args "$@"
 
 echo
@@ -126,7 +130,7 @@ install_failed() {
 	exit 1
 }
 
-# checks local country code by asking the user, then validates against known-good country codes list
+# checks country code by asking the user, then validates against known-good list
 get_country() {
 	user_ccode=""
 
@@ -197,8 +201,10 @@ pick_iface() {
 
 	printf '\n%s\n' "Firewall rules will be applied to the WAN interfaces of your router."
 	[ "$wan_ifaces" ] && {
-		printf '\n%s\n%s\n\n%s\n' "All network interfaces: $all_ifaces" \
-			"Autodetected WAN interfaces: $wan_ifaces" "(c)onfirm, c(h)ange, or (a)bort installation? "
+		printf '\n%s\n%s\n\n' "All network interfaces: $all_ifaces" \
+			"Autodetected WAN interfaces: $wan_ifaces"
+		[ "$autodetect" ] && { c_wan_ifaces="$wan_ifaces"; return; }
+		printf '%s\n' "(c)onfirm, c(h)ange, or (a)bort installation? "
 		pick_opt "c|h|a"
 		case "$REPLY" in
 			c|C) c_wan_ifaces="$wan_ifaces"; return ;;
@@ -218,14 +224,17 @@ pick_iface() {
 }
 
 pick_subnets() {
-	printf '\n%s\n' "*NOTE*: In whitelist mode, incoming connections from your LAN subnets will be blocked, unless you whitelist them."
+	[ ! "$autodetect" ] &&
+		printf '\n%s\n' "*NOTE*: In whitelist mode, incoming connections from your LAN subnets will be blocked, unless you whitelist them."
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
 		s="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || echo "Failed to autodetect $family local subnets."
 		sanitize_str s
 
 		[ -n "$s" ] && {
-			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'." "(c)onfirm, c(h)ange, (s)kip or (a)bort installation? "
+			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'."
+			[ "$autodetect" ] && { eval "c_lan_subnets_$family=\"$s\""; continue; }
+			printf '%s\n' "(c)onfirm, c(h)ange, (s)kip or (a)bort installation? "
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
 				c|C) eval "c_lan_subnets_$family=\"$s\""; continue ;;
@@ -245,17 +254,15 @@ pick_subnets() {
 		done
 		eval "c_lan_subnets_$family=\"$REPLY\""
 	done
+	[ "$autodetect" ] && return
 	printf '\n%s\n' "(A)uto-detect local subnets when autoupdating and at launch or keep this config (c)onstant?"
 	pick_opt "a|c"
-	autodetect_opt=''
-	case "$REPLY" in a|A) autodetect_opt="1"; esac
+	autodetect=''
+	case "$REPLY" in a|A) autodetect="1"; esac
 }
 
 
 #### CONSTANTS
-
-install_dir="/usr/local/bin"
-datadir="/var/lib/${proj_name}"
 
 iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
@@ -315,7 +322,7 @@ if [ "$cron_schedule" != "disable" ] || [ ! "$no_persistence" ]; then
 	# check cron service
 	check_cron || die "Error: cron seems to not be enabled." "Enable the cron service before using this script." \
 			"Or run with options '-n' '-s disable' which will disable persistence and autoupdates."
-	[ ! "$cron_reboot" ] && [ ! "$no_persistence" ] && die "Error: cron-based persistence doesn't work with Busybox." \
+	[ ! "$cron_reboot" ] && [ ! "$no_persistence" ] && die "Error: cron-based persistence doesn't work with Busybox cron." \
 		"If you want to install without persistence support, run with option '-n'"
 fi
 
@@ -324,20 +331,28 @@ fi
 	sh "$script_dir/validate-cron-schedule.sh" -x "$cron_schedule_args" || die "Error validating cron schedule '$cron_schedule'."
 }
 
-
 #### MAIN
 
 user_ccode="$(get_country)"
 
-printf '\n%s\n' "Is this device a (r)outer or a (h)ost?"
-pick_opt "r|h"
+case "$devtype_arg" in
+	'') ;;
+	host) REPLY=h ;;
+	router) REPLY=r ;;
+	*) usage; die "Invalid device type '$devtype_arg'."
+esac
+
+[ -z "$devtype_arg" ] && {
+	printf '\n%s\n' "Is this device a (r)outer or a (h)ost?"
+	pick_opt "r|h"
+}
 case "$REPLY" in
 	r|R) devtype="router"; pick_iface ;;
 	h|H) devtype="host"; [ "$list_type" = "whitelist" ] && pick_subnets
 esac
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-call_script "$script_dir/${proj_name}-uninstall.sh" -r
+call_script "$script_dir/${proj_name}-uninstall.sh" -r || die "Pre-install cleanup failed."
 
 # Create the directory for config and, if required, parent directories
 mkdir -p "$conf_dir"
@@ -345,11 +360,11 @@ mkdir -p "$conf_dir"
 # write initial config to the config file
 printf %s "Setting initial config... "
 
-setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "Installdir=$install_dir" "Datadir=$datadir" \
+setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
-	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" "PerfOpt=$perf_opt" \
+	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"DeviceType=$devtype" "LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
-	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile="
+	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock"
 printf '%s\n' "Ok."
 
 # Create the directory for downloaded lists and, if required, parent directories
