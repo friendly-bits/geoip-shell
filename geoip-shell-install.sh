@@ -298,8 +298,6 @@ export list_type="$(tolower "$list_type")"
 
 #### CHECKS
 
-check_deps iptables-save iptables-restore ipset || die
-
 # Check for valid country codes
 [ ! "$ccodes" ] && { usage; die "Specify country codes with '-c <\"country_codes\">'!"; }
 rv=0
