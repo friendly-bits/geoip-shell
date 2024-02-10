@@ -81,7 +81,7 @@ die_a() {
 
 #### VARIABLES
 
-for entry in "Datadir datadir" "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
+for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
 		"Autodetect autodetect_opt" "DeviceType devtype" "WAN_ifaces wan_ifaces" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
@@ -239,7 +239,7 @@ nft_cmd_chain="$(
 					{ type ${family}_addr; flags interval; auto-merge; elements={ "
 				printf '%s,' $lan_subnets
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert rule inet $geotable $geochain $nft_family saddr @${geotag}_lansubnets_$family accept comment ${geotag_aux}_lansubnets"
+				printf '%s\n' "insert rule inet $geotable $geochain $nft_family saddr @${geotag}_lansubnets_$family accept comment ${geotag_aux}_lan"
 			}
 		done
 	fi
