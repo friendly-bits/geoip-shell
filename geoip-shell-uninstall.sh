@@ -26,7 +26,7 @@ set -- $arguments; oldifs
 usage() {
     cat <<EOF
 
-Usage: $me [-r] [-h]
+Usage: $me [-l] [-c] [-r] [-h]
 
 1) Removes associated cron jobs, iptables rules and ipsets
 2) Deletes scripts' data folder /var/lib/geoip-shell
@@ -35,6 +35,7 @@ Usage: $me [-r] [-h]
 
 Options:
 -l  : Reset ip lists and remove firewall geoip rules, don't uninstall
+-c  : Reset ip lists and remove firewall geoip rules and cron jobs, don't uninstall
 -r  : Remove cron jobs, geoip config and firewall geoip rules, don't uninstall
 -h  : This help
 
@@ -43,9 +44,10 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":rlh" opt; do
+while getopts ":rlch" opt; do
 	case $opt in
 		l) resetonly_lists="-l" ;;
+		c) resetonly_lists_cron="-c" ;;
 		r) resetonly="-r" ;;
 		h) usage; exit 0;;
 		*) unknownopt
@@ -63,7 +65,7 @@ debugentermsg
 ### VARIABLES
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${proj_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
-	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" && exit 0
+	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$resetonly_lists_cron" && exit 0
 }
 
 iplist_dir="${datadir}/ip_lists"
@@ -88,6 +90,8 @@ set +f; rm "$iplist_dir"/* 2>/dev/null
 
 ### Remove geoip cron jobs
 crontab -u root -l 2>/dev/null |  grep -v "${proj_name}-run.sh" | crontab -u root -
+
+[ "$resetonly_lists_cron" ] && exit 0
 
 # Delete the config file
 rm "$conf_file" 2>/dev/null
