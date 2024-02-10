@@ -129,7 +129,7 @@ get_json_lines() {
 # outputs arguments to stdout and writes them to syslog
 # if one of the arguments is "-err" then redirect output to stderr
 echolog() {
-	unset msg_args msg_is_err noecho _new_line
+	unset msg_args msg_is_err noecho __nl
 
 	highlight="$blue"
 	for arg in "$@"; do
@@ -143,7 +143,7 @@ echolog() {
 
 	# check for newline in the biginning of the line and strip it
 	case "$msg_args" in "$_nl"* )
-		_new_line="$_nl"
+		__nl="$_nl"
 		msg_args="${msg_args#"$_nl"}"
 	esac
 
@@ -152,7 +152,7 @@ echolog() {
 
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${_new_line}$highlight$me_short$n_c: $arg"
+			_msg="${__nl}$highlight$me_short$n_c: $arg"
 			case "$msg_is_err" in
 				'') printf '%s\n' "$_msg" ;;
 				*) printf '%s\n' "$_msg" >&2
@@ -165,14 +165,14 @@ echolog() {
 # prints a debug message
 debugprint() {
 	[ ! "$debugmode" ] && return
-	_new_line=
+	__nl=
 	dbg_args="$*"
 	case "$dbg_args" in "\n"* )
-		_new_line="$_nl"
+		__nl="$_nl"
 		dbg_args="${dbg_args#"\n"}"
 	esac
 
-	printf '%s\n' "${_new_line}Debug: ${me_short}: $dbg_args" >&2
+	printf '%s\n' "${__nl}Debug: ${me_short}: $dbg_args" >&2
 }
 
 debugentermsg() {
@@ -474,15 +474,25 @@ check_cron() {
 	return "$cron_rv"
 }
 
+makepath() {
+	dir="/usr/local/bin"
+	case "$PATH" in *:"$dir":*|"$dir"|*:"$dir"|"$dir":* );; *) export PATH="$PATH:$dir"; esac
+}
+
+[ -n "$makepath" ] && makepath
+
+init_geoscript
+
 [ ! "$_nl" ] && {
-	export LC_ALL=C proj_name="geoip-shell"
-	export conf_dir="/etc/${proj_name}"
+	export LC_ALL=C
+	export conf_dir="/etc/${proj_name}" install_dir="/usr/local/bin" datadir="/var/lib/${proj_name}"
+
 	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 
-	dir="/usr/local/bin"
-	case "$PATH" in *:"$dir":*|"$dir"|*:"$dir"|"$dir":* );;	*) export PATH="$PATH:$dir"; esac
+	! [ "$in_install" ] && getconfig PATH PATH
+	export PATH
 
 	check_deps nft tr cut sort wc awk sed grep logger || die
 	checkutil "uclient-fetch" && export ucl_f_exists="true"
@@ -492,5 +502,4 @@ check_cron() {
 	[ ! "$ucl_f_exists" ] && [ ! "$curl_exists" ] && [ ! "$wget_exists" ] && die "Error: Compatible download utilites unavailable."
 
 }
-
-init_geoscript
+return 0
