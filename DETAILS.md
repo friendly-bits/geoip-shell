@@ -17,7 +17,7 @@ The suite currently includes 15 scripts:
 10. geoip-shell-nft.sh
 11. validate-cron-schedule.sh
 12. check-ip-in-registry.sh
-13. detect-local-subnets.sh
+13. detect-local-subnets-AIO.sh
 14. posix-arrays-a-mini.sh
 15. ip-regex.sh
 
@@ -34,6 +34,8 @@ After installation, the user interface is provided by running "geoip-shell", whi
 - Accepts optional custom cron schedule expression for the autoupdate schedule with the '-s' option. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
 
 Advanced options:
+- `t <host|router>`: specify the device type in advance (if not specified, asks during installation).
+- `-a`: autodetect LAN subnets (for hosts) or WAN interfaces (for routers) (if not specified, asks during installation).
 - `-u`: specify source for fetching ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
 - `-f`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
 - `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
