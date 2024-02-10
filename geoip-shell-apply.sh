@@ -191,8 +191,6 @@ get_curr_ipsets
 
 #### CHECKS
 
-check_deps iptables-save ip6tables-save iptables-restore ip6tables-restore ipset || die
-
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 [ -z "$datadir" ] && die "Internal error: the \$datadir variable is empty."
 [ -z "$list_type" ] && die "Internal error: the \$list_type variable is empty."
