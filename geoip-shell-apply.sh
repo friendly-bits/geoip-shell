@@ -78,7 +78,9 @@ critical() {
 	echolog -err "Removing geoip rules..."
 	for family in ipv4 ipv6; do
 		set_ipt_cmds
-		$ipt_save_cmd | awk -v i="$ipt_cmd" '$0 ~ /'"${geotag}_enable"'/ {gsub(/^-A /, " -D "); system(i $0)}' 2>/dev/null
+		mk_ipt_rm_cmd "${geotag}_enable" | $ipt_restore_cmd 2>/dev/null
+		$ipt_cmd -F "$iface_chain" 2>/dev/null
+		$ipt_cmd -X "$iface_chain" 2>/dev/null
 		$ipt_cmd -F "$geochain" 2>/dev/null
 		$ipt_cmd -X "$geochain" 2>/dev/null
 	done
