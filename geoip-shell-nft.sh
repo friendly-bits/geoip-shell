@@ -119,16 +119,14 @@ check_lists_coherence() {
 	case "$lists_difference" in
 		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
 		*) nl2sp "$active_lists" active_l_str; nl2sp "$config_lists" config_l_str
-			echolog -err "Failed to verify ip lists coherence." "active lists: '$active_l_str'" "config lists: '$config_l_str'"
-			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexp_lists
-			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$unexp_lists" missing_lists
+			echolog -err "Failed to verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
+			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexpected_lists
+			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$missing_lists" missing_lists
 			return 1
 	esac
 }
 
-
 geotag="${proj_name}"
-export geochain="${geochain:-"$(toupper "$proj_name")"}"
-
 geotable="$geotag"
+export geochain="${geochain:-"$(toupper "$geotag")"}"
 base_geochain="GEOIP-BASE"
