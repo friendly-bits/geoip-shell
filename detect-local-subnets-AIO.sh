@@ -189,7 +189,7 @@ get_local_subnets() {
 				ip -o -f inet addr show "$iface" | grep -oE "$subnet_regex_ipv4"
 			done
 		else
-			ip -o -f inet6 addr show | grep -oE "(fd[0-9a-f]{0,2}:|fe80:)(([[:alnum:]:/])+)" | grep -oE "^$subnet_regex_ipv6$"
+			ip -o -f inet6 addr show | grep -oE "inet6[[:space:]]+(fd[0-9a-f]{0,2}:|fe80:)(([[:alnum:]:/])+)" | grep -oE "$subnet_regex_ipv6$"
 		fi |
 
 		while read -r subnet; do
