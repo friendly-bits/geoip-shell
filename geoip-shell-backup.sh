@@ -251,8 +251,6 @@ conf_file_backup="$datadir/${proj_name}.conf.bak"
 
 #### CHECKS
 
-check_deps iptables-save iptables-restore ipset || die
-
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 
 
