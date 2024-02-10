@@ -108,14 +108,13 @@ report_status() {
 	check_lists_coherence && lists_coherent=" $V_sym" || { report_incoherence; incr_issues; lists_coherent=" $Q_sym"; }
 
 	# check ipsets and firewall rules for active ccodes
-	get_active_iplists active_lists
 	for list_id in $active_lists; do
 		active_ccodes="$active_ccodes${list_id%_*} "
 		active_families="$active_families${list_id#*_} "
 	done
 	sanitize_str active_ccodes
 	sanitize_str active_families
-	printf %s "Country codes in firewall rules: "
+	printf %s "Country codes in the $list_type: "
 	case "$active_ccodes" in
 		'') printf '%s\n' "${red}None $X_sym"; incr_issues ;;
 		*) printf '%s\n' "${blue}${active_ccodes}${n_c}${lists_coherent}"
@@ -318,7 +317,7 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
-for entry in "Installdir install_dir" "ListType list_type" "Families families" "Lists config_lists_str" "UserCcode user_ccode"; do
+for entry in "ListType list_type" "Families families" "Lists config_lists_str" "UserCcode user_ccode"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
