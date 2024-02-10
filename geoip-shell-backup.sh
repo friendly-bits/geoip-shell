@@ -75,7 +75,7 @@ restorebackup() {
 	printf %s "Restoring files from backup... "
 	for list_id in $lists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
-		iplist_file="$iplist_dir/${list_id}.iplist.new"
+		iplist_file="$iplist_dir/${list_id}.iplist"
 
 		[ ! -s "$bk_file" ] && restore_failed "Error: '$bk_file' is empty or doesn't exist."
 
@@ -95,22 +95,15 @@ restorebackup() {
 	# remove geoip rules
 	nft_rm_all_georules || restore_failed "Error removing firewall rules."
 
-	for f in "${iplist_dir}"/*.new; do
-		mv -- "$f" "${f%.new}" || restore_failed "Failed to overwrite file '$f'"
-	done
-
 	export force_read_geotable=1
 	call_script "$script_dir/${proj_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && restore_failed "Failed to restore the firewall state from backup." "reset"
-
-	rm "$temp_file" 2>/dev/null
 	return 0
 }
 
 restore_failed() {
-	rm "$temp_file" 2>/dev/null
-	rm "$iplist_dir/"*.iplist.new 2>/dev/null
+	rm "$iplist_dir/"*.iplist 2>/dev/null
 	printf '%s\n' "$1" >&2
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
@@ -129,7 +122,7 @@ create_backup() {
 	set_archive_type
 
 	getconfig Lists lists "$conf_file"
-	temp_file="/tmp/geoip-shell_backup.tmp"
+	temp_file="/tmp/${proj_name}_backup.tmp"
 	mkdir "$bk_dir" 2>/dev/null
 
 	# save the current firewall state
@@ -196,9 +189,8 @@ set_archive_type() {
 
 #### VARIABLES
 
-for entry in "Datadir datadir" "Families families" "Lists config_lists"; do
-	getconfig "${entry% *}" "${entry#* }"
-done
+getconfig Families families
+getconfig Lists config_lists
 
 conf_file_bak="$datadir/${proj_name}.conf.bak"
 status_file_bak="$datadir/status.bak"
@@ -222,7 +214,7 @@ case "$action" in
 	restore)
 		restorebackup
 		echolog "Successfully restored the firewall state from backup."
-		printf '\n%s\n\n' "View geoip-blocking status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+		printf '\n%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
 		;;
 	*) unknownact
 esac
