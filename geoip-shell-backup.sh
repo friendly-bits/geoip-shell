@@ -144,7 +144,7 @@ restore_failed() {
 	echo "$1" >&2
 	[ "$2" = reset ] && {
 		echo "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***" >&2
-		call_script "$script_dir/${proj_name}-uninstall.sh" -r
+		call_script "$script_dir/${proj_name}-uninstall.sh" -c
 	}
 	exit 1
 }
