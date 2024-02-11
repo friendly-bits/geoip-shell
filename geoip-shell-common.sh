@@ -492,7 +492,7 @@ init_geoscript
 '
 	set_colors
 
-	! [ "$in_install" ] && getconfig PATH PATH
+	! [ "$manualmode" ] && getconfig PATH PATH
 	export PATH
 
 	check_deps nft tr cut sort wc awk sed grep logger || die
