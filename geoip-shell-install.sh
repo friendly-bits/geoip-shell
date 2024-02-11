@@ -363,7 +363,7 @@ setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" \
 	"DeviceType=$devtype" "LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
-	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile="
+	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile=" "HTTP="
 printf '%s\n' "Ok."
 
 # Create the directory for downloaded lists and, if required, parent directories
