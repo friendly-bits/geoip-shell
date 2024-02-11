@@ -10,6 +10,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+manualmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/${proj_name}-ipt.sh" || exit 1
 
