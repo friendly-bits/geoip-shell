@@ -482,7 +482,7 @@ init_geoscript
 
 [ ! "$_nl" ] && {
 	export LC_ALL=C
-	export conf_dir="/etc/${proj_name}" install_dir="/usr/local/bin" datadir="/var/lib/${proj_name}"
+	export conf_dir="/etc/${proj_name}" install_dir="/usr/sbin" datadir="/var/lib/${proj_name}"
 	export delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')"
 	export conf_file="${conf_dir}/${proj_name}.conf" _nl='
 '
