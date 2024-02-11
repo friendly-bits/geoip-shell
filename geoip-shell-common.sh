@@ -48,6 +48,7 @@ unknownopt() {
 unknownact() {
 	specifyact="Specify action in the 1st argument!"
 	case "$action" in
+		"-h") usage; exit 0 ;;
 		'') usage; die "$specifyact" ;;
 		*) usage; die "Error: Unknown action: '$action'." "$specifyact"
 	esac
