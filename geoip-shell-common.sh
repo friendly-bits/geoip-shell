@@ -476,20 +476,22 @@ makepath() {
 	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) export PATH="$PATH:$d"; esac
 }
 
+export install_dir="/usr/sbin"
 [ -n "$makepath" ] && makepath
 
 init_geoscript
 
 [ ! "$_nl" ] && {
 	export LC_ALL=C
-	export conf_dir="/etc/${proj_name}" install_dir="/usr/sbin" datadir="/var/lib/${proj_name}"
-	export delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')"
-	export conf_file="${conf_dir}/${proj_name}.conf" _nl='
+	export conf_dir="/etc/${proj_name}" datadir="/var/lib/${proj_name}"
+	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 
-	! [ "$manualmode" ] && getconfig PATH PATH
-	export PATH
+	[ ! "$manualmode" ] && {
+		getconfig PATH _PATH
+		[ -n "$_PATH" ] && export PATH="$_PATH"
+	}
 
 	check_deps ipset iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore tr cut sort wc awk sed grep logger || die
 }
