@@ -342,14 +342,15 @@ _nl='
 
 ## Main
 
-[ "$families_arg" ] && families_arg="$(printf %s "$families_arg" | tr 'A-Z' 'a-z')"
-case "$families_arg" in
-	inet|inet6|'inet inet6'|'inet6 inet' ) families="$families_arg" ;;
-	''|'ipv4 ipv6'|'ipv6 ipv4' ) families="inet inet6" ;;
-	ipv4 ) families=inet ;;
-	ipv6 ) families=inet6 ;;
-	* ) printf '%s\n' "$me: Error: invalid family '$families_arg'." >&2; exit 1 ;;
-esac
+families=
+[ -n "$families_arg" ] && for word in $(printf '%s' "$families_arg" | tr 'A-Z' 'a-z'); do
+	case "$word" in
+		inet|ipv4) families="${families}inet " ;;
+		inet6|ipv6) families="${families}inet6 " ;;
+		*) printf '%s\n' "$me: Error: invalid family '$word'." >&2; exit 1
+	esac
+done
+: "${families:="inet inet6"}"
 
 rv_global=0
 for family in $families; do
