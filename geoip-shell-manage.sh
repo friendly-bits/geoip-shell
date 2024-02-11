@@ -8,10 +8,11 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+export nolog=1 manualmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/${proj_name}-nft.sh" || exit 1
 
-export list_type nolog=1 manualmode=1
+export list_type
 
 check_root
 
