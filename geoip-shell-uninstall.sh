@@ -10,6 +10,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+manualmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/geoip-shell-nft.sh" || exit 1
 
@@ -31,7 +32,7 @@ Usage: $me [-l] [-c] [-r] [-h]
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
 3) Deletes scripts' data folder /var/lib/geoip-shell
-4) Deletes the scripts from /usr/local/bin
+4) Deletes the scripts from /usr/sbin
 5) Deletes the config folder /etc/geoip-shell
 
 Options:
