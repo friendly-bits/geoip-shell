@@ -146,10 +146,10 @@ _<details><summary>Example</summary>_
 **To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
 
 ## **Notes**
-For some helpful notes about using this suite, read [NOTES.md](/NOTES.md).
+For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
 
 ## **In detail**
-For specifics about each script, read [DETAILS.md](/DETAILS.md).
+For specifics about each script, read [DETAILS.md](/Documentation/DETAILS.md).
 
 ## **Privacy**
 These scripts do not share your data with anyone, as long as you downloaded them from the official source, which is
