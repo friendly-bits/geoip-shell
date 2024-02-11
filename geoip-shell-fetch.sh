@@ -440,12 +440,6 @@ check_subnets_cnt_drop() {
 
 #### CONSTANTS
 
-ripe_url_stats="https://ftp.ripe.net/pub/stats"
-ripe_url_api="https://stat.ripe.net/data/country-resource-list/data.json?"
-ipdeny_ipv4_url="https://www.ipdeny.com/ipblocks/data/aggregated"
-ipdeny_ipv6_url="https://www.ipdeny.com/ipv6/ipaddresses/aggregated"
-
-
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
 newifs "$_nl" cca
@@ -460,21 +454,58 @@ oldifs cca
 
 ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
-wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=7"
 
-if [ "$curl_exists" ]; then
-	fetch_cmd="$curl_cmd --progress-bar"
-	fetch_cmd_q="$curl_cmd -s"
-elif [ "$ucl_f_exists" ]; then
-	fetch_cmd="$ucl_f_cmd -O -"
-	fetch_cmd_q="$ucl_f_cmd -q -O -"
-elif [ "$wget_exists" ]; then
-	fetch_cmd="$wget_cmd --show-progress -O -"
-	fetch_cmd_q="$wget_cmd -O -"
+[ "$script_dir" = "$install_dir" ] && getconfig HTTP http
+secure_util=''; fetch_cmd=''
+for util in curl wget uclient-fetch; do
+	checkutil "$util" || continue
+	case "$util" in
+		curl)
+			secure_util="curl"
+			curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
+			fetch_cmd="$curl_cmd --progress-bar"
+			fetch_cmd_q="$curl_cmd -s"
+			break
+			;;
+		wget)
+			if checkutil ubus && checkutil uci; then
+				wget_cmd="wget -q --timeout=16"
+				[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="wget"; break; }
+			else
+				wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=16"
+				secure_util="wget"
+				fetch_cmd="$wget_cmd --show-progress -O -"
+				fetch_cmd_q="$wget_cmd -O -"
+				break
+			fi
+			;;
+		uclient-fetch)
+			[ -s "/usr/lib/libustream-ssl.so" ] && secure_util="uclient-fetch"
+			fetch_cmd="$ucl_f_cmd -O -"
+			fetch_cmd_q="$ucl_f_cmd -q -O -"
+	esac
+done
+
+[ -z "$fetch_cmd" ] && die "Error: Compatible download utilites unavailable."
+
+if [ -z "$secure_util" ] && [ -z "$http" ]; then
+	[ ! "$manualmode" ] && die "Error: no fetch utility with SSL support available."
+	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
+	pick_opt "y|n"
+	case "$REPLY" in
+		n|N) die "No fetch utility available." ;;
+		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig "HTTP=http"
+	esac
 fi
+: "${http:=https}"
 
 valid_sources="ripe${_nl}ipdeny"
 default_source="ripe"
+
+ripe_url_stats="${http}://ftp.ripe.net/pub/stats"
+ripe_url_api="${http}://stat.ripe.net/data/country-resource-list/data.json?"
+ipdeny_ipv4_url="${http}://www.ipdeny.com/ipblocks/data/aggregated"
+ipdeny_ipv6_url="${http}://www.ipdeny.com/ipv6/ipaddresses/aggregated"
 
 
 #### VARIABLES
