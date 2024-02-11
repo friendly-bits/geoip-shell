@@ -27,7 +27,7 @@ After installation, the user interface is provided by running "geoip-shell", whi
 ## **In detail**
 **geoip-shell-install.sh**
 - Creates system folder structure for scripts, config and data.
-- Copies the scripts to `/usr/local/bin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell`.
+- Copies the scripts to `/usr/sbin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell`.
 - Calls the -manage script to set up geoip.
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
 - Required arguments are `-c <"country_codes">` and `-m <whitelist|blacklist>`
@@ -44,7 +44,7 @@ Advanced options:
 - `-p`: create ip sets with the 'performance' policy (defaults to 'memory' policy for low memory consumption)
 
 **geoip-shell-uninstall.sh**
-- Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/local/bin
+- Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/sbin
 
 Advanced options:
 - `-l`: cleans up previous firewall geoip rules and resets the ip lists in the config
