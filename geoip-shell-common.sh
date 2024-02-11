@@ -488,7 +488,6 @@ init_geoscript
 [ ! "$_nl" ] && {
 	export LC_ALL=C
 	export conf_dir="/etc/${proj_name}" datadir="/var/lib/${proj_name}"
-
 	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
