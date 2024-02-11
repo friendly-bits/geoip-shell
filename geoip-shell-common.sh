@@ -445,21 +445,22 @@ detect_init() {
 	# init process is pid 1
 	_pid1="$(ls -l /proc/1/exe)"
 	for init_sys in systemd procd initctl busybox upstart; do
-		case "$_pid1" in *"$init_sys"* ) printf %s "$init_sys"; return 0; esac
+		case "$_pid1" in *"$init_sys"* ) return 0; esac
 	done
 	case "$_pid1" in *"/sbin/init"* )
 		for init_sys in systemd upstart; do
-			case "$_pid1" in *"$init_sys"* ) printf %s "$init_sys"; return 0; esac
+			case "$_pid1" in *"$init_sys"* ) return 0; esac
 		done
 	esac
-	printf %s "unknown"
+	init_sys="unknown"
 	return 1
 }
 
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
 	cron_rv=0; cron_reboot=''
-	case "$(detect_init)" in
+	detect_init
+	case "$init_sys" in
 		systemd )
 			# check if cron service is enabled
 			(systemctl is-enabled cron.service) 1>/dev/null 2>/dev/null; cron_rv=$? ;;
@@ -468,7 +469,7 @@ check_cron() {
 			if ! pidof cron 1>/dev/null && ! pidof crond 1>/dev/null; then cron_rv=1; else cron_rv=0; fi ;;
 	esac
 	export cron_rv
-	cron_cmd="$(command -v crond; command -v cron)"
+	cron_cmd="$(command -v crond || command -v cron)"
 	[ "$cron_cmd" ] && case "$(ls -l "$cron_cmd")" in *busybox*) ;; *) export cron_reboot=1; esac
 
 	return "$cron_rv"
@@ -495,11 +496,5 @@ init_geoscript
 	export PATH
 
 	check_deps nft tr cut sort wc awk sed grep logger || die
-	checkutil "uclient-fetch" && export ucl_f_exists="true"
-	checkutil "curl" && export curl_exists="true"
-	checkutil "wget" && export wget_exists="true"
-
-	[ ! "$ucl_f_exists" ] && [ ! "$curl_exists" ] && [ ! "$wget_exists" ] && die "Error: Compatible download utilites unavailable."
-
 }
 return 0
