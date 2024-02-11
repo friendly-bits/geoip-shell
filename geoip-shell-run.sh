@@ -146,7 +146,7 @@ if [ "$action_apply" = add ]; then
 	# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 	setstatus "$status_file" "FailedLists=$lists" || setstatus_failed
 
-	call_script "$script_dir/${proj_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force"
+	call_script "$script_dir/${proj_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" -r
 
 	# read *fetch results from the status file
 	getstatus "$status_file" FetchedLists lists
