@@ -40,7 +40,7 @@ set_a_arr_el() {
 	_check_vars "$_arr_name" "$___key" || return 1
 
 	eval "___keys=\"\${_a_${_arr_name}___keys}\"
-			_a_${_arr_name}_${___key}"='${_el_set_flag}${___new_val}'
+			_a_${_arr_name}_${___key}"='${___new_val}'
 
 	case "$___keys" in
 		*"$_nl$___key"|*"$_nl$___key$_nl"* ) ;;
@@ -59,8 +59,7 @@ get_a_arr_val() {
 	_arr_name="$1"; ___key="$2"; _out_var="$3"
 	_check_vars "$_arr_name" "$___key" "$_out_var" || return 1
 
-	eval "___val=\"\$_a_${_arr_name}_${___key}\""
-	eval "$_out_var"='${___val#"${_el_set_flag}"}'
+	eval "$_out_var=\"\$_a_${_arr_name}_${___key}\""
 }
 
 
@@ -88,4 +87,3 @@ set -f
 export LC_ALL=C
 ___nl='
 '
-: "${_el_set_flag:="$(printf '\35')"}"
