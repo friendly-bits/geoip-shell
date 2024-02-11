@@ -488,7 +488,7 @@ init_geoscript
 '
 	set_colors
 
-	! [ "$in_install" ] && getconfig PATH PATH
+	! [ "$manualmode" ] && getconfig PATH PATH
 	export PATH
 
 	check_deps ipset iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore tr cut sort wc awk sed grep logger || die
