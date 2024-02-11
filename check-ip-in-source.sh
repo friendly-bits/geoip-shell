@@ -7,6 +7,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+export manualmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
@@ -186,7 +187,7 @@ for family in $families; do
 
 	list_file="/tmp/iplist-$list_id.tmp"
 
-	sh "$fetch_script" -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" ||
+	sh "$fetch_script" -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" -r ||
 		die "Failed to fetch ip lists."
 
 	# read *fetch results from the status file
