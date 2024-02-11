@@ -476,24 +476,27 @@ check_cron() {
 }
 
 makepath() {
-	dir="/usr/local/bin"
-	case "$PATH" in *:"$dir":*|"$dir"|*:"$dir"|"$dir":* );; *) export PATH="$PATH:$dir"; esac
+	d="$install_dir"
+	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) export PATH="$PATH:$d"; esac
 }
 
+export install_dir="/usr/sbin"
 [ -n "$makepath" ] && makepath
 
 init_geoscript
 
 [ ! "$_nl" ] && {
 	export LC_ALL=C
-	export conf_dir="/etc/${proj_name}" install_dir="/usr/local/bin" datadir="/var/lib/${proj_name}"
+	export conf_dir="/etc/${proj_name}" datadir="/var/lib/${proj_name}"
 
 	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 
-	! [ "$manualmode" ] && getconfig PATH PATH
-	export PATH
+	[ ! "$manualmode" ] && {
+		getconfig PATH _PATH
+		[ -n "$_PATH" ] && export PATH="$_PATH"
+	}
 
 	check_deps nft tr cut sort wc awk sed grep logger || die
 }
