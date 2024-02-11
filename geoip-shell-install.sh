@@ -6,7 +6,7 @@
 # Installer for geoip blocking suite of shell scripts
 
 # Creates system folder structure for scripts, config and data.
-# Copies all scripts included in the suite to /usr/local/bin.
+# Copies all scripts included in the suite to /usr/sbin.
 # Calls the *manage script to set up geoip-shell and then call the -fetch and -apply scripts.
 # If an error occurs during installation, calls the uninstall script to revert any changes made to the system.
 # Accepts a custom cron schedule expression as an argument.
