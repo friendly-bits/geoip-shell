@@ -31,7 +31,7 @@ Usage: $me [-l] [-c] [-r] [-h]
 
 1) Removes associated cron jobs, iptables rules and ipsets
 2) Deletes scripts' data folder /var/lib/geoip-shell
-3) Deletes the scripts from /usr/local/bin
+3) Deletes the scripts from /usr/sbin
 4) Deletes the config folder /etc/geoip-shell
 
 Options:
