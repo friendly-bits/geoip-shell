@@ -70,7 +70,9 @@ debugentermsg
 #### FUNCTIONS
 
 die_a() {
-	destroy_tmp_ipsets; die "$@"
+	destroy_tmp_ipsets
+	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+	die "$@"
 }
 
 critical() {
@@ -86,6 +88,7 @@ critical() {
 	done
 	sleep "0.1" 2>/dev/null || sleep 1
 	rm_all_ipsets
+	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
 	die "$1"
 }
 
@@ -148,6 +151,7 @@ add_ipset() {
 	debugprint "Making the ipset '$perm_ipset' permanent... "
 	ipset swap "$tmp_ipset" "$perm_ipset" || critical "Failed to swap temporary and permanent ipsets."
 	debugprint "Ok."
+	rm "$iplist_file"
 }
 
 mk_perm_ipset() {
@@ -248,11 +252,11 @@ for family in $families; do
 
 		[ -n "$lan_subnets" ] && {
 			lan_ipset="${geotag}_lan_$family"
-			tmp_file="/tmp/$lan_ipset.tmp"
+			iplist_file="$iplist_dir/$lan_ipset.iplist"
 			sp2nl "$lan_subnets" lan_subnets
-			printf '%s\n' "$lan_subnets" > "$tmp_file" || die_a "Failed to write to file '$tmp_file'"
+			printf '%s\n' "$lan_subnets" > "$iplist_file" || die_a "Failed to write to file '$iplist_file'"
 			mk_perm_ipset "$lan_ipset"
-			ipsets_to_add="$ipsets_to_add$lan_ipset $tmp_file$_nl"
+			ipsets_to_add="$ipsets_to_add$lan_ipset $iplist_file$_nl"
 		}
 	fi
 
