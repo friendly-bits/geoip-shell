@@ -37,6 +37,8 @@ Options:
                            (use either '-p' or '-o' but not both)
     -s <status_file>  : Path to a status file to register fetch results in.
     -u <"source">     : Source for the download. Currently supports 'ripe' and 'ipdeny'.
+ 
+    -r                : Raw mode (outputs newline-delimited list)
     -f                : force using fetched lists even if list timestamp didn't change compared to existing list
     -d                : Debug
     -h                : This help
@@ -47,7 +49,7 @@ EOF
 
 #### Parse arguments
 
-while getopts ":l:p:o:s:u:fdh" opt; do
+while getopts ":l:p:o:s:u:rfdh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir=$OPTARG ;;
@@ -55,6 +57,7 @@ while getopts ":l:p:o:s:u:fdh" opt; do
 		o) output_file=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
 
+		r) raw_mode=1 ;;
 		f) force_update=1 ;;
 		d) debugmode_args=1 ;;
 		h) usage; exit 0 ;;
@@ -149,7 +152,7 @@ get_source_list_dates_ripe() {
 		debugprint "getting listing from url '$server_url'..."
 		[ ! "$server_url" ] && { echolog -err "get_source_list_dates_ripe(): $server_url variable should not be empty!"; return 1; }
 
-		# debugprint "timestamp fetch command: '$fetch_cmd \"${server_url}\" > \"$server_html_file\""
+		# debugprint "timestamp fetch command: '$fetch_cmd_q \"${server_url}\" > \"$server_html_file\""
 		$fetch_cmd_q "$server_url" > "$server_html_file"
 
 		debugprint "Processing the listing..."
@@ -203,17 +206,17 @@ group_lists_by_registry() {
 }
 
 # checks the status faile
-# and populates variables $prev_list_reg, $prev_date_raw, $prev_date_compat, $prev_subnets_cnt
+# and populates variables $prev_list_reg, $prev_date_raw, $prev_date_compat, $prev_s_cnt
 check_prev_list() {
-	unset_prev_vars() { unset prev_list_reg prev_date_raw prev_date_compat prev_subnets_cnt; }
+	unset_prev_vars() { unset prev_list_reg prev_date_raw prev_date_compat prev_s_cnt; }
 
 	list_id="$1"
 	unset_prev_vars
 
 	# if $status_file is set and physically exists, get LastFailedSubnetsCnt_${list_id} from the status file
 	if [ "$status_file" ] && [ -s "$status_file" ]; then
-		getstatus "$status_file" "PrevSubnetsCnt_${list_id}" prev_subnets_cnt
-		case "$prev_subnets_cnt" in
+		getstatus "$status_file" "PrevSubnetsCnt_${list_id}" prev_s_cnt
+		case "$prev_s_cnt" in
 			''|0)
 				debugprint "Previous subnets count for '$list_id' is 0."
 				unset_prev_vars
@@ -297,15 +300,17 @@ check_updates() {
 	return 0
 }
 
+list_failed() {
+	rm "$fetched_list" "$parsed_list" "$valid_list" 2>/dev/null
+	failed_lists="$failed_lists$list_id "
+	[ "$1" ] && echolog -err "$1"
+}
+
 process_ccode() {
-	list_failed() {
-		rm "$fetched_list" "$parsed_list" "$valid_list" 2>/dev/null
-		failed_lists="$failed_lists$list_id "
-		[ "$1" ] && echolog -err "$1"
-	}
 
 	curr_ccode="$1"; curr_ccode_lc="$(tolower "$curr_ccode")"
 	unset prev_list_reg list_path fetched_list
+	set +f; rm -f "/tmp/${proj_name}_"*.tmp; set -f
 
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
@@ -315,20 +320,19 @@ process_ccode() {
 				case "$family" in
 					"ipv4" ) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
 					* ) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
-				esac
-			;;
-			* ) die "Unsupported source: '$dl_src'." ;;
+				esac ;;
+			* ) die "Unsupported source: '$dl_src'."
 		esac
 
 		# set list_path to $output_file if it is set, or to $iplist_dir/$list_id otherwise
 		list_path="${output_file:-$iplist_dir/$list_id.iplist}"
 
 		# temp files
-		fetched_list="/tmp/${proj_name}_fetched-$ccode.tmp"
 		parsed_list="/tmp/${proj_name}_parsed-${list_id}.tmp"
+		fetched_list="/tmp/${proj_name}_fetched-$curr_ccode.tmp"
 
-		valid_subnets_cnt=0
-		failed_subnets_cnt=0
+		valid_s_cnt=0
+		failed_s_cnt=0
 
 		# checks the status file and populates $prev_list_reg, $prev_date_raw
 		check_prev_list "$list_id"
@@ -350,29 +354,31 @@ process_ccode() {
 				printf %s "Parsing ip list for '${purple}$list_id${n_c}'... "
 				parse_ripe_json "$fetched_list" "$parsed_list" "$family" ||
 					{ list_failed "Failed to parse the ip list for '$list_id'."; continue; }
-				echo "Ok."
-				;;
+				echo "Ok." ;;
 			ipdeny) mv "$fetched_list" "$parsed_list"
 		esac
 
 		printf %s "Validating '$purple$list_id$n_c'... "
-		# Validates the parsed list, populates the $valid_subnets_cnt, failed_subnets_cnt variables
+		# Validates the parsed list, populates the $valid_s_cnt, failed_s_cnt variables
 		validate_list "$list_id"
 		rm "$parsed_list" 2>/dev/null
 
-		case "$failed_subnets_cnt" in
-			0) echo "Ok." ;;
-			*) list_failed "Note: '$purple$list_id$n_c': $red$failed_subnets_cnt$n_c subnets failed validation."
-				continue
-		esac
+		[ "$failed_s_cnt" = 0 ] && echo "Ok." || { echo "Failed."; continue; }
 
+		printf '%s\n\n' "Validated subnets for '$purple$list_id$n_c': $valid_s_cnt."
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
-		mv "$valid_list" "$list_path" || { list_failed "Failed to overwrite the file '$list_path'"; continue; }
+		{ [ "$raw_mode" ] && cat "$valid_list" || {
+				printf %s "elements={ "
+				tr '\n' ',' < "$valid_list"
+				printf '%s\n' "}"
+			}
+		} > "$list_path" || { list_failed "Failed to overwrite the file '$list_path'"; continue; }
+
 		touch -d "$date_src_compat" "$list_path"
 		fetched_lists="$fetched_lists$list_id "
-		set_a_arr_el subnets_cnt_arr "$list_id=$valid_subnets_cnt"
+		set_a_arr_el subnets_cnt_arr "$list_id=$valid_s_cnt"
 		set_a_arr_el list_date_arr "$list_id=$date_src_compat"
 
 		rm "$valid_list" 2>/dev/null
@@ -391,21 +397,20 @@ validate_list() {
 	case "$family" in "ipv4" ) subnet_regex="$subnet_regex_ipv4" ;; *) subnet_regex="$subnet_regex_ipv6"; esac
 	grep -E "^$subnet_regex$" "$parsed_list" > "$valid_list"
 
-	parsed_subnets_cnt=$(wc -w < "$parsed_list")
-	valid_subnets_cnt=$(wc -w < "$valid_list")
-	failed_subnets_cnt=$(( parsed_subnets_cnt - valid_subnets_cnt ))
+	parsed_s_cnt=$(wc -w < "$parsed_list")
+	valid_s_cnt=$(wc -w < "$valid_list")
+	failed_s_cnt=$(( parsed_s_cnt - valid_s_cnt ))
 
-	if [ "$failed_subnets_cnt" != 0 ]; then
-		failed_val_subnets="$(grep -Ev  "$subnet_regex" "$parsed_list")"
+	if [ "$failed_s_cnt" != 0 ]; then
+		failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
 
-		printf '%s\n' "$failed_subnets_cnt ${red}failed validation${n_c} for list '${purple}$list_id${n_c}'."
-		if [ $failed_subnets_cnt -gt 10 ]; then
+		list_failed "${_nl}NOTE: out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
+		if [ $failed_s_cnt -gt 10 ]; then
 				echo "First 10 failed subnets:"
-				printf '%s\n' "$failed_val_subnets" | head -n10
+				printf '%s\n' "$failed_s" | head -n10
 				printf '\n'
 		else
-			echo "Following subnets failed validation:"
-			printf '%s\n\n' "$failed_val_subnets"
+			printf '%s\n%s\n\n' "Following subnets failed validation:" "$failed_s"
 		fi
 	fi
 }
@@ -413,8 +418,7 @@ validate_list() {
 # compares current validated subnets count to previous one
 check_subnets_cnt_drop() {
 	list_id="$1"
-	if [ "$valid_subnets_cnt" = 0 ]; then
-		rm "$valid_list" 2>/dev/null
+	if [ "$valid_s_cnt" = 0 ]; then
 		echolog -err "Warning: validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?" >&2
 		return 1
 	fi
@@ -422,28 +426,19 @@ check_subnets_cnt_drop() {
 	# Check if subnets count decreased dramatically compared to the old list
 	if [ "$prev_list_reg" ]; then
 		# compare fetched subnets count to old subnets count, get result in %
-		subnets_percents="$((valid_subnets_cnt * 100 / prev_subnets_cnt))"
-		case $((subnets_percents < 90)) in
-			1) echolog -err "Warning: validated subnets count '$valid_subnets_cnt' in the fetched list '$purple$list_id$n_c'" \
-				"is ${subnets_percents}% of '$prev_subnets_cnt' subnets in the existing list dated '$prev_date_compat'." \
+		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
+		case $((s_percents < 90)) in
+			1) echolog -err "Warning: validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
+				"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
 				"Not updating the list."
-				return 1
-				;;
-			*) debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${subnets_percents}% of the count in the old list."
+				return 1 ;;
+			*) debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
 		esac
 	fi
-
-	printf '%s\n\n' "Validated subnets for '$purple$list_id$n_c': $valid_subnets_cnt."
 }
 
 
 #### CONSTANTS
-
-ripe_url_stats="https://ftp.ripe.net/pub/stats"
-ripe_url_api="https://stat.ripe.net/data/country-resource-list/data.json?"
-ipdeny_ipv4_url="https://www.ipdeny.com/ipblocks/data/aggregated"
-ipdeny_ipv6_url="https://www.ipdeny.com/ipv6/ipaddresses/aggregated"
-
 
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
@@ -459,21 +454,58 @@ oldifs cca
 
 ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
-wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=7"
 
-if [ "$curl_exists" ]; then
-	fetch_cmd="$curl_cmd --progress-bar"
-	fetch_cmd_q="$curl_cmd -s"
-elif [ "$ucl_f_exists" ]; then
-	fetch_cmd="$ucl_f_cmd -O -"
-	fetch_cmd_q="$ucl_f_cmd -q -O -"
-elif [ "$wget_exists" ]; then
-	fetch_cmd="$wget_cmd --show-progress -O -"
-	fetch_cmd_q="$wget_cmd -O -"
+[ "$script_dir" = "$install_dir" ] && getconfig HTTP http
+secure_util=''; fetch_cmd=''
+for util in curl wget uclient-fetch; do
+	checkutil "$util" || continue
+	case "$util" in
+		curl)
+			secure_util="curl"
+			curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
+			fetch_cmd="$curl_cmd --progress-bar"
+			fetch_cmd_q="$curl_cmd -s"
+			break
+			;;
+		wget)
+			if checkutil ubus && checkutil uci; then
+				wget_cmd="wget -q --timeout=16"
+				[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="wget"; break; }
+			else
+				wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=16"
+				secure_util="wget"
+				fetch_cmd="$wget_cmd --show-progress -O -"
+				fetch_cmd_q="$wget_cmd -O -"
+				break
+			fi
+			;;
+		uclient-fetch)
+			[ -s "/usr/lib/libustream-ssl.so" ] && secure_util="uclient-fetch"
+			fetch_cmd="$ucl_f_cmd -O -"
+			fetch_cmd_q="$ucl_f_cmd -q -O -"
+	esac
+done
+
+[ -z "$fetch_cmd" ] && die "Error: Compatible download utilites unavailable."
+
+if [ -z "$secure_util" ] && [ -z "$http" ]; then
+	[ ! "$manualmode" ] && die "Error: no fetch utility with SSL support available."
+	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
+	pick_opt "y|n"
+	case "$REPLY" in
+		n|N) die "No fetch utility available." ;;
+		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig "HTTP=http"
+	esac
 fi
+: "${http:=https}"
 
 valid_sources="ripe${_nl}ipdeny"
 default_source="ripe"
+
+ripe_url_stats="${http}://ftp.ripe.net/pub/stats"
+ripe_url_api="${http}://stat.ripe.net/data/country-resource-list/data.json?"
+ipdeny_ipv4_url="${http}://www.ipdeny.com/ipblocks/data/aggregated"
+ipdeny_ipv6_url="${http}://www.ipdeny.com/ipv6/ipaddresses/aggregated"
 
 
 #### VARIABLES
