@@ -182,7 +182,7 @@ report_status() {
 					printf %s "${blue}${ccode}${n_c}: "
 					for family in $families; do
 						el_cnt="$(printf %s "$ipsets" |
-							sed -n -e /"${ccode}_$family"/\{:1 -e n\;/maxelem/\{s/.*maxelem\ //p\; -e q\; -e \}\;b1 -e \})"
+							sed -n -e /"${ccode}_$family"/\{:1 -e n\;/maxelem/\{s/.*maxelem\ //\; -e s/\ .*//p\; -e q\; -e \}\;b1 -e \})"
 						: "${el_cnt:=0}"
 						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $X_sym"; incr_issues; }
 						el_summary="$el_summary$family - $el_cnt$list_empty, "
