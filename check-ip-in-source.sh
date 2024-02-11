@@ -7,6 +7,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+export manualmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
