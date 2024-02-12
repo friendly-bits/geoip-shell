@@ -100,7 +100,7 @@ destroy_tmp_ipsets() {
 }
 
 enable_geoip() {
-	[ "$devtype" = "router" ] && first_chain="$iface_chain" || first_chain="$geochain"
+	[ -n "$wan_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
 	for family in $families; do
 		set_ipt_cmds || die_a
 		enable_rule="$($ipt_save_cmd | grep "${geotag}_enable")"
@@ -174,7 +174,7 @@ export list_type="$list_type"
 case "$list_type" in whitelist) fw_target="ACCEPT" ;; *) fw_target="DROP"; esac
 
 for entry in "Families families" "NoBlock noblock" "ListType list_type" \
-		"Autodetect autodetect_opt" "DeviceType devtype" "WAN_ifaces wan_ifaces" \
+		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
@@ -241,7 +241,7 @@ for family in $families; do
 	done
 
 	### local networks
-	if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
+	if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
 		if [ ! "$autodetect" ]; then
 			eval "lan_subnets=\"\$lan_subnets_$family\""
 		else
@@ -289,8 +289,7 @@ for family in $families; do
 
 		### Create new rules
 
-		if [ "$devtype" = "router" ]; then # apply geoip to wan ifaces
-			[ -z "$wan_ifaces" ] && { echolog -err "Internal error: \$wan_ifaces var is empty."; exit 1; }
+		if [ -n "$wan_ifaces" ]; then # apply geoip to wan ifaces
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
 			for wan_iface in $wan_ifaces; do
 				printf '%s\n' "-i $wan_iface -I $iface_chain -j $geochain -m comment --comment ${geotag}_iface_filter"
@@ -300,7 +299,7 @@ for family in $families; do
 		## Auxiliary rules
 
 		### local networks
-		if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
+		if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
 			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src -m comment --comment ${geotag}_aux_lan_$family -j ACCEPT"
 		fi
 
@@ -308,7 +307,7 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ] && \
+		[ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo -m comment --comment ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
