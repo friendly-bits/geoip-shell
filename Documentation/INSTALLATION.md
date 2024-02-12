@@ -4,17 +4,17 @@
 
 If you answer this question, the _-manage_ script will check that the changes in ip lists which you request to make will not block your own country. This applies both to the installation process, and to any subsequent changes to the ip lists which you may want to make in the future. The idea behind this is to make this tool as fool-proof as possible.
 
-## **'Is this device a (r)outer or a (h)ost?':**
+## **'Does this machine have dedicated WAN interface(s)? (y|n)':**
 
-Answering this question is mandatory because the firewall is configured differently for each case. Answering it incorrectly may cause unexpected results, including having no geoip blocking or losing remote access to your machine.
+Answering this question is mandatory because the firewall is configured differently, depending on the answer. Answering it incorrectly may cause unexpected results, including having no geoip blocking or losing remote access to your machine.
 
-For a router, geoip rules are applied to traffic arriving from the WAN interface(s).
+When a machine has dedicated WAN interfaces, for example if it's a router, geoip rules are applied to traffic arriving from these interfaces, and all other traffic is left alone.
 
-For a host, geoip rules are applied to traffic arriving from anywhere. When the suite is installed in whitelist mode, additional rules are created for a host which add LAN subnets to the whitelist in order to avoid blocking them. This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. That is because while the 'drop' verdict is final, the 'accept' verdict is not - it just means that the accepted packet will not be evaluated again within the chain it was accepted in. It will continue to traverse the subsequent chains and may be dropped in any of them.
+Otherwise, geoip rules are applied to traffic arriving from all network interfaces, except the loopback interface. Besides that, when geoip-shell is installed in whitelist mode and you picked `n` in this question, additional firewall rules may be created which add LAN subnets to the whitelist in order to avoid blocking them (you can approve that on the next step of the installation). This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. This is because while the 'drop' verdict is final, the 'accept' verdict is not.
 
 ## **'Autodetected ipvX LAN subnets: ... (c)onfirm, c(h)ange, (s)kip or (a)bort installation?'**
 
-You will see this question if installing the suite in whitelist mode and you chose 'host' in the previous question. The reason why under these conditions this question is asked is explained above, in short - to avoid blocking your LAN from accessing your machine.
+You will see this question if installing the suite in whitelist mode and you chose `n` in the previous question. The reason why under these conditions this question is asked is explained above, in short - to avoid blocking your LAN from accessing your machine.
 
 If you are absolutely sure that you will not need to access the machine from the LAN then you can type in 's' to skip.
 Otherwise I recommend to add LAN subnets to the whitelist.
@@ -36,18 +36,18 @@ If the ip address is in range, grepcidr will print it, otherwise it will not. Yo
 
 Alternatively, you can use an online service which will do the same check for you. There are multiple services providing this functionality. To find them, look up 'IP Address In CIDR Range Check' in your preferred online search engine.
 
-A third way to do that is by examining your network configuration (which is in your router) and making sure that the autodetected subnets match those in the configuration.
+A third way to do that is by examining your network configuration (in your router) and making sure that the autodetected subnets match those in the configuration.
 
 If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets which you want to whitelist. I would also appreciate if you let me know about that so I can improve the autodetection code (I will need some details about your network).
 
 ## **'(A)uto-detect local subnets when autoupdating and at launch or keep this config (c)onstant?'**
 
-As the above question, you will see this one if installing the suite in whitelist mode and you chose 'host'.
+As the above question, you will see this one if installing the suite in whitelist mode and you answered `n` to the question about WAN interfaces.
 
 The rationale for this question is that network configuration may change, and if it does then previously correctly auto-detected subnets may become irrelevant.
 
 If you type in 'a', each time geoip firewall rules are initialized or updated, LAN subnets will be re-detected.
 
-If you type in 'c' then whatever subnets have been detected during installation will be kept forever (until you re-install the suite).
+If you type in 'c' then whatever subnets have been detected during installation will be kept forever (until you re-install geoip-shell).
 
 Generally if autodetection worked as expected during installation, most likely it will work correctly every time, so it is a good idea to allow auto-detection with each update. If not then, well, not.
