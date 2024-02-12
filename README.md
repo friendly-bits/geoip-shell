@@ -79,9 +79,9 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **0)** If geoblocker-bash is installed, uninstall it first.
 
-**1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
+**1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. The **iptables** branch of the suite also requires the `ipset` utility, install it using your distribution's package manager.
 
-**2)** Download the latest realease: https://github.com/blunderful-scripts/geoip-shell/releases
+**2)** Download the latest realease (for iptables branch, pick a release with the `-iptables` suffix): https://github.com/blunderful-scripts/geoip-shell/releases
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
