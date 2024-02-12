@@ -19,6 +19,7 @@ export nolog="1" manualmode="1" in_install="1"
 makepath=1
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/ip-regex.sh"
 
 
 check_root
