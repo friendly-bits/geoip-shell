@@ -82,7 +82,7 @@ die_a() {
 #### VARIABLES
 
 for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "DeviceType devtype" "WAN_ifaces wan_ifaces" \
+		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
@@ -216,13 +216,11 @@ nft_cmd_chain="$(
 
 	## Auxiliary rules
 
-	[ "$devtype" = "router" ] && { # apply geoip to wan ifaces
-		[ "$wan_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $wan_ifaces) }" ||
-			{ echolog -err "Internal error: \$wan_ifaces var is empty."; exit 1; }
-	}
+	# apply geoip to wan ifaces
+	[ "$wan_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $wan_ifaces) }"
 
-	if [ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ]; then
-		# whitelist lan subnets
+	# whitelist lan subnets
+	if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
 		for family in $families; do
 			if [ ! "$autodetect" ]; then
 				eval "lan_subnets=\"\$lan_subnets_$family\""
@@ -248,7 +246,7 @@ nft_cmd_chain="$(
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
-	[ "$list_type" = "whitelist" ] && [ "$devtype" = "host" ] &&
+	[ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
 	## add iplist-specific rules
