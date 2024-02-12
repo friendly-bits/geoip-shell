@@ -124,8 +124,8 @@ report_status() {
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
-	[ -n "$wan_ifaces" ] && wan_ifaces="${blue}$wan_ifaces$n_c" || wan_ifaces="${blue}All$n_c"
-	printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces"
+	[ -n "$wan_ifaces" ] && wan_ifaces_r="${blue}$wan_ifaces$n_c" || wan_ifaces_r="${blue}All$n_c"
+	printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces_r"
 
 	if [ "$list_type" = "whitelist" ] && [ -z "$wan_ifaces" ]; then
 		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
@@ -163,10 +163,11 @@ report_status() {
 			printf '\n%s\n%s\n' "${purple}Firewall rules in the $geochain chain ($family)${n_c}:" "$ipt_header"
 			printf %s "$ipt_output" | sed -n -e /"^Chain $geochain"/\{n\;:1 -e n\;/^Chain\ /q\;/^$/q\;p\;b1 -e \} |
 				grep . || printf '%s\n' "${red}None $X_sym"
+			printf '\n'
 		fi
-		printf '\n\n'
 	done
 
+	printf '\n'
 	if [ "$verb_status" ]; then
 		total_el_cnt=0
 		printf '%s' "Ip ranges count in active geoip sets: "
