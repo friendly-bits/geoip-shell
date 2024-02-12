@@ -91,7 +91,7 @@ _<details><summary>Examples:</summary>_
 - example (whitelist Germany and block all other countries): `sh geoip-shell-install.sh -m whitelist -c DE`
 - example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install.sh -m blacklist -c "DE NL"`
 
-(if specifying multiple countries, use double quotes)
+    (if specifying multiple countries, use double quotes)
 
 - if you prefer the **ipdeny** source, add `-u ipdeny` to the arguments
 </details>
