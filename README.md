@@ -96,7 +96,7 @@ _<details><summary>Examples:</summary>_
 
 - **NOTE**: If your distro (or you) have enabled automatic iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
-**5)** The `-install.sh` script will ask you several questions to gather data required for correct installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/INSTALLATION.md).
+**5)** The `-install.sh` script will ask you several questions to gather data required for correct installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
 **6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro. on some distributions, a different command should be used, such as `logread`).
 
