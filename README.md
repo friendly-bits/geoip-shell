@@ -22,7 +22,7 @@ Supports ipv4 and ipv6.
 ## **Features**
 * Core functionality is creating either a whitelist or a blacklist in the firewall using automatically downloaded ip lists for user-specified countries.
 
-* ip lists are fetched either from RIPE (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from ipdeny. Both sources provide updated ip lists for all regions.
+* ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**. Both sources provide updated ip lists for all regions.
 
 * All configuration changes required for geoip blocking to work are applied to the firewall during installation.
 
