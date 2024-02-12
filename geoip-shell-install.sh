@@ -51,7 +51,10 @@ Core Options:
                               "disable" will disable automatic updates of the ip lists
 -f <ipv4|ipv6|"ipv4 ipv6">  : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
 -u <ripe|ipdeny>            : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
--t <host|router>            : Device type to configure the suite for. If not specified, asks during installation.
+-i <wan|all>                : Specifies whether firewall rules will be applied to specific WAN network interface(s)
+                                  or to all network interfaces.
+                                  If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
+                                  If not specified, asks during installation.
 
 Extra Options:
 -a  : Autodetect LAN subnets (for hosts) or WAN interfaces (for routers). If not specified, asks during installation.
@@ -67,14 +70,14 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:t:aonkdh" opt; do
+while getopts ":c:m:s:f:u:i:aonkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
 		s) cron_schedule_args=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
-		t) devtype_arg=$OPTARG ;;
+		i) iface_type=$OPTARG ;;
 
 		a) autodetect=1 ;;
 		o) nobackup=1 ;;
@@ -199,7 +202,7 @@ pick_iface() {
 	sanitize_str wan_ifaces
 	get_intersection "$wan_ifaces" "$all_ifaces" wan_ifaces ' '
 
-	printf '\n%s\n' "Firewall rules will be applied to the WAN interfaces of your router."
+	printf '\n%s\n' "Firewall rules will be applied to the WAN network interfaces of your machine."
 	[ "$wan_ifaces" ] && {
 		printf '\n%s\n%s\n\n' "All network interfaces: $all_ifaces" \
 			"Autodetected WAN interfaces: $wan_ifaces"
@@ -225,7 +228,7 @@ pick_iface() {
 
 pick_subnets() {
 	[ ! "$autodetect" ] &&
-		printf '\n%s\n' "*NOTE*: In whitelist mode, incoming connections from your LAN subnets will be blocked, unless you whitelist them."
+		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
 		s="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || echo "Failed to autodetect $family local subnets."
@@ -234,7 +237,8 @@ pick_subnets() {
 		[ -n "$s" ] && {
 			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'."
 			[ "$autodetect" ] && { eval "c_lan_subnets_$family=\"$s\""; continue; }
-			printf '%s\n' "(c)onfirm, c(h)ange, (s)kip or (a)bort installation? "
+			printf '%s\n%s\n' "(c)onfirm, c(h)ange, (s)kip or (a)bort installation? " \
+				"Verify that correct LAN subnets have been detected in order to avoid problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
 				c|C) eval "c_lan_subnets_$family=\"$s\""; continue ;;
@@ -242,6 +246,7 @@ pick_subnets() {
 				a|A) exit 0
 			esac
 		}
+		autodetect_off=1
 		while true; do
 			printf '\n%s\n' "Type in $family LAN subnets (whitespace separated), or Enter to abort installation."
 			read -r REPLY
@@ -254,7 +259,7 @@ pick_subnets() {
 		done
 		eval "c_lan_subnets_$family=\"$REPLY\""
 	done
-	[ "$autodetect" ] && return
+	[ "$autodetect" ] || [ "$autodetect_off" ] && return
 	printf '\n%s\n' "(A)uto-detect local subnets when autoupdating and at launch or keep this config (c)onstant?"
 	pick_opt "a|c"
 	autodetect=''
@@ -335,20 +340,22 @@ fi
 
 user_ccode="$(get_country)"
 
-case "$devtype_arg" in
+case "$iface_type" in
 	'') ;;
-	host) REPLY=h ;;
-	router) REPLY=r ;;
-	*) usage; die "Invalid device type '$devtype_arg'."
+	all) REPLY=n ;;
+	wan) REPLY=y ;;
+	*) usage; die "Invalid string for the '-i' option: '$iface_type'."
 esac
 
-[ -z "$devtype_arg" ] && {
-	printf '\n%s\n' "Is this device a (r)outer or a (h)ost?"
-	pick_opt "r|h"
+[ -z "$iface_type" ] && {
+	printf '\n%s\n%s\n%s\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
+		"For example, a router or a virtual private server may have it." \
+		"A machine connected to a LAN behind a router is unlikely to have it."
+	pick_opt "y|n"
 }
 case "$REPLY" in
-	r|R) devtype="router"; pick_iface ;;
-	h|H) devtype="host"; [ "$list_type" = "whitelist" ] && pick_subnets
+	y|Y) pick_iface ;;
+	n|N) [ "$list_type" = "whitelist" ] && pick_subnets
 esac
 
 ## run the *uninstall script to reset associated cron jobs, iptables rules and ipsets
@@ -363,7 +370,7 @@ printf %s "Setting initial config... "
 setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" \
-	"DeviceType=$devtype" "LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
+	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile=" "HTTP="
 printf '%s\n' "Ok."
 
