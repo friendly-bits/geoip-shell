@@ -5,7 +5,7 @@ Geoip blocker for Linux focusing on reliability, compatibility and ease of use. 
 
 This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
 
-Should work on every modern'ish desktop/server Linux distribution which has iptables, doesn't matter which hardware. Supports running on a router or on a host. Supports ipv4 and ipv6.
+Should work on every modern'ish desktop/server Linux distribution which has iptables, doesn't matter which hardware. Supports running on a router or on a host.
 
 Supports ipv4 and ipv6.
  
