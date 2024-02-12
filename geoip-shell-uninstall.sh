@@ -96,9 +96,8 @@ crontab -u root -l 2>/dev/null |  grep -v "${proj_name}-run.sh" | crontab -u roo
 # Delete the config file
 rm "$conf_file" 2>/dev/null
 
-[ "$resetonly" ] && [ ! "$in_install" ] && {
-	makepath
-	setconfig "PATH=$PATH"
+[ "$resetonly" ] && {
+	[ ! "$in_install" ] && { makepath; setconfig "PATH=$PATH"; }
 	exit 0
 }
 
