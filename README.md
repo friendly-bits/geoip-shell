@@ -84,7 +84,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
 
-**2)** Download the latest realease: https://github.com/blunderful-scripts/geoip-shell/releases
+**2)** Download the latest realease (pick one with the **-nftables** suffix): https://github.com/blunderful-scripts/geoip-shell/releases
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
@@ -95,13 +95,15 @@ _<details><summary>Examples:</summary>_
 - example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install.sh -m blacklist -c "DE NL"`
 
 (if specifying multiple countries, use double quotes)
+
+- if you prefer the **ipdeny** source, add `-u ipdeny` to the arguments
 </details>
 
 - **NOTE1**: If your machine has enough memory, consider installing with the `-p` option (for "performance"). For more detailed explanation, check out (4) in [NOTES.md](/Documentation/NOTES.md). 
 
 - **NOTE2**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
-**5)** The `-install.sh` script will ask you several questions to gather data required for correct installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
+**5)** The `-install.sh` script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
 **6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro. on some distributions, a different command should be used, such as `logread`).
 
