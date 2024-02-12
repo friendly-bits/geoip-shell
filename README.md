@@ -92,6 +92,8 @@ _<details><summary>Examples:</summary>_
 - example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install.sh -m blacklist -c "DE NL"`
 
 (if specifying multiple countries, use double quotes)
+
+- if you prefer the **ipdeny** source, add `-u ipdeny` to the arguments
 </details>
 
 - **NOTE**: If your distro (or you) have enabled automatic iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
