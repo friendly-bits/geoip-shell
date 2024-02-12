@@ -146,7 +146,7 @@ report_status() {
 		ipt_output="$($ipt_cmd -vL)" || die "Error: failed to get $family iptables state."
 
 		wl_rule="$(printf %s "$ipt_output" | filter_ipt_rules "${proj_name}_whitelist_block" "DROP")"
-		ipt_header="$dashes$_nl${blue}$(printf %s "$ipt_output" | grep -m1 -o "target.*destination")${n_c}$_nl$dashes"
+		ipt_header="$dashes$_nl${blue}$(printf %s "$ipt_output" | grep -m1 "pkts.*destination")${n_c}$_nl$dashes"
 
 		case "$(printf %s "$ipt_output" | filter_ipt_rules "${proj_name}_enable" "$geochain")" in
 			'') chain_status="$X_sym"; incr_issues ;;
@@ -165,7 +165,7 @@ report_status() {
 			# report geoip rules
 			printf '\n%s\n%s\n' "${purple}Firewall rules in the $geochain chain ($family)${n_c}:" "$ipt_header"
 			printf %s "$ipt_output" | sed -n -e /"^Chain $geochain"/\{n\;:1 -e n\;/^Chain\ /q\;/^$/q\;p\;b1 -e \} |
-				awk '{sub("([[:space:]]*[^[:space:]]+[[:space:]]+){2}", "");print $0}' | grep . || printf '%s\n' "${red}None $X_sym"
+				grep . || printf '%s\n' "${red}None $X_sym"
 		fi
 		printf '\n\n'
 	done
