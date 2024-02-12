@@ -120,9 +120,22 @@ report_status() {
 	esac
 	printf %s "IP families in firewall rules: "
 	case "$active_families" in
-		'') printf '%s\n\n' "${red}None${n_c} $X_sym" ;;
-		*) printf '%s\n\n' "${blue}${active_families}${n_c}${lists_coherent}"
+		'') printf '%s\n' "${red}None${n_c} $X_sym" ;;
+		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
+
+	[ -n "$wan_ifaces" ] && wan_ifaces_r="${blue}$wan_ifaces$n_c" || wan_ifaces_r="${blue}All$n_c"
+	printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces_r"
+
+	if [ "$list_type" = "whitelist" ] && [ -z "$wan_ifaces" ]; then
+		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
+		for family in $families; do
+			eval "lan_subnets=\"\$lan_subnets_$family\""
+			[ -n "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}"|| lan_subnets="${red}None${n_c}"
+			printf '%s\n' "$family: $lan_subnets"
+		done
+	fi
+	printf '\n'
 
 	curr_geotable="$(nft_get_geotable)" ||
 		{ echo "Error: failed to read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
@@ -142,22 +155,9 @@ report_status() {
 		printf '%s\n' "Whitelist blocking rule: $wl_rule_status"
 	}
 
-	if [ "$list_type" = "whitelist" ] && [ -z "$wan_ifaces" ]; then
-		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
-		for family in $families; do
-			eval "lan_subnets=\"\$lan_subnets_$family\""
-			[ -n "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}"|| lan_subnets="${red}None${n_c}"
-			printf '%s\n' "$family: $lan_subnets"
-		done
-		printf '\n'
-	fi
-
-	[ -n "$wan_ifaces" ] && wan_ifaces="${blue}$wan_ifaces$n_c" || wan_ifaces="${blue}All$n_c"
-	printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces"
-
 	if [ "$verb_status" ]; then
 		# report geoip rules
-		printf '%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
+		printf '\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
 		nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep . || printf '%s\n' "${red}None $X_sym"
 
 		printf '\n%s' "Ip ranges count in active geoip sets: "
@@ -179,13 +179,13 @@ report_status() {
 					printf '%s\n' "${el_summary%, }"
 				done
 		esac
-		printf '\n%s\n\n' "Total number of ip ranges: $total_el_cnt"
+		printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
 
 	fi
 
 	# check if cron service is enabled
 	if check_cron; then
-		printf '%s\n' "Cron system service: $V_sym"
+		printf '\n%s\n' "Cron system service: $V_sym"
 
 		# check cron jobs
 
