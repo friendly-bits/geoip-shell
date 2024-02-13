@@ -7,8 +7,9 @@ This is a continuation of the [**geoblocker-bash**](https://github.com/blunderfu
 
 Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports ipv4 and ipv6.
 
-[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/09073139-4cfb-4703-aa48-922939057a7e)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/2e4d21cc-a074-4ea7-8d7f-7eecbca109a4)
-[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/be2f6046-370a-460f-94b2-327a277e0a14)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/2f81b4f4-dc07-4368-9183-193be44ec113)
+[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/5fc988b1-6c9f-4aa2-9e56-38708c2f8cf6)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0e4af5cb-5a62-4f68-b6e6-fd0d34341036)
+[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0d70ec39-3078-4b2e-8bfa-9ec2a065ed78)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0b016c73-9109-4cab-88bf-934ea3475f0e)
+
 
 ## Table of contents
 - [Features](#features)
