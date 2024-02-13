@@ -61,7 +61,7 @@ Supports ipv4 and ipv6.
 
 <details><summary>Read more:</summary>
 
-- To simplify the installation procedure, implements autodetection of local subnets (for hosts) and WAN interfaces (for routers).
+- To simplify the installation procedure, implements autodetection of local subnets and WAN interfaces (if any).
 - Comes with an *uninstall script which completely removes the suite and geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
