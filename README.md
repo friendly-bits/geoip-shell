@@ -9,6 +9,9 @@ Should work on every modern'ish desktop/server Linux distribution which has ipta
 
 Supports ipv4 and ipv6.
  
+[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0189e5de-33c2-4d91-86ca-e16cce552bad)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/274bedaf-48ab-4049-aada-900e4e32dcb7)
+
+
 ## Table of contents
 - [Features](#features)
 - [Installation](#installation)
