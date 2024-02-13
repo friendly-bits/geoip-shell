@@ -57,7 +57,8 @@ Core Options:
                                   If not specified, asks during installation.
 
 Extra Options:
--a  : Autodetect LAN subnets (for hosts) or WAN interfaces (for routers). If not specified, asks during installation.
+-a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
+          If not specified, asks during installation.
 -o  : No backup. Will not create a backup of previous firewall state after applying changes.
 -n  : No persistence. Geoip blocking may not work after reboot.
 -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
