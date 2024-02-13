@@ -46,6 +46,7 @@ Supports ipv4 and ipv6.
 
 <details><summary>Read more:</summary>
 
+- The iptables branch utilizes the ipset utility which allows to create efficient firewall rules with thousands of ip ranges.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
 
