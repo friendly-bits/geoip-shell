@@ -49,6 +49,7 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 <details><summary>Read more:</summary>
 
+- The nftables branch utilizes native nftables sets which allows to create efficient firewall rules with thousands of ip ranges.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
 
