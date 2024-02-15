@@ -28,6 +28,7 @@ Switches geoip blocking on/off, or loads/removes ipsets and iptables rules for s
 Actions:
     on|off           : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
     add|remove       : Add or remove ipsets and iptables rules for lists specified with the '-l' option
+    update           : recreates firewall rules
 
 Options:
     -l <"list_ids">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
