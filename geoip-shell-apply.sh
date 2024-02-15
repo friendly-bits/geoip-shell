@@ -43,7 +43,7 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|on|off) ;;
+	add|remove|on|off|update) ;;
 	* ) unknownact
 esac
 
@@ -82,7 +82,7 @@ die_a() {
 #### VARIABLES
 
 for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" \
+		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" "Ports ports" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
@@ -137,7 +137,7 @@ case "$action" in
 		exit 0
 esac
 
-[ ! "$list_ids" ] && {
+[ ! "$list_ids" ] && [ "$action" != update ] && {
 	usage
 	die 254 "Specify iplist id's!"
 }
@@ -241,6 +241,28 @@ nft_cmd_chain="$(
 			}
 		done
 	fi
+
+	# ports
+	newifs ';' apply
+	for bp in $ports; do
+		neg=''; mp=''; skip=''
+		len=${#bp}
+		bp="${bp#\~}"
+		[ ${#bp} -lt "$len" ] && neg="!="
+		len=${#bp}
+		bp="${bp#\*}"
+		proto="${bp%"${bp#???}"}"
+		ports="${bp#"$proto"}"
+		case "$proto" in udp|tcp) ;; *) echolog -err "Internal error: invalid value for \$proto: '$proto'."; exit 1; esac
+		[ -z "$ports" ] && { echolog -err "Internal error: \$proto or \$ports is empty"; exit 1; }
+		if [ "$ports" = all ]; then
+			[ -n "$neg" ] && skip=1 || ports="*"
+		fi
+		dport="dport $neg { $ports } counter"
+		[ ! "$skip" ] &&
+			printf '%s\n' "insert rule inet $geotable $geochain $proto $dport accept comment ${geotag_aux}_ports"
+	done
+	oldifs apply
 
 	# established/related
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
