@@ -29,7 +29,7 @@ Example: `-p "btcp:all"` - for tcp, geoblock all ports (default behavior)
 
 Example: `-p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports (doesn't affect UDP traffic)
 
-Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incomin traffic on other tcp ports (doesn't affect UDP traffic)
+Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
 
 Example: `-p "audp:15-20,3"` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
 
