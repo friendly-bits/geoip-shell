@@ -393,7 +393,7 @@ esac
 	printf '\n%s\n%s\n%s\n%\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
 		"For example, a router or a virtual private server may have it." \
 		"A machine connected to a LAN behind a router is unlikely to have it." \
-		"It is important to asnwer this question correctly"
+		"It is important to asnwer this question correctly."
 	pick_opt "y|n"
 }
 case "$REPLY" in
