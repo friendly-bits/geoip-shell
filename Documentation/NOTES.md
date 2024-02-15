@@ -21,19 +21,20 @@
     The general syntax is: `-p <[a|b][proto]:[all|ports];[a|b][proto]:[all|ports]>`
     Where `[a|b]` stands for "allow" or "block", "proto" stands for "tcp" or "udp", "ports" may be any combinations of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
     If specifying multiple protocols, separate them by `;`.
+    **Note** that multiple commands setting ports are not iterative. Issuing one command concerning ports will override previous commands.
 
 Examples:
 **Note the double-quotes!**
 
-Example: `-p "btcp:all"` - for tcp, geoblock all ports (default behavior)
+Example: `geoip-shell apply -p "btcp:all"` - for tcp, geoblock all ports (default behavior)
 
-Example: `-p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports (doesn't affect UDP traffic)
+Example: `geoip-shell apply -p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports (doesn't affect UDP traffic)
 
-Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incomin traffic on other tcp ports (doesn't affect UDP traffic)
+Example: `sh geoip-shell-install -c de -m whitelist -p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
 
-Example: `-p "audp:15-20,3"` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
+Example: `sh geoip-shell-install -c de -m blacklist -p "audp:15-20,3"` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
 
-Example: `-p "audp:10-12,14-18; btcp:80,8080"`
+Example: `geoip-shell apply -p "audp:10-12,14-18; btcp:80,8080"`
 - allow traffic arriving on udp ports 10-12 and 14-18, geoblock all other incoming udp traffic
 - geoblock traffic arriving on tcp ports 80,8080, allow all other tcp traffic
 
