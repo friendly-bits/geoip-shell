@@ -138,7 +138,7 @@ install_failed() {
 get_country() {
 	user_ccode=""
 
-	printf '\n%s\n%s\n%s\n\n' "Please enter your country code." \
+	printf '\n%s\n%s\n%s\n' "Please enter your country code." \
 		"It will be used to check if your geoip settings may lock you out of your remote machine and warn you if so." \
 		"If you want to skip this check, press Enter." >&2
 	while true; do
@@ -349,9 +349,10 @@ case "$iface_type" in
 esac
 
 [ -z "$iface_type" ] && {
-	printf '\n%s\n%s\n%s\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
+	printf '\n%s\n%s\n%s\n%\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
 		"For example, a router or a virtual private server may have it." \
-		"A machine connected to a LAN behind a router is unlikely to have it."
+		"A machine connected to a LAN behind a router is unlikely to have it." \
+		"It is important to asnwer this question correctly."
 	pick_opt "y|n"
 }
 case "$REPLY" in
@@ -365,8 +366,8 @@ call_script "$script_dir/${proj_name}-uninstall.sh" -r || die "Pre-install clean
 # Create the directory for config and, if required, parent directories
 mkdir -p "$conf_dir"
 
-# write initial config to the config file
-printf %s "Setting initial config... "
+# write config
+printf %s "Setting config... "
 
 setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
