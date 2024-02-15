@@ -27,19 +27,19 @@ Examples:
 
 Example: `-p "btcp:all"` - for tcp, geoblock all ports (default behavior)
 
-Example: `-p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic ports 125-135 and 7, allow traffic incoming on all others (doesn't affect UDP traffic)
+Example: `-p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports (doesn't affect UDP traffic)
 
-Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock traffic incoming on other ports (doesn't affect UDP traffic)
+Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incomin traffic on other tcp ports (doesn't affect UDP traffic)
 
-Example: `-p "audp:15-20,3"` - for udp, allow traffic incoming on ports 15-20 and 3, geoblock all other incoming traffic (doesn't affect TCP traffic)
+Example: `-p "audp:15-20,3"` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
 
 Example: `-p "audp:10-12,14-18; btcp:80,8080"`
-- allow traffic arriving on udp ports 10-12 and 14-18, geoblock all other udp incoming traffic
+- allow traffic arriving on udp ports 10-12 and 14-18, geoblock all other incoming udp traffic
 - geoblock traffic arriving on tcp ports 80,8080, allow all other tcp traffic
 
 11) How to remove specific ports assignment:
     - use `-p b[proto]:all`.
-	Example: `geoip-shell -p btcp:all` will remove any prior rules concerning ports with the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+	Example: `geoip-shell -p btcp:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
 
 12) How to make specific protocol packets bypass geoip blocking:
     -use `p a[proto]:all`
