@@ -31,6 +31,7 @@ Provides interface to configure geoip blocking.
 Actions:
     on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
     add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
+    apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
     schedule    : change the cron schedule
     status      : check on the current status of geoip blocking
     reset       : reset geoip config and firewall geoip rules
@@ -39,9 +40,12 @@ Actions:
 Options:
     -c <"country_codes">      : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
     -s <"expression"|disable> : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                        must be inside double quotes.
-                                        default schedule is "15 4 * * *" (at 4:15 [am] every day)
+                                    must be inside double quotes.
+                                    default schedule is "15 4 * * *" (at 4:15 [am] every day)
                                 disable: skip creating the autoupdate cron job
+    -p <port_options>          : Only geoblock traffic arriving on specific ports,
+                                     or geoblock all traffic except traffic arriving on specific ports.
+                                     For examples, refer to NOTES.md.
 
     -v                        : Verbose status output
     -f                        : Force the action
@@ -57,16 +61,18 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|status|schedule|restore|reset|on|off) ;;
+	add|remove|status|schedule|restore|reset|on|off|apply) ;;
 	*) unknownact
 esac
 
 # process the rest of the arguments
 shift 1
-while getopts ":c:s:vfdh" opt; do
+while getopts ":c:s:p:vfdh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		s) cron_schedule=$OPTARG ;;
+		p) ports_arg="$OPTARG" ;;
+
 		v) verb_status=1 ;;
 		f) force_action=1 ;;
 		d) debugmode_args=1 ;;
@@ -353,10 +359,11 @@ case "$action" in
 
 		[ "$rv" != 0 ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
 		;;
-	schedule|status|restore|reset|on|off) [ "$ccodes_arg" ] && die "Error: action '$action' is incompatible with option '-c'."
+	schedule|status|restore|reset|on|off|apply) [ "$ccodes_arg" ] && die "Error: action '$action' is incompatible with option '-c'."
 esac
 
-[ "$action" != "schedule" ] && [ "$cron_schedule" ] && {
+[ "$action" != apply ] && [ "$ports_arg" ] && die "Action '$action' is incompatible with option '-p'."
+[ "$action" != schedule ] && [ "$cron_schedule" ] && {
 	usage
 	die "Action '$action' is incompatible with option '-s'."
 }
@@ -396,6 +403,7 @@ done
 lists_arg="${lists_arg%"${_nl}"}"
 
 case "$action" in
+	apply) lists_to_change="$config_lists"; planned_lists="$config_lists" ;;
 	add)
 		sanitize_str requested_lists "$config_lists$_nl$lists_arg" "$_nl"
 #		debugprint "requested resulting lists: '$requested_lists'"
@@ -431,7 +439,7 @@ case "$action" in
 		subtract_a_from_b "$lists_to_change" "$config_lists" planned_lists
 esac
 
-if [ ! "$lists_to_change" ] && [ ! "$force_action" ]; then
+if [ ! "$lists_to_change" ] && [ "$action" != apply ] && [ ! "$force_action" ]; then
 	printf '\n%s\n' "Lists in the final $list_type: '${blue}$config_lists_str${n_c}'."
 	die 254 "Nothing to do, exiting."
 fi
@@ -443,7 +451,7 @@ if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$list_type" = "whitelis
 fi
 
 # try to prevent possible user lock-out
-check_for_lockout || die "Error in 'check_for_lockout' function."
+[ "$action" != apply ] && { check_for_lockout || die "Error in 'check_for_lockout' function."; }
 
 nl2sp "$lists_to_change" lists_to_change_str
 
@@ -464,7 +472,12 @@ nl2sp "$planned_lists" planned_lists_str
 debugprint "Writing new config to file: 'Lists=$planned_lists_str'"
 setconfig "Lists=$planned_lists_str"
 
-call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
+if [ "$action" = apply ]; then
+	getports "$OPTARG"; setconfig "Ports=$ports"
+	call_script "$script_dir/${proj_name}-apply.sh" "update"; rv=$?
+else
+	call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
+fi
 
 # positive return code means apply failure or another permanent error, except for 254
 case "$rv" in 0|254) ;; *)
