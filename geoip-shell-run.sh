@@ -89,11 +89,8 @@ fi
 trim_spaces lists
 fast_el_cnt "$lists" " " lists_cnt
 
-knowngood_file="$datadir/iptables_knowngood.bak"
 iplist_dir="$datadir/ip_lists"
-
 status_file="$iplist_dir/status"
-
 failed_lists_cnt=0
 
 
@@ -103,8 +100,6 @@ check_deps "$script_dir/${proj_name}-fetch.sh" "$script_dir/${proj_name}-apply.s
 
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Run the installation script again."
-
-[ ! "$knowngood_file" ] && die "Error: Known-good file path can not be empty!"
 
 [ ! "$iplist_dir" ] && die "Error: iplist file path can not be empty!"
 
