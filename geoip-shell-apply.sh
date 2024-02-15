@@ -245,16 +245,15 @@ nft_cmd_chain="$(
 	# ports
 	newifs ';' apply
 	for bp in $ports; do
-		neg=''; mp=''; skip=''
+		neg=''; skip=''
 		len=${#bp}
 		bp="${bp#\~}"
 		[ ${#bp} -lt "$len" ] && neg="!="
 		len=${#bp}
-		bp="${bp#\*}"
 		proto="${bp%"${bp#???}"}"
 		ports="${bp#"$proto"}"
 		case "$proto" in udp|tcp) ;; *) echolog -err "Internal error: invalid value for \$proto: '$proto'."; exit 1; esac
-		[ -z "$ports" ] && { echolog -err "Internal error: \$proto or \$ports is empty"; exit 1; }
+		[ -z "$ports" ] && { echolog -err "Internal error: \$ports is empty"; exit 1; }
 		if [ "$ports" = all ]; then
 			[ -n "$neg" ] && skip=1 || ports="*"
 		fi
