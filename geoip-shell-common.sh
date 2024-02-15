@@ -220,7 +220,6 @@ getconfig() {
 		eval "$outvar_gc"=''
 		[ ! "$nodie" ] && die "Error: Failed to read value for '$key_conf' from file '$target_file'."
 	}
-
 	read_conf() {
 		[ ! -s "$target_file" ] && { getconfig_failed; return 1; }
 		conf="$(cat "$target_file")" || { getconfig_failed; return 1; }
@@ -243,7 +242,6 @@ getconfig() {
 			esac ;;
 		*) read_conf || { getconfig_failed; return 1; }
 	esac
-
 	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || { getconfig_failed; return 2; }
 	eval "$2"='${conf_line#"${key_conf}"=}'
 	return 0
@@ -315,6 +313,7 @@ setconfig() {
 	done
 	printf %s "$newconfig$args_lines" > "$target_file" || { die "setconfig: failed to overwrite '$target_file'"; }
 	oldifs sc
+	export config_var=""
 	return 0
 }
 
@@ -451,6 +450,60 @@ detect_init() {
 	esac
 	init_sys="unknown"
 	return 1
+}
+
+# format: '-r [a|b][proto]:[all|[u|v-w][,x|y-z][...]]; [a-b]proto:[all|[u|v-w][,x|y-z][...]]'
+getports() {
+	invalid_str() { usage; die "Invalid string '$1' in '$sourceline'."; }
+	check_edge_chars() {
+		[ "${1%"${1#?}"}" = "$2" ] && invalid_str "$2"
+		[ "${1#"${1%?}"}" = "$2" ] && invalid_str "$2"
+	}
+	sourceline="$1"
+	trim_spaces line "$sourceline"
+	check_edge_chars "$line" ";"
+	ranges=''
+	reg_proto=''
+	newifs ";" gp
+	for _opt in $line; do
+		_ports=''; neg=''; mp=''
+		case "$_opt" in *:*) ;; *) invalid_str "$_opt"; esac
+		_proto="${_opt%%:*}"
+		_ranges="${_opt#*:}"
+		case "$_ranges" in *:*) invalid_str "$_ranges"; esac
+		trim_spaces _ranges
+		trim_spaces _proto
+		case $_proto in
+			audp|atcp|budp|btcp) r_proto="${_proto#a}"; r_proto="${r_proto#b}"
+						case "$reg_proto" in *"$r_proto"*) usage; die "Error: can't add protocol '$r_proto' twice"; esac
+				reg_proto="$reg_proto$r_proto " ;;
+			*) usage; die "Unsupported protocol '$_proto'."
+		esac
+		check_edge_chars "$_ranges" ","
+		neg="~"
+		[ "${_proto%%???}" = "a" ] && neg=''
+		[ "$_ranges" = all ] && { r_ports="$r_ports$neg${r_proto}all;"; continue; }
+		IFS=","; ranges_cnt=0
+		for _range in $_ranges; do
+			ranges_cnt=$((ranges_cnt+1))
+			trim_spaces _range
+			check_edge_chars "$_range" "-"
+			case "${_range#*-}" in *-*) invalid_str "$_range"; esac
+			IFS="-"
+			for _port in $_range; do
+				trim_spaces _port
+				case "$_port" in *[!0-9]*) invalid_str "$_port"; esac
+				_ports="$_ports$_port:"
+			done
+			_ports="${_ports%:},"
+			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && invalid_str "$_range"; esac
+		done
+		[ "$ranges_cnt" = 0 ] && { usage; die "Error: no ports specified for protocol $r_proto."; }
+		[ "$ranges_cnt" -gt 1 ] && mp="*"
+		r_ports="$r_ports$neg$mp$r_proto${_ports%,};"
+	done
+	ports="${r_ports%;}"
+	oldifs gp
 }
 
 check_cron() {
