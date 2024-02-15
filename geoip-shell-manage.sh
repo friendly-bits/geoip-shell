@@ -101,6 +101,7 @@ report_status() {
 	done
 
 	printf '\n%s\n' "${purple}Geoip blocking status report:${n_c}"
+	printf '\n%s\n' "$me installed for ${blue}iptables${n_c}."
 
 	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${list_type}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
 
