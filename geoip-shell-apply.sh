@@ -43,7 +43,7 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|on|off) ;;
+	add|remove|on|off|update) ;;
 	* ) unknownact
 esac
 
@@ -173,12 +173,11 @@ get_curr_ipsets() {
 export list_type="$list_type"
 case "$list_type" in whitelist) fw_target="ACCEPT" ;; *) fw_target="DROP"; esac
 
-for entry in "Families families" "NoBlock noblock" "ListType list_type" \
+for entry in "Families families" "NoBlock noblock" "ListType list_type" "Ports ports"\
 		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
-
 
 exitvalue=0
 
@@ -218,7 +217,7 @@ case "$action" in
 	on) enable_geoip; exit 0
 esac
 
-[ ! "$list_ids" ] && {
+[ ! "$list_ids" ] && [ "$action" != update ] && {
 	usage
 	die 254 "Specify iplist id's!"
 }
@@ -269,12 +268,12 @@ for family in $families; do
 	iptr_cmd_chain="$(
 		rv=0
 
-		echo "*$ipt_table"
+		printf '%s\n' "*$ipt_table"
 
 		### Remove existing geoip rules
 
 		## Remove the main blocking rule, the whitelist blocking rule and the auxiliary rules
-		mk_ipt_rm_cmd "${geotag}_enable" "${geotag}_aux" "${geotag}_whitelist_block" "${geotag}_iface_filter" || rv=1
+		mk_ipt_rm_cmd "${geotag}_enable" "${geotag_aux}" "${geotag}_whitelist_block" "${geotag}_iface_filter" || rv=1
 
 		## Remove rules for $list_ids
 		for list_id in $list_ids; do
@@ -298,10 +297,33 @@ for family in $families; do
 
 		## Auxiliary rules
 
-		### local networks
+		# local networks
 		if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
-			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src -m comment --comment ${geotag}_aux_lan_$family -j ACCEPT"
+			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src -m comment --comment ${geotag_aux}_lan_$family -j ACCEPT"
 		fi
+
+		# ports
+		newifs ';' apply
+		for bp in $ports; do
+			neg=''; mp=''; skip=''
+			len=${#bp}
+			bp="${bp#\~}"
+			[ ${#bp} -lt "$len" ] && neg="!"
+			len=${#bp}
+			bp="${bp#\*}"
+			[ ${#bp} -lt "$len" ] && { mp="-m multiport"; dport=dports; } || { mp=''; dport=dport; }
+			proto="${bp%"${bp#???}"}"
+			ports="${bp#"$proto"}"
+			case "$proto" in udp|tcp) ;; *) echolog -err "Internal error: invalid value for \$proto: '$proto'."; exit 1; esac
+			[ -z "$ports" ] && { echolog -err "Internal error: \$proto or \$ports is empty"; exit 1; }
+			if [ "$ports" = all ]; then
+				[ -n "$neg" ] && skip=1 || dport=''
+			else
+				dport="$mp $neg --$dport $ports"
+			fi
+			[ ! "$skip" ] && printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT -m comment --comment ${geotag_aux}_ports"
+		done
+		oldifs apply
 
 		# established/related
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment ${geotag_aux}_rel-est -j ACCEPT"
