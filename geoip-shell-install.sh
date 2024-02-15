@@ -33,8 +33,8 @@ set -- $arguments; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>]
-            [ -f <"families"> ] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-p] [-o] [-n] [-k] [-d] [-h]
+Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>] [ -f <"families"> ]
+            [-u <ripe|ipdeny>] [-t <host|router>] [-p <portoptions>] [-a] [-e] [-o] [-n] [-k] [-d] [-h]
 
 Installer for geoip blocking suite of shell scripts.
 Must be run as root.
@@ -54,11 +54,14 @@ Core Options:
                                   or to all network interfaces.
                                   If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
                                   If not specified, asks during installation.
+-p <port_options>           : Only geoblock traffic arriving on specific ports,
+                                  or geoblock all traffic except traffic arriving on specific ports.
+                                  For examples, refer to NOTES.md.
 
 Extra Options:
 -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
           If not specified, asks during installation.
--p  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
+-e  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
 -o  : No backup. Will not create a backup of previous firewall state after applying changes.
 -n  : No persistence. Geoip blocking may not work after reboot.
 -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
@@ -71,7 +74,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:r:aponkdh" opt; do
+while getopts ":c:m:s:f:u:i:r:p:aeonkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
@@ -82,7 +85,8 @@ while getopts ":c:m:s:f:u:i:r:aponkdh" opt; do
 
 		r) ports_arg=$OPTARG ;;
 		a) autodetect=1 ;;
-		p) perf_opt="performance" ;;
+		e) perf_opt="performance" ;;
+		p) getports "$OPTARG" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
 		k) noblock=1 ;;
@@ -390,7 +394,7 @@ case "$iface_type" in
 esac
 
 [ -z "$iface_type" ] && {
-	printf '\n%s\n%s\n%s\n%\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
+	printf '\n%s\n%s\n%s\n%s\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
 		"For example, a router or a virtual private server may have it." \
 		"A machine connected to a LAN behind a router is unlikely to have it." \
 		"It is important to asnwer this question correctly."
@@ -410,7 +414,7 @@ mkdir -p "$conf_dir"
 # write config
 printf %s "Setting config... "
 
-setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" \
+setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "Ports=$ports" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
