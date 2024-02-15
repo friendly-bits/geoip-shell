@@ -34,8 +34,8 @@ set -- $arguments; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>]
-            [ -f <"families"> ] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-o] [-n] [-k] [-d] [-h]
+Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>] [ -f <"families"> ]
+            [-p <ports_options>] [-u <ripe|ipdeny>] [-t <host|router>] [-a] [-o] [-n] [-k] [-d] [-h]
 
 Installer for geoip blocking suite of shell scripts.
 Must be run as root.
@@ -55,8 +55,7 @@ Core Options:
                                     or to all network interfaces.
                                     If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
                                     If not specified, asks during installation.
--p <[a|b][proto]:[all|ports];[a|b][proto]:[all|ports]>
-                               : Only geoblock traffic arriving on specific ports,
+-p <ports_options>            : Only geoblock traffic arriving on specific ports,
                                      or geoblock all traffic except traffic arriving on specific ports.
                                      For examples, refer to NOTES.md.
 
