@@ -71,7 +71,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:aponkdh" opt; do
+while getopts ":c:m:s:f:u:i:r:aponkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
@@ -80,6 +80,7 @@ while getopts ":c:m:s:f:u:i:aponkdh" opt; do
 		u) source_arg=$OPTARG ;;
 		i) iface_type=$OPTARG ;;
 
+		r) ports_arg=$OPTARG ;;
 		a) autodetect=1 ;;
 		p) perf_opt="performance" ;;
 		o) nobackup=1 ;;
@@ -103,7 +104,6 @@ debugentermsg
 check_files() {
 	missing_files=""
 	err=0
-
 	for dep_file in $1; do
 		if [ ! -s "$script_dir/$dep_file" ]; then
 			missing_files="${missing_files}'$dep_file', "
@@ -116,7 +116,6 @@ check_files() {
 
 copyscripts() {
 	destination="${install_dir}/"
-
 	for scriptfile in $1; do
 		rv=0
 		cp -p "$script_dir/$scriptfile" "$destination" || install_failed "Error copying file '$scriptfile' to '$destination'."
@@ -132,6 +131,48 @@ install_failed() {
 	echo "Uninstalling ${proj_name}..." >&2
 	call_script "$script_dir/${proj_name}-uninstall.sh"
 	exit 1
+}
+
+# format: '-r proto:A-B; proto:C-D,E,F-G; proto:H'
+get_ports() {
+
+	invalid_line() { usage; die "Invalid value for '-r': '$sourceline'."; }
+	check_edge_chars() {
+		[ "${1%"${1#?}"}" = "$2" ] && invalid_line
+		[ "${1#"${1%?}"}" = "$2" ] && invalid_line
+	}
+	sourceline="$1"
+	trim_spaces line "$sourceline"
+	check_edge_chars "$line" ";"
+	IFS=";"
+	for opt in $line; do
+		case "$opt" in *:*) ;; *) invalid_line; esac
+		proto="${opt%%:}"
+		ports="${opt#:}"
+		case "$ports" in *:*) invalid_line; esac
+		trim_spaces ports
+		trim_spaces proto
+		case $proto in
+			udp|tcp) ;;
+			*) die "Unsupported protocol '$proto'."
+		esac
+		check_edge_chars "$ports" ","
+		IFS=","
+		for chunk in $ports; do
+			trim_spaces chunk
+			check_edge_chars "$chunk" "-"
+			case "${chunks%%-}" in *-*) invalid_line; esac
+			fragments=''
+			IFS="-"
+			for fragment in $chunk; do
+				trim_spaces fragment
+				case "$fragment" in *[!0-9]*) invalid_line; esac
+				fragments="${fragments}{fragment}-}"
+			done
+			fragments="${fragments%-}"
+		done
+	done
+
 }
 
 # checks country code by asking the user, then validates against known-good list
