@@ -24,14 +24,14 @@ set -- $arguments; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>] [-p <ports_options>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
     on|off      : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
     add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
-    apply       : apply current config settings. If used with option '-p', allows change ports geoblocking applies to.
+    apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
     schedule    : change the cron schedule (has no effect on iptables rules)
     status      : check on the current status of geoip blocking
     reset       : reset geoip config and firewall geoip rules
@@ -44,8 +44,7 @@ Options:
                                         default schedule is "15 4 * * *" (at 4:15 [am] every day)
                                 disable: skip creating the autoupdate cron job
 
-    -p <[a|b][proto]:[all|ports];[a|b][proto]:[all|ports]>
-                              : Only geoblock traffic arriving on specific ports,
+    -p <ports_options>        : Only geoblock traffic arriving on specific ports,
                                     or geoblock all traffic except traffic arriving on specific ports.
                                     For examples, refer to NOTES.md.
 
