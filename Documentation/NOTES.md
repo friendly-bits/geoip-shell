@@ -17,7 +17,35 @@
 
 9) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
 
-10) To test before deployment:
+10) How to geoblock or allow specific ports (applies to the _-install_ and _-manage_ scripts).
+    The general syntax is: `-p <[a|b][proto]:[all|ports];[a|b][proto]:[all|ports]>`
+    Where `[a|b]` stands for "allow" or "block", "proto" stands for "tcp" or "udp", "ports" may be any combinations of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
+    If specifying multiple protocols, separate them by `;`.
+
+Examples:
+**Note the double-quotes!**
+
+Example: `-p "btcp:all"` - for tcp, geoblock all ports (default behavior)
+
+Example: `-p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic ports 125-135 and 7, allow traffic incoming on all others (doesn't affect UDP traffic)
+
+Example: `-p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock traffic incoming on other ports (doesn't affect UDP traffic)
+
+Example: `-p "audp:15-20,3"` - for udp, allow traffic incoming on ports 15-20 and 3, geoblock all other incoming traffic (doesn't affect TCP traffic)
+
+Example: `-p "audp:10-12,14-18; btcp:80,8080"`
+- allow traffic arriving on udp ports 10-12 and 14-18, geoblock all other udp incoming traffic
+- geoblock traffic arriving on tcp ports 80,8080, allow all other tcp traffic
+
+11) How to remove specific ports assignment:
+    - use `-p b[proto]:all`.
+	Example: `geoip-shell -p btcp:all` will remove any prior rules concerning ports with the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+
+12) How to make specific protocol packets bypass geoip blocking:
+    -use `p a[proto]:all`
+	Example: `geoip-shell -p audp:all` will allow all udp packets on all ports to bypass the geoip filter.
+
+13) To test before deployment:
 <details> <summary>Read more:</summary>
   
 - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
@@ -25,7 +53,7 @@
 
 </details>
 
-11) How to get yourself locked out of your remote server and how to prevent this:
+12) How to get yourself locked out of your remote server and how to prevent this:
 <details> <summary>Read more:</summary>
   
 There are 3 ways to get yourself locked out of your remote server with this suite:
