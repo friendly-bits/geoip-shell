@@ -86,7 +86,7 @@ else
 	lists="$arg_lists"
 fi
 
-trim_spaces "$lists" lists
+trim_spaces lists
 fast_el_cnt "$lists" " " lists_cnt
 
 iplist_dir="$datadir/ip_lists"

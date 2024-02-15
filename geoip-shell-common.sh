@@ -331,12 +331,12 @@ setstatus() {
 	[ ! "$target_file" ] && die "setstatus: Error: target file not specified!" || setconfig "target_file=$target_file" "$@"
 }
 
-# 1 - string
-# 2 - var name for output
+# 1 - var name
+# (optional) 2 - string
 trim_spaces() {
-	trim_var="$2"
+	trim_var="$1"
 	newifs "$trim_IFS" trim
-	set -- $1
+	case "$2" in '') eval "set -- \$$1" ;; *) set -- $2; esac
 	eval "$trim_var"='$*'
 	oldifs trim
 }
@@ -423,7 +423,7 @@ nl2sp() {
 sanitize_args() {
 	arguments=''
 	for arg in "$@"; do
-		trim_spaces "$arg" "arg"
+		trim_spaces arg
 		[ "$arg" ] && arguments="$arguments$arg$delim"
 	done
 }
