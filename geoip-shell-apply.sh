@@ -266,7 +266,7 @@ nft_cmd_chain="$(
 )" || die_a 254 "Error: Failed to assemble nftables commands."
 echo "Ok."
 
-# debugprint "new rules: $newline'$nft_cmd_chain'"
+# debugprint "new rules: $_nl'$nft_cmd_chain'"
 
 ### Apply new rules
 printf %s "Applying new firewall rules... "
