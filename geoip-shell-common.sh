@@ -485,11 +485,10 @@ setports() {
 		dport="--$dport ${_ports%,}"
 	}
 
-	_lines="$1"
+	_lines="$(tolower "$1")"
 	newifs "$_nl" sp
 	for _line in $_lines; do
 		unset ranges _ports neg mp skip
-		_line="$(tolower "$_line")"
 		trim_spaces _line
 		check_edge_chars "$_line" ":" || return 1
 		IFS=":"
@@ -531,6 +530,7 @@ statustip() {
 
 report_lists() {
 	get_active_iplists verified_lists
+	nl2sp "$verified_lists" verified_lists
 	printf '\n%s\n\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
 }
 
