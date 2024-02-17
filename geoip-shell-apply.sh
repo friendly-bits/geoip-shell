@@ -82,7 +82,7 @@ die_a() {
 #### VARIABLES
 
 for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" "Ports ports" \
+		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" "tcp tcp_ports" "udp udp_ports" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
@@ -243,25 +243,11 @@ nft_cmd_chain="$(
 	fi
 
 	# ports
-	newifs ';' apply
-	for bp in $ports; do
-		neg=''; skip=''
-		len=${#bp}
-		bp="${bp#\~}"
-		[ ${#bp} -lt "$len" ] && neg="!="
-		len=${#bp}
-		proto="${bp%"${bp#???}"}"
-		ports="${bp#"$proto"}"
-		case "$proto" in udp|tcp) ;; *) echolog -err "Internal error: invalid value for \$proto: '$proto'."; exit 1; esac
-		[ -z "$ports" ] && { echolog -err "Internal error: \$ports is empty"; exit 1; }
-		if [ "$ports" = all ]; then
-			[ -n "$neg" ] && skip=1 || ports="*"
-		fi
-		dport="dport $neg { $ports } counter"
-		[ ! "$skip" ] &&
-			printf '%s\n' "insert rule inet $geotable $geochain $proto $dport accept comment ${geotag_aux}_ports"
+	for proto in tcp udp; do
+		eval "proto_exp=\"\$${proto}_ports\""
+		[ "$proto_exp" = skip ] && continue
+		printf '%s\n' "insert rule inet $geotable $geochain $proto_exp counter accept comment ${geotag_aux}_ports"
 	done
-	oldifs apply
 
 	# established/related
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
