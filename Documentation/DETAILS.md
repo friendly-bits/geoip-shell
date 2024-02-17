@@ -33,15 +33,16 @@ After installation, the user interface is provided by running "geoip-shell", whi
 - Required arguments are `-c <"country_codes">` and `-m <whitelist|blacklist>`
 - Accepts optional custom cron schedule expression for the autoupdate schedule with the '-s' option. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
 
-Advanced options:
-- `t <host|router>`: specify the device type in advance (if not specified, asks during installation).
-- `-a`: autodetect LAN subnets (for hosts) or WAN interfaces (for routers) (if not specified, asks during installation).
-- `-u`: specify source for fetching ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
+Additional options:
+- `-u <source>`: specify source for fetching of ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
+- `-i <wan|all>`: specify whether firewall rules will be applied to specific WAN network interface(s) or to all network interfaces. If not specified, asks during installation.
+- `-a`: autodetect LAN subnets or WAN interfaces (depending on whether geoip is applied to wan interfaces or to all interfaces). If not specified, asks during installation.
 - `-f`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
+- `-p [tcp|udp]:[allow|block]:[all|ports]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
 - `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
 - `-o`: disable automatic backups of the firewall geoip rules and geoip config.
 - `-k`: skip adding the geoip 'enable' rule. This can be used if you want to check everything before commiting to geoip blocking. To enable blocking later, use the *manage script.
-- `-p`: create ip sets with the 'performance' policy (defaults to 'memory' policy for low memory consumption)
+- `-e`: create ip sets with the 'performance' policy (defaults to 'memory' policy for low memory consumption)
 
 **geoip-shell-uninstall.sh**
 - Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/sbin
@@ -68,6 +69,11 @@ Advanced options:
 `geoip-shell schedule -s disable` : disables ip lists autoupdate.
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
+
+`geoip-shell apply -p [tcp|udp]:[allow|block]:[all|ports]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
+
+`geoip-shell showconfig` : prints the contents of the config file.
+
 
 **geoip-shell-run.sh**: Serves as a proxy to call the -fetch, -apply and -backup scripts with arguments required for each action. Executes the requested actions, depending on the config set by the -install and -manage scripts, and the command line options. If persistence or autoupdates are enabled, the cron jobs call this script with the necessary options.
 

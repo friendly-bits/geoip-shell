@@ -91,6 +91,9 @@ _(Note that all commands require root privileges, so you will likely need to run
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
 **4)** run `sh geoip-shell-install.sh -m <whitelist|blacklist> -c <"country_codes">`.
+
+_(for advanced installation options, such as selectively geoblocking certain ports, read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md))_
+
 _<details><summary>Examples:</summary>_
 
 - example (whitelist Germany and block all other countries): `sh geoip-shell-install.sh -m whitelist -c DE`
@@ -135,6 +138,10 @@ _<details><summary>Examples:</summary>_
 
 **To enable or disable geoip blocking:** run `geoip-shell <on|off>`
 
+**To change protocols and ports geoblocking applies to:** run `geoip-shell -p [tcp|udp]:[allow|block]:[all|ports]`
+
+_(for details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12)_
+
 **To enable or change the autoupdate schedule**, use the `-s` option followed by the cron schedule expression in doulbe quotes:
 
 `geoip-shell schedule -s <"schdedule_expression">`
@@ -152,6 +159,8 @@ _<details><summary>Example</summary>_
 **To switch mode (from whitelist to blacklist or the opposite):** re-install
 
 **To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
+
+**For info about some additional actions:** run `geoip-shell -h`
 
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
