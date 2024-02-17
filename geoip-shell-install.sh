@@ -55,9 +55,10 @@ Core Options:
                                     or to all network interfaces.
                                     If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
                                     If not specified, asks during installation.
--p <ports_options>            : Only geoblock traffic arriving on specific ports,
-                                     or geoblock all traffic except traffic arriving on specific ports.
-                                     For examples, refer to NOTES.md.
+-p <"[allow|block]:proto:ports"> : Only geoblock incoming traffic on specific ports,
+                                     or geoblock all incoming traffic except on specific ports.
+                                     Multiple '-p' options are allowed.
+                                     For details, refer to NOTES.md.
 
 Extra Options:
 -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
@@ -84,7 +85,7 @@ while getopts ":c:m:s:f:u:i:p:aonkdh" opt; do
 		i) iface_type=$OPTARG ;;
 
 		a) autodetect=1 ;;
-		p) getports "$OPTARG" ;;
+		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
 		k) noblock=1 ;;
@@ -373,11 +374,12 @@ mkdir -p "$conf_dir"
 # write config
 printf %s "Setting config... "
 
-setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "Ports=$ports" \
+setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "tcp=skip" "udp=skip" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "BackupFile=" "HTTP="
+[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 printf '%s\n' "Ok."
 
 # Create the directory for downloaded lists and, if required, parent directories
@@ -413,7 +415,7 @@ else
 	printf '%s\n\n' "Warning: Installed with no persistence and no autoupdate functionality."
 fi
 
-printf '%s\n\n%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')." \
-	"Install done."
+statustip
+echo "Install done."
 
 exit 0
