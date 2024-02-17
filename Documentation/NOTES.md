@@ -18,33 +18,30 @@
 9) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
 
 10) How to geoblock or allow specific ports (applies to the _-install_ and _-manage_ scripts).
-    The general syntax is: `-p <[a|b][proto]:[all|ports];[a|b][proto]:[all|ports]>`
-    Where `[a|b]` stands for "allow" or "block", "proto" stands for "tcp" or "udp", "ports" may be any combinations of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
-    If specifying multiple protocols, separate them by `;`.
-    **Note** that multiple commands setting ports are not iterative. Issuing one command concerning ports will override previous commands.
+    The general syntax is: `-p <[tcp|udp]:[allow|block]:[all|ports]>`
+    Where `ports` may be any combination of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
+    Multiple `-p` options are allowed, for example: `-p tcp:allow:22,23 -p udp:block:128-256,3`
 
 Examples:
 **Note the double-quotes!**
 
-Example: `geoip-shell apply -p "btcp:all"` - for tcp, geoblock all ports (default behavior)
+Example: `sh geoip-shell-install -c de -m whitelist -p tcp:allow:125-135,7` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
 
-Example: `geoip-shell apply -p "btcp:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports (doesn't affect UDP traffic)
+Example: `sh geoip-shell-install -c de -m blacklist -p udp:allow:3,15-20,1024-2048` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
 
-Example: `sh geoip-shell-install -c de -m whitelist -p "atcp:125-135,7"` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
+Example: `geoip-shell apply -p tcp:block:all` - for tcp, geoblock all ports (default behavior)
 
-Example: `sh geoip-shell-install -c de -m blacklist -p "audp:15-20,3"` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
+Example: `geoip-shell apply -p udp:allow:all` - for udp, don't geoblock any ports (completely disables geoblocking for udp)
 
-Example: `geoip-shell apply -p "audp:10-12,14-18; btcp:80,8080"`
-- allow traffic arriving on udp ports 10-12 and 14-18, geoblock all other incoming udp traffic
-- geoblock traffic arriving on tcp ports 80,8080, allow all other tcp traffic
+Example: `geoip-shell apply -p "tcp:block:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports
 
 11) How to remove specific ports assignment:
-    - use `-p b[proto]:all`.
-	Example: `geoip-shell -p btcp:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+    - use `-p [tcp|udp]:block:all`.
+	Example: `geoip-shell -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
 
 12) How to make specific protocol packets bypass geoip blocking:
-    -use `p a[proto]:all`
-	Example: `geoip-shell -p audp:all` will allow all udp packets on all ports to bypass the geoip filter.
+    -use `p [tcp|udp]:allow:all`
+	Example: `geoip-shell -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
 
 13) To test before deployment:
 <details> <summary>Read more:</summary>
