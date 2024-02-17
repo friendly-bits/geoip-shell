@@ -41,24 +41,24 @@ Installer for geoip blocking suite of shell scripts.
 Must be run as root.
 
 Core Options:
--c <"country_codes">          : 2-letter country codes to fetch and apply the iplists for.
-                                  (if passing multiple country codes, use double quotes)
--m <whitelist|blacklist>      : geoip blocking mode: whitelist or blacklist
-                                  (to change the mode after installation, run the *install script again)
--s <"expression"|disable>     : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                  must be inside double quotes
-                                  default is "15 4 * * *" (4:15 am every day)
-                                "disable" will disable automatic updates of the ip lists
--f <ipv4|ipv6|"ipv4 ipv6">    : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
--u <ripe|ipdeny>              : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
--i <wan|all>                  : Specifies whether firewall rules will be applied to specific WAN network interface(s)
-                                    or to all network interfaces.
-                                    If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
-                                    If not specified, asks during installation.
--p <"[allow|block]:proto:ports"> : Only geoblock incoming traffic on specific ports,
-                                     or geoblock all incoming traffic except on specific ports.
-                                     Multiple '-p' options are allowed.
-                                     For details, refer to NOTES.md.
+-c <"country_codes">              : 2-letter country codes to fetch and apply the iplists for.
+                                      (if passing multiple country codes, use double quotes)
+-m <whitelist|blacklist>          : geoip blocking mode: whitelist or blacklist
+                                      (to change the mode after installation, run the *install script again)
+-s <"expression"|disable>         : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
+                                      must be inside double quotes
+                                      default is "15 4 * * *" (4:15 am every day)
+                                    "disable" will disable automatic updates of the ip lists
+-f <ipv4|ipv6|"ipv4 ipv6">        : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
+-u <ripe|ipdeny>                  : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+-i <wan|all>                      : Specifies whether firewall rules will be applied to specific WAN network interface(s)
+                                        or to all network interfaces.
+                                        If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
+                                        If not specified, asks during installation.
+-p <protocol:[allow|block]:ports> : Only geoblock incoming traffic on specific ports,
+                                      or geoblock all incoming traffic except on specific ports.
+                                      Multiple '-p' options are allowed.
+                                      For details, refer to NOTES.md.
 
 Extra Options:
 -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
