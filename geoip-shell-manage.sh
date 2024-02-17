@@ -26,35 +26,35 @@ cat <<EOF
 
 Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>] [-p <ports_options>] [-v] [-f] [-d] [-h]
 
-Provides interface to configure geoip blocking.
+Provides interface to configure geoip blocking or retrieve its status.
 
 Actions:
-    on|off      : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
-    add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
-    apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
-    schedule    : change the cron schedule (has no effect on iptables rules)
-    status      : check on the current status of geoip blocking
-    reset       : reset geoip config and firewall geoip rules
-    restore     : re-apply geoip blocking rules from the config
-    showconfig  : print the contents of the config file
+
+on|off      : enable or disable the geoip blocking chain (via a rule in the PREROUTING chain)
+add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
+apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
+schedule    : change the cron schedule (has no effect on iptables rules)
+status      : check on the current status of geoip blocking
+reset       : reset geoip config and firewall geoip rules
+restore     : re-apply geoip blocking rules from the config
+showconfig  : print the contents of the config file
 
 Options:
-    -c <"country_codes">      : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
-    -s <"expression"|disable> : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                        must be inside double quotes.
-                                        default schedule is "15 4 * * *" (at 4:15 [am] every day)
-                                disable: skip creating the autoupdate cron job
 
-    -p <ports_options>        : Only geoblock traffic arriving on specific ports,
-                                    or geoblock all traffic except traffic arriving on specific ports.
-                                    Multiple '-p' options are allowed.
-                                    For examples, refer to NOTES.md.
-                                    Only works with the 'apply' action.
-
-    -v                        : Verbose status output
-    -f                        : Force the action
-    -d                        : Debug
-    -h                        : This help
+-c <"country_codes">              : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
+-s <"expression"|disable>         : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
+                                            must be inside double quotes.
+                                            default schedule is "15 4 * * *" (at 4:15 [am] every day)
+                                    disable: skip creating the autoupdate cron job
+-p <protocol:[allow|block]:ports> : Only geoblock incoming traffic on specific ports,
+                                        or geoblock all traffic except traffic arriving on specific ports.
+                                        Multiple '-p' options are allowed.
+                                        For examples, refer to NOTES.md.
+                                        Only works with the 'apply' action.
+-v                                : Verbose status output
+-f                                : Force the action
+-d                                : Debug
+-h                                : This help
 
 EOF
 }
