@@ -209,13 +209,11 @@ set +f
 case "$action" in
 	create-backup)
 		create_backup
-		printf '\n%s\n' "Successfully created backup of config, ip sets and firewall rules."
-		;;
+		printf '\n%s\n' "Successfully created backup of config, ip sets and firewall rules." ;;
 	restore)
 		restorebackup
 		echolog "Successfully restored the firewall state from backup."
-		printf '\n%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
-		;;
+		statustip ;;
 	*) unknownact
 esac
 
