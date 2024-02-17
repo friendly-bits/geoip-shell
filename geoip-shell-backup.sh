@@ -110,7 +110,7 @@ restorebackup() {
 	[ "$line_cnt" = 0 ] && restore_failed "Error: ipset backup appears to be empty or non-existing."
 	printf '%s\n\n' "Ok."
 
-	### Remov geoip iptables rules and ipsets
+	### Remove geoip iptables rules and ipsets
 	rm_all_ipt_rules || restore_failed "Error removing firewall rules and ipsets."
 
 	echo
@@ -269,7 +269,7 @@ case "$action" in
 		# save backup file full path to the config file
 		setconfig "BackupFile=$bk_file"
 		echolog "Successfully restored ipset and iptables state from backup."
-		printf '\n%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+		statustip
 		;;
 	*) unknownact
 esac
