@@ -40,23 +40,24 @@ Installer for geoip blocking suite of shell scripts.
 Must be run as root.
 
 Core Options:
--c <"country_codes">        : 2-letter country codes to fetch and apply the iplists for.
-                                (if passing multiple country codes, use double quotes)
--m <whitelist|blacklist>    : geoip blocking mode: whitelist or blacklist
-                                (to change the mode after installation, run the *install script again)
--s <"expression"|disable>   : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                must be inside double quotes
-                                default is "15 4 * * *" (4:15 am every day)
-                              "disable" will disable automatic updates of the ip lists
--f <ipv4|ipv6|"ipv4 ipv6">  : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
--u <ripe|ipdeny>            : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
--i <wan|all>                : Specifies whether firewall rules will be applied to specific WAN network interface(s)
-                                  or to all network interfaces.
-                                  If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
-                                  If not specified, asks during installation.
--p <port_options>           : Only geoblock traffic arriving on specific ports,
-                                  or geoblock all traffic except traffic arriving on specific ports.
-                                  For examples, refer to NOTES.md.
+-c <"country_codes">               : 2-letter country codes to fetch and apply the iplists for.
+                                       (if passing multiple country codes, use double quotes)
+-m <whitelist|blacklist>           : geoip blocking mode: whitelist or blacklist
+                                       (to change the mode after installation, run the *install script again)
+-s <"expression"|disable>          : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
+                                       must be inside double quotes
+                                       default is "15 4 * * *" (4:15 am every day)
+                                     "disable" will disable automatic updates of the ip lists
+-f <ipv4|ipv6|"ipv4 ipv6">         : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
+-u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+-i <wan|all>                       : Specifies whether firewall rules will be applied to specific WAN network interface(s)
+                                         or to all network interfaces.
+                                         If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
+                                         If not specified, asks during installation.
+-p <[tcp|udp]:[allow|block]:ports> : Only geoblock incoming traffic on specific ports,
+                                         or geoblock all incoming traffic except on specific ports.
+                                         Multiple '-p' options are allowed.
+                                         For details, refer to NOTES.md.
 
 Extra Options:
 -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
@@ -85,8 +86,8 @@ while getopts ":c:m:s:f:u:i:r:p:aeonkdh" opt; do
 
 		r) ports_arg=$OPTARG ;;
 		a) autodetect=1 ;;
-		e) perf_opt="performance" ;;
-		p) getports "$OPTARG" ;;
+		e) perf_opt=performance ;;
+		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 		o) nobackup=1 ;;
 		n) no_persistence=1 ;;
 		k) noblock=1 ;;
@@ -414,11 +415,12 @@ mkdir -p "$conf_dir"
 # write config
 printf %s "Setting config... "
 
-setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "Ports=$ports" \
+setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "tcp=skip" "udp=skip" \
 	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "HTTP="
+[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 printf '%s\n' "Ok."
 
 # Create the directory for downloaded lists and, if required, parent directories
@@ -454,7 +456,7 @@ else
 	printf '%s\n\n' "Warning: Installed with no persistence and no autoupdate functionality."
 fi
 
-printf '%s\n\n%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')." \
-	"Install done."
+statustip
+echo "Install done."
 
 exit 0
