@@ -42,7 +42,7 @@ checkutil() {
 }
 
 unknownopt() {
-	usage; die "Unknown option: '-$OPTARG'."
+	usage; die "Unknown option '-$OPTARG' or it requires an argument."
 }
 
 unknownact() {
@@ -452,58 +452,86 @@ detect_init() {
 	return 1
 }
 
-# format: '-r [a|b][proto]:[all|[u|v-w][,x|y-z][...]]; [a-b]proto:[all|[u|v-w][,x|y-z][...]]'
-getports() {
-	invalid_str() { usage; die "Invalid string '$1' in '$sourceline'."; }
+# format: '-p [tcp|udp]:[allow|block]:[ports]'
+setports() {
+	invalid_str() { usage; echolog -err "Invalid string '$1'."; }
 	check_edge_chars() {
-		[ "${1%"${1#?}"}" = "$2" ] && invalid_str "$2"
-		[ "${1#"${1%?}"}" = "$2" ] && invalid_str "$2"
+		[ "${1%"${1#?}"}" = "$2" ] && { invalid_str "$1"; return 1; }
+		[ "${1#"${1%?}"}" = "$2" ] && { invalid_str "$1"; return 1; }
+		return 0
 	}
-	sourceline="$1"
-	trim_spaces line "$sourceline"
-	check_edge_chars "$line" ";"
-	ranges=''
-	reg_proto=''
-	newifs ";" gp
-	for _opt in $line; do
-		_ports=''; neg=''; mp=''
-		case "$_opt" in *:*) ;; *) invalid_str "$_opt"; esac
-		_proto="${_opt%%:*}"
-		_ranges="${_opt#*:}"
-		case "$_ranges" in *:*) invalid_str "$_ranges"; esac
-		trim_spaces _ranges
-		trim_spaces _proto
-		case $_proto in
-			audp|atcp|budp|btcp) r_proto="${_proto#a}"; r_proto="${r_proto#b}"
-						case "$reg_proto" in *"$r_proto"*) usage; die "Error: can't add protocol '$r_proto' twice"; esac
-				reg_proto="$reg_proto$r_proto " ;;
-			*) usage; die "Unsupported protocol '$_proto'."
-		esac
-		check_edge_chars "$_ranges" ","
-		neg="~"
-		[ "${_proto%%???}" = "a" ] && neg=''
-		[ "$_ranges" = all ] && { r_ports="$r_ports$neg${r_proto}all;"; continue; }
-		IFS=","; ranges_cnt=0
+
+	parse_ports() {
+		check_edge_chars "$_ranges" "," || return 1
+		ranges_cnt=0
+		IFS=","
 		for _range in $_ranges; do
 			ranges_cnt=$((ranges_cnt+1))
 			trim_spaces _range
-			check_edge_chars "$_range" "-"
-			case "${_range#*-}" in *-*) invalid_str "$_range"; esac
+			check_edge_chars "$_range" "-" || return 1
+			case "${_range#*-}" in *-*) invalid_str "$_range"; return 1; esac
 			IFS="-"
 			for _port in $_range; do
 				trim_spaces _port
-				case "$_port" in *[!0-9]*) invalid_str "$_port"; esac
+				case "$_port" in *[!0-9]*) invalid_str "$_port"; return 1; esac
 				_ports="$_ports$_port:"
 			done
 			_ports="${_ports%:},"
-			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && invalid_str "$_range"; esac
+			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && { invalid_str "$_range"; return 1; }; esac
 		done
-		[ "$ranges_cnt" = 0 ] && { usage; die "Error: no ports specified for protocol $r_proto."; }
-		[ "$ranges_cnt" -gt 1 ] && mp="*"
-		r_ports="$r_ports$neg$mp$r_proto${_ports%,};"
+		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "Error: no ports specified for protocol $_proto."; return 1; }
+		dport="dport"
+		[ "$ranges_cnt" -gt 1 ] && { mp="-m multiport"; dport="dports"; }
+		dport="--$dport ${_ports%,}"
+	}
+
+	_lines="$1"
+	newifs "$_nl" sp
+	for _line in $_lines; do
+		unset ranges _ports neg mp skip
+		_line="$(tolower "$_line")"
+		trim_spaces _line
+		check_edge_chars "$_line" ":" || return 1
+		IFS=":"
+		set -- $_line
+		[ $# != 3 ] && { usage; echolog -err "Invalid syntax '$_line'"; return 1; }
+		_proto="$1"
+		proto_act="$2"
+		_ranges="$3"
+		trim_spaces _ranges
+		trim_spaces _proto
+		trim_spaces proto_act
+		case "$proto_act" in
+			allow) neg='' ;;
+			block) neg='!' ;;
+			*) { usage; echolog -err "Error: expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
+		esac
+		case $_proto in
+			udp|tcp) case "$reg_proto" in *"$_proto"*) usage; echolog -err "Error: can't add protocol '$_proto' twice"; return 1; esac
+				reg_proto="$reg_proto$_proto " ;;
+			*) usage; echolog -err "Unsupported protocol '$_proto'."; return 1
+		esac
+
+		if [ "$_ranges" = all ]; then
+			[ -n "$neg" ] && ports_line=skip || ports_line=''
+		else
+			parse_ports || return 1
+			ports_line="$mp $neg $dport"
+		fi
+		trim_spaces ports_line
+		ports_conf="$ports_conf$_proto=$ports_line$_nl"
 	done
-	ports="${r_ports%;}"
-	oldifs gp
+	oldifs sp
+	setconfig "$ports_conf"
+}
+
+statustip() {
+	printf '%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+}
+
+report_lists() {
+	get_active_iplists verified_lists
+	printf '\n%s\n\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
 }
 
 check_cron() {
