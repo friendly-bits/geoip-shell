@@ -79,16 +79,7 @@ die_a() {
 critical() {
 	echo "Failed." >&2
 	echolog -err "Removing geoip rules..."
-	for family in ipv4 ipv6; do
-		set_ipt_cmds
-		mk_ipt_rm_cmd "${geotag}_enable" | $ipt_restore_cmd 2>/dev/null
-		$ipt_cmd -F "$iface_chain" 2>/dev/null
-		$ipt_cmd -X "$iface_chain" 2>/dev/null
-		$ipt_cmd -F "$geochain" 2>/dev/null
-		$ipt_cmd -X "$geochain" 2>/dev/null
-	done
-	sleep "0.1" 2>/dev/null || sleep 1
-	rm_all_ipsets
+	rm_all_ipt_rules
 	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
 	die "$1"
 }
@@ -174,7 +165,7 @@ get_curr_ipsets() {
 export list_type="$list_type"
 case "$list_type" in whitelist) fw_target="ACCEPT" ;; *) fw_target="DROP"; esac
 
-for entry in "Families families" "NoBlock noblock" "ListType list_type" "Ports ports"\
+for entry in "Families families" "NoBlock noblock" "ListType list_type" "tcp tcp_ports" "udp udp_ports" \
 		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
@@ -304,27 +295,11 @@ for family in $families; do
 		fi
 
 		# ports
-		newifs ';' apply
-		for bp in $ports; do
-			neg=''; mp=''; skip=''
-			len=${#bp}
-			bp="${bp#\~}"
-			[ ${#bp} -lt "$len" ] && neg="!"
-			len=${#bp}
-			bp="${bp#\*}"
-			[ ${#bp} -lt "$len" ] && { mp="-m multiport"; dport=dports; } || { mp=''; dport=dport; }
-			proto="${bp%"${bp#???}"}"
-			ports="${bp#"$proto"}"
-			case "$proto" in udp|tcp) ;; *) echolog -err "Internal error: invalid value for \$proto: '$proto'."; exit 1; esac
-			[ -z "$ports" ] && { echolog -err "Internal error: \$proto or \$ports is empty"; exit 1; }
-			if [ "$ports" = all ]; then
-				[ -n "$neg" ] && skip=1 || dport=''
-			else
-				dport="$mp $neg --$dport $ports"
-			fi
-			[ ! "$skip" ] && printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT -m comment --comment ${geotag_aux}_ports"
+		for proto in tcp udp; do
+			eval "dport=\"\$${proto}_ports\""
+			[ "$dport" = skip ] && continue
+			printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT -m comment --comment ${geotag_aux}_ports"
 		done
-		oldifs apply
 
 		# established/related
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment ${geotag_aux}_rel-est -j ACCEPT"
