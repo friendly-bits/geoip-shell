@@ -24,33 +24,37 @@ set -- $arguments; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>]  [-p <portoptions>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
-    on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
-    add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
-    apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
-    schedule    : change the cron schedule
-    status      : check on the current status of geoip blocking
-    reset       : reset geoip config and firewall geoip rules
-    restore     : re-apply geoip blocking rules from the config
+
+on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
+add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
+apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
+schedule    : change the cron schedule
+status      : check on the current status of geoip blocking
+reset       : reset geoip config and firewall geoip rules
+restore     : re-apply geoip blocking rules from the config
+showconfig  : print the contents of the config file
 
 Options:
-    -c <"country_codes">      : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
-    -s <"expression"|disable> : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                    must be inside double quotes.
-                                    default schedule is "15 4 * * *" (at 4:15 [am] every day)
-                                disable: skip creating the autoupdate cron job
-    -p <port_options>          : Only geoblock traffic arriving on specific ports,
-                                     or geoblock all traffic except traffic arriving on specific ports.
-                                     For examples, refer to NOTES.md.
 
-    -v                        : Verbose status output
-    -f                        : Force the action
-    -d                        : Debug
-    -h                        : This help
+-c <"country_codes">               : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
+-s <"expression"|disable>          : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
+                                         must be inside double quotes.
+                                         default schedule is "15 4 * * *" (at 4:15 [am] every day)
+                                     disable: skip creating the autoupdate cron job
+-p <[tcp:udp]:[allow|block]:ports> : Only geoblock incoming traffic on specific ports,
+                                        or geoblock all traffic except traffic arriving on specific ports.
+                                        Multiple '-p' options are allowed.
+                                        For examples, refer to NOTES.md.
+                                        Only works with the 'apply' action.
+-v                                 : Verbose status output
+-f                                 : Force the action
+-d                                 : Debug
+-h                                 : This help
 
 EOF
 }
@@ -61,7 +65,7 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|status|schedule|restore|reset|on|off|apply) ;;
+	add|remove|status|schedule|restore|reset|on|off|apply|showconfig) ;;
 	*) unknownact
 esac
 
@@ -71,7 +75,7 @@ while getopts ":c:s:p:vfdh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		s) cron_schedule=$OPTARG ;;
-		p) ports_arg="$OPTARG" ;;
+		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 
 		v) verb_status=1 ;;
 		f) force_action=1 ;;
@@ -101,7 +105,7 @@ report_status() {
 	Q_sym="${red}?${n_c}"
 	issues=0
 
-	for entry in "Source ipsource" "WAN_ifaces wan_ifaces" \
+	for entry in "Source ipsource" "WAN_ifaces wan_ifaces" "tcp tcp_ports" "udp udp_ports" \
 			"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
 		getconfig "${entry% *}" "${entry#* }"
 	done
@@ -141,6 +145,25 @@ report_status() {
 			printf '%s\n' "$family: $lan_subnets"
 		done
 	fi
+
+	# Report protocols and ports
+	printf '\n%s\n' "Protocols:"
+	for proto in tcp udp; do
+		ports_act=''; p_sel=''
+		eval "ports=\"\$${proto}_ports\""
+
+		case "$ports" in
+			*"meta l4proto"*) ports_act="${red}*Geoip inactive*"; ports='' ;;
+			skip) ports="to ${green}all ports" ;;
+			*"dport !="*) p_sel="${yellow}only to ports " ;;
+			*) p_sel="to ${yellow}all ports except "
+		esac
+		case "$ports" in ''|*all*) ;; *) ports="'$(printf %s "$ports" | sed 's/.*dport [!= ]*//;s/{ //g;s/ }//g')'"; esac
+
+		[ ! "$ports_act" ] && ports_act="Geoip is applied "
+		printf '%s\n' "${blue}$proto${n_c}: $ports_act$p_sel$ports${n_c}"
+	done
+
 	printf '\n'
 
 	curr_geotable="$(nft_get_geotable)" ||
@@ -359,20 +382,19 @@ case "$action" in
 
 		[ "$rv" != 0 ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
 		;;
-	schedule|status|restore|reset|on|off|apply) [ "$ccodes_arg" ] && die "Error: action '$action' is incompatible with option '-c'."
+	schedule|status|restore|reset|on|off|apply|showconfig) [ "$ccodes_arg" ] && die "Error: action '$action' is incompatible with option '-c'."
 esac
 
-[ "$action" != apply ] && [ "$ports_arg" ] && die "Action '$action' is incompatible with option '-p'."
-[ "$action" != schedule ] && [ "$cron_schedule" ] && {
-	usage
-	die "Action '$action' is incompatible with option '-s'."
-}
+[ "$action" != apply ] && [ "$ports_arg" ] && { usage; die "Action '$action' is incompatible with option '-p'."; }
+[ "$action" != schedule ] && [ "$cron_schedule" ] && { usage; die "Action '$action' is incompatible with option '-s'."; }
+
 
 
 #### MAIN
 
 case "$action" in
 	status) report_status; exit 0 ;;
+	showconfig) printf '\n%s\n\n' "Geoip config in $conf_file:"; cat "$conf_file"; exit 0 ;;
 	on|off)
 		case "$action" in
 			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
@@ -440,7 +462,7 @@ case "$action" in
 esac
 
 if [ ! "$lists_to_change" ] && [ "$action" != apply ] && [ ! "$force_action" ]; then
-	printf '\n%s\n' "Lists in the final $list_type: '${blue}$config_lists_str${n_c}'."
+	report_lists
 	die 254 "Nothing to do, exiting."
 fi
 
@@ -460,7 +482,7 @@ if [ "$lockout_msg" ]; then
 		pick_opt "y|n"
 		case "$REPLY" in
 			y|Y) printf '\n%s\n' "Proceeding..." ;;
-			n|N) [ ! "$in_install" ] && printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$config_lists_str${n_c}'."
+			n|N) [ ! "$in_install" ] && report_lists
 				echo
 				die "Aborted action '$action' for ip lists '$lists_to_change_str'."
 		esac
@@ -473,7 +495,7 @@ debugprint "Writing new config to file: 'Lists=$planned_lists_str'"
 setconfig "Lists=$planned_lists_str"
 
 if [ "$action" = apply ]; then
-	getports "$OPTARG"; setconfig "Ports=$ports"
+	setports "${ports_arg%"$_nl"}" || die
 	call_script "$script_dir/${proj_name}-apply.sh" "update"; rv=$?
 else
 	call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
@@ -500,7 +522,7 @@ if [ "$failed_lists" ]; then
 	[ ! "$ok_lists" ] && die "All actions failed."
 fi
 
-printf '\n%s\n\n' "Ip lists in the final $list_type: '${blue}$planned_lists_str${n_c}'."
-[ ! "$in_install" ] && printf '%s\n\n' "View geoip blocking status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+report_lists
+[ ! "$in_install" ] && statustip
 
 exit 0
