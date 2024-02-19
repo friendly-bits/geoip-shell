@@ -4,10 +4,10 @@
 # geoip-shell-apply.sh
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/geoip-shell-nft.sh" || exit 1
 
 check_root
@@ -98,7 +98,7 @@ status_file="$iplist_dir/status"
 
 action="$(tolower "$action")"
 
-geotag_aux="${proj_name}_aux"
+geotag_aux="${p_name}_aux"
 
 : "${perf_opt:=memory}"
 

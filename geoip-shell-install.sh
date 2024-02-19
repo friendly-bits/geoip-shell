@@ -12,13 +12,13 @@
 # Accepts a custom cron schedule expression as an argument.
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export nolog="1" manmode="1" in_install="1"
 makepath=1
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
 check_root
@@ -133,8 +133,8 @@ copyscripts() {
 install_failed() {
 	echo "$*" >&2
 	printf '\n%s\n' "Installation failed." >&2
-	echo "Uninstalling ${proj_name}..." >&2
-	call_script "$script_dir/${proj_name}-uninstall.sh"
+	echo "Uninstalling ${p_name}..." >&2
+	call_script "$script_dir/${p_name}-uninstall.sh"
 	exit 1
 }
 
@@ -320,7 +320,7 @@ iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
 
 for f in fetch apply manage cronsetup run common uninstall backup nft; do
-	script_files="$script_files${proj_name}-$f.sh "
+	script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files validate-cron-schedule.sh check-ip-in-source.sh \
 	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh ip-regex.sh"
@@ -407,7 +407,7 @@ case "$REPLY" in
 esac
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-call_script "$script_dir/${proj_name}-uninstall.sh" -r || die "Pre-install cleanup failed."
+call_script "$script_dir/${p_name}-uninstall.sh" -r || die "Pre-install cleanup failed."
 
 # Create the directory for config and, if required, parent directories
 mkdir -p "$conf_dir"
@@ -431,10 +431,10 @@ printf %s "Copying scripts to $install_dir... "
 copyscripts "$script_files"
 printf '%s\n\n'  "Ok."
 
-## Create a symlink from ${proj_name}-manage.sh to ${proj_name}
-rm "${install_dir}/${proj_name}" 2>/dev/null
-ln -s "${install_dir}/${proj_name}-manage.sh" "${install_dir}/${proj_name}" ||
-	install_failed "Failed to create symlink from ${proj_name}-manage.sh to ${proj_name}."
+## Create a symlink from ${p_name}-manage.sh to ${p_name}
+rm "${install_dir}/${p_name}" 2>/dev/null
+ln -s "${install_dir}/${p_name}-manage.sh" "${install_dir}/${p_name}" ||
+	install_failed "Failed to create symlink from ${p_name}-manage.sh to ${p_name}."
 
 # copy cca2.list
 cp "$script_dir/cca2.list" "$install_dir" || install_failed "Error copying file 'cca2.list' to '$install_dir'."
@@ -447,11 +447,11 @@ chown -R root:root "$datadir" || rv=1
 [ "$rv" != 0 ] && install_failed "Error: Failed to set permissions for '$datadir'."
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-call_script "$install_dir/${proj_name}-manage.sh" add -f -c "$ccodes" || install_failed "Failed to create and apply the iplist."
+call_script "$install_dir/${p_name}-manage.sh" add -f -c "$ccodes" || install_failed "Failed to create and apply the iplist."
 
 if [ ! "$no_persistence" ] || [ "$cron_schedule" != "disable" ]; then
 	### Set up cron jobs
-	call_script "$install_dir/${proj_name}-manage.sh" schedule -s "$cron_schedule" || install_failed "Failed to set up cron jobs."
+	call_script "$install_dir/${p_name}-manage.sh" schedule -s "$cron_schedule" || install_failed "Failed to set up cron jobs."
 else
 	printf '%s\n\n' "Warning: Installed with no persistence and no autoupdate functionality."
 fi

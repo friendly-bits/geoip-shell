@@ -4,11 +4,11 @@
 # check-ip-in-source.sh
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
 
@@ -23,7 +23,7 @@ Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u ripe|ipdeny] [-d] [-h]
           in the list fetched from a source (either RIPE or ipdeny) for a given country code.
     Accepts a mix of ipv4 and ipv6 addresses.
 
-Requires the 'grepcidr' utility, '${proj_name}-fetch.sh', '${proj_name}-common.sh', 'cca2.list'
+Requires the 'grepcidr' utility, '${p_name}-fetch.sh', '${p_name}-common.sh', 'cca2.list'
 
 Options:
     -c <country_code>    : Country code (ISO 3166-1 alpha-2)
@@ -100,7 +100,7 @@ validate_ip() {
 
 export nolog=1
 
-fetch_script="${script_dir}/${proj_name}-fetch.sh"
+fetch_script="${script_dir}/${p_name}-fetch.sh"
 
 valid_sources="ripe${_nl}ipdeny"
 default_source="ripe"

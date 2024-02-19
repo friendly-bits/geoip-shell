@@ -5,11 +5,11 @@
 
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/${proj_name}-nft.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-nft.sh" || exit 1
 
 export list_type nolog=1 manmode=1
 
@@ -221,7 +221,7 @@ report_status() {
 		cron_jobs="$(crontab -u root -l 2>/dev/null)"
 
 		# check for persistence cron job
-		get_matching_line "$cron_jobs" "*" "${proj_name}-persistence" "" persist_job
+		get_matching_line "$cron_jobs" "*" "${p_name}-persistence" "" persist_job
 		case "$persist_job" in
 			'') persist_job_status="$X_sym"; incr_issues ;;
 			*) persist_job_status="$V_sym"
@@ -229,7 +229,7 @@ report_status() {
 		printf '%s\n' "Persistence cron job: $persist_job_status"
 
 		# check for autoupdate cron job
-		get_matching_line "$cron_jobs" "*" "${proj_name}-autoupdate" "" update_job
+		get_matching_line "$cron_jobs" "*" "${p_name}-autoupdate" "" update_job
 		case "$update_job" in
 			'') update_job_status="$X_sym"; upd_schedule=''; incr_issues ;;
 			*) update_job_status="$V_sym"; upd_schedule="${update_job%%\"*}"
@@ -286,14 +286,14 @@ restore_from_config() {
 	echolog "Restoring lists '$config_lists_str' from the config file... "
 	case "$config_lists_str" in
 		'') echolog -err "Error: no ip lists registered in the config file." ;;
-		*) call_script "$script_dir/${proj_name}-uninstall.sh" -l || return 1
+		*) call_script "$script_dir/${p_name}-uninstall.sh" -l || return 1
 			setconfig "Lists=$config_lists_str"
 			call_script "$run_command" add -l "$config_lists_str"
 			check_reapply && return 0
 	esac
 
 	# call the *backup script to initiate recovery from fault
-	call_script "$install_dir/${proj_name}-backup.sh" restore && check_reapply && return 0
+	call_script "$install_dir/${p_name}-backup.sh" restore && check_reapply && return 0
 
 	die "Failed to restore the firewall state from backup. If it's a bug then please report it."
 }
@@ -355,7 +355,7 @@ sp2nl "$config_lists_str" config_lists
 
 action="$(tolower "$action")"
 
-run_command="$install_dir/${proj_name}-run.sh"
+run_command="$install_dir/${p_name}-run.sh"
 
 
 #### CHECKS
@@ -401,9 +401,9 @@ case "$action" in
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
-		call_script "$script_dir/${proj_name}-apply.sh" $action || exit 1
+		call_script "$script_dir/${p_name}-apply.sh" $action || exit 1
 		exit 0 ;;
-	reset) call_script "$script_dir/${proj_name}-uninstall.sh" -l; exit $? ;;
+	reset) call_script "$script_dir/${p_name}-uninstall.sh" -l; exit $? ;;
 	restore) restore_from_config; exit $? ;;
 	schedule)
 		[ ! "$cron_schedule" ] && { usage; die "Specify cron schedule for autoupdate or 'disable'."; }
@@ -411,7 +411,7 @@ case "$action" in
 		# communicate schedule to *cronsetup via config
 		setconfig "CronSchedule=$cron_schedule"
 
-		call_script "$install_dir/${proj_name}-cronsetup.sh" || die "Error: Failed to update cron jobs."
+		call_script "$install_dir/${p_name}-cronsetup.sh" || die "Error: Failed to update cron jobs."
 		exit 0
 esac
 
@@ -496,7 +496,7 @@ setconfig "Lists=$planned_lists_str"
 
 if [ "$action" = apply ]; then
 	setports "${ports_arg%"$_nl"}" || die
-	call_script "$script_dir/${proj_name}-apply.sh" "update"; rv=$?
+	call_script "$script_dir/${p_name}-apply.sh" "update"; rv=$?
 else
 	call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 fi

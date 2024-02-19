@@ -7,11 +7,11 @@
 
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/geoip-shell-nft.sh" || exit 1
 
 nolog=1
@@ -65,13 +65,13 @@ debugentermsg
 
 
 ### VARIABLES
-[ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${proj_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
+[ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
-	call_script "$install_dir/${proj_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
+	call_script "$install_dir/${p_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
 }
 
 iplist_dir="${datadir}/ip_lists"
-conf_dir="${conf_dir:-/etc/${proj_name}}"
+conf_dir="${conf_dir:-/etc/${p_name}}"
 status_file="${datadir}/ip_lists/status"
 
 #### CHECKS
@@ -89,7 +89,7 @@ set +f; rm "$iplist_dir"/* 2>/dev/null
 [ "$resetonly_lists" ] && exit 0
 
 ### Remove geoip cron jobs
-crontab -u root -l 2>/dev/null |  grep -v "${proj_name}-run.sh" | crontab -u root -
+crontab -u root -l 2>/dev/null |  grep -v "${p_name}-run.sh" | crontab -u root -
 
 [ "$resetonly_lists_cron" ] && exit 0
 
@@ -105,9 +105,9 @@ printf '%s\n' "Deleting script's data folder $datadir..."
 rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
-rm "${install_dir}/${proj_name}" 2>/dev/null
+rm "${install_dir}/${p_name}" 2>/dev/null
 for script_name in fetch apply manage cronsetup run common uninstall backup nft; do
-	rm "$install_dir/${proj_name}-${script_name}.sh" 2>/dev/null
+	rm "$install_dir/${p_name}-${script_name}.sh" 2>/dev/null
 done
 for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO posix-arrays-a-mini ip-regex; do
 	rm "$install_dir/${script_name}.sh" 2>/dev/null

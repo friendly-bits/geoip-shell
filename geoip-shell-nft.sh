@@ -126,7 +126,7 @@ check_lists_coherence() {
 	esac
 }
 
-geotag="${proj_name}"
+geotag="${p_name}"
 geotable="$geotag"
 export geochain="${geochain:-"$(toupper "$geotag")"}"
 base_geochain="GEOIP-BASE"

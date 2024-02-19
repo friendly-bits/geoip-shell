@@ -45,7 +45,7 @@ unknownopt() {
 }
 
 statustip() {
-	printf '%s\n\n' "View geoip status with '${blue}${proj_name} status${n_c}' (may require 'sudo')."
+	printf '%s\n\n' "View geoip status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
 }
 
 report_lists() {
@@ -119,7 +119,7 @@ call_script() {
 # sets some strings for debug and logging
 init_geoscript(){
 	me=$(basename "$0")
-	me_short="${me#"${proj_name}-"}"
+	me_short="${me#"${p_name}-"}"
 	me_short="${me_short%.sh}"
 	me_short_cap="$(toupper "$me_short")"
 	set -f
@@ -568,8 +568,8 @@ init_geoscript
 
 [ ! "$_nl" ] && {
 	export LC_ALL=C
-	export conf_dir="/etc/${proj_name}" datadir="/var/lib/${proj_name}"
-	export conf_file="${conf_dir}/${proj_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
+	export conf_dir="/etc/${p_name}" datadir="/var/lib/${p_name}"
+	export conf_file="${conf_dir}/${p_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 

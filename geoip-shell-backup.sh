@@ -5,10 +5,10 @@
 
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/geoip-shell-nft.sh" || exit 1
 
 check_root
@@ -96,7 +96,7 @@ restorebackup() {
 	nft_rm_all_georules || restore_failed "Error removing firewall rules."
 
 	export force_read_geotable=1
-	call_script "$script_dir/${proj_name}-apply.sh" add -l "$lists"; apply_rv=$?
+	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && restore_failed "Failed to restore the firewall state from backup." "reset"
 	return 0
@@ -107,7 +107,7 @@ restore_failed() {
 	printf '%s\n' "$1" >&2
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
-		call_script "$script_dir/${proj_name}-uninstall.sh" -c
+		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
 	exit 1
 }
@@ -122,7 +122,7 @@ create_backup() {
 	set_archive_type
 
 	getconfig Lists lists "$conf_file"
-	temp_file="/tmp/${proj_name}_backup.tmp"
+	temp_file="/tmp/${p_name}_backup.tmp"
 	mkdir "$bk_dir" 2>/dev/null
 
 	# save the current firewall state
@@ -192,7 +192,7 @@ set_archive_type() {
 getconfig Families families
 getconfig Lists config_lists
 
-conf_file_bak="$datadir/${proj_name}.conf.bak"
+conf_file_bak="$datadir/${p_name}.conf.bak"
 status_file_bak="$datadir/status.bak"
 iplist_dir="${datadir}/ip_lists"
 status_file="$iplist_dir/status"

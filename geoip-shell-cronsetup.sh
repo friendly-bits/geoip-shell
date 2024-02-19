@@ -5,10 +5,10 @@
 
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 
 nolog=1
 
@@ -69,7 +69,7 @@ create_cron_job() {
 
 			# Remove existing autoupdate cron job before creating new one
 			rm_cron_job "autoupdate"
-			cron_cmd="$schedule \"$run_cmd\" update 1>/dev/null 2>/dev/null # ${proj_name}-autoupdate"
+			cron_cmd="$schedule \"$run_cmd\" update 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
 			debugprint "Creating autoupdate cron job with schedule '$schedule'... "
 		;;
 
@@ -77,7 +77,7 @@ create_cron_job() {
 			debugprint "Creating persistence cron job... "
 
 			# using the restore action for the *run script
-			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore 1>/dev/null 2>/dev/null # ${proj_name}-persistence"
+			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore 1>/dev/null 2>/dev/null # ${p_name}-persistence"
 		;;
 
 		*) die "Unrecognized type of cron job: '$job_type'."
@@ -105,9 +105,9 @@ rm_cron_job() {
 		*) die "rm_cron_job: Error: unknown cron job type '$job_type'."
 	esac
 
-	debugprint "Removing $job_type cron job for ${proj_name}... "
+	debugprint "Removing $job_type cron job for ${p_name}... "
 	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
-	printf '%s\n' "$curr_cron" | grep -v "${proj_name}-${job_type}" | crontab -u root -; rv2=$?
+	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root -; rv2=$?
 
 	case $((rv1 & rv2)) in
 		0) debugprint "Ok." ;;
@@ -123,7 +123,7 @@ for entry in "CronSchedule schedule_conf" "DefaultSchedule schedule_default" "No
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-run_cmd="${install_dir}/${proj_name}-run.sh"
+run_cmd="${install_dir}/${p_name}-run.sh"
 
 schedule="${schedule_conf:-$schedule_default}"
 

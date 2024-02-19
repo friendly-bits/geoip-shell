@@ -4,10 +4,10 @@
 # geoip-shell-fetch.sh
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/posix-arrays-a-mini.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
@@ -95,7 +95,7 @@ reg_server_date() {
 
 # get list time based on the file date on the server
 get_source_list_dates_ipdeny() {
-	tmp_file_path="/tmp/${proj_name}_ipdeny"
+	tmp_file_path="/tmp/${p_name}_ipdeny"
 
 	_res=''
 	for list_id in $valid_lists; do
@@ -310,7 +310,7 @@ process_ccode() {
 
 	curr_ccode="$1"; curr_ccode_lc="$(tolower "$curr_ccode")"
 	unset prev_list_reg list_path fetched_list
-	set +f; rm -f "/tmp/${proj_name}_"*.tmp; set -f
+	set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
 
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
@@ -328,8 +328,8 @@ process_ccode() {
 		list_path="${output_file:-$iplist_dir/$list_id.iplist}"
 
 		# temp files
-		parsed_list="/tmp/${proj_name}_parsed-${list_id}.tmp"
-		fetched_list="/tmp/${proj_name}_fetched-$curr_ccode.tmp"
+		parsed_list="/tmp/${p_name}_parsed-${list_id}.tmp"
+		fetched_list="/tmp/${p_name}_fetched-$curr_ccode.tmp"
 
 		valid_s_cnt=0
 		failed_s_cnt=0

@@ -4,11 +4,11 @@
 # geoip-shell-run
 
 #### Initial setup
-proj_name="geoip-shell"
+p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${proj_name}-common.sh" || exit 1
-. "$script_dir/${proj_name}-nft.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-nft.sh" || exit 1
 
 check_root
 
@@ -98,10 +98,10 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps "$script_dir/${proj_name}-fetch.sh" "$script_dir/${proj_name}-apply.sh" "$script_dir/${proj_name}-backup.sh" || die
+check_deps "$script_dir/${p_name}-fetch.sh" "$script_dir/${p_name}-apply.sh" "$script_dir/${p_name}-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Re-install $proj_name."
+[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Re-install $p_name."
 
 [ ! "$iplist_dir" ] && die "Error: iplist file path can not be empty!"
 
@@ -120,7 +120,7 @@ case "$action_run" in
 		if [ "$nobackup" ]; then
 			action_run=update; action_apply=add; force="-f" # if backup file doesn't exist, force re-fetch
 		else
-			call_script "$script_dir/${proj_name}-backup.sh" "restore"; rv_cs=$?
+			call_script "$script_dir/${p_name}-backup.sh" "restore"; rv_cs=$?
 			getconfig Lists lists
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=1
@@ -143,7 +143,7 @@ if [ "$action_apply" = add ]; then
 	# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 	setstatus "$status_file" "FailedLists=$lists" || setstatus_failed
 
-	call_script "$script_dir/${proj_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force"
+	call_script "$script_dir/${p_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force"
 
 	# read *fetch results from the status file
 	getstatus "$status_file" FetchedLists lists
@@ -166,7 +166,7 @@ apply_rv=0
 case "$action_run" in update|add|remove)
 	[ ! "$lists" ] && { echolog "Firewall reconfiguration isn't required."; exit 0; }
 
-	call_script "$script_dir/${proj_name}-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
+	call_script "$script_dir/${p_name}-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
 	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null
 	case "$apply_rv" in
 		0) ;;
@@ -188,7 +188,7 @@ else
 fi
 
 if [ "$apply_rv" = 0 ] && [ ! "$nobackup" ]; then
-	call_script "$script_dir/${proj_name}-backup.sh" create-backup
+	call_script "$script_dir/${p_name}-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
 fi
