@@ -246,7 +246,7 @@ nft_cmd_chain="$(
 	for proto in tcp udp; do
 		eval "proto_exp=\"\$${proto}_ports\""
 		[ "$proto_exp" = skip ] && continue
-		printf '%s\n' "insert rule inet $geotable $geochain $proto_exp counter accept comment ${geotag_aux}_ports"
+		printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $proto_exp counter accept comment ${geotag_aux}_ports"
 	done
 
 	# established/related
