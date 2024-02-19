@@ -12,9 +12,9 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 check_root
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 
 #### USAGE
@@ -45,7 +45,7 @@ EOF
 
 action_run="$(tolower "$1")"
 
-# process the rest of the arguments
+# process the rest of the args
 shift 1
 while getopts ":l:odh" opt; do
 	case $opt in
@@ -86,7 +86,7 @@ else
 	lists="$arg_lists"
 fi
 
-trim_spaces lists
+trimsp lists
 fast_el_cnt "$lists" " " lists_cnt
 
 iplist_dir="$datadir/ip_lists"

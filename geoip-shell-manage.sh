@@ -11,13 +11,13 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/${proj_name}-nft.sh" || exit 1
 
-export list_type nolog=1 manualmode=1
+export list_type nolog=1 manmode=1
 
 check_root
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 #### USAGE
 
@@ -69,7 +69,7 @@ case "$action" in
 	*) unknownact
 esac
 
-# process the rest of the arguments
+# process the rest of the args
 shift 1
 while getopts ":c:s:p:vfdh" opt; do
 	case $opt in
@@ -121,8 +121,8 @@ report_status() {
 		active_ccodes="$active_ccodes${list_id%_*} "
 		active_families="$active_families${list_id#*_} "
 	done
-	sanitize_str active_ccodes
-	sanitize_str active_families
+	san_str active_ccodes
+	san_str active_families
 	printf %s "Country codes in the $list_type: "
 	case "$active_ccodes" in
 		'') printf '%s\n' "${red}None $X_sym"; incr_issues ;;
@@ -337,7 +337,7 @@ get_wrong_ccodes() {
 	for list_id in $wrong_lists; do
 		wrong_ccodes="$wrong_ccodes${list_id%_*} "
 	done
-	sanitize_str wrong_ccodes
+	san_str wrong_ccodes
 }
 
 
@@ -349,7 +349,7 @@ done
 
 case "$list_type" in whitelist|blacklist) ;; *) die "Error: Unexpected geoip mode '$list_type'!"; esac
 
-sanitize_str ccodes_arg "$(toupper "$ccodes_arg")"
+san_str ccodes_arg "$(toupper "$ccodes_arg")"
 
 sp2nl "$config_lists_str" config_lists
 
@@ -366,7 +366,7 @@ run_command="$install_dir/${proj_name}-run.sh"
 [ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
 
 
-## Check arguments for sanity
+## Check args for sanity
 case "$action" in
 	add|remove)
 		# check for valid country codes
@@ -427,7 +427,7 @@ lists_arg="${lists_arg%"${_nl}"}"
 case "$action" in
 	apply) lists_to_change="$config_lists"; planned_lists="$config_lists" ;;
 	add)
-		sanitize_str requested_lists "$config_lists$_nl$lists_arg" "$_nl"
+		san_str requested_lists "$config_lists$_nl$lists_arg" "$_nl"
 #		debugprint "requested resulting lists: '$requested_lists'"
 
 		if [ ! "$force_action" ]; then
@@ -441,7 +441,7 @@ case "$action" in
 		else
 			lists_to_change="$lists_arg"
 		fi
-		sanitize_str planned_lists "$config_lists$_nl$lists_to_change" "$_nl"
+		san_str planned_lists "$config_lists$_nl$lists_to_change" "$_nl"
 #		debugprint "action: add, lists_to_change: '$lists_to_change'"
 		;;
 

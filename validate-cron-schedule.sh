@@ -11,9 +11,9 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 set -f
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 #### USAGE
 
@@ -37,7 +37,7 @@ Options:
 EOF
 }
 
-#### Parse arguments
+#### Parse args
 
 while getopts ":x:h" opt; do
 	case $opt in
@@ -159,7 +159,7 @@ validateField() {
 err=0
 errstr=''
 
-#### Basic sanity check for input arguments
+#### Basic sanity check for input args
 
 # separate the input by spaces and store results in variables
 set -- $sourceline
@@ -171,7 +171,7 @@ for fieldCat in min hour dom mon dow; do
 	esac
 done
 
-# check for extra arguments
+# check for extra args
 [ -n "$*" ] && {
 	printf '\n\n%s\n' "$me: Error: Too many fields in schedule expression. I don't know what to do with '$*'." >&2
 	print_tip

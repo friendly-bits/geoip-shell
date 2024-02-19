@@ -15,7 +15,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export nolog="1" manualmode="1" in_install="1"
+export nolog="1" manmode="1" in_install="1"
 makepath=1
 
 . "$script_dir/${proj_name}-common.sh" || exit 1
@@ -23,9 +23,9 @@ makepath=1
 
 check_root
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 
 #### USAGE
@@ -147,7 +147,7 @@ get_ports() {
 		[ "${1#"${1%?}"}" = "$2" ] && invalid_line
 	}
 	sourceline="$1"
-	trim_spaces line "$sourceline"
+	trimsp line "$sourceline"
 	check_edge_chars "$line" ";"
 	IFS=";"
 	for opt in $line; do
@@ -155,8 +155,8 @@ get_ports() {
 		proto="${opt%%:}"
 		ports="${opt#:}"
 		case "$ports" in *:*) invalid_line; esac
-		trim_spaces ports
-		trim_spaces proto
+		trimsp ports
+		trimsp proto
 		case $proto in
 			udp|tcp) ;;
 			*) die "Unsupported protocol '$proto'."
@@ -164,13 +164,13 @@ get_ports() {
 		check_edge_chars "$ports" ","
 		IFS=","
 		for chunk in $ports; do
-			trim_spaces chunk
+			trimsp chunk
 			check_edge_chars "$chunk" "-"
 			case "${chunks%%-}" in *-*) invalid_line; esac
 			fragments=''
 			IFS="-"
 			for fragment in $chunk; do
-				trim_spaces fragment
+				trimsp fragment
 				case "$fragment" in *[!0-9]*) invalid_line; esac
 				fragments="${fragments}{fragment}-}"
 			done
@@ -232,7 +232,7 @@ validate_subnet() {
 pick_iface() {
 	all_ifaces="$(sed -n '/^[[:space:]]*[^[:space:]]*:/s/^[[:space:]]*//;s/:.*//p' < /proc/net/dev | grep -vx 'lo')"
 	[ ! "$all_ifaces" ] && die "Error: Failed to detect network interfaces."
-	sanitize_str all_ifaces
+	san_str all_ifaces
 
 	# detect wan interfaces
 	wan_ifaces=''
@@ -246,7 +246,7 @@ pick_iface() {
 	# fallback and non-OpenWRT
 	[ ! "$wan_ifaces" ] && wan_ifaces="$({ ip r get 1; ip -6 r get 1::; } 2>/dev/null |
 		sed 's/.*[[:space:]]dev[[:space:]][[:space:]]*//;s/[[:space:]].*//' | grep -vx 'lo')"
-	sanitize_str wan_ifaces
+	san_str wan_ifaces
 	get_intersection "$wan_ifaces" "$all_ifaces" wan_ifaces ' '
 
 	printf '\n%s\n' "Firewall rules will be applied to the WAN network interfaces of your machine."
@@ -270,7 +270,7 @@ pick_iface() {
 		[ -z "$bad_ifaces" ] && break
 		printf '\n%s\n' "Error: Network interfaces '$bad_ifaces' do not exist in this system."
 	done
-	sanitize_str c_wan_ifaces "$REPLY"
+	san_str c_wan_ifaces "$REPLY"
 }
 
 pick_subnets() {
@@ -279,7 +279,7 @@ pick_subnets() {
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
 		s="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || echo "Failed to autodetect $family local subnets."
-		sanitize_str s
+		san_str s
 
 		[ -n "$s" ] && {
 			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'."
@@ -378,7 +378,7 @@ if [ "$cron_schedule" != "disable" ] || [ ! "$no_persistence" ]; then
 		"If you want to install without persistence support, run with option '-n'"
 fi
 
-# validate cron schedule from arguments
+# validate cron schedule from args
 [ "$cron_schedule_args" ] && [ "$cron_schedule" != "disable" ] && {
 	sh "$script_dir/validate-cron-schedule.sh" -x "$cron_schedule_args" || die "Error validating cron schedule '$cron_schedule'."
 }

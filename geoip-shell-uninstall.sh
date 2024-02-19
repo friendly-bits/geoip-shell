@@ -3,14 +3,14 @@
 
 # geoip-shell-uninstall
 
-# uninstalls or resets the geoip-shell suite
+# uninstalls or resets geoip-shell
 
 
 #### Initial setup
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-manualmode=1
+manmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/geoip-shell-nft.sh" || exit 1
 
@@ -18,9 +18,9 @@ nolog=1
 
 check_root
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 #### USAGE
 

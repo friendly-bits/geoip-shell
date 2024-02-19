@@ -7,7 +7,7 @@
 proj_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export manualmode=1
+export manmode=1
 . "$script_dir/${proj_name}-common.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
@@ -38,7 +38,7 @@ EOF
 }
 
 
-#### Parse arguments
+#### Parse args
 
 while getopts ":c:i:u:dh" opt; do
 	case $opt in
@@ -138,7 +138,7 @@ subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ ! -f "$fetch_script" ] && die "Error: Can not find '$fetch_script'."
 
 # convert ips to upper case and remove duplicates etc
-sanitize_str ips "$(toupper "$ips")"
+san_str ips "$(toupper "$ips")"
 
 
 #### Main
@@ -164,7 +164,7 @@ done
 
 # trim extra whitespaces
 invalid_ips="${invalid_ips% }"
-sanitize_str families
+san_str families
 
 if [ -z "$validated_ipv4s$validated_ipv6s" ]; then
 	echo

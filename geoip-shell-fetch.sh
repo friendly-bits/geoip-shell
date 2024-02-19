@@ -11,9 +11,9 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 . "$script_dir/posix-arrays-a-mini.sh" || exit 1
 . "$script_dir/ip-regex.sh"
 
-sanitize_args "$@"
+san_args "$@"
 newifs "$delim"
-set -- $arguments; oldifs
+set -- $_args; oldifs
 
 
 #### USAGE
@@ -47,7 +47,7 @@ EOF
 }
 
 
-#### Parse arguments
+#### Parse args
 
 while getopts ":l:p:o:s:u:rfdh" opt; do
 	case $opt in
@@ -190,17 +190,17 @@ group_lists_by_registry() {
 				valid_lists="$valid_lists$list_id$_nl"
 			esac
 		done
-		sanitize_str list_ids
+		san_str list_ids
 		set_a_arr_el fetch_lists_arr "$registry=${list_ids% }"
 	done
-	sanitize_str registries
+	san_str registries
 
 	subtract_a_from_b "$valid_lists" "$lists_arg" invalid_lists
 	[ "$invalid_lists" ] && {
 		for invalid_list in $invalid_lists; do
 			invalid_ccodes="$invalid_ccodes${invalid_list%_*} "
 		done
-		sanitize_str invalid_ccodes
+		san_str invalid_ccodes
 		die "Invalid country codes: '$invalid_ccodes'."
 	}
 }
@@ -282,7 +282,7 @@ check_updates() {
 		# debugprint "checking $list_id"
 		check_prev_list "$list_id"
 
-		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ ! "$manualmode" ]; then
+		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ ! "$manmode" ]; then
 			up_to_date_lists="$up_to_date_lists$list_id "
 		else
 			ccode="${list_id%_*}"; case "$ccodes" in *"$ccode"*) ;; *) ccodes="$ccodes$ccode "; esac
@@ -489,7 +489,7 @@ done
 [ -z "$fetch_cmd" ] && die "Error: Compatible download utilites unavailable."
 
 if [ -z "$secure_util" ] && [ -z "$http" ]; then
-	[ ! "$manualmode" ] && die "Error: no fetch utility with SSL support available."
+	[ ! "$manmode" ] && die "Error: no fetch utility with SSL support available."
 	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
 	pick_opt "y|n"
 	case "$REPLY" in

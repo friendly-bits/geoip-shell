@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015
+# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046
 
 # geoip-shell-common.sh
 
@@ -13,8 +13,7 @@ setdebug() {
 }
 
 set_colors() {
-	all_C="$(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m')"
-	set -- $all_C
+	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m')
 	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6"
 }
 
@@ -137,8 +136,8 @@ get_json_lines() {
 	sed -n -e /"$1"/\{:1 -e n\;/"$2"/q\;p\;b1 -e \}
 }
 
-# outputs arguments to stdout and writes them to syslog
-# if one of the arguments is "-err" then redirect output to stderr
+# outputs args to stdout and writes them to syslog
+# if one of the args is "-err" then redirect output to stderr
 echolog() {
 	unset msg_args msg_is_err noecho __nl
 
@@ -190,7 +189,7 @@ debugentermsg() {
 	[ ! "$debugmode" ] || [ ! "$me_short_cap" ] && return 0
 	printf %s "${yellow}Started *${me_short_cap}* with args: "
 	newifs "$delim" dbn
-	for arg in $arguments; do printf %s "'$arg' "; done
+	for arg in $_args; do printf %s "'$arg' "; done
 	printf '%s\n' "${n_c}"
 	oldifs dbn
 }
@@ -298,7 +297,7 @@ setconfig() {
 	unset args_lines args_target_file keys_test_str newconfig
 	IFS_OLD_sc="$IFS"
 	for argument_conf in "$@"; do
-		# separate by newline and process each line (support for multi-line arguments)
+		# separate by newline and process each line (support for multi-line args)
 		IFS="$_nl"
 		for line in $argument_conf; do
 			case "$line" in *'='* )
@@ -335,7 +334,7 @@ setconfig() {
 
 # utilizes setconfig() for writing to status files
 # 1 - path to the status file
-# extra arguments are passed as is to setconfig
+# extra args are passed as is to setconfig
 setstatus() {
 	target_file="$1"
 	shift 1
@@ -344,7 +343,7 @@ setstatus() {
 
 # 1 - var name
 # (optional) 2 - string
-trim_spaces() {
+trimsp() {
 	trim_var="$1"
 	newifs "$trim_IFS" trim
 	case "$2" in '') eval "set -- \$$1" ;; *) set -- $2; esac
@@ -355,7 +354,7 @@ trim_spaces() {
 # 1 - var name for output
 # 2 - optional input string (otherwise uses prev value)
 # 3 - optional delimiter
-sanitize_str() {
+san_str() {
 	[ "$2" ] && inp_str="$2" || eval "inp_str=\"\$$1\""
 
 	san_delim="${3:- }"
@@ -429,13 +428,13 @@ nl2sp() {
 	oldifs nts
 }
 
-# trims extra whitespaces, discards empty arguments
+# trims extra whitespaces, discards empty args
 # output string is delimited with $delim
-sanitize_args() {
-	arguments=''
+san_args() {
+	_args=''
 	for arg in "$@"; do
-		trim_spaces arg
-		[ "$arg" ] && arguments="$arguments$arg$delim"
+		trimsp arg
+		[ "$arg" ] && _args="$_args$arg$delim"
 	done
 }
 
@@ -483,12 +482,12 @@ setports() {
 		IFS=","
 		for _range in $_ranges; do
 			ranges_cnt=$((ranges_cnt+1))
-			trim_spaces _range
+			trimsp _range
 			check_edge_chars "$_range" "-" || return 1
 			case "${_range#*-}" in *-*) invalid_str "$_range"; return 1; esac
 			IFS="-"
 			for _port in $_range; do
-				trim_spaces _port
+				trimsp _port
 				case "$_port" in *[!0-9]*) invalid_str "$_port"; return 1; esac
 				_ports="$_ports$_port-"
 			done
@@ -503,7 +502,7 @@ setports() {
 	newifs "$_nl" sp
 	for _line in $_lines; do
 		unset ranges _ports neg mp skip
-		trim_spaces _line
+		trimsp _line
 		check_edge_chars "$_line" ":" || return 1
 		IFS=":"
 		set -- $_line
@@ -511,9 +510,9 @@ setports() {
 		_proto="$1"
 		proto_act="$2"
 		_ranges="$3"
-		trim_spaces _ranges
-		trim_spaces _proto
-		trim_spaces proto_act
+		trimsp _ranges
+		trimsp _proto
+		trimsp proto_act
 		case "$proto_act" in
 			allow) neg='' ;;
 			block) neg='!=' ;;
@@ -531,7 +530,7 @@ setports() {
 			parse_ports || return 1
 			ports_line="$_proto dport $neg { $_ports }"
 		fi
-		trim_spaces ports_line
+		trimsp ports_line
 		ports_conf="$ports_conf$_proto=$ports_line$_nl"
 	done
 	oldifs sp
@@ -574,7 +573,7 @@ init_geoscript
 '
 	set_colors
 
-	[ ! "$manualmode" ] && {
+	[ ! "$manmode" ] && {
 		getconfig PATH _PATH
 		[ -n "$_PATH" ] && export PATH="$_PATH"
 	}
