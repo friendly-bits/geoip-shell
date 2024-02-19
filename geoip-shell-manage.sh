@@ -98,6 +98,20 @@ debugentermsg
 #### FUNCTIONS
 
 report_status() {
+	get_nft_list() {
+		n=0; _res=
+		[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
+		case "$1" in
+			'{')
+				while true; do
+					shift; n=$((n+1))
+					[ "$1" = '}' ] && break
+					_res="$_res$1"
+				done ;;
+			*) _res="$_res$1"
+		esac
+	}
+
 	incr_issues() { issues=$((issues+1)); }
 
 	V_sym="${green}✔${n_c}"
@@ -185,9 +199,37 @@ report_status() {
 	}
 
 	if [ "$verb_status" ]; then
+		dashes="$(printf '%150s' ' ' | tr ' ' '-')"
 		# report geoip rules
-		printf '\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:"
-		nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep . || printf '%s\n' "${red}None $X_sym"
+		printf '\n%s\n%s\n%s\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:" "$dashes" \
+			"${blue}packets    bytes      ipv  verdict prot dports                  interfaces                       extra$n_c" "$dashes"
+		rules="$(nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep .)" ||
+			printf '%s\n' "${red}None $X_sym"
+		newifs "$_nl" rules
+		for rule in $rules; do
+			newifs ' "' wrds
+			set -- $rule
+			case "$families" in "ipv4 ipv6"|"ipv6 ipv4") dfam="both" ;; *) dfam="$families"; esac
+			pkts='---'; bytes='---'; ipv="$dfam"; verd='---'; prot='all'; dports='all'; in='all'; line=''
+			while [ -n "$1" ]; do
+				case "$1" in
+					iifname) shift; get_nft_list "$@"; in="$_res"; shift "$n" ;;
+					ip) ipv="ipv4" ;;
+					ip6) ipv="ipv6" ;;
+					dport) shift; get_nft_list "$@"; dports="$_res"; shift "$n" ;;
+					udp|tcp) prot="$1 " ;;
+					packets) pkts="$2"; shift ;;
+					bytes) bytes="$2"; shift ;;
+					counter) ;;
+					accept) verd="ACCEPT" ;;
+					drop) verd="DROP  " ;;
+					*) line="$line$1 "
+				esac
+				shift
+			done
+			printf '%-11s%-11s%-5s%-8s%-5s%-24s%-33s%s\n' "$pkts" "$bytes" "$ipv" "$verd" "$prot" "$dports" "$in" "${line% }"
+		done
+		oldifs rules
 
 		printf '\n%s' "Ip ranges count in active geoip sets: "
 		case "$active_ccodes" in
