@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
+# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034,SC2059
 
 # geoip-shell-manage.sh
 
@@ -201,8 +201,9 @@ report_status() {
 	if [ "$verb_status" ]; then
 		dashes="$(printf '%150s' ' ' | tr ' ' '-')"
 		# report geoip rules
-		printf '\n%s\n%s\n%s\n%s\n' "${purple}Firewall rules in the $geochain chain${n_c}:" "$dashes" \
-			"${blue}packets    bytes      ipv  verdict prot dports                  interfaces                       extra$n_c" "$dashes"
+		fmt_str="%-11s%-11s%-5s%-8s%-5s%-24s%-33s%s\n"
+		printf "\n%s\n%s\n${fmt_str}%s\n" "${purple}Firewall rules in the $geochain chain${n_c}:" \
+			$dashes${blue} packets bytes ipv verdict prot dports interfaces extra $n_c$dashes
 		rules="$(nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep .)" ||
 			printf '%s\n' "${red}None $X_sym"
 		newifs "$_nl" rules
@@ -227,7 +228,7 @@ report_status() {
 				esac
 				shift
 			done
-			printf '%-11s%-11s%-5s%-8s%-5s%-24s%-33s%s\n' "$pkts" "$bytes" "$ipv" "$verd" "$prot" "$dports" "$in" "${line% }"
+			printf "$fmt_str" "$pkts" "$bytes" "$ipv" "$verd" "$prot" "$dports" "$in" "${line% }"
 		done
 		oldifs rules
 
