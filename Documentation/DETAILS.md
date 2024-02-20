@@ -31,7 +31,6 @@ After installation, the user interface is provided by running "geoip-shell", whi
 - Calls the -manage script to set up geoip.
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
 - Required arguments are `-c <"country_codes">` and `-m <whitelist|blacklist>`
-- Accepts optional custom cron schedule expression for the autoupdate schedule with the '-s' option. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
 
 Additional options:
 - `-u <source>`: specify source for fetching of ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
@@ -39,6 +38,7 @@ Additional options:
 - `-a`: autodetect LAN subnets or WAN interfaces (depending on whether geoip is applied to wan interfaces or to all interfaces). If not specified, asks during installation.
 - `-f`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
 - `-p [tcp|udp]:[allow|block]:[all|ports]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
+- `-s <"schedule_expression"|disable>`: specify custom cron schedule expression for the autoupdate schedule. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
 - `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
 - `-o`: disable automatic backups of the firewall geoip rules and geoip config.
 - `-k`: skip adding the geoip 'enable' rule. This can be used if you want to check everything before commiting to geoip blocking. To enable blocking later, use the *manage script.
