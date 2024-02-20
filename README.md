@@ -138,7 +138,7 @@ _<details><summary>Examples:</summary>_
 
 **To enable or disable geoip blocking:** run `geoip-shell <on|off>`
 
-**To change protocols and ports geoblocking applies to:** run `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|ports]`
+**To change protocols and ports geoblocking applies to:** run `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
 
 _(for details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12)_
 
