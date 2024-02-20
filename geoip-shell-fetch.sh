@@ -87,8 +87,7 @@ reg_server_date() {
 	case "$1" in
 		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] )
 			set_a_arr_el server_dates_arr "$2=$1"
-			debugprint "Got date from $3 for '$2': '$1'."
-			;;
+			debugprint "Got date from $3 for '$2': '$1'." ;;
 		*) debugprint "Failed to get date from $3 for '$2'."
 	esac
 }
@@ -219,8 +218,7 @@ check_prev_list() {
 		case "$prev_s_cnt" in
 			''|0)
 				debugprint "Previous subnets count for '$list_id' is 0."
-				unset_prev_vars
-				;;
+				unset_prev_vars ;;
 			*)
 				prev_list_reg="true"
 				getstatus "$status_file" "PrevDate_${list_id}" "prev_date_compat"; rv=$?
@@ -465,8 +463,7 @@ for util in curl wget uclient-fetch; do
 			curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 			fetch_cmd="$curl_cmd --progress-bar"
 			fetch_cmd_q="$curl_cmd -s"
-			break
-			;;
+			break ;;
 		wget)
 			if checkutil ubus && checkutil uci; then
 				wget_cmd="wget -q --timeout=16"
@@ -477,8 +474,7 @@ for util in curl wget uclient-fetch; do
 				fetch_cmd="$wget_cmd --show-progress -O -"
 				fetch_cmd_q="$wget_cmd -O -"
 				break
-			fi
-			;;
+			fi ;;
 		uclient-fetch)
 			[ -s "/usr/lib/libustream-ssl.so" ] && secure_util="uclient-fetch"
 			fetch_cmd="$ucl_f_cmd -O -"
