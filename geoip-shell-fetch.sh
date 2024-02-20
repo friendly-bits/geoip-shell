@@ -101,7 +101,7 @@ get_source_list_dates_ipdeny() {
 	for list_id in $valid_lists; do
 		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f$_nl"; esac
 	done
-	families="${_res%_nl}"
+	families="${_res%$_nl}"
 
 
 	for family in $families; do
