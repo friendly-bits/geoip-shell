@@ -1,7 +1,7 @@
 ## **Notes**
 1) The suite uses RIPE as the default source for ip lists. RIPE is a regional registry, and as such, is expected to stay online and free for the foreseeable future. However, RIPE may be fairly slow in some regions. For that reason, I implemented support for fetching ip lists from ipdeny. ipdeny provides aggregated ip lists, meaning in short that there are less entries for same effective geoip blocking, so the machine which these lists are installed on has to do less work when processing incoming connection requests. All ip lists the suite fetches from ipdeny are aggregated lists.
 
-2) The scripts intended as user interface are: **-install**, **-uninstall**, **-manage** (also called by running '**geoip-shell**' after installation) and **check-ip-in-registry.sh**. The -manage script saves the config to a file and implements coherence checks between that file and the actual firewall state. While you can run the other scripts individually, if you make changes to firewall geoip rules, next time you run the -manage script it may insist on reverting those changes since they are not reflected in the config file. The **-backup** script can be used individually. By default, it creates a backup before every action you apply to the firewall. If you encounter issues, you can use it with the 'restore' command to restore the firewall to its previous state. It also restores the config, so the -manage script will not mind.
+2) The scripts intended as user interface are: **-install**, **-uninstall**, **-manage** (also called by running '**geoip-shell**' after installation) and **check-ip-in-registry.sh**. The -manage script saves the config to a file and implements coherence checks between that file and the actual firewall state. While you can run the other scripts individually, if you make changes to firewall geoip rules, next time you run the -manage script it may insist on reverting those changes since they are not reflected in the config file. The **-backup** script can be used individually. By default, it creates a backup after every successful action you apply to the firewall. If you encounter issues, you can use it with the 'restore' command to restore the firewall to its previous state. It also restores the config, so the -manage script will not mind.
 
 3) Geoip blocking, as well as automatic list updates, is made persistent via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)).
 
@@ -22,26 +22,32 @@
     Where `ports` may be any combination of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
     Multiple `-p` options are allowed, for example: `-p tcp:allow:22,23 -p udp:block:128-256,3`
 
-    Examples:
-    **Note the double-quotes!**
+    Examples with the -install script:
 
-    Example: `sh geoip-shell-install -c de -m whitelist -p tcp:allow:125-135,7` - for tcp, allow incoming traffic on ports 125-135     and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
+    `sh geoip-shell-install -c de -m whitelist -p tcp:allow:125-135,7` - for tcp, allow incoming traffic on ports 125-135 and 7, geoblock incoming traffic on other tcp ports (doesn't affect UDP traffic)
 
-    Example: `sh geoip-shell-install -c de -m blacklist -p udp:allow:3,15-20,1024-2048` - for udp, allow incoming traffic on ports     15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
+    `sh geoip-shell-install -c de -m blacklist -p udp:allow:3,15-20,1024-2048` - for udp, allow incoming traffic on ports 15-20 and 3, geoblock all other incoming udp traffic (doesn't affect TCP traffic)
 
-    Example: `geoip-shell apply -p tcp:block:all` - for tcp, geoblock all ports (default behavior)
+    Examples with the -manage script (also called via 'geoip-shell' after installation) :
 
-    Example: `geoip-shell apply -p udp:allow:all` - for udp, don't geoblock any ports (completely disables geoblocking for udp)
+    `geoip-shell apply -p tcp:block:all` - for tcp, geoblock all ports (default behavior)
 
-    Example: `geoip-shell apply -p "tcp:block:125-135,7"` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow     incoming traffic on all other tcp ports
+    `geoip-shell apply -p udp:allow:all` - for udp, don't geoblock any ports (completely disables geoblocking for udp)
+
+    `geoip-shell apply -p tcp:block:125-135,7` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports
 
 11) How to remove specific ports assignment:
-    - use `-p [tcp|udp]:block:all`.
-	Example: `geoip-shell -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+
+    use `-p [tcp|udp]:block:all`.
+
+    Example: `geoip-shell -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
 
 12) How to make specific protocol packets bypass geoip blocking:
-    -use `p [tcp|udp]:allow:all`
-	Example: `geoip-shell -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
+
+    use `p [tcp|udp]:allow:all`
+
+    Example: `geoip-shell -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
+
 
 13) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
 
