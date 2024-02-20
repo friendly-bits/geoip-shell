@@ -262,6 +262,26 @@ getconfig() {
 	return 0
 }
 
+# 1 - int
+# 2 - (optional) "bytes"
+num2human() {
+	i=${1:-0} s=0
+	for S in B KiB MiB TiB PiB; do
+		[ $((i > 1024 && s < 4)) = 0 ] && break
+		d=$i
+		i=$((i / 1024))
+		s=$((s + 1))
+	done
+	[ "$2" != bytes ] && { S=${S%B}; S=${S%i}; }
+	d=$((d % 1024 * 100 / 1024))
+	case $d in
+		0) printf "%s%s\n" "$i" "$S"; return ;;
+		[1-9]) f="02" ;;
+		*0) d=${d%0}; f="01"
+	esac
+	printf "%s.%${f}d%s\n" "$i" "$d" "$S"
+}
+
 # 1 - input
 # 2 - leading '*' wildcard (if required)
 # 3 - filter string

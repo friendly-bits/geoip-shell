@@ -199,9 +199,9 @@ report_status() {
 	}
 
 	if [ "$verb_status" ]; then
-		dashes="$(printf '%150s' ' ' | tr ' ' '-')"
+		dashes="$(printf '%158s' ' ' | tr ' ' '-')"
 		# report geoip rules
-		fmt_str="%-11s%-11s%-5s%-8s%-5s%-24s%-33s%s\n"
+		fmt_str="%-9s%-11s%-5s%-8s%-5s%-24s%-33s%s\n"
 		printf "\n%s\n%s\n${fmt_str}%s\n" "${purple}Firewall rules in the $geochain chain${n_c}:" \
 			$dashes${blue} packets bytes ipv verdict prot dports interfaces extra $n_c$dashes
 		rules="$(nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep .)" ||
@@ -219,8 +219,8 @@ report_status() {
 					ip6) ipv="ipv6" ;;
 					dport) shift; get_nft_list "$@"; dports="$_res"; shift "$n" ;;
 					udp|tcp) prot="$1 " ;;
-					packets) pkts="$2"; shift ;;
-					bytes) bytes="$2"; shift ;;
+					packets) pkts=$(num2human $2); shift ;;
+					bytes) bytes=$(num2human $2 bytes); shift ;;
 					counter) ;;
 					accept) verd="ACCEPT" ;;
 					drop) verd="DROP  " ;;
@@ -228,7 +228,7 @@ report_status() {
 				esac
 				shift
 			done
-			printf "$fmt_str" "$pkts" "$bytes" "$ipv" "$verd" "$prot" "$dports" "$in" "${line% }"
+			printf "$fmt_str" "$pkts " "$bytes " "$ipv " "$verd " "$prot " "$dports " "$in " "${line% }"
 		done
 		oldifs rules
 
