@@ -416,7 +416,7 @@ mkdir -p "$conf_dir"
 printf %s "Setting config... "
 
 setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "PATH=$PATH" "tcp=skip" "udp=skip" \
-	"Source=$source" "Families=$families" "FamiliesDefault=$families_default" "CronSchedule=$cron_schedule" \
+	"Source=$source" "Families=$families" "CronSchedule=$cron_schedule" \
 	"DefaultSchedule=$default_schedule" "LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persistence" "NoBlock=$noblock" "HTTP="
