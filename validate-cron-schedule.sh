@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2154,SC2086,SC1090
+# shellcheck disable=SC2317,SC2154,SC2154,SC2086,SC1090,SC2089,SC2090
 
 # validate_cron_schedule.sh
 
@@ -29,10 +29,10 @@ Supports month (Jan-Dec) and day-of-week (Sun-Sat) names.
 Fields can have ranges (e.g. 5-8), lists separated by commas (e.g. Sun, Mon, Fri), or an asterisk for "any".
 
 Options:
--x "expression"  : crontab schedule expression ***in double quotes***
-                       example: "15 4 * * 6"
-                       format: minute hour day-of-month month day-of-week
--h               : This help
+  -x "expression"  : crontab schedule expression ***in double quotes***
+                         example: "15 4 * * 6"
+                         format: minute hour day-of-month month day-of-week
+  -h               : This help
 
 EOF
 }
@@ -41,7 +41,7 @@ EOF
 
 while getopts ":x:h" opt; do
 	case $opt in
-	x) sourceline=$OPTARG ;;
+	x) sourceline="$(tolower "$OPTARG")" ;;
 	h) usage; exit 0 ;;
 	*) unknownopt
 	esac
@@ -60,8 +60,7 @@ reg_err() {
 }
 
 print_tip() {
-	printf '%s\n%s\n%s\n%s\n' "Crontab expression format: 'minute hour day-of-month month day-of-week'." \
-		"You entered: '$sourceline'." \
+	printf '%s\n%s\n%s\n' "Crontab expression format: 'minute hour day-of-month month day-of-week'." \
 		"Valid example: '15 4 * * 6'." \
 		"Use double quotes around your cron schedule expression." >&2
 }
@@ -72,31 +71,31 @@ validateNum() {
 		'*' ) return 0 ;;
 		''|*[!0-9]* ) return 1
 	esac
+	[ "$num" -le "$prevnum" ] && return 1
+	prevnum="$num"
 	return $(( num<min || num>max))
 }
 
 validateDay() {
-	case $(tolower "$1") in
-		sun|mon|tue|wed|thu|fri|sat|'*') return 0
-	esac
+	eval "case \"$1\" in
+		$dow_values) abbr=1; return 0
+	esac"
 	return 1
 }
 
 validateMon() {
-	case $(tolower "$1") in
-		jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|'*') return 0
-	esac
+	eval "case \"$1\" in
+		$mon_values) abbr=1; return 0
+	esac"
 	return 1
 }
 
 validateName() {
-	fieldtype="$1"
-	fieldvalue="$2"
-	case "$fieldtype" in
-		"month") validateMon "$fieldvalue"; return $? ;;
-		"day of week") validateDay "$fieldvalue"; return $?
+	case "$1" in
+		"mon") validateMon "$2" ;;
+		"dow") validateDay "$2" ;;
+		*) return 1
 	esac
-	return 1
 }
 
 # validates a field of the cron schedule (month, day of month, day of week, hour or minute)
@@ -111,7 +110,8 @@ validateField() {
 		case "${1#"${1%?}"}" in "$2") invalid_char "$1" "ends" "$2"; esac
 	}
 
-	fieldName="$1"
+	field_id="$1"
+	eval "fieldName=\"\$$1\""
 	fieldStr="$2"
 	minval="$3"
 	maxval="$4"
@@ -124,16 +124,18 @@ validateField() {
 	newifs ","
 	for slice in $fieldStr; do
 		check_edge_chars "$slice" "-"
-		segnum=0
+		segnum=0 prevnum=$((minval-1)) abbr=
 		IFS='-'
 		for segment in $slice; do
 			oldifs
 			# try validating the segment as a number or an asterisk
 			if ! validateNum "$segment" "$minval" "$maxval" ; then
 				# if that fails, try validating the segment as a name or an asterisk
-				if ! validateName "$fieldName" "$segment"; then
+				if ! validateName "$field_id" "$segment"; then
 					# if that fails, the segment is invalid
-					reg_err "Invalid segment '$segment' in field: $fieldName."
+					eval "val_seg=\"\$${field_id}_values\""
+					[ "$val_seg" ] && val_seg=", $val_seg"
+					reg_err "Invalid segment '$segment' in field: $fieldName. Valid values: $minval-$maxval$val_seg."
 				fi
 			fi
 
@@ -145,7 +147,7 @@ validateField() {
 			[ "$segment" = "*" ] && astnum_field=$((astnum_field+1))
 		done
 
-		[ "$segnum" -gt 2 ] && reg_err "Invalid value '$slice' in $fieldName '$fieldStr'."
+		[ "$segnum" -gt 2 ] || { [ "$segnum" -gt 1 ] && [ "$abbr" ]; } && reg_err "Invalid value '$slice' in $fieldName '$fieldStr'."
 	done
 	oldifs
 
@@ -158,22 +160,29 @@ validateField() {
 
 err=0
 errstr=''
+mn=minute
+hr=hour
+dom="day of month"
+mon=month
+dow="day of week"
+dow_values="sun|mon|tue|wed|thu|fri|sat|'*'"
+mon_values="jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|'*'"
 
 #### Basic sanity check for input args
 
 # separate the input by spaces and store results in variables
 set -- $sourceline
-for fieldCat in min hour dom mon dow; do
+for field in mn_val hr_val dom_val mon_val dow_val; do
 	case "$1" in
-		'') printf '\n\n%s\n' "$me: Error: Not enough fields in schedule expression." >&2
+		'') printf '\n\n%s\n' "$me: $ERR Not enough fields in schedule expression." >&2
 			print_tip; die ;;
-		*) eval "$fieldCat"='$1'; shift
+		*) eval "$field"='$1'; shift
 	esac
 done
 
 # check for extra args
 [ -n "$*" ] && {
-	printf '\n\n%s\n' "$me: Error: Too many fields in schedule expression. I don't know what to do with '$*'." >&2
+	printf '\n\n%s\n' "$me: $ERR Too many fields in schedule expression." >&2
 	print_tip
 	die
 }
@@ -181,11 +190,10 @@ done
 
 #### Main
 
-validateField "minute" "$min" "0" "60"
-validateField "hour" "$hour" "0" "24"
-validateField "day of month" "$dom" "1" "31"
-validateField "month" "$mon" "1" "12"
-validateField "day of week" "$dow" "1" "7"
+for field in "mn $mn_val 0 59" "hr $hr_val 0 23" "dom $dom_val 1 31" "mon $mon_val 1 12" "dow $dow_val 0 6"; do
+	set -- $field
+	validateField "$1" "$2" "$3" "$4"
+done
 
 [ $err != 0 ] && {
 	printf '\n\n%s\n%s\n\n' "$me: errors in cron expression:" "${errstr%"$_nl"}" >&2
