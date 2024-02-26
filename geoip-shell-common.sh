@@ -15,9 +15,9 @@ setdebug() {
 	export debugmode="${debugmode_args:-$debugmode}"
 }
 
-set_colors() {
-	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m')
-	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6"
+set_ascii() {
+	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \t')
+	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" trim_IFS=" $8"
 }
 
 newifs() {
@@ -590,9 +590,9 @@ init_geoscript
 
 [ ! "$geotag" ] && {
 	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name"
-	export conf_file="$conf_dir/$p_name.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
+	export conf_file="$conf_dir/$p_name.conf" default_IFS="$IFS" _nl='
 '
-	set_colors
+	set_ascii
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
 
 	check_deps tr cut sort wc awk sed grep logger || die
