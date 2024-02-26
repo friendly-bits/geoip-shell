@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/${p_name}-nft.sh" || exit 1
+. "$script_dir/${p_name}-$_fw_backend.sh" || exit 1
 
 check_root
 
@@ -131,7 +131,7 @@ case "$action_run" in
 				nobackup=1
 			else
 				echolog -err "Restore from backup failed. Attempting to restore from config."
-				nft_rm_all_georules || die "Error removing firewall rules."
+				rm_all_georules || die "$FAIL remove firewall rules."
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
 			fi
