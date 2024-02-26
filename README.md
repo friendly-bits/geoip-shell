@@ -1,14 +1,14 @@
 # **geoip-shell**
 Geoip blocker for Linux. Utilizes the **nftables** firewall management utility.
 
-**iptables** is supported in the [iptables branch](https://github.com/blunderful-scripts/geoip-shell/tree/geoip-shell-iptables).
+**iptables** is supported in the [iptables branch](https://github.com/friendly-bits/geoip-shell/tree/geoip-shell-iptables).
 
-This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project, re-implemented in POSIX-compliant shell code. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
+This is a continuation of the [**geoblocker-bash**](https://github.com/friendly-bits/geoblocker-bash) project, re-implemented in POSIX-compliant shell code. To learn what's changed, check out [this announcement](https://github.com/friendly-bits/geoip-shell/discussions/1).
 
 Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports running on OpenWrt. Supports ipv4 and ipv6.
 
-[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/e1a70e9d-a0eb-407b-9372-ddcbe6134d88)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/24010da9-a62a-428f-ae4d-cb1d4ae97f73)
-[![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/ef622182-a6cf-49ff-9bed-64fc29653255)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/b35e199f-465d-487c-809b-9c5a8f0644be)
+[![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/e1a70e9d-a0eb-407b-9372-ddcbe6134d88)](https://github.com/friendly-bits/geoip-shell/assets/134004289/24010da9-a62a-428f-ae4d-cb1d4ae97f73)
+[![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/ef622182-a6cf-49ff-9bed-64fc29653255)](https://github.com/friendly-bits/geoip-shell/assets/134004289/b35e199f-465d-487c-809b-9c5a8f0644be)
 
 
 ## Table of contents
@@ -90,7 +90,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
 
-**2)** Download the latest realease (pick one with the **-nftables** suffix): https://github.com/blunderful-scripts/geoip-shell/releases
+**2)** Download the latest realease (pick one with the **-nftables** suffix): https://github.com/friendly-bits/geoip-shell/releases
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
@@ -174,7 +174,7 @@ For specifics about each script, read [DETAILS.md](/Documentation/DETAILS.md).
 
 ## **Privacy**
 These scripts do not share your data with anyone, as long as you downloaded them from the official source, which is
-https://github.com/blunderful-scripts/geoip-shell
+https://github.com/friendly-bits/geoip-shell
 If you are using the ipdeny source then note that they are a 3rd party which has its own data privacy policy.
 
 ## **P.s.**
