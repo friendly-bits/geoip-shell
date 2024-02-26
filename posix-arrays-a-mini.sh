@@ -25,7 +25,7 @@ get_a_arr_keys() {
 
 	eval "$_out_var=\"\$(printf '%s ' \$_a_${_arr_name}___keys)\""
 
-	return 0
+	:
 }
 
 # 1 - array name
@@ -47,7 +47,7 @@ set_a_arr_el() {
 		*) eval "_a_${_arr_name}___keys=\"$___keys$_nl$___key\""
 	esac
 
-	return 0
+	:
 }
 
 # 1 - array name
