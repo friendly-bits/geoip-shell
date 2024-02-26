@@ -45,11 +45,11 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 ### **Efficiency**:
 - Optimizes geoip blocking for low memory consumption or for performance, depending on user preference.
-- Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
-- Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
 
 <details><summary>Read more:</summary>
 
+- Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
+- Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
 - The nftables branch utilizes native nftables sets which allows to create efficient firewall rules with thousands of ip ranges.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
@@ -58,10 +58,10 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 ### **User-friendliness**:
 - Installation is easy, doesn't require many complex command line arguments and normally takes a very short time.
-- Extensive documentation, including detailed installation and usage guides.
 
 <details><summary>Read more:</summary>
 
+- Extensive documentation, including detailed installation and usage guides.
 - To simplify the installation procedure, implements autodetection of local subnets and WAN interfaces (if any).
 - Comes with an *uninstall script which completely removes the suite and geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
@@ -75,6 +75,9 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 ### **Compatibility**:
 - Since the project is written in shell code, it is compatible with virtually every Linux system (as long as it has the pre-requisites).
+
+<details><summary>Read more:</summary>
+
 - Supports running on OpenWrt.
 - The project avoids using non-common utilities by implementing their functionality in custom shell code, which makes it faster and compatible with a wider range of systems.
 </details>
