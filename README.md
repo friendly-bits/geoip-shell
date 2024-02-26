@@ -5,7 +5,7 @@ Geoip blocker for Linux. Utilizes the **nftables** firewall management utility.
 
 This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
 
-Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports ipv4 and ipv6.
+Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 [![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/5fc988b1-6c9f-4aa2-9e56-38708c2f8cf6)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0e4af5cb-5a62-4f68-b6e6-fd0d34341036)
 [![image](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/0d70ec39-3078-4b2e-8bfa-9ec2a065ed78)](https://github.com/blunderful-scripts/geoip-shell/assets/134004289/4a18174b-f97a-4550-b81f-dfaaec876f10)
@@ -75,6 +75,7 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 ### **Compatibility**:
 - Since the project is written in shell code, it is compatible with virtually every Linux system (as long as it has the pre-requisites).
+- Supports running on OpenWrt.
 - The project avoids using non-common utilities by implementing their functionality in custom shell code, which makes it faster and compatible with a wider range of systems.
 </details>
 
@@ -114,7 +115,7 @@ _<details><summary>Examples:</summary>_
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
-- Linux. Tested on Debian-like systems and occasionally on OPENWRT (support for which is not yet complete), should work on any desktop/server distribution and possibly on some embedded distributions.
+- Linux. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
 - nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
 - `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
