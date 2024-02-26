@@ -77,12 +77,6 @@ for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-case "$list_type" in
-	whitelist) iplist_verdict="accept" ;;
-	blacklist) iplist_verdict="drop" ;;
-	*) die "Unknown firewall mode '$list_type'."
-esac
-
 iplist_dir="${datadir}/ip_lists"
 status_file="$iplist_dir/status"
 
@@ -96,4 +90,4 @@ geotag_aux="${p_name}_aux"
 [ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
 [ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
 
-. "$script_dir/${p_name}-$_fw_backend.sh"
+. "$script_dir/${p_name}-apply-$_fw_backend.sh"
