@@ -140,10 +140,10 @@ This script is called by the -apply script when the suite is installed in whitel
 
 This script is being developed in a separate repository:
 
-https://github.com/blunderful-scripts/subnet-tools
+https://github.com/friendly-bits/subnet-tools
 
 **posix-arrays-a-mini.sh**: implements support for associative arrays in POSIX shell. Used in the -fetch script. This version is optimized for very small arrays, and includes a minimal subset of functions from the main project found here:
 
-https://github.com/blunderful-scripts/POSIX-arrays
+https://github.com/friendly-bits/POSIX-arrays
 
 **ip-regex.sh**: loads regular expressions used in other scripts for validation of ipv4 and ipv6 addresses and subnets.
