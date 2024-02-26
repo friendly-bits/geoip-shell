@@ -1,8 +1,12 @@
-# shellcheck disable=all
+# intended to be run from procd init script
+# makes sure that OpenWrt firewall include exists. if not then adds it.
+
+# the -install.sh script prepends the shebang and values for variables $install_dir and $p_name
+
 . "$install_dir/${p_name}-owrt-common.sh" || exit 1
 
 die() {
-	logger -t "$me" "$1"
+	logger -t "$me" -p user.err "$1"
 	printf '%s\n' "$me: $1" >&2
 	exit 1
 }
