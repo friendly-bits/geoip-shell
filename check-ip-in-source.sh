@@ -15,24 +15,24 @@ export manmode=1
 #### USAGE
 
 usage() {
-    cat <<EOF
+cat <<EOF
 
 Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u ripe|ipdeny] [-d] [-h]
 
-    For each of the specified ip addresses, checks whether it belongs to one of the subnets
-          in the list fetched from a source (either RIPE or ipdeny) for a given country code.
-    Accepts a mix of ipv4 and ipv6 addresses.
+For each of the specified ip addresses, checks whether it belongs to one of the subnets
+    in the list fetched from a source (either RIPE or ipdeny) for a given country code.
+Accepts a mix of ipv4 and ipv6 addresses.
 
 Requires the 'grepcidr' utility, '${p_name}-fetch.sh', '${p_name}-common.sh', 'cca2.list'
 
 Options:
-    -c <country_code>    : Country code (ISO 3166-1 alpha-2)
-    -i <"ip_addresses">  : ip addresses to check
-                           - if specifying multiple addresses, use double quotes
-    -u <ripe|ipdeny>     : Source to check in. By default checks in RIPE.
+  -c <country_code>    : Country code (ISO 3166-1 alpha-2)
+  -i <"ip_addresses">  : ip addresses to check
+                         - if specifying multiple addresses, use double quotes
+  -u <ripe|ipdeny>     : Source to check in. By default checks in RIPE.
 
-    -d                   : Debug
-    -h                   : This help
+  -d                   : Debug
+  -h                   : This help
 
 EOF
 }
