@@ -38,8 +38,8 @@ enable_geoip() {
 		enable_rule="$($ipt_save_cmd | grep "${geotag}_enable")"
 		[ ! "$enable_rule" ] && {
 			printf %s "Inserting the enable geoip $family rule... "
-			$ipt_cmd -I PREROUTING -j "$first_chain" -m comment --comment "${geotag}_enable" || critical "$insert_failed"
-			echo "Ok."
+			$ipt_cmd -I PREROUTING -j "$first_chain" $ipt_comm "${geotag}_enable" || critical "$insert_failed"
+			OK
 		} || printf '%s\n' "Geoip is already enabled for $family."
 	done
 }
@@ -114,6 +114,7 @@ esac
 exitvalue=0
 
 insert_failed="$FAIL insert a firewall rule."
+ipt_comm="-m comment --comment"
 
 ipsets_to_rm=''
 get_curr_ipsets
@@ -210,7 +211,7 @@ for family in $families; do
 		if [ -n "$wan_ifaces" ]; then # apply geoip to wan ifaces
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
 			for wan_iface in $wan_ifaces; do
-				printf '%s\n' "-i $wan_iface -I $iface_chain -j $geochain -m comment --comment ${geotag}_iface_filter"
+				printf '%s\n' "-i $wan_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
 			done
 		fi
 
@@ -218,22 +219,22 @@ for family in $families; do
 
 		# local networks
 		if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
-			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src -m comment --comment ${geotag_aux}_lan_$family -j ACCEPT"
+			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src $ipt_comm ${geotag_aux}_lan_$family -j ACCEPT"
 		fi
 
 		# ports
 		for proto in tcp udp; do
 			eval "dport=\"\$${proto}_ports\""
 			[ "$dport" = skip ] && continue
-			printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT -m comment --comment ${geotag_aux}_ports"
+			printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT $ipt_comm ${geotag_aux}_ports"
 		done
 
 		# established/related
-		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment ${geotag_aux}_rel-est -j ACCEPT"
+		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
 		[ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ] && \
-			printf '%s\n' "-I $geochain -i lo -m comment --comment ${geotag_aux}-lo -j ACCEPT"
+			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
 		if [ "$action" = "add" ]; then
@@ -241,22 +242,22 @@ for family in $families; do
 				[ "$family" != "${list_id#*_}" ] && continue
 				perm_ipset="${geotag}_${list_id}"
 				list_tag="${geotag}_${list_id}"
-				printf '%s\n' "-A $geochain -m set --match-set $perm_ipset src -m comment --comment $list_tag -j $fw_target"
+				printf '%s\n' "-A $geochain -m set --match-set $perm_ipset src $ipt_comm $list_tag -j $fw_target"
 			done
 		fi
 
 		# whitelist block
-		[ "$list_type" = "whitelist" ] && printf '%s\n' "-A $geochain -m comment --comment ${geotag}_whitelist_block -j DROP"
+		[ "$list_type" = "whitelist" ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
 
 		echo "COMMIT"
 		exit "$rv"
 	)" || die_a "$ERR $FAIL assemble commands for iptables-restore"
-	echo "Ok."
+	OK
 
 	### "Apply new rules
 	printf %s "Applying new $family firewall rules... "
 	printf '%s\n' "$iptr_cmd_chain" | $ipt_restore_cmd || critical "$FAIL apply new iptables rules"
-	echo "Ok."
+	OK
 
 	[ -n "$ipsets_to_add" ] && {
 		printf %s "Adding $family ipsets... "
@@ -266,7 +267,7 @@ for family in $families; do
 			ipsets_to_rm="$ipsets_to_rm${entry%% *}_temp "
 		done
 		oldifs apply
-		printf '%s\n\n' "Ok."
+		OK; echo
 	}
 done
 
@@ -287,7 +288,7 @@ done
 			*) echo "Failed."; echolog -err "$WARN Can't remove ipset '$ipset' because it doesn't exist."; exitvalue="254"
 		esac
 	done
-	[ "$exitvalue" = 0 ] && echo "Ok."
+	[ "$exitvalue" = 0 ] && OK
 }
 
 
