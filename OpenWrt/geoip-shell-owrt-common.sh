@@ -13,7 +13,17 @@ check_owrt_init() {
 	return 1
 }
 
-check_owrt_include() { [ "$(uci -q get firewall."$p_name_c".enabled)" = 1 ]; }
+# checks value in uci for firewall.geoip_shell.$1
+# 1 - option
+# 2 - value
+check_uci_ent() { [ "$(uci -q get firewall."$p_name_c.$1")" = "$2" ]; }
+
+# checks the firewall include for geoip-shell in uci
+check_owrt_include() {
+	check_uci_ent enabled 1 || return 1
+	[ "$_OWRTFW" = 4 ] && return 0
+	check_uci_ent reload 1
+}
 
 # check for OpenWrt firewall version
 checkutil uci && checkutil procd && for i in 3 4; do
