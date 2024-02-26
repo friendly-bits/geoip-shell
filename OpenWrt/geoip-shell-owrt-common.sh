@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# common functions and variables for OpenWrt-related scripts
+
 checkutil () { command -v "$1" 1>/dev/null; }
 
 check_owrt_init() {
@@ -17,9 +19,7 @@ check_owrt_include() { [ "$(uci -q get firewall."$p_name_c".enabled)" = 1 ]; }
 checkutil uci && checkutil procd && for i in 3 4; do
 	[ -x /sbin/fw$i ] && export _OWRTFW="$i"
 done || {
-	_msg="Failed to detect OpenWrt firewall"
-	echo "$_msg" >&2
-	logger -t "$me" "$_msg"
+	logger -s -t "$me" -p user.err "Failed to detect OpenWrt firewall"
 	return 1
 }
 
