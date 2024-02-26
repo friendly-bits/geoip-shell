@@ -112,10 +112,8 @@ rm "$conf_file" 2>/dev/null
 	. "$script_dir/${p_name}-owrt-common.sh" || exit 1
 	echo "Deleting the init script..."
 	/etc/init.d/${p_name}-init disable && rm "/etc/init.d/${p_name}-init" 2>/dev/null
-	check_owrt_include && {
-		printf %s "Removing the firewall include..."
-		uci delete firewall."$p_name_c" 1>/dev/null && OK || FAIL
-	}
+	echo "Removing the firewall include..."
+	uci delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	echo "Restarting the firewall..."
 	service firewall restart
 }
