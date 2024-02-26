@@ -584,10 +584,6 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
-WARN="${red}Warning${n_c}:"
-ERR="${red}Error${n_c}:"
-FAIL="${red}Failed${n_c} to"
-
 export install_dir="/usr/bin"
 
 init_geoscript
@@ -597,12 +593,13 @@ init_geoscript
 	export conf_file="$conf_dir/$p_name.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
+	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
 
 	check_deps tr cut sort wc awk sed grep logger || die
-	{ check_deps nft 2>/dev/null && export _backend=nft; } ||
+	{ check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{
 		check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
-			{ check_deps ipset || die; export _backend=ipt; }
+			{ check_deps ipset || die; export _fw_backend=ipt; }
 	} || die "$ERR neither nftables nor iptables found."
 }
 
