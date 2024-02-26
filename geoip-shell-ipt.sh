@@ -3,33 +3,6 @@
 
 # library for interacting with iptables
 
-# checks whether current ipsets and iptables rules match ones in the config file
-check_lists_coherence() {
-	debugprint "Verifying ip lists coherence..."
-
-	# check for a valid list type
-	case "$list_type" in whitelist|blacklist) ;; *) die "Error: Unexpected geoip mode '$list_type'!"; esac
-
-	unset unexp_lists missing_lists
-	getconfig "Lists" config_lists
-	sp2nl "$config_lists" config_lists
-	get_active_iplists active_lists || {
-		nl2sp "$ipset_lists" ips_l_str; nl2sp "$iprules_lists" ipr_l_str
-		echolog -err "Error: ipset lists ($ips_l_str) differ from iprules lists ($ipr_l_str)."
-		return 1
-	}
-
-	get_difference "$active_lists" "$config_lists" lists_difference
-	case "$lists_difference" in
-		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
-		*) nl2sp "$active_lists" active_l_str; nl2sp "$config_lists" config_l_str
-			echolog -err "Failed to verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
-			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexpected_lists
-			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$missing_lists" missing_lists
-			return 1
-	esac
-}
-
 # $family needs to be set
 set_ipt_cmds() {
 	case "$family" in ipv4) f='' ;; ipv6) f=6 ;; *) echolog -err "set_ipt_cmds: Unexpected family '$family'."; return 1; esac
@@ -100,6 +73,4 @@ get_active_iplists() {
 }
 
 ipt_table="mangle"
-geotag="${proj_name}"
-export geochain="${geochain:-"$(toupper "$geotag")"}"
 iface_chain="${geochain}_WAN"
