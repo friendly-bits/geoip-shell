@@ -136,5 +136,3 @@ echo "Deleting config..."
 rm -rf "$conf_dir" 2>/dev/null
 
 printf '%s\n\n' "Uninstall complete."
-
-exit 0
