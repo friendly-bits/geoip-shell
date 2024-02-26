@@ -133,7 +133,7 @@ check_deps() {
 	missing_deps=''
 	for dep; do ! checkutil "$dep" && missing_deps="${missing_deps}'$dep', "; done
 	[ "$missing_deps" ] && { echolog -err "$ERR missing dependencies: ${missing_deps%, }"; return 1; }
-	return 0
+	:
 }
 
 get_json_lines() {
@@ -262,7 +262,7 @@ getconfig() {
 
 	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || { getconfig_failed; return 2; }
 	eval "$2"='${conf_line#"${key_conf}"=}'
-	return 0
+	:
 }
 
 # 1 - int
@@ -355,7 +355,7 @@ setconfig() {
 		{ echolog "setconfig: failed to write to '$target_file'"; [ "$nodie" ] && return 1; die; }
 	oldifs sc
 	export config_var=''
-	return 0
+	:
 }
 
 # utilizes setconfig() for writing to status files
@@ -487,7 +487,7 @@ setports() {
 	check_edge_chars() {
 		[ "${1%"${1#?}"}" = "$2" ] && { invalid_str "$1"; return 1; }
 		[ "${1#"${1%?}"}" = "$2" ] && { invalid_str "$1"; return 1; }
-		return 0
+		:
 	}
 
 	parse_ports() {
@@ -592,13 +592,18 @@ export install_dir="/usr/bin"
 
 init_geoscript
 
-[ ! "$_nl" ] && {
-	export LC_ALL=C conf_dir="/etc/${p_name}"
-	export conf_file="${conf_dir}/${p_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
+[ ! "$geotag" ] && {
+	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name"
+	export conf_file="$conf_dir/$p_name.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 
-	check_deps nft tr cut sort wc awk sed grep logger || die
+	check_deps tr cut sort wc awk sed grep logger || die
+	{ check_deps nft 2>/dev/null && export _backend=nft; } ||
+	{
+		check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
+			{ check_deps ipset || die; export _backend=ipt; }
+	} || die "$ERR neither nftables nor iptables found."
 }
 
 :
