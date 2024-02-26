@@ -25,7 +25,7 @@ set -f
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 # shellcheck source=ip-regex.sh
-. "$script_dir/ip-regex.sh"
+. "$script_dir/lib/ip-regex.sh"
 
 ## Simple args parsing
 debugmode=''
