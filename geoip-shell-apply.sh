@@ -26,14 +26,14 @@ Usage: $me <action> [-l <"list_ids">] [-d] [-h]
 Switches geoip blocking on/off, or loads/removes ip sets and firewall rules for specified lists.
 
 Actions:
-    on|off           : enable or disable the geoip blocking chain (via a rule in the base chain)
-    add|remove       : Add or remove ip sets and firewall rules for lists specified with the '-l' option
+  on|off           : enable or disable the geoip blocking chain (via a rule in the base chain)
+  add|remove       : Add or remove ip sets and firewall rules for lists specified with the '-l' option
 
 Options:
-    -l <"list_ids">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
+  -l <"list_ids">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
 
-    -d               : Debug
-    -h               : This help
+  -d               : Debug
+  -h               : This help
 
 EOF
 }
@@ -105,8 +105,8 @@ geotag_aux="${p_name}_aux"
 #### CHECKS
 
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
-[ ! "$datadir" ] && die "Internal error: the \$datadir variable is empty."
-[ ! "$list_type" ] && die "Internal error: the \$list_type variable is empty."
+[ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
+[ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
 
 
 #### MAIN
@@ -122,8 +122,8 @@ case "$action" in
 	off) [ -z "$geochain_on" ] && { echo "Geoip chain is already switched off."; exit 0; }
 		printf %s "Removing the geoip enable rule... "
 		mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" | nft -f -; rv=$?
-		[ $rv != 0 ] || is_geochain_on && { echo "Failed."; die "Error: Failed to remove nft rule."; }
-		echo "Ok."
+		[ $rv != 0 ] || is_geochain_on && { FAIL; die "$ERR $FAIL remove nft rule."; }
+		OK
 		exit 0 ;;
 	on) [ -n "$geochain_on" ] && { echo "Geoip chain is already switched on."; exit 0; }
 		[ -z "$base_chain_cont" ] && missing_chain="base geoip"
@@ -132,8 +132,8 @@ case "$action" in
 
 		printf %s "Adding the geoip enable rule... "
 		printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable" | nft -f -; rv=$?
-		[ $rv != 0 ] || ! is_geochain_on && { echo "Failed."; die "Error: Failed to add nft rule."; }
-		echo "Ok."
+		[ $rv != 0 ] || ! is_geochain_on && { FAIL; die "$ERR $FAIL add nft rule."; }
+		OK
 		exit 0
 esac
 
@@ -146,11 +146,11 @@ esac
 old_ipsets=''; new_ipsets=''
 curr_ipsets="$(nft -t list sets inet | grep "$geotag")"
 for list_id in $list_ids; do
-	case "$list_id" in *_*) ;; *) die "Error: Invalid iplist id '$list_id'."; esac
+	case "$list_id" in *_*) ;; *) die "$ERR Invalid iplist id '$list_id'."; esac
 	family="${list_id#*_}"
 	iplist_file="${iplist_dir}/${list_id}.iplist"
 	getstatus "$status_file" "PrevDate_${list_id}" list_date ||
-		die "Error: Failed to read value for '$PrevDate_${list_id}' from file '$status_file'."
+		die "$ERR $FAIL read value for '$PrevDate_${list_id}' from file '$status_file'."
 	ipset="${list_id}_${list_date}_${geotag}"
 	case "$curr_ipsets" in
 		*"$ipset"* ) [ "$action" = add ] && { echo "Ip set for '$list_id' is already up-to-date."; continue; }
@@ -166,14 +166,14 @@ done
 
 
 ### create the table
-nft add table inet $geotable || die "Failed to create table '$geotable'"
+nft add table inet $geotable || die "$FAIL create table '$geotable'"
 
 ### apply the action 'add' for ipsets
 for new_ipset in $new_ipsets; do
 	printf %s "Adding ip set '$new_ipset'... "
 	get_ipset_id "$new_ipset" || die_a
 	iplist_file="${iplist_dir}/${list_id}.iplist"
-	[ ! -f "$iplist_file" ] && die_a "Error: Can not find the iplist file '$iplist_file'."
+	[ ! -f "$iplist_file" ] && die_a "$ERR Can not find the iplist file '$iplist_file'."
 
 	# count ips in the iplist file
 	[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | wc -w)"
@@ -184,8 +184,8 @@ for new_ipset in $new_ipsets; do
 		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $perf_opt; "
 		cat "$iplist_file"
 		printf '%s\n' "; }"
-	} | nft -f - || die_a "Failed to import the iplist from '$iplist_file' into ip set '$new_ipset'."
-	printf '%s\n' "Ok"
+	} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$new_ipset'."
+	OK
 
 	[ "$debugmode" ] && debugprint "elements in $new_ipset: $(nft_cnt_elements "$new_ipset")"
 done
@@ -226,7 +226,7 @@ nft_cmd_chain="$(
 				eval "lan_subnets=\"\$lan_subnets_$family\""
 			else
 				lan_subnets="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || a_d_failed=1
-				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "Failed to autodetect $family local subnets."; exit 1; }
+				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL autodetect $family local subnets."; exit 1; }
 				setconfig "LanSubnets_$family" "$lan_subnets"
 			fi
 			[ -n "$lan_subnets" ] && {
@@ -270,17 +270,17 @@ nft_cmd_chain="$(
 	[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
 
 	exit 0
-)" || die_a 254 "Error: Failed to assemble nftables commands."
-echo "Ok."
+)" || die_a 254 "$ERR $FAIL assemble nftables commands."
+OK
 
 # debugprint "new rules: $_nl'$nft_cmd_chain'"
 
 ### Apply new rules
 printf %s "Applying new firewall rules... "
-printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "Error: Failed to apply new firewall rules"
-echo "Ok."
+printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "$ERR $FAIL apply new firewall rules"
+OK
 
-[ -n "$noblock" ] && echolog -err "WARNING: Geoip blocking is disabled via config."
+[ -n "$noblock" ] && echolog -err "$WARN Geoip blocking is disabled via config."
 
 echo
 
