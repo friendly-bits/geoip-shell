@@ -5,6 +5,9 @@
 
 # nftables-specific library for the -backup script
 
+. "$script_dir/${p_name}-nft.sh" || exit 1
+
+
 #### FUNCTIONS
 
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
@@ -101,6 +104,3 @@ create_backup() {
 	setconfig "BackupExt=${archive_ext:-bak}"
 	cp "$conf_file" "$conf_file_bak"  || backup_failed
 }
-
-. "$script_dir/${p_name}-nft.sh" || exit 1
-
