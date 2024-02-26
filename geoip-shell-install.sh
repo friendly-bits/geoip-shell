@@ -357,16 +357,17 @@ iplist_dir="${datadir}/ip_lists"
 
 default_schedule="15 4 * * *"
 
+ipt_libs='' ipt_script=
+[ "$_fw_backend" = ipt ] && { ipt_libs="apply-ipt backup-ipt"; ipt_script="ipt"; }
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common; do
-	script_files="$script_files${p_name}-$f.sh "
+for f in fetch apply manage cronsetup run uninstall backup common nft "$ipt_script"; do
+	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files validate-cron-schedule.sh detect-local-subnets-AIO.sh ip-regex.sh \
 	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh $owrt_common_script"
 
-ipt_libs='' lib_files=
-[ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt"
-for f in nft apply-nft backup-nft $ipt_libs; do
+lib_files=
+for f in apply-nft backup-nft $ipt_libs; do
 	lib_files="${lib_files}lib/${p_name}-$f.sh "
 done
 
@@ -448,8 +449,9 @@ call_script "$script_dir/${p_name}-uninstall.sh" || die "Pre-install cleanup fai
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files" && copyscripts -lib "$lib_files"
-OK; printf '\n'
+copyscripts "$script_files" && copyscripts "$lib_files"
+OK
+echo
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
 rm "${install_dir}/${p_name}" 2>/dev/null
