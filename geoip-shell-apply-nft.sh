@@ -3,6 +3,8 @@
 
 # geoip-shell-apply-nft.sh
 
+# nftables-specific library for the -apply script
+
 # Copyright: friendly bits
 # github.com/friendly-bits
 
@@ -17,6 +19,13 @@ die_a() {
 	die 254
 }
 
+#### Variables
+
+case "$list_type" in
+	whitelist) iplist_verdict="accept" ;;
+	blacklist) iplist_verdict="drop" ;;
+	*) die "Unknown firewall mode '$list_type'."
+esac
 
 : "${perf_opt:=memory}"
 
