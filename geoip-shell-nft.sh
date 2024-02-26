@@ -101,34 +101,6 @@ get_active_iplists() {
 }
 
 # checks whether current ipsets and firewall rules match the config
-check_lists_coherence() {
-	debugprint "Verifying ip lists coherence..."
-
-	# check for a valid list type
-	case "$list_type" in whitelist|blacklist) ;; *) die "$ERR Unexpected geoip mode '$list_type'!"; esac
-
-	unset unexp_lists missing_lists
-	getconfig "Lists" config_lists
-	sp2nl "$config_lists" config_lists
-	force_read_geotable=1
-	get_active_iplists active_lists || {
-		nl2sp "$ipset_lists" ips_l_str; nl2sp "$iprules_lists" ipr_l_str
-		echolog -err "$WARN ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
-		return 1
-	}
-	force_read_geotable=
-
-	get_difference "$active_lists" "$config_lists" lists_difference
-	case "$lists_difference" in
-		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
-		*) nl2sp "$active_lists" active_l_str; nl2sp "$config_lists" config_l_str
-			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
-			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexpected_lists
-			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$missing_lists" missing_lists
-			return 1
-	esac
-}
 
 geotable="$geotag"
-export geochain="${geochain:-"$(toupper "$geotag")"}"
 base_geochain="GEOIP-BASE"
