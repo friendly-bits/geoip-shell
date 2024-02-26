@@ -450,7 +450,7 @@ call_script "$script_dir/${p_name}-uninstall.sh" || die "Pre-install cleanup fai
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files"
+copyscripts "$script_files" && copyscripts -lib "$lib_files"
 OK; printf '\n'
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
