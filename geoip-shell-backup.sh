@@ -101,7 +101,7 @@ restorebackup() {
 	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && restore_failed "$FAIL restore the firewall state from backup." "reset"
-	return 0
+	:
 }
 
 restore_failed() {
