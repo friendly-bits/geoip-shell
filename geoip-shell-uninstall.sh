@@ -15,7 +15,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/geoip-shell-nft.sh" || exit 1
+. "$script_dir/${p_name}-$_fw_backend.sh" || exit 1
 
 nolog=1
 
@@ -71,14 +71,16 @@ old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
 install_dir="${old_install_dir:-"$install_dir"}"
 
+[ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually"
+
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
 	call_script "$install_dir/${p_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
 }
 
-iplist_dir="${datadir}/ip_lists"
-conf_dir="${conf_dir:-/etc/${p_name}}"
-status_file="${datadir}/ip_lists/status"
+iplist_dir="$datadir/ip_lists"
+conf_dir="${conf_dir:-/etc/$p_name}"
+status_file="$datadir/ip_lists/status"
 
 #### CHECKS
 
@@ -87,7 +89,7 @@ status_file="${datadir}/ip_lists/status"
 echo "Cleaning up..."
 
 ### Remove geoip firewall rules
-nft_rm_all_georules >/dev/null || die 1
+rm_all_georules >/dev/null || die 1
 
 [ -f "$conf_file" ] && setconfig "Lists="
 set +f; rm "$iplist_dir"/* 2>/dev/null
@@ -102,10 +104,7 @@ crontab -u root -l 2>/dev/null |  grep -v "${p_name}-run.sh" | crontab -u root -
 # Delete the config file
 rm "$conf_file" 2>/dev/null
 
-[ "$resetonly" ] && {
-	[ ! "$in_install" ] && { makepath; setconfig "PATH=$PATH"; }
-	exit 0
-}
+[ "$resetonly" ] && exit 0
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
@@ -123,12 +122,14 @@ rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "${install_dir}/${p_name}" 2>/dev/null
-for script_name in fetch apply manage cronsetup run common uninstall backup nft mk-fw-include fw-include owrt-common; do
+for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common; do
 	rm "$install_dir/${p_name}-${script_name}.sh" 2>/dev/null
 done
-for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO posix-arrays-a-mini ip-regex; do
+for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO; do
 	rm "$install_dir/${script_name}.sh" 2>/dev/null
 done
+rm -rf "${install_dir:?}/lib"
+
 
 echo "Deleting config..."
 rm -rf "$conf_dir" 2>/dev/null
