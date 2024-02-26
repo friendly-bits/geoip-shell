@@ -22,21 +22,21 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me <action> [-l <"list_ids">] [-o] [-d] [-h]
+Usage: $me [action] [-l <"list_ids">] [-o] [-d] [-h]
 
 Serves as a proxy to call the -fetch, -apply and -backup scripts with arguments required for each action.
 
 Actions:
-    add|remove  : Add or remove ip lists to/from geoip firewall rules.
-    update      : Fetch ip lists and reactivate them via the *apply script.
-    restore     : Restore previously downloaded lists (skip fetching)
+  add|remove  : Add or remove ip lists to/from geoip firewall rules.
+  update      : Fetch ip lists and reactivate them via the *apply script.
+  restore     : Restore previously downloaded lists (skip fetching).
 
 Options:
-    -l <"list_ids">  : List id's in the format <countrycode>_<family>. if passing multiple list id's, use double quotes.
-    -o               : No backup: don't create backup of current firewall state after the action.
+  -l <"list_ids">  : List id's in the format <countrycode>_<family>. if passing multiple list id's, use double quotes.
+  -o               : No backup: don't create backup of current firewall state after the action.
 
-    -d               : Debug
-    -h               : This help
+  -d               : Debug
+  -h               : This help
 
 EOF
 }
@@ -59,8 +59,6 @@ done
 shift $((OPTIND-1))
 
 extra_args "$@"
-
-echo
 
 setdebug
 
@@ -101,9 +99,9 @@ failed_lists_cnt=0
 check_deps "$script_dir/${p_name}-fetch.sh" "$script_dir/${p_name}-apply.sh" "$script_dir/${p_name}-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "Error: config file '$conf_file' doesn't exist! Re-install $p_name."
+[ ! -f "$conf_file" ] && die "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
 
-[ ! "$iplist_dir" ] && die "Error: iplist file path can not be empty!"
+[ ! "$iplist_dir" ] && die "$ERR iplist file path can not be empty!"
 
 [ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
 
@@ -114,12 +112,16 @@ check_deps "$script_dir/${p_name}-fetch.sh" "$script_dir/${p_name}-apply.sh" "$s
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
 case "$action_run" in
 	add) action_apply=add ;;
-	update) action_apply=add; check_lists_coherence || force="-f" ;; # if firewall is in incoherent state, force re-fetch
+	# if firewall is in incoherent state, force re-fetch
+	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove ;;
 	restore)
 		if [ "$nobackup" ]; then
-			action_run=update; action_apply=add; force="-f" # if backup file doesn't exist, force re-fetch
+			# if backup file doesn't exist, force re-fetch
+			action_run=update action_apply=add force="-f"
 		else
+			nolog=1; check_lists_coherence 2>/dev/null && exit 0
+			nolog=
 			call_script "$script_dir/${p_name}-backup.sh" "restore"; rv_cs=$?
 			getconfig Lists lists
 			if [ "$rv_cs" = 0 ]; then
@@ -127,21 +129,20 @@ case "$action_run" in
 			else
 				echolog -err "Restore from backup failed. Attempting to restore from config."
 				nft_rm_all_georules || die "Error removing firewall rules."
-				action_run=update; action_apply=add; force="-f" # if restore failed, force re-fetch
+				# if restore failed, force re-fetch
+				action_run=update action_apply=add force="-f"
 			fi
-		fi
-		;;
+		fi ;;
 	*) action="$action_run"; unknownact
 esac
-
 
 ### Fetch ip lists
 
 if [ "$action_apply" = add ]; then
-	[ ! "$lists" ] && { usage; die "Error: no list id's were specified!"; }
+	[ ! "$lists" ] && { usage; die "$ERR no list id's were specified!"; }
 
 	# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
-	setstatus "$status_file" "FailedLists=$lists" || setstatus_failed
+	setstatus "$status_file" "FailedLists=$lists"
 
 	call_script "$script_dir/${p_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force"
 
@@ -150,7 +151,7 @@ if [ "$action_apply" = add ]; then
 	getstatus "$status_file" FailedLists failed_lists
 
 	[ "$failed_lists" ] && {
-		echolog -err "Failed to fetch and validate lists '$failed_lists'."
+		echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 		[ "$action_run" = add ] && { set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; die 254 "Aborting the action 'add'."; }
 	}
 
@@ -171,7 +172,7 @@ case "$action_run" in update|add|remove)
 	case "$apply_rv" in
 		0) ;;
 		254) [ "$in_install" ] && die
-			echolog -err "Error: *apply exited with code '254'. Failed to execute action '$action_apply'." ;;
+			echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
 		*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 	esac
 esac
@@ -180,7 +181,7 @@ esac
 if check_lists_coherence; then
 	echolog "Successfully executed action '$action_run' for lists '$lists'."
 else
-	echolog -err "Warning: actual $list_type firewall config differs from the config file!"
+	echolog -err "$WARN actual $list_type firewall config differs from the config file!"
 	for opt in unexpected missing; do
 		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
 	done
