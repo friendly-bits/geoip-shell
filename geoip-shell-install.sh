@@ -211,7 +211,7 @@ get_country() {
 	done
 
 	printf %s "$user_ccode"
-	return 0
+	:
 }
 
 validate_subnet() {
@@ -233,7 +233,7 @@ validate_subnet() {
 	printf '%s\n' "$ip" | grep -vE "^$ip_regex$" > /dev/null
 	[ $? != 1 ] && { printf '%s\n' "$family address '$ip' failed regex validation." >&2; return 1; }
 
-	return 0
+	:
 }
 
 pick_iface() {
@@ -330,7 +330,7 @@ detect_sys() {
 		unknown) return 1 ;;
 		procd) . "$script_dir/OpenWrt/${p_name}-owrt-common.sh" || exit 1
 	esac
-	return 0
+	:
 }
 
 makepath() {
