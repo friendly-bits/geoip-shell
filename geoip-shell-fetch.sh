@@ -297,7 +297,7 @@ check_updates() {
 		echolog "Ip lists '${purple}${up_to_date_lists% }${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
 	fi
 
-	return 0
+	:
 }
 
 list_failed() {
@@ -385,7 +385,7 @@ process_ccode() {
 	done
 
 	rm "$fetched_list" 2>/dev/null
-	return 0
+	:
 }
 
 validate_list() {
