@@ -23,25 +23,25 @@ usage() {
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-h]
 
-    1) Fetches ip subnets for given country codes from RIPE API or from ipdeny
-        (RIPE seems to store lists for all countries)
-        (supports any combination of ipv4 and ipv6 lists)
+1) Fetches ip subnets for given country codes from RIPE API or from ipdeny
+	(RIPE seems to store lists for all countries)
+	(supports any combination of ipv4 and ipv6 lists)
 
-    2) Parses, validates the downloaded lists, and saves each one to a separate file.
+2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-    -l <"list_id's">  : List id's in the format '<ccode>_<family>'. If passing multiple list id's, use double quotes.
-    -p <path>         : Path to directory where downloaded and compiled subnet lists will be stored.
-    -o <output_file>  : Path to output file where fetched list will be stored.
-                           With this option, specify exactly 1 country code.
-                           (use either '-p' or '-o' but not both)
-    -s <status_file>  : Path to a status file to register fetch results in.
-    -u <"source">     : Source for the download. Currently supports 'ripe' and 'ipdeny'.
+  -l <"list_id's">  : List id's in the format '<ccode>_<family>'. If passing multiple list id's, use double quotes.
+  -p <path>         : Path to directory where downloaded and compiled subnet lists will be stored.
+  -o <output_file>  : Path to output file where fetched list will be stored.
+                         With this option, specify exactly 1 country code.
+                         (use either '-p' or '-o' but not both)
+  -s <status_file>  : Path to a status file to register fetch results in.
+  -u <"source">     : Source for the download. Currently supports 'ripe' and 'ipdeny'.
  
-    -r                : Raw mode (outputs newline-delimited list)
-    -f                : force using fetched lists even if list timestamp didn't change compared to existing list
-    -d                : Debug
-    -h                : This help
+  -r                : Raw mode (outputs newline-delimited list)
+  -f                : force using fetched lists even if list timestamp didn't change compared to existing list
+  -d                : Debug
+  -h                : This help
 
 EOF
 }
@@ -88,7 +88,7 @@ reg_server_date() {
 		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] )
 			set_a_arr_el server_dates_arr "$2=$1"
 			debugprint "Got date from $3 for '$2': '$1'." ;;
-		*) debugprint "Failed to get date from $3 for '$2'."
+		*) debugprint "$FAIL get date from $3 for '$2'."
 	esac
 }
 
@@ -101,7 +101,6 @@ get_source_list_dates_ipdeny() {
 		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f$_nl"; esac
 	done
 	families="${_res%$_nl}"
-
 
 	for family in $families; do
 		case "$family" in
@@ -119,7 +118,7 @@ get_source_list_dates_ipdeny() {
 
 		# 1st part of awk strips HTML tags, 2nd part trims extra spaces
 		[ -f "$server_html_file" ] && awk '{gsub("<[^>]*>", "")} {$1=$1};1' "$server_html_file" > "$server_plaintext_file" ||
-			echolog "Error: failed to fetch server dates from the IPDENY server."
+			echolog "$ERR failed to fetch server dates from the IPDENY server."
 		rm "$server_html_file" 2>/dev/null
 	done
 
@@ -223,7 +222,7 @@ check_prev_list() {
 				prev_list_reg="true"
 				getstatus "$status_file" "PrevDate_${list_id}" "prev_date_compat"; rv=$?
 				case "$rv" in
-					1) die "Failed to read the status file." ;;
+					1) die "$FAIL read the status file." ;;
 					2) debugprint "Note: status file '$status_file' has no information for list '$purple$list_id$n_c'."
 						unset_prev_vars
 				esac
@@ -260,7 +259,7 @@ check_updates() {
 		date_raw_to_compat "$date_src_raw" date_src_compat
 
 		if [ ! "$date_src_compat" ]; then
-			echolog -err "Warning: failed to get the timestamp from the server for list '$list_id'. Will try to fetch anyway."
+			echolog -err "$WARN failed to get the timestamp from the server for list '$list_id'. Will try to fetch anyway."
 			date_src_raw="$(date +%Y%m%d)"; force_update=1
 			date_raw_to_compat "$date_src_raw" date_src_compat
 		fi
@@ -271,7 +270,7 @@ check_updates() {
 
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
-			msg1="Warning: newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
+			msg1="$WARN newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
 			msg2="Either your clock is incorrect, or '$dl_src_cap' is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
 			echolog -err "$msg1" "$msg2" "$msg3"
@@ -343,7 +342,7 @@ process_ccode() {
 
 			debugprint "fetch command: $fetch_cmd \"$dl_url\" > \"$fetched_list\""
 			$fetch_cmd "$dl_url" > "$fetched_list" ||
-				{ list_failed "Failed to fetch the ip list for '$list_id' from the $dl_src_cap server."; continue; }
+				{ list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue; }
 			printf '%s\n\n' "Fetch successful."
 		fi
 
@@ -351,8 +350,8 @@ process_ccode() {
 			ripe)
 				printf %s "Parsing ip list for '${purple}$list_id${n_c}'... "
 				parse_ripe_json "$fetched_list" "$parsed_list" "$family" ||
-					{ list_failed "Failed to parse the ip list for '$list_id'."; continue; }
-				echo "Ok." ;;
+					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
+				OK ;;
 			ipdeny) mv "$fetched_list" "$parsed_list"
 		esac
 
@@ -361,7 +360,7 @@ process_ccode() {
 		validate_list "$list_id"
 		rm "$parsed_list" 2>/dev/null
 
-		[ "$failed_s_cnt" = 0 ] && echo "Ok." || { echo "Failed."; continue; }
+		[ "$failed_s_cnt" = 0 ] && OK || { FAIL; continue; }
 
 		printf '%s\n\n' "Validated subnets for '$purple$list_id$n_c': $valid_s_cnt."
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
@@ -372,7 +371,7 @@ process_ccode() {
 				tr '\n' ',' < "$valid_list"
 				printf '%s\n' "}"
 			}
-		} > "$list_path" || { list_failed "Failed to overwrite the file '$list_path'"; continue; }
+		} > "$list_path" || { list_failed "$FAIL overwrite the file '$list_path'"; continue; }
 
 		touch -d "$date_src_compat" "$list_path"
 		fetched_lists="$fetched_lists$list_id "
@@ -417,7 +416,7 @@ validate_list() {
 check_subnets_cnt_drop() {
 	list_id="$1"
 	if [ "$valid_s_cnt" = 0 ]; then
-		echolog -err "Warning: validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?" >&2
+		echolog -err "$WARN validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?" >&2
 		return 1
 	fi
 
@@ -426,7 +425,7 @@ check_subnets_cnt_drop() {
 		# compare fetched subnets count to old subnets count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
 		case $((s_percents < 90)) in
-			1) echolog -err "Warning: validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
+			1) echolog -err "$WARN validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
 				"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
 				"Not updating the list."
 				return 1 ;;
@@ -442,7 +441,7 @@ all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
 newifs "$_nl" cca
 cca2_file="$script_dir/cca2.list"
-[ -f "$cca2_file" ] && cca2_list="$(cat "$cca2_file")" || die "Failed to load the cca2 list."
+[ -f "$cca2_file" ] && cca2_list="$(cat "$cca2_file")" || die "$FAIL load the cca2 list."
 set -- $cca2_list
 for i in 1 2 3 4 5; do
 	eval "c=\"\${$i}\""
@@ -460,7 +459,6 @@ for util in curl wget uclient-fetch; do
 	case "$util" in
 		curl)
 			secure_util="curl"
-			curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 			fetch_cmd="$curl_cmd --progress-bar"
 			fetch_cmd_q="$curl_cmd -s"
 			break ;;
@@ -482,10 +480,10 @@ for util in curl wget uclient-fetch; do
 	esac
 done
 
-[ -z "$fetch_cmd" ] && die "Error: Compatible download utilites unavailable."
+[ -z "$fetch_cmd" ] && die "$ERR Compatible download utilites unavailable."
 
 if [ -z "$secure_util" ] && [ -z "$http" ]; then
-	[ ! "$manmode" ] && die "Error: no fetch utility with SSL support available."
+	[ ! "$manmode" ] && die "$ERR no fetch utility with SSL support available."
 	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
 	pick_opt "y|n"
 	case "$REPLY" in
@@ -510,7 +508,7 @@ lists_arg=$(
 	for list_id in $lists_arg; do
 		case "$list_id" in
 			*_* ) toupper "${list_id%%_*}"; tolower "_${list_id#*_}"; printf '\n' ;;
-			*) die "Error: invalid list id '$list_id'."
+			*) die "$ERR invalid list id '$list_id'."
 		esac
 	done
 )
@@ -527,7 +525,7 @@ unset failed_lists fetched_lists
 set -- $dl_src
 case "$2" in *?*) usage; die "Specify only one download source."; esac
 
-[ ! "$dl_src" ] && die "Internal error: '\$dl_src' variable should not be empty!"
+[ ! "$dl_src" ] && die "$ERR '\$dl_src' variable should not be empty!"
 
 # debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
@@ -549,10 +547,10 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 		{ usage; die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."; }
 
 [ "$iplist_dir" ] && [ ! -d "$iplist_dir" ] &&
-	die "Error: Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
+	die "$ERR Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
 
 for f in "$status_file" "$output_file"; do
-	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "Error: failed to create file '$f'."; }
+	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$ERR failed to create file '$f'."; }
 done
 
 
@@ -562,7 +560,7 @@ done
 # populates $registries, fetch_lists_arr
 group_lists_by_registry
 
-[ ! "$registries" ] && die "Error: failed to determine relevant regions."
+[ ! "$registries" ] && die "$ERR failed to determine relevant regions."
 
 # debugprint "registries: '$registries'"
 
@@ -593,7 +591,7 @@ if [ "$status_file" ]; then
 
 	setstatus "$status_file" "FetchedLists=${fetched_lists% }" "up_to_date_lists=${up_to_date_lists% }" \
 				"FailedLists=${failed_lists% }" "$subnets_cnt_str" "$list_dates_str" ||
-		die "Error: Failed to write to the status file '$status_file'."
+		die "$ERR $FAIL write to the status file '$status_file'."
 fi
 
 exit 0
