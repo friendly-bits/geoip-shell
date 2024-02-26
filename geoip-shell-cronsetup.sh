@@ -9,6 +9,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
+[ "$_OWRT_install" ] && { . "$script_dir/${p_name}-owrt-common.sh" || exit 1; }
 
 nolog=1
 
@@ -21,12 +22,11 @@ usage() {
     cat <<EOF
 
 Usage: $me [-d] [-h]
-
-    Loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
+Loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
 
 Options:
-    -d  : Debug
-    -h  : This help
+  -d  : Debug
+  -h  : This help
 
 EOF
 }
@@ -54,11 +54,11 @@ create_cron_job() {
 
 	job_type="$1"
 
-	[ -z "$config_lists" ] && die "Error: Countries list in the config file is empty! No point in creating autoupdate job."
+	[ -z "$config_lists" ] && die "$ERR Countries list in the config file is empty! No point in creating autoupdate job."
 
 	case "$job_type" in
 		autoupdate)
-			[ -z "$schedule" ] && die "Error: cron schedule in the config file is empty!"
+			[ -z "$schedule" ] && die "$ERR cron schedule in the config file is empty!"
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
 			call_script "$install_dir/validate-cron-schedule.sh" -x "$schedule"; rv=$?
@@ -102,40 +102,35 @@ rm_cron_job() {
 
 	case "$job_type" in
 		autoupdate|persistence) ;;
-		*) die "rm_cron_job: Error: unknown cron job type '$job_type'."
+		*) die "rm_cron_job: $ERR unknown cron job type '$job_type'."
 	esac
 
-	debugprint "Removing $job_type cron job for ${p_name}... "
+	debugprint "Removing $job_type cron job for $p_name... "
 	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
 	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root -; rv2=$?
 
 	case $((rv1 & rv2)) in
 		0) debugprint "Ok." ;;
-		*) die "Error: failed to remove $job_type cron job."
+		*) die "$ERR failed to remove $job_type cron job."
 	esac
 }
 
 
 #### Variables
 
-for entry in "CronSchedule schedule_conf" "DefaultSchedule schedule_default" "NoPersistence no_persistence" \
+for entry in "CronSchedule schedule_conf" "NoPersistence no_persist" \
 		"RebootSleep sleeptime" "Lists config_lists"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
 run_cmd="${install_dir}/${p_name}-run.sh"
 
-schedule="${schedule_conf:-$schedule_default}"
+schedule="${schedule_conf:-$default_schedule}"
 
 
 #### Checks
 
-if [ "$schedule" != "disable" ] && [ ! "$no_persistence" ]; then
-	# check cron service
-	check_cron || { die "Error: cron seems to not be enabled." "Enable the cron service before using this script." \
-			"Or install with options '-n' '-s disable' which will disable persistence and autoupdates."; }
-fi
-
+check_cron_compat
 
 #### Main
 
@@ -143,17 +138,19 @@ printf %s "Processing cron jobs..."
 
 # autoupdate job
 case "$schedule" in
-	disable) rm_cron_job "autoupdate" ;;
-	*) create_cron_job "autoupdate"
+	disable) rm_cron_job autoupdate ;;
+	*) create_cron_job autoupdate
 esac
 
 # persistence job
-rm_cron_job "persistence"
-case "$no_persistence" in
-	'') create_cron_job "persistence" ;;
-	*) printf '%s\n%s\n' "Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
-		"To enable persistence, run the *install script again without the '-n' option." >&2
-esac
+[ ! "$_OWRTFW" ] && {
+	rm_cron_job persistence
+	case "$no_persist" in
+		'') create_cron_job persistence ;;
+		*) printf '%s\n%s\n' "Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
+			"To enable persistence, install $p_name again without the '-n' option." >&2
+	esac
+}
 
-echo "Ok."
+OK
 exit 0
