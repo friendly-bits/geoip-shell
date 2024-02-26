@@ -29,7 +29,7 @@ critical() {
 
 destroy_tmp_ipsets() {
 	echolog -err "Destroying temporary ipsets..."
-	for tmp_ipset in $(ipset list -n | grep "$proj_name" | grep "temp"); do
+	for tmp_ipset in $(ipset list -n | grep "$p_name" | grep "temp"); do
 		ipset destroy "$tmp_ipset" 1>/dev/null 2>/dev/null
 	done
 }
@@ -101,7 +101,7 @@ mk_perm_ipset() {
 }
 
 get_curr_ipsets() {
-	curr_ipsets="$(ipset list -n | grep "$proj_name")"
+	curr_ipsets="$(ipset list -n | grep "$p_name")"
 }
 
 
@@ -151,7 +151,7 @@ for family in $families; do
 	for list_id in $list_ids; do
 		case "$list_id" in *_*) ;; *) die_a "Invalid iplist id '$list_id'."; esac
 		[ "${list_id#*_}" != "$family" ] && continue
-		perm_ipset="${proj_name}_${list_id}"
+		perm_ipset="${p_name}_${list_id}"
 		if [ "$action" = "add" ]; then
 			iplist_file="${iplist_dir}/${list_id}.iplist"
 			mk_perm_ipset "$perm_ipset"
@@ -200,7 +200,7 @@ for family in $families; do
 		## Remove rules for $list_ids
 		for list_id in $list_ids; do
 			[ "$family" != "${list_id#*_}" ] && continue
-			list_tag="${proj_name}_${list_id}"
+			list_tag="${p_name}_${list_id}"
 			mk_ipt_rm_cmd "$list_tag" || rv=1
 		done
 
