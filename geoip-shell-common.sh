@@ -28,7 +28,7 @@ oldifs() {
 check_root() {
 	[ "$root_ok" ] && return 0
 	case "$(id -u)" in 0) export root_ok="1" ;; *)
-		die "Error: $me needs to be run as root."
+		die "$ERR $me needs to be run as root."
 	esac
 }
 
@@ -45,13 +45,13 @@ unknownopt() {
 }
 
 statustip() {
-	printf '%s\n\n' "View geoip status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
+	printf '\n%s\n\n' "View geoip status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
 }
 
 report_lists() {
 	get_active_iplists verified_lists
 	nl2sp "$verified_lists" verified_lists
-	printf '\n%s\n\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
+	printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
 }
 
 unknownact() {
@@ -59,7 +59,7 @@ unknownact() {
 	case "$action" in
 		"-h") usage; exit 0 ;;
 		'') usage; die "$specifyact" ;;
-		*) usage; die "Error: Unknown action: '$action'." "$specifyact"
+		*) usage; die "$ERR Unknown action: '$action'." "$specifyact"
 	esac
 }
 
@@ -110,7 +110,8 @@ call_script() {
 	shift
 
 	# call the daughter script, then reset $config_var to force re-read of the config file
-	[ ! "$script_to_call" ] && { echolog -err "call_script: Error: received empty string."; return 1 ; }
+	[ ! "$script_to_call" ] && { echolog -err "call_script: $ERR received empty string."; return 1 ; }
+
 	sh "$script_to_call" "$@"; call_rv=$?; export config_var=""
 	debugexitmsg
 	return "$call_rv"
@@ -118,7 +119,7 @@ call_script() {
 
 # sets some strings for debug and logging
 init_geoscript(){
-	me=$(basename "$0")
+	: "${me:="${0##*/}"}"
 	me_short="${me#"${p_name}-"}"
 	me_short="${me_short%.sh}"
 	me_short_cap="$(toupper "$me_short")"
@@ -128,7 +129,7 @@ init_geoscript(){
 check_deps() {
 	missing_deps=''
 	for dep; do ! checkutil "$dep" && missing_deps="${missing_deps}'$dep', "; done
-	[ "$missing_deps" ] && { echolog -err "Error: missing dependencies: ${missing_deps%, }"; return 1; }
+	[ "$missing_deps" ] && { echolog -err "$ERR missing dependencies: ${missing_deps%, }"; return 1; }
 	return 0
 }
 
@@ -139,13 +140,12 @@ get_json_lines() {
 # outputs args to stdout and writes them to syslog
 # if one of the args is "-err" then redirect output to stderr
 echolog() {
-	unset msg_args msg_is_err noecho __nl
+	unset msg_args __nl
 
-	highlight="$blue"
+	highlight="$blue"; msg_type=info
 	for arg in "$@"; do
 		case "$arg" in
-			"-err" ) msg_is_err="true"; highlight="$yellow" ;;
-			"-noecho" ) noecho="true" ;;
+			"-err" ) highlight="$yellow"; msg_type=err ;;
 			'') ;;
 			* ) msg_args="$msg_args$arg$delim"
 		esac
@@ -163,12 +163,12 @@ echolog() {
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
 			_msg="${__nl}$highlight$me_short$n_c: $arg"
-			case "$msg_is_err" in
-				'') printf '%s\n' "$_msg" ;;
-				*) printf '%s\n' "$_msg" >&2
+			case "$msg_type" in
+				info) printf '%s\n' "$_msg" ;;
+				err) printf '%s\n' "$_msg" >&2
 			esac
 		}
-		[ ! "$nolog" ] && logger -t "$me" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+		[ ! "$nolog" ] && logger -t "$me" -p user."$msg_type" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 	done
 }
 
@@ -216,7 +216,7 @@ die() {
 		newifs "$delim" die
 		for arg in $die_args; do
 			printf '%s\n' "$yellow$me_short$n_c: $arg" >&2
-			[ ! "$nolog" ] && logger -t "$me" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+			[ ! "$nolog" ] && logger -t "$me" -p "user.err" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 		done
 		oldifs die
 	}
@@ -231,7 +231,7 @@ die() {
 getconfig() {
 	getconfig_failed() {
 		eval "$outvar_gc"=''
-		[ ! "$nodie" ] && die "Error: Failed to read value for '$key_conf' from file '$target_file'."
+		[ ! "$nodie" ] && die "$ERR $FAIL read value for '$key_conf' from file '$target_file'."
 	}
 
 	read_conf() {
@@ -305,7 +305,7 @@ get_matching_line() {
 # 3 - var name for output
 getstatus() {
 	target_file="$1"
-	[ ! "$target_file" ] && die "Error: getstatus: target file not specified!" ||
+	[ ! "$target_file" ] && die "$ERR getstatus: target file not specified!" ||
 		getconfig "$2" "status_value" "$target_file" "-nodie"; rv_gs=$?
 	eval "$3"='$status_value'
 	return $rv_gs
@@ -326,6 +326,7 @@ setconfig() {
 				case "$key_conf" in
 					'' ) ;;
 					target_file ) args_target_file="$value_conf" ;;
+					nodie ) nodie="$value_conf" ;;
 					* ) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
 						keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
 				esac
@@ -338,7 +339,8 @@ setconfig() {
 
 	[ ! "$target_file" ] && die "setconfig: '\$target_file' variable is not set!"
 
-	[ -f "$target_file" ] && { oldconfig="$(cat "$target_file")" || { die "setconfig: Error: failed to read '$target_file'."; }; }
+	[ -f "$target_file" ] && { oldconfig="$(cat "$target_file")" ||
+		{ echolog -err "setconfig: $ERR failed to read '$target_file'."; [ "$nodie" ] && return 1; die; }; }
 	# join old and new config
 	for config_line in $oldconfig; do
 		eval "case \"$config_line\" in
@@ -346,7 +348,8 @@ setconfig() {
 				* ) newconfig=\"$newconfig$config_line$_nl\"
 			esac"
 	done
-	printf %s "$newconfig$args_lines" > "$target_file" || { die "setconfig: failed to overwrite '$target_file'"; }
+	printf %s "$newconfig$args_lines" > "$target_file" ||
+		{ echolog "setconfig: failed to write to '$target_file'"; [ "$nodie" ] && return 1; die; }
 	oldifs sc
 	export config_var=''
 	return 0
@@ -358,7 +361,10 @@ setconfig() {
 setstatus() {
 	target_file="$1"
 	shift 1
-	[ ! "$target_file" ] && die "setstatus: Error: target file not specified!" || setconfig "target_file=$target_file" "$@"
+	[ ! "$target_file" ] && die "setstatus: $ERR target file not specified!"
+	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
+	[ ! -f "$target_file" ] && touch "$target_file"
+	setconfig "target_file=$target_file" "$@"
 }
 
 # 1 - var name
@@ -466,25 +472,10 @@ validate_ccode() {
 	cca2_path="${2:-"$script_dir/cca2.list"}"
 	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
 	case "$ccode_list" in
-		'') echo "Error: \$ccode_list variable is empty. Perhaps cca2.list is missing?" >&2; return 1 ;;
+		'') printf '%s\n' "$ERR \$ccode_list variable is empty. Perhaps cca2.list is missing?" >&2; return 1 ;;
 		*" $1 "*) return 0 ;;
 		*) return 2
 	esac
-}
-
-detect_init() {
-	# init process is pid 1
-	_pid1="$(ls -l /proc/1/exe)"
-	for init_sys in systemd procd initctl busybox upstart; do
-		case "$_pid1" in *"$init_sys"* ) return 0; esac
-	done
-	case "$_pid1" in *"/sbin/init"* )
-		for init_sys in systemd upstart; do
-			case "$_pid1" in *"$init_sys"* ) return 0; esac
-		done
-	esac
-	init_sys="unknown"
-	return 1
 }
 
 # format: '-p [tcp|udp]:[allow|block]:[ports]'
@@ -514,7 +505,7 @@ setports() {
 			_ports="${_ports%-},"
 			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && { invalid_str "$_range"; return 1; }; esac
 		done
-		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "Error: no ports specified for protocol $_proto."; return 1; }
+		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "$ERR no ports specified for protocol $_proto."; return 1; }
 		_ports="${_ports%,}"
 	}
 
@@ -536,10 +527,11 @@ setports() {
 		case "$proto_act" in
 			allow) neg='' ;;
 			block) neg='!=' ;;
-			*) { usage; echolog -err "Error: expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
+			*) { usage; echolog -err "$ERR expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
 		esac
+		# check for valid protocol
 		case $_proto in
-			udp|tcp) case "$reg_proto" in *"$_proto"*) usage; echolog -err "Error: can't add protocol '$_proto' twice"; return 1; esac
+			udp|tcp) case "$reg_proto" in *"$_proto"*) usage; echolog -err "$ERR can't add protocol '$_proto' twice"; return 1; esac
 				reg_proto="$reg_proto$_proto " ;;
 			*) usage; echolog -err "Unsupported protocol '$_proto'."; return 1
 		esac
@@ -559,16 +551,13 @@ setports() {
 
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
-	cron_rv=0; cron_reboot=''
-	detect_init
-	case "$init_sys" in
-		systemd )
-			# check if cron service is enabled
-			(systemctl is-enabled cron.service) 1>/dev/null 2>/dev/null; cron_rv=$? ;;
-		* )
-			# check for cron or crond in running processes
-			if ! pidof cron 1>/dev/null && ! pidof crond 1>/dev/null; then cron_rv=1; else cron_rv=0; fi ;;
+	# check if cron service is enabled
+	unset cron_rv cron_reboot
+	case "$initsys" in
+		systemd ) (systemctl is-enabled cron.service || systemctl is-enabled crond.service) 1>/dev/null 2>/dev/null; cron_rv=$?
 	esac
+	# check for cron or crond in running processes
+	[ "$cron_rv" != 0 ] && if ! pidof cron 1>/dev/null && ! pidof crond 1>/dev/null; then cron_rv=1; else cron_rv=0; fi
 	export cron_rv
 	cron_cmd="$(command -v crond || command -v cron)"
 	[ "$cron_cmd" ] && case "$(ls -l "$cron_cmd")" in *busybox*) ;; *) export cron_reboot=1; esac
@@ -576,28 +565,37 @@ check_cron() {
 	return "$cron_rv"
 }
 
-makepath() {
-	d="$install_dir"
-	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) export PATH="$PATH:$d"; esac
+check_cron_compat() {
+	unset cr_p1 cr_p2 no_cr_persist
+	[ "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
+	[ "$no_persist" ] || [ "$_OWRTFW" ] && no_cr_persist=1
+	if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ] ; then
+		# check cron service
+		check_cron || die "$ERR cron is not running." "Enable the cron service before using this script." \
+				"Or install $p_name with option$cr_p1 '-s disable' which will disable ${cr_p2}autoupdates."
+		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] && die "$ERR cron-based persistence doesn't work with Busybox cron." \
+			"If you want to install without persistence support, install with option '-n'"
+	fi
 }
 
-export install_dir="/usr/sbin"
-[ -n "$makepath" ] && makepath
+OK() { echo "Ok."; }
+FAIL() { echo "Failed."; }
+
+WARN="${red}Warning${n_c}:"
+ERR="${red}Error${n_c}:"
+FAIL="${red}Failed${n_c} to"
+
+export install_dir="/usr/bin"
 
 init_geoscript
 
 [ ! "$_nl" ] && {
-	export LC_ALL=C
-	export conf_dir="/etc/${p_name}" datadir="/var/lib/${p_name}"
+	export LC_ALL=C conf_dir="/etc/${p_name}"
 	export conf_file="${conf_dir}/${p_name}.conf" delim="$(printf '\35')" default_IFS="$IFS" trim_IFS="$(printf ' \t')" _nl='
 '
 	set_colors
 
-	[ ! "$manmode" ] && {
-		getconfig PATH _PATH
-		[ -n "$_PATH" ] && export PATH="$_PATH"
-	}
-
 	check_deps nft tr cut sort wc awk sed grep logger || die
 }
-return 0
+
+:
