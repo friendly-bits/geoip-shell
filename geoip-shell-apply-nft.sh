@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2086
+# shellcheck disable=SC2154,SC2086,SC1090
 
 # geoip-shell-apply-nft.sh
 
@@ -7,6 +7,8 @@
 
 # Copyright: friendly bits
 # github.com/friendly-bits
+
+. "$script_dir/${p_name}-nft.sh" || exit 1
 
 #### FUNCTIONS
 

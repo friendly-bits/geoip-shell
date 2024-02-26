@@ -8,6 +8,9 @@
 # Copyright: friendly bits
 # github.com/friendly-bits
 
+. "$script_dir/${p_name}-ipt.sh" || exit 1
+
+
 #### FUNCTIONS
 
 die_a() {
@@ -101,7 +104,6 @@ get_curr_ipsets() {
 	curr_ipsets="$(ipset list -n | grep "$proj_name")"
 }
 
-. ${p_name}-ipt.sh || exit 1
 
 #### VARIABLES
 
