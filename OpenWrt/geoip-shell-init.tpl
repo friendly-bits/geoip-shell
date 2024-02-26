@@ -1,5 +1,7 @@
 #!/bin/sh /etc/rc.common
 
+# the -install.sh script replaces variables with values
+
 START=99
 STOP=01
 USE_PROCD=1
