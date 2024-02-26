@@ -3,7 +3,7 @@ Geoip blocker for Linux. Utilizes the **nftables** firewall management utility.
 
 **iptables** is supported in the [iptables branch](https://github.com/blunderful-scripts/geoip-shell/tree/geoip-shell-iptables).
 
-This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
+This is a continuation of the [**geoblocker-bash**](https://github.com/blunderful-scripts/geoblocker-bash) project, re-implemented in POSIX-compliant shell code. To learn what's changed, check out [this announcement](https://github.com/blunderful-scripts/geoip-shell/discussions/1).
 
 Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports running on OpenWrt. Supports ipv4 and ipv6.
 
