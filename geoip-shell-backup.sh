@@ -28,11 +28,11 @@ Usage: $me <action> [-d] [-h]
 Creates a backup of the current firewall state and current ip sets or restores them from backup.
 
 Actions:
-    create-backup|restore  : create a backup of, or restore config, geoip ip sets and firewall rules
+  create-backup|restore  : create a backup of, or restore config, geoip ip sets and firewall rules
 
 Options:
-    -d    : Debug
-    -h    : This help
+  -d    : Debug
+  -h    : This help
 
 EOF
 }
@@ -65,7 +65,7 @@ debugentermsg
 
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
 restorebackup() {
-	printf '%s\n' "Preparing to restore firewall state from backup..."
+	printf '%s\n' "Preparing to restore $p_name from backup..."
 
 	getconfig Lists lists "$conf_file_bak"
 	getconfig BackupExt bk_ext "$conf_file_bak"
@@ -77,20 +77,20 @@ restorebackup() {
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
 
-		[ ! -s "$bk_file" ] && restore_failed "Error: '$bk_file' is empty or doesn't exist."
+		[ ! -s "$bk_file" ] && restore_failed "$ERR '$bk_file' is empty or doesn't exist."
 
 		# extract elements and write to $iplist_file
-		$extract_cmd "$bk_file" > "$iplist_file" || restore_failed "Failed to extract backup file '$bk_file'."
-		[ ! -s "$iplist_file" ] && restore_failed "Failed to extract ip list for $list_id."
+		$extract_cmd "$bk_file" > "$iplist_file" || restore_failed "$FAIL extract backup file '$bk_file'."
+		[ ! -s "$iplist_file" ] && restore_failed "$FAIL extract ip list for $list_id."
 		# count lines in the iplist file
 		line_cnt=$(wc -l < "$iplist_file")
 		debugprint "\nLines count in $list_id backup: $line_cnt"
 	done
 
-	cp "$status_file_bak" "$status_file" || restore_failed "Failed to restore the status file."
-	cp "$conf_file_bak" "$conf_file" || restore_failed "Failed to restore the config file."
+	cp "$status_file_bak" "$status_file" || restore_failed "$FAIL restore the status file."
+	cp "$conf_file_bak" "$conf_file" || restore_failed "$FAIL restore the config file."
 
-	echo "Ok."
+	OK
 
 	# remove geoip rules
 	nft_rm_all_georules || restore_failed "Error removing firewall rules."
@@ -98,13 +98,13 @@ restorebackup() {
 	export force_read_geotable=1
 	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
-	[ "$apply_rv" != 0 ] && restore_failed "Failed to restore the firewall state from backup." "reset"
+	[ "$apply_rv" != 0 ] && restore_failed "$FAIL restore the firewall state from backup." "reset"
 	return 0
 }
 
 restore_failed() {
 	rm "$iplist_dir/"*.iplist 2>/dev/null
-	printf '%s\n' "$1" >&2
+	echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
@@ -114,7 +114,7 @@ restore_failed() {
 
 backup_failed() {
 	rm -f "$temp_file" "$bk_dir/"*.new 2>/dev/null
-	die "Failed to back up the firewall state."
+	die "$FAIL back up $p_name ip sets."
 }
 
 # Saves current firewall state to a backup file
@@ -125,8 +125,8 @@ create_backup() {
 	temp_file="/tmp/${p_name}_backup.tmp"
 	mkdir "$bk_dir" 2>/dev/null
 
-	# save the current firewall state
-	printf %s "Creating backup of the firewall state... "
+	# back up current ip sets
+	printf %s "Creating backup of $p_name ip sets... "
 	for list_id in $lists; do
 		bk_file="${bk_dir}/${list_id}.${archive_ext:-bak}"
 		iplist_file="$iplist_dir/${list_id}.iplist"
@@ -145,7 +145,7 @@ create_backup() {
 		$compr_cmd < "$temp_file" > "${bk_file}.new"; rv=$?
 		[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && backup_failed
 	done
-	echo "Ok."
+	OK
 
 	rm "$temp_file" 2>/dev/null
 
@@ -162,7 +162,7 @@ create_backup() {
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
 	set_extr_cmd() { checkutil "$1" && extract_cmd="$1 -cd" ||
-		die "Error: backup archive type is '$1' but the $1 utility is not found."; }
+		die "$ERR backup archive type is '$1' but the $1 utility is not found."; }
 
 	case "$1" in
 		bz2 ) set_extr_cmd bzip2 ;;
@@ -209,10 +209,10 @@ set +f
 case "$action" in
 	create-backup)
 		create_backup
-		printf '\n%s\n' "Successfully created backup of config, ip sets and firewall rules." ;;
+		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
 		restorebackup
-		echolog "Successfully restored the firewall state from backup."
+		printf '%s\n\n' "Successfully restored $p_name state from backup."
 		statustip ;;
 	*) unknownact
 esac
