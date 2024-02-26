@@ -14,7 +14,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
-. "$script_dir/lib/${p_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 . "$script_dir/${p_name}-$_fw_backend.sh" || exit 1
 
 nolog=1
@@ -34,7 +34,7 @@ Usage: $me [-l] [-c] [-r] [-h]
 
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
-3) Deletes scripts' data folder /var/lib/geoip-shell
+3) Deletes scripts' data folder (/var/lib/geoip-shell or /etc/geoip-shell/data on OpenWrt)
 4) Deletes the scripts from /usr/sbin
 5) Deletes the config folder /etc/geoip-shell
 
@@ -97,7 +97,7 @@ set +f; rm "$iplist_dir"/* 2>/dev/null
 [ "$resetonly_lists" ] && exit 0
 
 ### Remove geoip cron jobs
-crontab -u root -l 2>/dev/null |  grep -v "${p_name}-run.sh" | crontab -u root -
+crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
 
 [ "$resetonly_lists_cron" ] && exit 0
 
@@ -121,15 +121,14 @@ printf '%s\n' "Deleting the data folder $datadir..."
 rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
-rm "${install_dir}/${p_name}" 2>/dev/null
-for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common; do
-	rm "$install_dir/${p_name}-${script_name}.sh" 2>/dev/null
+rm "$install_dir/$p_name" 2>/dev/null
+for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common ipt nft \
+		apply-ipt apply-nft backup-ipt backup-nft; do
+	rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
 done
-for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO; do
-	rm "$install_dir/${script_name}.sh" 2>/dev/null
+for script_name in ip-regex posix-arrays-a-mini validate-cron-schedule check-ip-in-source detect-local-subnets-AIO; do
+	rm "$install_dir/$script_name.sh" 2>/dev/null
 done
-rm -rf "${install_dir:?}/lib"
-
 
 echo "Deleting config..."
 rm -rf "$conf_dir" 2>/dev/null

@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC1090,SC2086,SC2034
+# shellcheck disable=SC2317,SC2154,SC1090,SC2086,SC2034,SC1091
 
 # geoip-shell-fetch.sh
 
@@ -10,9 +10,9 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/lib/${p_name}-common.sh" || exit 1
-. "$script_dir/lib/posix-arrays-a-mini.sh" || exit 1
-. "$script_dir/lib/ip-regex.sh"
+. "$script_dir/${p_name}-common.sh" || exit 1
+. "$script_dir/posix-arrays-a-mini.sh" || exit 1
+. "$script_dir/ip-regex.sh"
 
 san_args "$@"
 newifs "$delim"

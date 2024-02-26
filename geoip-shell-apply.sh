@@ -10,7 +10,7 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/lib/${p_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-common.sh" || exit 1
 
 check_root
 
@@ -90,4 +90,4 @@ geotag_aux="${p_name}_aux"
 [ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
 [ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
 
-. "$script_dir/lib/${p_name}-apply-$_fw_backend.sh"
+. "$script_dir/${p_name}-apply-$_fw_backend.sh"

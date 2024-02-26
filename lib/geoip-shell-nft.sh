@@ -33,7 +33,7 @@ nft_get_chain() {
 	[ -z "$_chain_cont" ] && return 1 || { printf '%s\n' "$_chain_cont"; return 0; }
 }
 
-nft_rm_all_georules() {
+rm_all_georules() {
 	printf %s "Removing firewall geoip rules... "
 	nolog=1 nft_get_geotable 1>/dev/null 2>/dev/null ||  return 0
 	nft delete table inet "$geotable" || { echolog -err "$ERR $FAIL delete table '$geotable'."; return 1; }

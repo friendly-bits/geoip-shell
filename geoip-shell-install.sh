@@ -20,8 +20,8 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export nolog=1 manmode=1 in_install=1
 
-. "$script_dir/lib/${p_name}-common.sh" || exit 1
-. "$script_dir/lib/ip-regex.sh"
+. "$script_dir/${p_name}-common.sh" || exit 1
+. "$script_dir/ip-regex.sh"
 
 check_root
 
@@ -123,10 +123,8 @@ check_files() {
 }
 
 copyscripts() {
-	_lib=
-	[ "$1" = "-lib" ] && { _lib="lib/"; shift; }
 	for scriptfile in $1; do
-		destination="${2:-"$install_dir/$_lib${scriptfile##*/}"}"
+		destination="${2:-"$install_dir/${scriptfile##*/}"}"
 		rv=0
 		{
 			if [ "$_OWRTFW" ]; then
@@ -360,17 +358,17 @@ iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
 
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup; do
+for f in fetch apply manage cronsetup run uninstall backup common; do
 	script_files="$script_files${p_name}-$f.sh "
 done
-script_files="$script_files validate-cron-schedule.sh detect-local-subnets-AIO.sh"
+script_files="$script_files validate-cron-schedule.sh detect-local-subnets-AIO.sh ip-regex.sh \
+	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh $owrt_common_script"
 
 ipt_libs='' lib_files=
 [ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt"
-for f in common nft apply-nft backup-nft $ipt_libs; do
+for f in nft apply-nft backup-nft $ipt_libs; do
 	lib_files="${lib_files}lib/${p_name}-$f.sh "
 done
-lib_files="$lib_files lib/posix-arrays-a-mini.sh lib/ip-regex.sh $owrt_common_script"
 
 source_default="ripe"
 source_arg="$(tolower "$source_arg")"
@@ -472,7 +470,7 @@ setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 printf '%s\n' "datadir=$datadir PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
-	"$install_dir/lib/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
+	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
 
 # Create the directory for downloaded lists and, if required, parent directories
@@ -505,7 +503,7 @@ fi
 	fw_include_script="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc_script="$install_dir/${p_name}-mk-fw-include.sh"
 
-	echo "_OWRT_install=1" >> "$install_dir/lib/${p_name}-common.sh"
+	echo "_OWRT_install=1" >> "$install_dir/${p_name}-common.sh"
 	if [ "$schedule" = "disable" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else

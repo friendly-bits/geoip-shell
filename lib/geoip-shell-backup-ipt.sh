@@ -3,7 +3,7 @@
 
 # geoip-shell-backup-ipt.sh
 
-. "$script_dir/lib/${p_name}-ipt.sh" || exit 1
+. "$script_dir/${p_name}-ipt.sh" || exit 1
 
 
 #### FUNCTIONS
