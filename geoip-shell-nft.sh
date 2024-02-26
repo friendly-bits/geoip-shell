@@ -32,9 +32,9 @@ nft_get_chain() {
 
 nft_rm_all_georules() {
 	printf %s "Removing firewall geoip rules... "
-	nolog=1 nft_get_geotable 1>/dev/null 2>/dev/null || { echo "Table '$geotable' doesn't exist"; return 0; }
-	nft delete table inet "$geotable" || { echolog -err "Error: Failed to delete table '$geotable'."; return 1; }
-	echo "Ok."
+	nolog=1 nft_get_geotable 1>/dev/null 2>/dev/null ||  return 0
+	nft delete table inet "$geotable" || { echolog -err "$ERR $FAIL delete table '$geotable'."; return 1; }
+	OK
 }
 
 
@@ -60,7 +60,7 @@ get_ipset_id() {
 	family="${list_id#*_}"
 	case "$family" in
 		ipv4|ipv6) return 0 ;;
-		*) echolog -err "Internal error: ip set name '$1' has unexpected format."
+		*) echolog -err "$ERR ip set name '$1' has unexpected format."
 			family=''; list_id=''
 			return 1
 	esac
@@ -82,7 +82,7 @@ get_active_iplists() {
 	case "$list_type" in
 		whitelist) nft_verdict="accept" ;;
 		blacklist) nft_verdict="drop" ;;
-		*) die "get_active_iplists: Error: unexpected geoip mode '$list_type'."
+		*) die "get_active_iplists: $ERR unexpected geoip mode '$list_type'."
 	esac
 
 	ipset_lists="$(nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}")"
@@ -102,7 +102,7 @@ check_lists_coherence() {
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
-	case "$list_type" in whitelist|blacklist) ;; *) die "Error: Unexpected geoip mode '$list_type'!"; esac
+	case "$list_type" in whitelist|blacklist) ;; *) die "$ERR Unexpected geoip mode '$list_type'!"; esac
 
 	unset unexp_lists missing_lists
 	getconfig "Lists" config_lists
@@ -110,7 +110,7 @@ check_lists_coherence() {
 	force_read_geotable=1
 	get_active_iplists active_lists || {
 		nl2sp "$ipset_lists" ips_l_str; nl2sp "$iprules_lists" ipr_l_str
-		echolog -err "Warning: ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
+		echolog -err "$WARN ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		return 1
 	}
 	force_read_geotable=
@@ -119,7 +119,7 @@ check_lists_coherence() {
 	case "$lists_difference" in
 		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
 		*) nl2sp "$active_lists" active_l_str; nl2sp "$config_lists" config_l_str
-			echolog -err "Failed to verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
+			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
 			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexpected_lists
 			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$missing_lists" missing_lists
 			return 1
