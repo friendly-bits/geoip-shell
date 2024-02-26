@@ -4,4 +4,4 @@
 
 # the -install.sh script replaces variables with values
 
-sh \"$install_dir/${p_name}-run.sh\" restore -q
+sh \"$install_dir/${p_name}-run.sh\" restore 1>/dev/null
