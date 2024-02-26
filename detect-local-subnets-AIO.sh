@@ -107,7 +107,7 @@ validate_ip() {
 	## regex validation
 	printf '%s\n' "$addr" | grep -vE "^$ip_regex$" > /dev/null
 	[ $? != 1 ] && { printf '%s\n' "validate_ip: Error: one or more addresses failed regex validation: '$addr'." >&2; return 1; }
-	return 0
+	:
 }
 
 # 1 - ip
@@ -324,7 +324,7 @@ get_local_subnets() {
 	esac
 	[ ! "$subnets_only" ] && echo
 
-	return 0
+	:
 }
 
 
