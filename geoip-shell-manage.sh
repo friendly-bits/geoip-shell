@@ -343,7 +343,7 @@ incoherence_detected() {
 # if that fails, restore from backup
 restore_from_config() {
 	check_reapply() {
-		check_lists_coherence && { echolog "Successfully re-applied previous $list_type ip lists."; return 0; }
+		check_lists_coherence && { echolog "Successfully re-applied previous $list_type ip lists."; :; }
 
 		echolog -err "$FAIL re-apply previous $list_type lists." >&2
 		report_incoherence
