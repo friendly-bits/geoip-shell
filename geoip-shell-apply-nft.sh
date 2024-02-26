@@ -1,7 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
 
-# geoip-shell-apply.sh
+# geoip-shell-apply-nft.sh
 
 # Copyright: friendly bits
 # github.com/friendly-bits
