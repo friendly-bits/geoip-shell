@@ -3,7 +3,7 @@
 
 # the -install.sh script prepends the shebang and values for variables $install_dir and $p_name
 
-. "$install_dir/${p_name}-owrt-common.sh" || exit 1
+. "$install_dir/lib/${p_name}-owrt-common.sh" || exit 1
 
 die() {
 	logger -t "$me" -p user.err "$1"
