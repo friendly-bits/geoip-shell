@@ -8,7 +8,7 @@
 # Copyright: friendly bits
 # github.com/friendly-bits
 
-. "$script_dir/${p_name}-ipt.sh" || exit 1
+. "$script_dir/lib/${p_name}-ipt.sh" || exit 1
 
 
 #### FUNCTIONS
