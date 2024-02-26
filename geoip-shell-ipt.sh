@@ -61,8 +61,8 @@ get_active_iplists() {
 		blacklist) ipt_target="DROP" ;;
 		*) die "get_active_iplists: Error: unexpected geoip mode '$list_type'."
 	esac
-	ipset_lists="$(ipset list -n | grep "$proj_name" | grep -v "_lan_" | sed -n /"$geotag"/s/"$geotag"_//p)"
-	p="${proj_name}_"; t="$ipt_target"
+	ipset_lists="$(ipset list -n | grep "$p_name" | grep -v "_lan_" | sed -n /"$geotag"/s/"$geotag"_//p)"
+	p="${p_name}_"; t="$ipt_target"
 	iprules_lists="$( { iptables-save -t "$ipt_table"; ip6tables-save -t "$ipt_table"; } | grep -v "_lan_" |
 		sed -n "/match-set $p.* -j $t/{s/.*$p//;s/ -j $t.*//p}")"
 
