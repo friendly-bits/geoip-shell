@@ -3,6 +3,9 @@
 
 # geoip-shell-common.sh
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 # Common functions and variables for geoip-shell suite
 
 

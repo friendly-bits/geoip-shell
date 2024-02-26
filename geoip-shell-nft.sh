@@ -3,6 +3,9 @@
 
 # library for interacting with nftables
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 ### General
 
 get_nft_family() {

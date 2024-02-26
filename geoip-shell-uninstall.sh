@@ -3,6 +3,9 @@
 
 # geoip-shell-uninstall
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 # uninstalls or resets geoip-shell
 
 

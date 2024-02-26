@@ -3,6 +3,9 @@
 
 # geoip-shell-install.sh
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 # Installer for geoip blocking suite of shell scripts
 
 # Creates system folder structure for scripts, config and data.

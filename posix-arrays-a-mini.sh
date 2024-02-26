@@ -1,8 +1,8 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2086
 
-# Copyright: blunderful scripts
-# github.com/blunderful-scripts
+# Copyright: friendly bits
+# github.com/friendly-bits
 
 # posix-arrays-a-mini.sh
 
@@ -10,7 +10,7 @@
 
 # NOTE: this is a stripped down to a minimum and optimized for very small arrays version,
 # which includes a minimal subset of functions from the main project:
-# https://github.com/blunderful-scripts/POSIX-arrays
+# https://github.com/friendly-bits/POSIX-arrays
 
 
 # get keys from an associative array

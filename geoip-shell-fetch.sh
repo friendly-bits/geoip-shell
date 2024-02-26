@@ -3,6 +3,9 @@
 
 # geoip-shell-fetch.sh
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 #### Initial setup
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)

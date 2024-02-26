@@ -3,6 +3,8 @@
 
 # geoip-shell-cronsetup.sh
 
+# Copyright: friendly bits
+# github.com/friendly-bits
 
 #### Initial setup
 p_name="geoip-shell"
