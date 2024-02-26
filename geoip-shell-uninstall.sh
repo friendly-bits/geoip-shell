@@ -36,10 +36,10 @@ Usage: $me [-l] [-c] [-r] [-h]
 5) Deletes the config folder /etc/geoip-shell
 
 Options:
--l  : Reset ip lists and remove firewall geoip rules, don't uninstall
--c  : Reset ip lists and remove firewall geoip rules and cron jobs, don't uninstall
--r  : Remove cron jobs, geoip config and firewall geoip rules, don't uninstall
--h  : This help
+  -l  : Reset ip lists and remove firewall geoip rules, don't uninstall
+  -c  : Reset ip lists and remove firewall geoip rules and cron jobs, don't uninstall
+  -r  : Remove cron jobs, geoip config and firewall geoip rules, don't uninstall
+  -h  : This help
 
 EOF
 }
@@ -63,8 +63,11 @@ echo
 
 debugentermsg
 
-
 ### VARIABLES
+old_install_dir="$(command -v "$p_name")"
+old_install_dir="${old_install_dir%/*}"
+install_dir="${old_install_dir:-"$install_dir"}"
+
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	export norecur=1 # prevents infinite loop
 	call_script "$install_dir/${p_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
@@ -101,12 +104,25 @@ rm "$conf_file" 2>/dev/null
 	exit 0
 }
 
-printf '%s\n' "Deleting script's data folder $datadir..."
+# For OpenWrt
+[ "$_OWRT_install" ] && {
+	. "$script_dir/${p_name}-owrt-common.sh" || exit 1
+	echo "Deleting the init script..."
+	/etc/init.d/${p_name}-init disable && rm "/etc/init.d/${p_name}-init" 2>/dev/null
+	check_owrt_include && {
+		printf %s "Removing the firewall include..."
+		uci delete firewall."$p_name_c" 1>/dev/null && OK || FAIL
+	}
+	echo "Restarting the firewall..."
+	service firewall restart
+}
+
+printf '%s\n' "Deleting the data folder $datadir..."
 rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "${install_dir}/${p_name}" 2>/dev/null
-for script_name in fetch apply manage cronsetup run common uninstall backup nft; do
+for script_name in fetch apply manage cronsetup run common uninstall backup nft mk-fw-include fw-include owrt-common; do
 	rm "$install_dir/${p_name}-${script_name}.sh" 2>/dev/null
 done
 for script_name in validate-cron-schedule check-ip-in-source detect-local-subnets-AIO posix-arrays-a-mini ip-regex; do
