@@ -68,7 +68,7 @@ restorebackup() {
 		esac
 
 		case "$rv" in
-			0) OK;;
+			0) OK ;;
 			*) FAIL >&2
 			restore_failed "$FAIL restore $restoretgt state from backup." "reset"
 		esac
@@ -78,7 +78,6 @@ restorebackup() {
 
 	cp "$status_file_bak" "$status_file" || restore_failed "$FAIL restore the status file."
 	cp "$conf_file_bak" "$conf_file" || restore_failed "$FAIL restore the config file."
-	OK
 
 	# save backup file full path to the config file
 	setconfig "BackupFile=$bk_file"
