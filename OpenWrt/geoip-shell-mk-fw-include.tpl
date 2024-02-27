@@ -17,15 +17,15 @@ mk_fw_include() {
 	check_owrt_include && return 0
 	rel=
 	[ "$_OWRTFW" = 3 ] && rel=".reload=1" # fw3
+	delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	uci_cmds="$(
-		delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 		for o in "=include" ".enabled=1" ".type=script" ".path=$fw_include_path" "$rel"; do
 			[ "$o" ] && printf '%s\n' "set firewall.$p_name_c$o"
 		done
 	)"
 	errors="$(printf '%s\n' "$uci_cmds" | uci batch && uci commit firewall)" ||
 		die "Failed to add firewall include. Errors: $(printf %s "$errors" | tr '\n' ' ')."
-	service firewall restart
+	/etc/init.d/firewall restart
 }
 
 mk_fw_include
