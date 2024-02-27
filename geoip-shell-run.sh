@@ -96,6 +96,8 @@ status_file="$iplist_dir/status"
 
 failed_lists_cnt=0
 
+[ "$_fw_backend" = ipt ] && raw_mode="-r"
+
 
 #### CHECKS
 
@@ -147,7 +149,7 @@ if [ "$action_apply" = add ]; then
 	# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 	setstatus "$status_file" "FailedLists=$lists"
 
-	call_script "$script_dir/${p_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force"
+	call_script "$script_dir/${p_name}-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
 
 	# read *fetch results from the status file
 	getstatus "$status_file" FetchedLists lists
