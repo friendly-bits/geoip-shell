@@ -121,7 +121,7 @@ _<details><summary>Examples:</summary>_
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - OR **iptables** - firewall management utility. Should work with any relatively modern version.
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
-- standard utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
+- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). For embedded, may require installing some packages if some of these utilities don't come by default.
 - **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
 - for persistence and autoupdate functionality, requires the cron service to be enabled.
 
