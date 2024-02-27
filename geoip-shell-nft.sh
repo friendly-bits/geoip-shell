@@ -16,8 +16,10 @@ get_nft_family() {
 ### Tables and chains
 
 is_geochain_on() {
+	old_force="$force_read_geotable"
 	force_read_geotable=1
 	get_matching_line "$(nft_get_chain "$base_geochain")" "*" "${geotag}_enable" "*"
+	force_read_geotable="$old_force"
 }
 
 nft_get_geotable() {
@@ -54,6 +56,20 @@ mk_nft_rm_cmd() {
 	done
 }
 
+# parses an nft array/list and outputs it in human-readable format
+get_nft_list() {
+	n=0; _res=
+	[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
+	case "$1" in
+		'{')
+			while true; do
+				shift; n=$((n+1))
+				[ "$1" = '}' ] && break
+				_res="$_res$1"
+			done ;;
+		*) _res="$_res$1"
+	esac
+}
 
 ### (ip)sets
 
