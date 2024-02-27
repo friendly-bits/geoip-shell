@@ -114,7 +114,7 @@ rm "$conf_file" 2>/dev/null
 	echo "Removing the firewall include..."
 	uci delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	echo "Restarting the firewall..."
-	service firewall restart
+	/etc/init.d/firewall restart 1>/dev/null 2>/dev/null
 }
 
 printf '%s\n' "Deleting the data folder $datadir..."
