@@ -28,7 +28,9 @@ check_owrt_include() {
 # check for OpenWrt firewall version
 checkutil uci && checkutil procd && for i in 3 4; do
 	[ -x /sbin/fw$i ] && export _OWRTFW="$i"
-done || {
+done
+
+[ -z "$_OWRTFW" ] && {
 	logger -s -t "$me" -p user.err "Failed to detect OpenWrt firewall"
 	return 1
 }
