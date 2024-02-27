@@ -1,7 +1,5 @@
 # **geoip-shell**
-Geoip blocker for Linux. Utilizes the **nftables** firewall management utility.
-
-**iptables** is supported in the [iptables branch](https://github.com/friendly-bits/geoip-shell/tree/geoip-shell-iptables).
+Geoip blocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
 
 This is a continuation of the [**geoblocker-bash**](https://github.com/friendly-bits/geoblocker-bash) project, re-implemented in POSIX-compliant shell code. To learn what's changed, check out [this announcement](https://github.com/friendly-bits/geoip-shell/discussions/1).
 
@@ -33,7 +31,7 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 ### **Reliability**:
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
 - Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
-- Utilizes nftables atomic rules replacement to completely eliminate time when geoip is disabled during an autoupdate.
+- With nftables, utilizes nftables atomic rules replacement to completely eliminate time when geoip is disabled during an autoupdate.
 
 <details> <summary>Read more:</summary>
 
@@ -50,7 +48,8 @@ Should work on every modern'ish desktop/server Linux distribution, doesn't matte
 
 - Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
 - Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
-- The nftables branch utilizes native nftables sets which allows to create efficient firewall rules with thousands of ip ranges.
+- With nftables, utilizes native nftables sets which allows to create efficient firewall rules with thousands of ip ranges.
+- With iptables, utilizes the ipset utility which allows to create efficient firewall rules with thousands of ip ranges.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Scripts are only active for a short time when invoked either directly by the user or by a cron job.
 
@@ -90,7 +89,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
 
-**2)** Download the latest realease (pick one with the **-nftables** suffix): https://github.com/friendly-bits/geoip-shell/releases
+**2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
@@ -110,7 +109,7 @@ _<details><summary>Examples:</summary>_
 
 - **NOTE1**: If your machine has enough memory, consider installing with the `-p` option (for "performance"). For more detailed explanation, check out (4) in [NOTES.md](/Documentation/NOTES.md). 
 
-- **NOTE2**: If your distro (or you) have enabled automatic nftables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+- **NOTE2**: If your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
 **5)** The `-install.sh` script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
@@ -118,13 +117,15 @@ _<details><summary>Examples:</summary>_
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
-- Linux. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
-- nftables - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- standard utilities including tr, cut, sort, wc, awk, sed, grep, and logger which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
-- `wget` or `curl` or `uclient-fetch` (OpenWRT-specific utility).
+- **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
+- **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
+- OR **iptables** - firewall management utility. Should work with any relatively modern version.
+- for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
+- standard utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution. For embedded, may require installing some packages if some of these utilities don't come by default.
+- **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
 - for persistence and autoupdate functionality, requires the cron service to be enabled.
 
-**Optional**: the _check-ip-in-source.sh_ script requires grepcidr. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
+**Optional**: the _check-ip-in-source.sh_ script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
