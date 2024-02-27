@@ -532,18 +532,28 @@ setports() {
 			for _port in $_range; do
 				trimsp _port
 				case "$_port" in *[!0-9]*) invalid_str "$_port"; return 1; esac
-				_ports="$_ports$_port-"
+				_ports="$_ports$_port$p_delim"
 			done
-			_ports="${_ports%-},"
+			_ports="${_ports%"$p_delim"},"
 			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && { invalid_str "$_range"; return 1; }; esac
 		done
 		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "$ERR no ports specified for protocol $_proto."; return 1; }
 		_ports="${_ports%,}"
+
+		[ "$_fw_backend" = ipt ] && {
+			dport="dport"
+			[ "$ranges_cnt" -gt 1 ] && { mp="-m multiport"; dport="dports"; }
+			dport="--$dport $_ports"
+		}
 	}
 
 	_lines="$(tolower "$1")"
 	newifs "$_nl" sp
 	for _line in $_lines; do
+		case "$_fw_backend" in
+			nft) _neg='!=' p_delim='-' _all="meta l4proto $_proto" ;;
+			ipt) _neg='!' p_delim=':' _all=
+		esac
 		unset ranges _ports neg mp skip
 		trimsp _line
 		check_edge_chars "$_line" ":" || return 1
@@ -558,7 +568,7 @@ setports() {
 		trimsp proto_act
 		case "$proto_act" in
 			allow) neg='' ;;
-			block) neg='!=' ;;
+			block) neg="$_neg" ;;
 			*) { usage; echolog -err "$ERR expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
 		esac
 		# check for valid protocol
@@ -569,10 +579,13 @@ setports() {
 		esac
 
 		if [ "$_ranges" = all ]; then
-			[ "$neg" ] && ports_line=skip || ports_line="meta l4proto $_proto"
+			[ "$neg" ] && ports_line=skip || ports_line="$_all"
 		else
 			parse_ports || return 1
-			ports_line="$_proto dport $neg { $_ports }"
+			case "$_fw_backend" in
+				nft) ports_line="$_proto dport $neg { $_ports }" ;;
+				ipt) ports_line="$mp $neg $dport"
+			esac
 		fi
 		trimsp ports_line
 		ports_conf="$ports_conf$_proto=$ports_line$_nl"
