@@ -358,7 +358,7 @@ iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
 
 ipt_libs='' ipt_script=
-[ "$_fw_backend" = ipt ] && { ipt_libs="apply-ipt backup-ipt"; ipt_script="ipt"; }
+[ "$_fw_backend" = ipt ] && { ipt_libs="apply-ipt backup-ipt status-ipt"; ipt_script="ipt"; }
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup common nft "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
@@ -367,7 +367,7 @@ script_files="$script_files validate-cron-schedule.sh detect-local-subnets-AIO.s
 	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh $owrt_common_script"
 
 lib_files=
-for f in apply-nft backup-nft $ipt_libs; do
+for f in apply-nft backup-nft status-nft $ipt_libs; do
 	lib_files="${lib_files}lib/${p_name}-$f.sh "
 done
 
