@@ -41,7 +41,7 @@ Options:
   -s <status_file>  : Path to a status file to register fetch results in.
   -u <"source">     : Source for the download. Currently supports 'ripe' and 'ipdeny'.
  
-  -r                : Raw mode (outputs newline-delimited list)
+  -r                : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f                : force using fetched lists even if list timestamp didn't change compared to existing list
   -d                : Debug
   -h                : This help
