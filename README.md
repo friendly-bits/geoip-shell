@@ -1,9 +1,9 @@
 # **geoip-shell**
 Geoip blocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
 
-This is a continuation of the [**geoblocker-bash**](https://github.com/friendly-bits/geoblocker-bash) project, re-implemented in POSIX-compliant shell code. To learn what's changed, check out [this announcement](https://github.com/friendly-bits/geoip-shell/discussions/1).
+The idea of this project is making geoip blocking easy on (almost) any Linux system, no matter which hardware, including desktop, server or router, while also being reliable and providing flexible configuration options for the advanced users.
 
-Should work on every modern'ish desktop/server Linux distribution, doesn't matter which hardware. Supports running on a router or on a host. Supports running on OpenWrt. Supports ipv4 and ipv6.
+Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/e1a70e9d-a0eb-407b-9372-ddcbe6134d88)](https://github.com/friendly-bits/geoip-shell/assets/134004289/24010da9-a62a-428f-ae4d-cb1d4ae97f73)
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/ef622182-a6cf-49ff-9bed-64fc29653255)](https://github.com/friendly-bits/geoip-shell/assets/134004289/b35e199f-465d-487c-809b-9c5a8f0644be)
