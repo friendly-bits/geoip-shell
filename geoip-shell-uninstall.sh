@@ -123,7 +123,7 @@ rm -rf "$datadir"
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "$install_dir/$p_name" 2>/dev/null
 for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common ipt nft \
-		apply-ipt apply-nft backup-ipt backup-nft; do
+		apply-ipt apply-nft backup-ipt backup-nft status-ipt status-nft; do
 	rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
 done
 for script_name in ip-regex posix-arrays-a-mini validate-cron-schedule check-ip-in-source detect-local-subnets-AIO; do
