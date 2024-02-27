@@ -18,21 +18,17 @@ restorebackup() {
 	get_ipset_bk() { sed -n "/create ${p_name}/,\$p" < "$tmp_file"; }
 
 	printf '%s\n' "Restoring firewall state from backup... "
-	getconfig BackupFile bk_file "" -nodie; rv=$?
-	if [ "$rv" = 1 ]; then
-		restore_failed "Error reading the config file."
-	elif [ "$rv" = 2 ] || [ -z "$bk_file" ]; then
-		restore_failed "Can not restore the firewall state: no backup found."
-	fi
+	getconfig BackupFile bk_file "$conf_file_bak"
+	getconfig BackupExt bk_ext "$conf_file_bak"
 
-	[ ! -f "$bk_file" ] && restore_failed "Can not find the backup file '$bk_file'."
-
-	set_extract_cmd "$bk_file"
+	[ -z "$bk_file" ] && die "Can not restore the firewall state: no backup found."
+	[ ! -f "$bk_file" ] && die "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
-	tmp_file="/tmp/geoip-shell_backup.tmp"
-	$extract_cmd "$bk_file" > "$tmp_file" || restore_failed "Failed to extract backup file '$bk_file'."
-	[ ! -s "$tmp_file" ] && restore_failed "Error: backup file '$bk_file' is empty or backup extraction failed."
+	tmp_file="/tmp/${p_name}_backup.tmp"
+	set_extract_cmd "$bk_ext"
+	$extract_cmd "$bk_file" > "$tmp_file" || restore_failed "$FAIL extract backup file '$bk_file'."
+	[ ! -s "$tmp_file" ] && restore_failed "$ERR backup file '$bk_file' is empty or backup extraction failed."
 
 	printf '%s\n\n' "Successfully read backup file: '$bk_file'."
 
@@ -42,7 +38,7 @@ restorebackup() {
 	for family in $families; do
 		line_cnt=$(get_iptables_bk | wc -l)
 		debugprint "Firewall $family lines number in backup: $line_cnt"
-		[ "$line_cnt" -lt 2 ] && restore_failed "Error: firewall $family backup appears to be empty or non-existing."
+		[ "$line_cnt" -lt 2 ] && restore_failed "$ERR firewall $family backup appears to be empty or non-existing."
 	done
 	OK
 
@@ -50,11 +46,11 @@ restorebackup() {
 	# count lines in the ipset portion of the backup file
 	line_cnt=$(get_ipset_bk | grep -c "add ${p_name}")
 	debugprint "ipset lines number in backup: $line_cnt"
-	[ "$line_cnt" = 0 ] && restore_failed "Error: ipset backup appears to be empty or non-existing."
+	[ "$line_cnt" = 0 ] && restore_failed "$ERR ipset backup appears to be empty or non-existing."
 	OK; echo
 
 	### Remove geoip iptables rules and ipsets
-	rm_all_georules || restore_failed "Error removing firewall rules and ipsets."
+	rm_all_georules || restore_failed "$FAIL remove firewall rules and ipsets."
 
 	echo
 
@@ -74,7 +70,7 @@ restorebackup() {
 		case "$rv" in
 			0) OK;;
 			*) FAIL >&2
-			restore_failed "Failed to restore $restoretgt state from backup." "reset"
+			restore_failed "$FAIL restore $restoretgt state from backup." "reset"
 		esac
 	done
 
@@ -108,19 +104,18 @@ create_backup() {
 	bk_file="$datadir/firewall_backup.${archive_ext:-bak}"
 	backup_len=0
 
-	printf %s "Creating backup of current iptables state... "
+	printf %s "Creating backup of current $p_name state... "
 
 	rv=0
 	for family in $families; do
 		set_ipt_cmds
-		printf '%s\n' "[${p_name}_IPTABLES_$family]" >> "$tmp_file"
-		# save iptables state to tmp_file
-		printf '%s\n' "*$ipt_table" >> "$tmp_file" || rv=1
-		$ipt_save_cmd | grep -i "$geotag" >> "$tmp_file" || rv=1
-		printf '%s\n' "COMMIT" >> "$tmp_file" || rv=1
-		[ "$rv" != 0 ] && {
+		printf '%s\n' "[${p_name}_IPTABLES_$family]" >> "$tmp_file" &&
+		printf '%s\n' "*$ipt_table" >> "$tmp_file" &&
+		$ipt_save_cmd | grep -i "$geotag" >> "$tmp_file" &&
+		printf '%s\n' "COMMIT" >> "$tmp_file" ||
+		{
 			rm "$tmp_file" 2>/dev/null
-			die "Failed to back up iptables state."
+			die "$FAIL back up $p_name state."
 		}
 	done
 	OK
@@ -138,25 +133,21 @@ create_backup() {
 		backup_len="$(wc -l < "$tmp_file")"
 		[ "$rv" != 0 ] || [ "$backup_len" -le "$backup_len_old" ] && {
 			rm "$tmp_file" 2>/dev/null
-			die "Failed to back up ipset '$ipset'."
+			die "$FAIL back up ipset '$ipset'."
 		}
 		OK
 	done
 
 	printf %s "Compressing backup... "
-	$compr_cmd < "$tmp_file" > "${bk_file}.new"; rv=$?
-	[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && {
-			rm "$tmp_file" "${bk_file}.new" 2>/dev/null
-			die "Failed to compress firewall backup to file '${bk_file}.new' with utility '$compr_cmd'."
-		}
-
-	OK
+	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] || {
+		rm "$tmp_file" "${bk_file}.new" 2>/dev/null
+		die "$FAIL compress firewall backup to file '${bk_file}.new'."
+	}
 	rm "$tmp_file" 2>/dev/null
 
-	cp "$conf_file" "$conf_file_bak" || { rm "${bk_file}.new"; die "Error creating a backup copy of the config file."; }
+	mv "${bk_file}.new" "$bk_file" || die "$FAIL overwrite file '$bk_file'."
 
-	mv "${bk_file}.new" "$bk_file" || die "Failed to overwrite file '$bk_file'."
-
-	# save backup file full path to the config file
-	setconfig "BackupFile=$bk_file"
+	cp "$status_file" "$status_file_bak" || die "$FAIL back up the status file."
+	setconfig "BackupFile=$bk_file" "BackupExt=${archive_ext:-bak}"
+	cp "$conf_file" "$conf_file_bak" || die "$FAIL back up the config file."
 }
