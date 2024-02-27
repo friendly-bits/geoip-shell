@@ -638,9 +638,9 @@ init_geoscript
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
 
 	check_deps tr cut sort wc awk sed grep logger || die
-	{ check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
+	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{
-		check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
+		nolog=1 check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
 			{ check_deps ipset || die; export _fw_backend=ipt; }
 	} || die "$ERR neither nftables nor iptables found."
 }
