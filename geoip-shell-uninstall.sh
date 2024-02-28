@@ -88,12 +88,19 @@ status_file="$datadir/ip_lists/status"
 
 echo "Cleaning up..."
 
+# kill any related processes which may be running in the background
+kill_geo_pids
+
+# remove the lock file
+rm_lock
+
 ### Remove geoip firewall rules
 rm_all_georules >/dev/null || die 1
 
 [ -f "$conf_file" ] && setconfig "Lists="
 set +f; rm "$iplist_dir"/* 2>/dev/null
 
+rm -rf "${datadir:?}"/* 2>/dev/null
 [ "$resetonly_lists" ] && exit 0
 
 ### Remove geoip cron jobs
