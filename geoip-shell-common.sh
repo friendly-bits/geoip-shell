@@ -109,14 +109,17 @@ toupper() {
 
 # calls another script and resets the config cache on exit
 call_script() {
+	[ "$1" = '-l' ] && { use_lock=1; shift; }
 	script_to_call="$1"
 	shift
 
 	# call the daughter script, then reset $config_var to force re-read of the config file
 	[ ! "$script_to_call" ] && { echolog -err "call_script: $ERR received empty string."; return 1 ; }
 
+	[ "$use_lock" ] && rm_lock
 	sh "$script_to_call" "$@"; call_rv=$?; export config_var=""
 	debugexitmsg
+	[ "$use_lock" ] && mk_lock
 	return "$call_rv"
 }
 
@@ -209,9 +212,14 @@ die() {
 		* ) die_rv="$1"; shift
 	esac
 
-	die_args=''
+	unlock='' die_args=''
 	for die_arg in "$@"; do
-		case "$die_arg" in -nolog) nolog="1" ;; '') ;; *) die_args="$die_args$die_arg$delim"; esac
+		case "$die_arg" in
+			-nolog) nolog="1" ;;
+			-u) rm_lock ;;
+			'') ;;
+			*) die_args="$die_args$die_arg$delim"
+		esac
 	done
 
 	[ "$die_args" ] && {
@@ -223,7 +231,6 @@ die() {
 		done
 		oldifs die
 	}
-	echo >&2
 	exit "$die_rv"
 }
 
@@ -626,6 +633,25 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
+mk_lock() { touch "$lock_file"; }
+
+rm_lock() { rm -f "$lock_file" 2>/dev/null; }
+
+check_lock() {
+	[ -f "$lock_file" ] &&
+		die "Lock file $lock_file indicates that $p_name is doing something in the background, refusing to open another instance."
+}
+
+kill_geo_pids() {
+	for i in 1 2; do
+		for script in run fetch apply cronsetup backup; do
+			_pids="$(pgrep -fa "geoip-shell-$script.sh" | grep -v pgrep | grep -Eo "^[0-9]+")"
+			for _pid in $_pids; do kill "$_pid"; done
+		done
+	done
+}
+
+export lock_file="/tmp/$p_name-run.lock"
 export install_dir="/usr/bin" p_script="$script_dir/${p_name}"
 export i_script="$install_dir/${p_name}"
 export lib_dir="$script_dir/lib"
