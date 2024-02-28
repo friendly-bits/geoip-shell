@@ -338,6 +338,8 @@ makepath() {
 	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) PATH="$PATH:$d"; esac
 }
 
+# removes comments and collapses multiple empty lines to one
+# 1 - (optional) input filename, otherwise reads from STDIN
 san_script() {
 	p="^[[:space:]]*#[^\!]"
 	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}'
@@ -394,7 +396,7 @@ esac
 ccodes="$(toupper "$ccodes")"
 
 cron_schedule="${cron_schedule_args:-$default_schedule}"
-sleeptime="30"
+sleeptime=30 max_attempts=30
 
 export list_type="$(tolower "$list_type")"
 
@@ -472,7 +474,7 @@ printf %s "Setting config... "
 
 makepath
 setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp=skip" \
-	"Source=$source" "Families=$families" "CronSchedule=$cron_schedule"  \
+	"Source=$source" "Families=$families" "CronSchedule=$cron_schedule" "MaxAttempts=$max_attempts" \
 	"LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
@@ -482,8 +484,10 @@ setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=
 sed -i "s/^export lib_dir=.*//" "$install_dir/${p_name}-common.sh"
 sed -i "s/^export _lib=.*//" "$install_dir/${p_name}-common.sh"
 
-printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$install_dir\"" \
-	"export _lib=\"$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
+lib_dir="$install_dir"
+
+printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$lib_dir\"" \
+	"export _lib=\"\$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
 	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
 
