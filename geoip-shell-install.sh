@@ -341,7 +341,7 @@ makepath() {
 
 san_script() {
 	p="^[[:space:]]*#[^\!]"
-	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}'
+	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}' | grep .
 }
 
 
@@ -365,7 +365,7 @@ iplist_dir="${datadir}/ip_lists"
 default_schedule="15 4 * * *"
 
 ipt_libs=
-[ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt libstatus-ipt"
+[ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup common detect-lan "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
