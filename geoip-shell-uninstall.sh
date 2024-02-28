@@ -126,7 +126,7 @@ for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-inclu
 		apply-ipt apply-nft backup-ipt backup-nft status-ipt status-nft; do
 	rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
 done
-for script_name in ip-regex posix-arrays-a-mini validate-cron-schedule check-ip-in-source detect-local-subnets-AIO; do
+for script_name in ip-regex posix-arrays-a-mini validate-cron-schedule check-ip-in-source geoip-shell-detect-lan; do
 	rm "$install_dir/$script_name.sh" 2>/dev/null
 done
 

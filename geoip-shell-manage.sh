@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/${p_name}-$_fw_backend.sh" || exit 1
+. "$script_dir/${p_name}-lib-$_fw_backend.sh" || exit 1
 [ "$_OWRT_install" ] && { . "$script_dir/${p_name}-owrt-common.sh" || exit 1; }
 
 export list_type nolog=1 manmode=1
@@ -151,7 +151,7 @@ report_status() {
 		done
 	fi
 
-	. "${p_name}-status-$_fw_backend.sh" || die "Failed to check status for $_fw_backend."
+	. "${p_name}-status-lib-$_fw_backend.sh" || die "Failed to check status for $_fw_backend."
 
 	unset cr_p
 	[ ! "$_OWRTFW" ] && cr_p=" and persistence across reboots"
@@ -487,4 +487,4 @@ fi
 report_lists
 [ ! "$in_install" ] && statustip
 
-exit 0
+:

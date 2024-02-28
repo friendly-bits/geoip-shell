@@ -129,7 +129,7 @@ copyscripts() {
 		{
 			if [ "$_OWRTFW" ]; then
 				# strip comments
-				grep -v "^[[:space:]]*#[^\!]" "$script_dir/$scriptfile" > "$destination"
+				san_script "$script_dir/$scriptfile" > "$destination"
 			else
 				cp "$script_dir/$scriptfile" "$destination"
 			fi
@@ -280,7 +280,7 @@ pick_subnets() {
 		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
-		s="$(sh "$script_dir/detect-local-subnets-AIO.sh" -s -f "$family")" || printf '%s\n' "$FAIL autodetect $family local subnets."
+		s="$(sh "$script_dir/$p_name-detect-lan.sh" -s -f "$family")" || printf '%s\n' "$FAIL autodetect $family local subnets."
 		san_str s
 
 		[ -n "$s" ] && {
@@ -338,6 +338,12 @@ makepath() {
 	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) PATH="$PATH:$d"; esac
 }
 
+san_script() {
+	p="^[[:space:]]*#[^\!]"
+	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}'
+}
+
+
 
 #### Variables
 
@@ -360,11 +366,11 @@ default_schedule="15 4 * * *"
 ipt_libs='' ipt_script=
 [ "$_fw_backend" = ipt ] && { ipt_libs="apply-ipt backup-ipt status-ipt"; ipt_script="ipt"; }
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common nft "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup common nft detect-lan "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
-script_files="$script_files validate-cron-schedule.sh detect-local-subnets-AIO.sh ip-regex.sh \
-	detect-local-subnets-AIO.sh posix-arrays-a-mini.sh $owrt_common_script"
+script_files="$script_files validate-cron-schedule.sh geoip-shell-detect-lan.sh ip-regex.sh \
+	posix-arrays-a-mini.sh $owrt_common_script"
 
 lib_files=
 for f in apply-nft backup-nft status-nft $ipt_libs; do
@@ -471,7 +477,7 @@ setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
-printf '%s\n' "datadir=$datadir PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
+printf '%s\n' "datadir=\"$datadir\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
 	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
 
@@ -510,19 +516,19 @@ fi
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		printf %s "Adding the init script... "
-		eval "printf '%s\n' \"$(cat "$init_script_tpl")\" > \"$init_script\"" || install_failed "$FAIL create the init script."
+		eval "printf '%s\n' \"$(cat "$init_script_tpl")\"" | san_script > "$init_script" ||
+			install_failed "$FAIL create the init script."
 		OK
 
 		printf %s "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$fw_include_tpl")\" > \"$fw_include_script\"" &&
+		eval "printf '%s\n' \"$(cat "$fw_include_tpl")\"" | san_script > "$fw_include_script" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include_script\""
-			grep -v "^[[:space:]]*#[^\!]" "$mk_fw_inc_script_tpl"
-		} > "$mk_fw_inc_script" ||
-			install_failed "$FAIL prepare the firewall include."
-		chmod +x "$init_script" "$fw_include_script" "$mk_fw_inc_script" || install_failed "$FAIL set permissions."
+			san_script "$mk_fw_inc_script_tpl"
+		} > "$mk_fw_inc_script" || install_failed "$FAIL prepare the firewall include."
 		OK
+		chmod +x "$init_script" "$fw_include_script" "$mk_fw_inc_script" || install_failed "$FAIL set permissions."
 
 		printf %s "Enabling and starting the init script... "
 		$init_script enable && $init_script start || install_failed "$FAIL enable or start the init script."
@@ -535,5 +541,3 @@ fi
 
 statustip
 echo "Install done."
-
-exit 0

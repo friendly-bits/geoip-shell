@@ -155,4 +155,4 @@ esac
 }
 
 OK
-exit 0
+:

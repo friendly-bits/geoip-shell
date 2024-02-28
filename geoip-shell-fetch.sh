@@ -597,4 +597,4 @@ if [ "$status_file" ]; then
 		die "$ERR $FAIL write to the status file '$status_file'."
 fi
 
-exit 0
+:
