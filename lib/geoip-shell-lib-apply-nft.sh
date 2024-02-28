@@ -206,4 +206,4 @@ OK
 
 echo
 
-exit 0
+:

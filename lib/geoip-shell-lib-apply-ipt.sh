@@ -113,7 +113,7 @@ case "$list_type" in
 	*) die "Unknown firewall mode '$list_type'."
 esac
 
-exitvalue=0
+retval=0
 
 insert_failed="$FAIL insert a firewall rule."
 ipt_comm="-m comment --comment"
@@ -284,13 +284,12 @@ done
 				ipset destroy "$ipset"; rv=$?
 				case "$rv" in
 					0) debugprint "Ok." ;;
-					*) echo "Failed."; echolog -err "$WARN $FAIL destroy ipset '$ipset'."; exitvalue="254"
-				esac
-				;;
-			*) echo "Failed."; echolog -err "$WARN Can't remove ipset '$ipset' because it doesn't exist."; exitvalue="254"
+					*) echo "Failed."; echolog -err "$WARN $FAIL destroy ipset '$ipset'."; retval="254"
+				esac ;;
+			*) echo "Failed."; echolog -err "$WARN Can't remove ipset '$ipset' because it doesn't exist."; retval="254"
 		esac
 	done
-	[ "$exitvalue" = 0 ] && OK
+	[ "$retval" = 0 ] && OK
 }
 
 
@@ -302,4 +301,4 @@ esac
 
 echo
 
-exit "$exitvalue"
+return "$retval"
