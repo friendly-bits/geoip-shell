@@ -36,6 +36,7 @@ esac
 ### Read current firewall geoip rules
 geochain_on=''
 is_geochain_on && geochain_on=1
+nft_get_geotable 1>/dev/null
 geochain_cont="$(nft_get_chain "$geochain")"
 base_chain_cont="$(nft_get_chain "$base_geochain")"
 
