@@ -40,7 +40,7 @@ restorebackup() {
 	OK
 
 	# remove geoip rules
-	nft_rm_all_georules || restore_failed "Error removing firewall rules."
+	rm_all_georules || restore_failed "Error removing firewall rules."
 
 	export force_read_geotable=1
 	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
