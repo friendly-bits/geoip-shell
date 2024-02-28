@@ -124,8 +124,8 @@ rm -rf "$datadir"
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "$install_dir/$p_name" 2>/dev/null
 for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common lib-ipt lib-nft \
-		detect-lan lib-ip-regex lib-arrays lib-apply-ipt lib-apply-nft lib-backup-ipt lib-backup-nft status-ipt status-nft; do
-	rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
+	detect-lan lib-ip-regex lib-arrays lib-apply-ipt lib-apply-nft lib-backup-ipt lib-backup-nft lib-status-ipt lib-status-nft; do
+		rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
 done
 
 echo "Deleting config..."
