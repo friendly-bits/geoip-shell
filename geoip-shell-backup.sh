@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/${p_name}-lib-backup-$_fw_backend.sh" || exit 1
+. "$lib_dir/${p_name}-lib-backup-$_fw_backend.sh" || exit 1
 
 check_root
 

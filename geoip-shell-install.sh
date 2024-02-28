@@ -21,7 +21,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export nolog=1 manmode=1 in_install=1
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/ip-regex.sh"
+. "$lib_dir/$p_name-lib-ip-regex.sh"
 
 check_root
 
@@ -280,7 +280,8 @@ pick_subnets() {
 		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
-		s="$(sh "$script_dir/$p_name-detect-lan.sh" -s -f "$family")" || printf '%s\n' "$FAIL autodetect $family local subnets."
+		s="$(call_script "$script_dir/$p_name-detect-lan.sh" -s -f "$family")" ||
+			printf '%s\n' "$FAIL autodetect $family local subnets."
 		san_str s
 
 		[ -n "$s" ] && {
@@ -363,17 +364,16 @@ iplist_dir="${datadir}/ip_lists"
 
 default_schedule="15 4 * * *"
 
-ipt_libs='' ipt_script=
-[ "$_fw_backend" = ipt ] && { ipt_libs="apply-ipt backup-ipt status-ipt"; ipt_script="ipt"; }
+ipt_libs=
+[ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common nft detect-lan "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup common detect-lan "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
-script_files="$script_files validate-cron-schedule.sh geoip-shell-detect-lan.sh ip-regex.sh \
-	posix-arrays-a-mini.sh $owrt_common_script"
+script_files="$script_files $owrt_common_script"
 
 lib_files=
-for f in apply-nft backup-nft status-nft $ipt_libs; do
+for f in lib-arrays lib-nft lib-apply-nft lib-backup-nft status-nft lib-ip-regex $ipt_libs; do
 	lib_files="${lib_files}lib/${p_name}-$f.sh "
 done
 
@@ -424,7 +424,7 @@ check_cron_compat
 
 # validate cron schedule from args
 [ "$cron_schedule_args" ] && [ "$cron_schedule" != "disable" ] && {
-	sh "$script_dir/validate-cron-schedule.sh" -x "$cron_schedule_args" || die "$FAIL validate cron schedule '$cron_schedule'."
+	call_script "$script_dir/$p_name-cronsetup.sh" -x "$cron_schedule_args" || die "$FAIL validate cron schedule '$cron_schedule'."
 }
 
 #### MAIN
@@ -477,7 +477,9 @@ setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
-printf '%s\n' "datadir=\"$datadir\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
+
+sed -i "s/^export lib_dir=.*//" "$install_dir/${p_name}-common.sh"
+printf '%s\n' "datadir=\"$datadir\" lib_dir=\"$install_dir\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
 	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
 

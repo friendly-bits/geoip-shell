@@ -627,6 +627,7 @@ OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
 export install_dir="/usr/bin"
+export lib_dir="$script_dir/lib"
 
 init_geoscript
 

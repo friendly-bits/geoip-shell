@@ -12,7 +12,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/ip-regex.sh"
+. "$lib_dir/$p_name-lib-ip-regex.sh"
 
 
 #### USAGE

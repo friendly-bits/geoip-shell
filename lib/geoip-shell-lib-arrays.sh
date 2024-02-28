@@ -4,7 +4,7 @@
 # Copyright: friendly bits
 # github.com/friendly-bits
 
-# posix-arrays-a-mini.sh
+# $p_name-lib-arrays.sh
 
 # emulates associative arrays in POSIX shell
 

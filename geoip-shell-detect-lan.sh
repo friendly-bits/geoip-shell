@@ -18,22 +18,16 @@
 
 #### Initial setup
 
-export LC_ALL=C
-me=$(basename "$0")
-set -f
+p_name="geoip-shell"
 
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-
-# shellcheck source=ip-regex.sh
-. "$script_dir/ip-regex.sh"
+# shellcheck source=$p_name-lib-ip-regex.sh
+. "$lib_dir/{$p_name}-lib-ip-regex.sh"
 
 ## Simple args parsing
-debugmode=''
 for arg in "$@"; do
 	case "$arg" in
 		-s ) subnets_only=1 ;;
 		-n ) novalidation=1 ;;
-		-d ) debugmode=1 ;;
 		-f ) families_arg=check ;;
 		* ) case "$families_arg" in check) families_arg="$arg"; esac
 	esac
@@ -42,14 +36,6 @@ case "$families_arg" in check) echo "Specify family with '-f'." >&2; exit 1; esa
 
 
 ## Functions
-
-debugprint() {
-	[ "$debugmode" ] && printf '%s\n' "$1" >&2
-}
-
-checkutil() {
-	command -v "$1" 1>/dev/null
-}
 
 # 1 - mask bits
 # 2 - ip length in bytes
@@ -272,7 +258,6 @@ get_local_subnets() {
 		IFS="$_nl"
 		# iterate over all remaining subnets
 		for subnet2_hex in $subnets_hex; do
-#			debugprint "comparing to subnet: '$subnet2_hex'"
 			# chop off mask bits
 			ip2_hex="${subnet2_hex#*/}"
 
@@ -288,8 +273,6 @@ get_local_subnets() {
 				set -- $ip2_hex
 				eval "ip2_chunk=\"\${${#chunks_done}}\""
 
-#				debugprint "comparing chunks '$ip1_chunk' - '$ip2_chunk'"
-
 				bytes_diff=$((ip1_chunk - ip2_chunk))
 				# if there is any difference, no need to calculate further
 				[ "$bytes_diff" != 0 ] && break
@@ -298,7 +281,6 @@ get_local_subnets() {
 			# if needed, calculate the next ip2 chunk and compare to ip1 chunk
 			[ "$bits_done" = "$maskbits" ] || [ "$bytes_diff" != 0 ] && continue
 
-#			debugprint "calculating last chunk..."
 			chunks_done="${chunks_done}1"
 
 			set -- $ip2_hex
@@ -326,11 +308,6 @@ get_local_subnets() {
 
 	:
 }
-
-
-## Constants
-_nl='
-'
 
 ## Checks
 

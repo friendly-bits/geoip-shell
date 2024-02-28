@@ -15,7 +15,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$script_dir/${p_name}-$_fw_backend.sh" || exit 1
+. "$lib_dir/${p_name}-lib-$_fw_backend.sh" || exit 1
 
 nolog=1
 
@@ -122,12 +122,9 @@ rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "$install_dir/$p_name" 2>/dev/null
-for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common ipt nft \
-		apply-ipt apply-nft backup-ipt backup-nft status-ipt status-nft; do
+for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common lib-ipt lib-nft \
+		detect-lan lib-ip-regex lib-arrays lib-apply-ipt lib-apply-nft lib-backup-ipt lib-backup-nft status-ipt status-nft; do
 	rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
-done
-for script_name in ip-regex posix-arrays-a-mini validate-cron-schedule check-ip-in-source geoip-shell-detect-lan; do
-	rm "$install_dir/$script_name.sh" 2>/dev/null
 done
 
 echo "Deleting config..."
