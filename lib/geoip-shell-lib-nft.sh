@@ -18,8 +18,9 @@ get_nft_family() {
 is_geochain_on() {
 	old_force="$force_read_geotable"
 	force_read_geotable=1
-	get_matching_line "$(nft_get_chain "$base_geochain")" "*" "${geotag}_enable" "*"
+	get_matching_line "$(nft_get_chain "$base_geochain")" "*" "${geotag}_enable" "*"; rv=$?
 	force_read_geotable="$old_force"
+	return $rv
 }
 
 nft_get_geotable() {
