@@ -6,8 +6,7 @@
 . "$install_dir/${p_name}-owrt-common.sh" || exit 1
 
 die() {
-	logger -t "$me" -p user.err "$1"
-	printf '%s\n' "$me: $1" >&2
+	logger -s -t "$me" -p user.err "$1"
 	exit 1
 }
 
