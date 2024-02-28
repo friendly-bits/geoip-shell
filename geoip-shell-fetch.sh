@@ -483,6 +483,8 @@ for util in curl wget uclient-fetch; do
 	esac
 done
 
+[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
+
 [ -z "$fetch_cmd" ] && die "$ERR Compatible download utilites unavailable."
 
 if [ -z "$secure_util" ] && [ -z "$http" ]; then
