@@ -65,7 +65,7 @@ create_cron_job() {
 			[ -z "$schedule" ] && die "$ERR cron schedule in the config file is empty!"
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
-			validate-cron-schedule "$schedule"; rv=$?
+			validate_cron_schedule "$schedule"; rv=$?
 			case "$rv" in
 				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
 				*) die "Error validating cron schedule '$schedule'."
