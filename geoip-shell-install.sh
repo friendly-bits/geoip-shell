@@ -338,11 +338,11 @@ makepath() {
 	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) PATH="$PATH:$d"; esac
 }
 
-# removes comments and collapses multiple empty lines to one
+# removes comments
 # 1 - (optional) input filename, otherwise reads from STDIN
 san_script() {
-	p="^[[:space:]]*#[^\!]"
-	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}'
+	p="^[[:space:]]*#[^\!].*$"
+	if [ "$1" ]; then grep -vx "$p" "$1"; else grep -vx "$p"; fi
 }
 
 
@@ -525,19 +525,17 @@ fi
 	if [ "$schedule" = "disable" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
-		printf %s "Adding the init script... "
+		echo "Adding the init script... "
 		eval "printf '%s\n' \"$(cat "$init_script_tpl")\"" | san_script > "$init_script" ||
 			install_failed "$FAIL create the init script."
-		OK
 
-		printf %s "Preparing the firewall include... "
+		echo "Preparing the firewall include... "
 		eval "printf '%s\n' \"$(cat "$fw_include_tpl")\"" | san_script > "$fw_include_script" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include_script\""
 			san_script "$mk_fw_inc_script_tpl"
 		} > "$mk_fw_inc_script" || install_failed "$FAIL prepare the firewall include."
-		OK
 		chmod +x "$init_script" "$fw_include_script" "$mk_fw_inc_script" || install_failed "$FAIL set permissions."
 
 		printf %s "Enabling and starting the init script... "
