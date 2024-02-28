@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2086,SC2317,SC2018,SC2019
+# shellcheck disable=SC2154,SC2086,SC2317,SC2018,SC2019,SC1091,SC1090
 
 # geoip-shell-detect-lan.sh
 
@@ -19,9 +19,11 @@
 #### Initial setup
 
 p_name="geoip-shell"
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 # shellcheck source=$p_name-lib-ip-regex.sh
-. "$lib_dir/{$p_name}-lib-ip-regex.sh"
+. "$script_dir/${p_name}-common.sh"
+. "$lib_dir/${p_name}-lib-ip-regex.sh"
 
 ## Simple args parsing
 for arg in "$@"; do
