@@ -5,7 +5,7 @@
 
 # nftables-specific library for the -backup script
 
-. "$script_dir/${p_name}-nft.sh" || exit 1
+. "$script_dir/${p_name}-lib-nft.sh" || exit 1
 
 
 #### FUNCTIONS
