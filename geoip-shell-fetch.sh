@@ -296,7 +296,6 @@ check_updates() {
 	if [ "$up_to_date_lists" ]; then
 		echolog "Ip lists '${purple}${up_to_date_lists% }${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
 	fi
-
 	:
 }
 
