@@ -15,7 +15,8 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$lib_dir/${p_name}-lib-$_fw_backend.sh" || exit 1
+fw_backend_lib="${p_name}-lib-$_fw_backend.sh"
+[ -f "$lib_dir/$fw_backend_lib" ] && . "$lib_dir/$fw_backend_lib" || exit 1
 
 nolog=1
 
