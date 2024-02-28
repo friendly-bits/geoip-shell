@@ -626,8 +626,10 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
-export install_dir="/usr/bin"
+export install_dir="/usr/bin" p_script="$script_dir/${p_name}"
+export i_script="$install_dir/${p_name}"
 export lib_dir="$script_dir/lib"
+export _lib="$lib_dir/$p_name-lib"
 
 init_geoscript
 

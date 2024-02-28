@@ -11,8 +11,8 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$lib_dir/$p_name-lib-arrays.sh" || exit 1
-. "$lib_dir/$p_name-lib-ip-regex.sh"
+. "$_lib-arrays.sh" || exit 1
+. "$_lib-ip-regex.sh"
 
 san_args "$@"
 newifs "$delim"

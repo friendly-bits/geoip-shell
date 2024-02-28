@@ -90,4 +90,4 @@ geotag_aux="${p_name}_aux"
 [ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
 [ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
 
-. "$script_dir/${p_name}-lib-apply-$_fw_backend.sh"
+. "$_lib-apply-$_fw_backend.sh"

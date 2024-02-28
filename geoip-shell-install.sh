@@ -20,8 +20,8 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export nolog=1 manmode=1 in_install=1
 
-. "$script_dir/${p_name}-common.sh" || exit 1
-. "$lib_dir/$p_name-lib-ip-regex.sh"
+. "$script_dir/$p_name-common.sh" || exit 1
+. "$_lib-ip-regex.sh"
 
 check_root
 
@@ -48,10 +48,10 @@ Core Options:
                                          (to change the mode after installation, run the *install script again)
   -s <"expression"|disable>          : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
                                          must be inside double quotes
-                                         default is "15 4 * * *" (4:15 am every day)
+                                         Default is "15 4 * * *" (4:15 am every day), or for OpenWrt "15 4 * * 5" (4:15 am on Friday)
                                        "disable" will disable automatic updates of the ip lists
   -f <ipv4|ipv6|"ipv4 ipv6">         : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
-  -u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe.
+  -u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe, or to ipdeny on OpenWrt.
   -i <wan|all>                       : Specifies whether geoip firewall rules will be applied to specific WAN network interface(s)
                                            or to all network interfaces.
                                            If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
@@ -64,12 +64,12 @@ Core Options:
 
 Extra Options:
   -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
-            If not specified, asks during installation.
+          If not specified, asks during installation.
   -e  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
   -o  : No backup. Will not create a backup of previous firewall state after applying changes.
   -n  : No persistence. Geoip blocking may not work after reboot.
   -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
-             (everything will be installed and configured but geoip blocking will not be enabled)
+          (everything will be installed and configured but geoip blocking will not be enabled)
   -d  : Debug
   -h  : This help
 
@@ -123,25 +123,25 @@ check_files() {
 }
 
 copyscripts() {
-	for scriptfile in $1; do
-		destination="${2:-"$install_dir/${scriptfile##*/}"}"
+	for f in $1; do
+		dest="${2:-"$install_dir/${f##*/}"}"
 		rv=0
 		{
 			if [ "$_OWRTFW" ]; then
 				# strip comments
-				san_script "$script_dir/$scriptfile" > "$destination"
+				san_script "$script_dir/$f" > "$dest"
 			else
-				cp "$script_dir/$scriptfile" "$destination"
+				cp "$script_dir/$f" "$dest"
 			fi
-		} || install_failed "$FAIL copy file '$scriptfile' to '$destination'."
-		chown root:root "${destination}" &&
-		chmod 555 "$destination" || install_failed "$FAIL set permissions for file '${destination}${scriptfile}'."
+		} || install_failed "$FAIL copy file '$f' to '$dest'."
+		chown root:root "${dest}" &&
+		chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 	done
 }
 
 install_failed() {
 	printf '%s\n\n%s\n%s\n' "$*" "Installation failed." "Uninstalling ${p_name}..." >&2
-	call_script "$script_dir/${p_name}-uninstall.sh"
+	call_script "$p_script-uninstall.sh"
 	exit 1
 }
 
@@ -232,7 +232,6 @@ validate_subnet() {
 	case $? in 0|2) ;; *) { printf '%s\n' "ip address '$ip' failed kernel validation." >&2; return 1; }; esac
 	printf '%s\n' "$ip" | grep -vE "^$ip_regex$" > /dev/null
 	[ $? != 1 ] && { printf '%s\n' "$family address '$ip' failed regex validation." >&2; return 1; }
-
 	:
 }
 
@@ -280,7 +279,7 @@ pick_subnets() {
 		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
 	for family in $families; do
 		printf '\n%s\n' "Detecting local $family subnets..."
-		s="$(call_script "$script_dir/$p_name-detect-lan.sh" -s -f "$family")" ||
+		s="$(call_script "$p_script-detect-lan.sh" -s -f "$family")" ||
 			printf '%s\n' "$FAIL autodetect $family local subnets."
 		san_str s
 
@@ -353,16 +352,17 @@ detect_sys
 
 [ "$_OWRTFW" ] && {
 	datadir="$conf_dir/data"
-	init_script_tpl="OpenWrt/${p_name}-init.tpl"
-	fw_include_tpl="OpenWrt/${p_name}-fw-include.tpl"
-	mk_fw_inc_script_tpl="OpenWrt/${p_name}-mk-fw-include.tpl"
-	owrt_common_script="OpenWrt/${p_name}-owrt-common.sh"
-} || datadir="/var/lib/${p_name}"
+	o_script="OpenWrt/${p_name}"
+	init_script_tpl="$o_script-init.tpl"
+	fw_include_tpl="$o_script-fw-include.tpl"
+	mk_fw_inc_script_tpl="$o_script-mk-fw-include.tpl"
+	owrt_common_script="$o_script-owrt-common.sh"
+	default_schedule="15 4 * * 5"
+	source_default="ipdeny"
+} || { datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe"; }
 
 export datadir
 iplist_dir="${datadir}/ip_lists"
-
-default_schedule="15 4 * * *"
 
 ipt_libs=
 [ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
@@ -377,7 +377,6 @@ for f in lib-arrays lib-nft lib-apply-nft lib-backup-nft lib-status-nft lib-ip-r
 	lib_files="${lib_files}lib/${p_name}-$f.sh "
 done
 
-source_default="ripe"
 source_arg="$(tolower "$source_arg")"
 case "$source_arg" in ''|ripe|ipdeny) ;; *) usage; die "Unsupported source: '$source_arg'."; esac
 source="${source_arg:-$source_default}"
@@ -418,13 +417,14 @@ esac
 
 [ ! "$families" ] && die "$ERR \$families variable should not be empty!"
 
-check_files "$script_files cca2.list $init_script_tpl $fw_include_tpl $mk_fw_inc_script_tpl" || die "$ERR missing files: $missing_files."
+check_files "$script_files $lib_files cca2.list $init_script_tpl $fw_include_tpl $mk_fw_inc_script_tpl" ||
+	die "$ERR missing files: $missing_files."
 
 check_cron_compat
 
 # validate cron schedule from args
 [ "$cron_schedule_args" ] && [ "$cron_schedule" != "disable" ] && {
-	call_script "$script_dir/$p_name-cronsetup.sh" -x "$cron_schedule_args" || die "$FAIL validate cron schedule '$cron_schedule'."
+	call_script "$p_script-cronsetup.sh" -x "$cron_schedule_args" || die "$FAIL validate cron schedule '$cron_schedule'."
 }
 
 #### MAIN
@@ -451,17 +451,17 @@ case "$REPLY" in
 esac
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-call_script "$script_dir/${p_name}-uninstall.sh" || die "Pre-install cleanup failed."
+call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files" && copyscripts "$lib_files"
+copyscripts "$script_files $lib_files"
 OK
 echo
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
-rm "${install_dir}/${p_name}" 2>/dev/null
-ln -s "${install_dir}/${p_name}-manage.sh" "${install_dir}/${p_name}" ||
+rm "$i_script" 2>/dev/null
+ln -s "$i_script-manage.sh" "$i_script" ||
 	install_failed "$FAIL create symlink from ${p_name}-manage.sh to ${p_name}."
 
 # Create the directory for config and, if required, parent directories
@@ -476,10 +476,14 @@ setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=
 	"LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
+
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 
 sed -i "s/^export lib_dir=.*//" "$install_dir/${p_name}-common.sh"
-printf '%s\n' "datadir=\"$datadir\" lib_dir=\"$install_dir\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
+sed -i "s/^export _lib=.*//" "$install_dir/${p_name}-common.sh"
+
+printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$install_dir\"" \
+	"export _lib=\"$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
 	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
 
@@ -496,13 +500,13 @@ chown -R root:root "$datadir" || rv=1
 [ "$rv" != 0 ] && install_failed "$FAIL set permissions for '$datadir'."
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-call_script "$install_dir/${p_name}-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
+call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
 
 WARN_F="$WARN Installed without"
 
 if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ]; then
 	### Set up cron jobs
-	call_script "$install_dir/${p_name}-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
+	call_script "$i_script-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
 else
 	printf '%s\n\n' "$WARN_F ${cr_p2}autoupdate functionality."
 fi
@@ -510,10 +514,10 @@ fi
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
 	init_script="/etc/init.d/${p_name}-init"
-	fw_include_script="$install_dir/${p_name}-fw-include.sh"
-	mk_fw_inc_script="$install_dir/${p_name}-mk-fw-include.sh"
+	fw_include_script="$i_script-fw-include.sh"
+	mk_fw_inc_script="$i_script-mk-fw-include.sh"
 
-	echo "_OWRT_install=1" >> "$install_dir/${p_name}-common.sh"
+	echo "_OWRT_install=1" >> "$i_script-common.sh"
 	if [ "$schedule" = "disable" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else

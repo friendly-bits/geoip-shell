@@ -23,7 +23,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 # shellcheck source=$p_name-lib-ip-regex.sh
 . "$script_dir/${p_name}-common.sh"
-. "$lib_dir/${p_name}-lib-ip-regex.sh"
+. "$_lib-ip-regex.sh"
 
 ## Simple args parsing
 for arg in "$@"; do
@@ -36,6 +36,10 @@ for arg in "$@"; do
 done
 case "$families_arg" in check) echo "Specify family with '-f'." >&2; exit 1; esac
 
+
+setdebug
+
+debugentermsg
 
 ## Functions
 

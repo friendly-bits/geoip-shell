@@ -11,10 +11,10 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$lib_dir/${p_name}-lib-$_fw_backend.sh" || exit 1
-. "$lib_dir/${p_name}-lib-status-$_fw_backend.sh" || exit 1
+. "$_lib-$_fw_backend.sh" || exit 1
+. "$_lib-status-$_fw_backend.sh" || exit 1
 
-[ "$_OWRT_install" ] && { . "$script_dir/${p_name}-owrt-common.sh" || exit 1; }
+[ "$_OWRT_install" ] && { . "$i_script-owrt-common.sh" || exit 1; }
 
 export list_type nolog=1 manmode=1
 
@@ -250,14 +250,14 @@ restore_from_config() {
 	echolog "Restoring lists '$config_lists_str' from the config file... "
 	case "$config_lists_str" in
 		'') echolog -err "$ERR no ip lists registered in the config file." ;;
-		*) call_script "$script_dir/${p_name}-uninstall.sh" -l || return 1
+		*) call_script "$i_script-uninstall.sh" -l || return 1
 			setconfig "Lists=$config_lists_str"
 			call_script "$run_command" add -l "$config_lists_str"
 			check_reapply && return 0
 	esac
 
 	# call the *backup script to initiate recovery from fault
-	call_script "$install_dir/${p_name}-backup.sh" restore && check_reapply && return 0
+	call_script "$i_script-backup.sh" restore && check_reapply && return 0
 
 	die "$FAIL restore $p_name state from backup. If it's a bug then please report it."
 }
@@ -317,7 +317,7 @@ sp2nl "$config_lists_str" config_lists
 
 action="$(tolower "$action")"
 
-run_command="$install_dir/${p_name}-run.sh"
+run_command="$i_script-run.sh"
 
 
 #### CHECKS
@@ -367,9 +367,9 @@ case "$action" in
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
-		call_script "$script_dir/${p_name}-apply.sh" $action || exit 1
+		call_script "$i_script-apply.sh" $action || exit 1
 		exit 0 ;;
-	reset) call_script "$script_dir/${p_name}-uninstall.sh" -l; exit $? ;;
+	reset) call_script "$i_script-uninstall.sh" -l; exit $? ;;
 	restore) restore_from_config; exit $? ;;
 	schedule)
 		[ ! "$cron_schedule" ] && { usage; die "Specify cron schedule for autoupdate or 'disable'."; }
@@ -377,7 +377,7 @@ case "$action" in
 		# communicate schedule to *cronsetup via config
 		setconfig "CronSchedule=$cron_schedule"
 
-		call_script "$install_dir/${p_name}-cronsetup.sh" || die "$ERR $FAIL update cron jobs."
+		call_script "$i_script-cronsetup.sh" || die "$ERR $FAIL update cron jobs."
 		exit 0
 esac
 
@@ -462,7 +462,7 @@ setconfig "Lists=$planned_lists_str"
 
 if [ "$action" = apply ]; then
 	setports "${ports_arg%"$_nl"}" || die
-	call_script "$script_dir/${p_name}-apply.sh" "update"; rv=$?
+	call_script "$i_script-apply.sh" "update"; rv=$?
 else
 	call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 fi

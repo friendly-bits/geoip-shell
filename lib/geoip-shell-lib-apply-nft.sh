@@ -8,7 +8,7 @@
 # Copyright: friendly bits
 # github.com/friendly-bits
 
-. "$script_dir/${p_name}-lib-nft.sh" || exit 1
+. "$_lib-nft.sh" || exit 1
 
 #### FUNCTIONS
 

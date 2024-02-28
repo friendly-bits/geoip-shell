@@ -12,7 +12,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$lib_dir/$p_name-lib-ip-regex.sh"
+. "$_lib-ip-regex.sh"
 
 
 #### USAGE
@@ -103,7 +103,7 @@ validate_ip() {
 
 export nolog=1
 
-fetch_script="${script_dir}/${p_name}-fetch.sh"
+fetch_script="$p_script-fetch.sh"
 
 valid_sources="ripe${_nl}ipdeny"
 default_source="ripe"

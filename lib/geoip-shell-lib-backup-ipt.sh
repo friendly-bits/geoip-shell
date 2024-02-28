@@ -3,7 +3,7 @@
 
 # geoip-shell-backup-ipt.sh
 
-. "$script_dir/${p_name}-lib-ipt.sh" || exit 1
+. "$_lib-ipt.sh" || exit 1
 
 
 #### FUNCTIONS
@@ -27,8 +27,8 @@ restorebackup() {
 	# extract the backup archive into tmp_file
 	tmp_file="/tmp/${p_name}_backup.tmp"
 	set_extract_cmd "$bk_ext"
-	$extract_cmd "$bk_file" > "$tmp_file" || restore_failed "$FAIL extract backup file '$bk_file'."
-	[ ! -s "$tmp_file" ] && restore_failed "$ERR backup file '$bk_file' is empty or backup extraction failed."
+	$extract_cmd "$bk_file" > "$tmp_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
+	[ ! -s "$tmp_file" ] && rstr_failed "$ERR backup file '$bk_file' is empty or backup extraction failed."
 
 	printf '%s\n\n' "Successfully read backup file: '$bk_file'."
 
@@ -38,7 +38,7 @@ restorebackup() {
 	for family in $families; do
 		line_cnt=$(get_iptables_bk | wc -l)
 		debugprint "Firewall $family lines number in backup: $line_cnt"
-		[ "$line_cnt" -lt 2 ] && restore_failed "$ERR firewall $family backup appears to be empty or non-existing."
+		[ "$line_cnt" -lt 2 ] && rstr_failed "$ERR firewall $family backup appears to be empty or non-existing."
 	done
 	OK
 
@@ -46,11 +46,11 @@ restorebackup() {
 	# count lines in the ipset portion of the backup file
 	line_cnt=$(get_ipset_bk | grep -c "add ${p_name}")
 	debugprint "ipset lines number in backup: $line_cnt"
-	[ "$line_cnt" = 0 ] && restore_failed "$ERR ipset backup appears to be empty or non-existing."
+	[ "$line_cnt" = 0 ] && rstr_failed "$ERR ipset backup appears to be empty or non-existing."
 	OK; echo
 
 	### Remove geoip iptables rules and ipsets
-	rm_all_georules || restore_failed "$FAIL remove firewall rules and ipsets."
+	rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
 
 	echo
 
@@ -70,14 +70,14 @@ restorebackup() {
 		case "$rv" in
 			0) OK ;;
 			*) FAIL >&2
-			restore_failed "$FAIL restore $restoretgt state from backup." "reset"
+			rstr_failed "$FAIL restore $restoretgt state from backup." "reset"
 		esac
 	done
 
 	rm "$tmp_file" 2>/dev/null
 
-	cp "$status_file_bak" "$status_file" || restore_failed "$FAIL restore the status file."
-	cp "$conf_file_bak" "$conf_file" || restore_failed "$FAIL restore the config file."
+	cp "$status_file_bak" "$status_file" || rstr_failed "$FAIL restore the status file."
+	cp "$conf_file_bak" "$conf_file" || rstr_failed "$FAIL restore the config file."
 
 	# save backup file full path to the config file
 	setconfig "BackupFile=$bk_file"
@@ -85,7 +85,7 @@ restorebackup() {
 	return 0
 }
 
-restore_failed() {
+rstr_failed() {
 	rm "$tmp_file" 2>/dev/null
 	echo "$1" >&2
 	[ "$2" = reset ] && {

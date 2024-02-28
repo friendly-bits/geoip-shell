@@ -24,7 +24,6 @@ get_a_arr_keys() {
 	_check_vars "$_arr_name" "$_out_var" || return 1
 
 	eval "$_out_var=\"\$(printf '%s ' \$_a_${_arr_name}___keys)\""
-
 	:
 }
 
@@ -46,7 +45,6 @@ set_a_arr_el() {
 		*"$_nl$___key"|*"$_nl$___key$_nl"* ) ;;
 		*) eval "_a_${_arr_name}___keys=\"$___keys$_nl$___key\""
 	esac
-
 	:
 }
 
@@ -83,7 +81,3 @@ wrongargs() {
 	echo "$___me: Error: '$*': wrong number of arguments '$#'." >&2
 }
 
-set -f
-export LC_ALL=C
-___nl='
-'

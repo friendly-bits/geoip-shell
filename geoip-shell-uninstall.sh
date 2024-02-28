@@ -8,15 +8,14 @@
 
 # uninstalls or resets geoip-shell
 
-
 #### Initial setup
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
-fw_backend_lib="${p_name}-lib-$_fw_backend.sh"
-[ -f "$lib_dir/$fw_backend_lib" ] && . "$lib_dir/$fw_backend_lib" || exit 1
+fw_backend_lib="$_lib-$_fw_backend.sh"
+[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || exit 1
 
 nolog=1
 
@@ -109,7 +108,7 @@ rm "$conf_file" 2>/dev/null
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
-	. "$script_dir/${p_name}-owrt-common.sh" || exit 1
+	. "$p_script-owrt-common.sh" || exit 1
 	echo "Deleting the init script..."
 	/etc/init.d/${p_name}-init disable && rm "/etc/init.d/${p_name}-init" 2>/dev/null
 	echo "Removing the firewall include..."

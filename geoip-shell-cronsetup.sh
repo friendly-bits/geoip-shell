@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-[ "$_OWRT_install" ] && { . "$script_dir/${p_name}-owrt-common.sh" || exit 1; }
+[ "$_OWRT_install" ] && { . "$p_script-owrt-common.sh" || exit 1; }
 
 nolog=1
 
@@ -277,7 +277,7 @@ for entry in "CronSchedule schedule_conf" "NoPersistence no_persist" \
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-run_cmd="${install_dir}/${p_name}-run.sh"
+run_cmd="$i_script-run.sh"
 
 schedule="${schedule_conf:-$default_schedule}"
 
