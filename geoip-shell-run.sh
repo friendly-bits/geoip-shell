@@ -38,6 +38,7 @@ Options:
   -l <"list_ids">  : List id's in the format <countrycode>_<family>. if passing multiple list id's, use double quotes.
   -o               : No backup: don't create backup of current firewall state after the action.
 
+  -a               : daemon mode (will retry actions \$max_attempts times with growing time intervals)
   -d               : Debug
   -h               : This help
 
@@ -47,12 +48,14 @@ EOF
 #### PARSE ARGUMENTS
 
 action_run="$(tolower "$1")"
+daemon_mode=
 
 # process the rest of the args
 shift 1
-while getopts ":l:odh" opt; do
+while getopts ":l:aodh" opt; do
 	case $opt in
 		l) arg_lists=$OPTARG ;;
+		a) export daemon_mode=1 ;;
 		o) nobackup_args=1 ;;
 		d) debugmode_args=1 ;;
 		h) usage; exit 0 ;;
@@ -67,10 +70,18 @@ setdebug
 
 debugentermsg
 
+daemon_prep_next() {
+	echolog "Retrying in $secs seconds"
+	sleep $secs
+	ok_lists="$ok_lists$lists "
+	san_str lists "$failed_lists $missing_lists"
+}
+
+check_lock
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type"; do
+for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type" "MaxAttempts max_attempts"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 export config_lists list_type
@@ -101,17 +112,18 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die
+check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die -u
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
+[ ! -f "$conf_file" ] && die -u "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
 
-[ ! "$iplist_dir" ] && die "$ERR iplist file path can not be empty!"
+[ ! "$iplist_dir" ] && die -u "$ERR iplist file path can not be empty!"
 
-[ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
+[ ! "$list_type" ] && die -u "\$list_type variable should not be empty! Something is wrong!"
 
 
 #### MAIN
+
 
 # check for valid action and translate *run action to *apply action
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
@@ -121,19 +133,19 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove ;;
 	restore)
+		nolog=1; check_lists_coherence 2>/dev/null && exit 0
+		nolog=
 		if [ "$nobackup" ]; then
 			# if backup file doesn't exist, force re-fetch
 			action_run=update action_apply=add force="-f"
 		else
-			nolog=1; check_lists_coherence 2>/dev/null && exit 0
-			nolog=
-			call_script "$i_script-backup.sh" "restore"; rv_cs=$?
+			call_script -l "$i_script-backup.sh" "restore"; rv_cs=$?
 			getconfig Lists lists
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=1
 			else
 				echolog -err "Restore from backup failed. Attempting to restore from config."
-				rm_all_georules || die "$FAIL remove firewall rules."
+				rm_all_georules || die -u "$FAIL remove firewall rules."
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
 			fi
@@ -141,60 +153,85 @@ case "$action_run" in
 	*) action="$action_run"; unknownact
 esac
 
-### Fetch ip lists
 
-if [ "$action_apply" = add ]; then
-	[ ! "$lists" ] && { usage; die "$ERR no list id's were specified!"; }
+#### Daemon loop
 
-	# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
-	setstatus "$status_file" "FailedLists=$lists"
+mk_lock
 
-	call_script "$i_script-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
+[ ! "$daemon_mode" ] && max_attempts=1
+attempt=0 secs=4 ok_lists='' missing_lists=
+while true; do
+	attempt=$((attempt+1))
+	secs=$((secs+1))
+	[ "$daemon_mode" ] && [ $attempt -gt $max_attempts ] && die -u "Giving up."
 
-	# read *fetch results from the status file
-	getstatus "$status_file" FetchedLists lists
-	getstatus "$status_file" FailedLists failed_lists
+	### Fetch ip lists
 
-	[ "$failed_lists" ] && {
-		echolog -err "$FAIL fetch and validate lists '$failed_lists'."
-		[ "$action_run" = add ] && { set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; die 254 "Aborting the action 'add'."; }
-	}
+	if [ "$action_apply" = add ]; then
+		[ ! "$lists" ] && { usage; die -u "$ERR no list id's were specified!"; }
 
-	fast_el_cnt "$failed_lists" " " failed_lists_cnt
+		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
+		setstatus "$status_file" "FailedLists=$lists"
 
-	[ "$failed_lists_cnt" -ge "$lists_cnt" ] && die 254 "All fetch attempts failed."
-fi
+		call_script "$i_script-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
+
+		# read *fetch results from the status file
+		getstatus "$status_file" FailedLists failed_lists
+		getstatus "$status_file" FetchedLists lists
+
+		[ "$failed_lists" ] && {
+			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
+			[ "$action_run" = add ] && {
+				set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+				die 254 "Aborting the action 'add'." -u
+			}
+			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
+		}
+
+		fast_el_cnt "$failed_lists" " " failed_lists_cnt
+		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && {
+			[ "$daemon_mode" ] && { daemon_prep_next; continue; } ||
+				die 254 "All fetch attempts failed." -u
+		}
+	fi
 
 
-### Apply ip lists
+	### Apply ip lists
 
-apply_rv=0
-case "$action_run" in update|add|remove)
-	[ ! "$lists" ] && { echolog "Firewall reconfiguration isn't required."; exit 0; }
+	san_str lists "$lists $ok_lists"
+	apply_rv=0
+	case "$action_run" in update|add|remove)
+		[ ! "$lists" ] && {
+			echolog "Firewall reconfiguration isn't required."; die 0 -u
+		}
 
-	call_script "$i_script-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
-	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null
-	case "$apply_rv" in
-		0) ;;
-		254) [ "$in_install" ] && die
-			echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
-		*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
+		call_script "$i_script-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
+		set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+
+		case "$apply_rv" in
+			0) ;;
+			254) [ "$in_install" ] && die -u
+				echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
+			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv" -u
+		esac
 	esac
-esac
 
 
-if check_lists_coherence; then
-	echolog "Successfully executed action '$action_run' for lists '$lists'."
-else
-	echolog -err "$WARN actual $list_type firewall config differs from the config file!"
-	for opt in unexpected missing; do
-		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
-	done
-	exit 1
-fi
+	if check_lists_coherence; then
+		[ "$failed_lists" ] && [ "$daemon_mode" ] && { daemon_prep_next; continue; }
+		echolog "Successfully executed action '$action_run' for lists '$lists'."; break
+	else
+		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
+		echolog -err "$WARN actual $list_type firewall config differs from the config file!"
+		for opt in unexpected missing; do
+			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
+		done
+		die -u
+	fi
+done
 
 if [ "$apply_rv" = 0 ] && [ ! "$nobackup" ]; then
-	call_script "$i_script-backup.sh" create-backup
+	call_script -l "$i_script-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
 fi
@@ -205,4 +242,4 @@ case "$failed_lists_cnt" in
 		rv=254
 esac
 
-exit "$rv"
+die "$rv" -u
