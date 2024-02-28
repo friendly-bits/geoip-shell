@@ -552,6 +552,7 @@ setports() {
 			[ "$ranges_cnt" -gt 1 ] && { mp="-m multiport"; dport="dports"; }
 			dport="--$dport $_ports"
 		}
+		:
 	}
 
 	_lines="$(tolower "$1")"
