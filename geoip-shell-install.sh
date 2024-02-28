@@ -341,7 +341,7 @@ makepath() {
 
 san_script() {
 	p="^[[:space:]]*#[^\!]"
-	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}' | grep .
+	if [ "$1" ]; then grep -v "$p" "$1"; else grep -v "$p"; fi | awk '!NF {if (++n <= 1) print; next}; {n=0;print}'
 }
 
 
