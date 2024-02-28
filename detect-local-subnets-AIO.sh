@@ -1,7 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2086,SC2317,SC2018,SC2019
 
-# detect-local-subnets-AIO.sh
+# geoip-shell-detect-lan.sh
 
 # Copyright: friendly bits
 # github.com/friendly-bits
