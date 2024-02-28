@@ -73,13 +73,13 @@ create_cron_job() {
 
 			# Remove existing autoupdate cron job before creating new one
 			rm_cron_job "autoupdate"
-			cron_cmd="$schedule \"$run_cmd\" update 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
+			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
 			debugprint "Creating autoupdate cron job with schedule '$schedule'... " ;;
 		persistence)
 			debugprint "Creating persistence cron job... "
 
 			# using the restore action for the *run script
-			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
+			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
 		*) die "Unrecognized type of cron job: '$job_type'."
 	esac
 
