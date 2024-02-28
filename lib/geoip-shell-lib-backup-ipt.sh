@@ -3,7 +3,7 @@
 
 # geoip-shell-backup-ipt.sh
 
-. "$_lib-ipt.sh" || exit 1
+. "$_lib-ipt.sh" || die -u
 
 
 #### FUNCTIONS
@@ -21,8 +21,8 @@ restorebackup() {
 	getconfig BackupFile bk_file "$conf_file_bak"
 	getconfig BackupExt bk_ext "$conf_file_bak"
 
-	[ -z "$bk_file" ] && die "Can not restore the firewall state: no backup found."
-	[ ! -f "$bk_file" ] && die "Can not find the backup file '$bk_file'."
+	[ -z "$bk_file" ] && die -u "Can not restore the firewall state: no backup found."
+	[ ! -f "$bk_file" ] && die -u "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
 	tmp_file="/tmp/${p_name}_backup.tmp"
@@ -92,7 +92,7 @@ rstr_failed() {
 		echo "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***" >&2
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
-	exit 1
+	die -u
 }
 
 # Saves current firewall state to a backup file
@@ -114,7 +114,7 @@ create_backup() {
 		printf '%s\n' "COMMIT" >> "$tmp_file" ||
 		{
 			rm "$tmp_file" 2>/dev/null
-			die "$FAIL back up $p_name state."
+			die -u "$FAIL back up $p_name state."
 		}
 	done
 	OK
@@ -132,7 +132,7 @@ create_backup() {
 		backup_len="$(wc -l < "$tmp_file")"
 		[ "$rv" != 0 ] || [ "$backup_len" -le "$backup_len_old" ] && {
 			rm "$tmp_file" 2>/dev/null
-			die "$FAIL back up ipset '$ipset'."
+			die -u "$FAIL back up ipset '$ipset'."
 		}
 		OK
 	done
@@ -140,13 +140,13 @@ create_backup() {
 	printf %s "Compressing backup... "
 	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] || {
 		rm "$tmp_file" "${bk_file}.new" 2>/dev/null
-		die "$FAIL compress firewall backup to file '${bk_file}.new'."
+		die -u "$FAIL compress firewall backup to file '${bk_file}.new'."
 	}
 	rm "$tmp_file" 2>/dev/null
 
-	mv "${bk_file}.new" "$bk_file" || die "$FAIL overwrite file '$bk_file'."
+	mv "${bk_file}.new" "$bk_file" || die -u "$FAIL overwrite file '$bk_file'."
 
-	cp "$status_file" "$status_file_bak" || die "$FAIL back up the status file."
+	cp "$status_file" "$status_file_bak" || die -u "$FAIL back up the status file."
 	setconfig "BackupFile=$bk_file" "BackupExt=${archive_ext:-bak}"
-	cp "$conf_file" "$conf_file_bak" || die "$FAIL back up the config file."
+	cp "$conf_file" "$conf_file_bak" || die -u "$FAIL back up the config file."
 }

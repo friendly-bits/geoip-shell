@@ -5,7 +5,7 @@
 
 # nftables-specific library for the -backup script
 
-. "$_lib-nft.sh" || exit 1
+. "$_lib-nft.sh" || die -u
 
 
 #### FUNCTIONS
@@ -56,12 +56,12 @@ rstr_failed() {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
-	exit 1
+	die -u
 }
 
 bk_failed() {
 	rm -f "$temp_file" "$bk_dir/"*.new 2>/dev/null
-	die "$FAIL back up $p_name ip sets."
+	die -u "$FAIL back up $p_name ip sets."
 }
 
 # Saves current firewall state to a backup file

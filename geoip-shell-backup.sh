@@ -62,12 +62,14 @@ setdebug
 
 debugentermsg
 
+check_lock
+mk_lock
 
 # detects archive type (if any) of file passed in 1st argument by its extension
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
 	set_extr_cmd() { checkutil "$1" && extract_cmd="$1 -cd" ||
-		die "$ERR backup archive type is '$1' but the $1 utility is not found."; }
+		die -u "$ERR backup archive type is '$1' but the $1 utility is not found."; }
 
 	case "$1" in
 		bz2 ) set_extr_cmd bzip2 ;;
@@ -104,7 +106,7 @@ bk_dir="$datadir/backup"
 
 #### CHECKS
 
-[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
+[ ! -f "$conf_file" ] && die -u "Config file '$conf_file' doesn't exist! Run the installation script again."
 
 #### MAIN
 
@@ -120,4 +122,4 @@ case "$action" in
 	*) unknownact
 esac
 
-:
+die 0 -u
