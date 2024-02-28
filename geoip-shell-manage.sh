@@ -240,7 +240,7 @@ incoherence_detected() {
 # if that fails, restore from backup
 restore_from_config() {
 	check_reapply() {
-		check_lists_coherence && { echolog "Successfully re-applied previous $list_type ip lists."; return 0; }
+		check_lists_coherence && { echolog "Successfully re-applied previous $p_name ip lists."; return 0; }
 
 		echolog -err "$FAIL re-apply previous $list_type lists." >&2
 		report_incoherence
@@ -361,14 +361,6 @@ esac
 case "$action" in
 	status) report_status; exit 0 ;;
 	showconfig) printf '\n%s\n\n' "Geoip config in $conf_file:"; cat "$conf_file"; exit 0 ;;
-	on|off)
-		case "$action" in
-			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
-				setconfig "NoBlock=" ;;
-			off) setconfig "NoBlock=1"
-		esac
-		call_script "$i_script-apply.sh" $action || exit 1
-		exit 0 ;;
 	reset) call_script "$i_script-uninstall.sh" -l; exit $? ;;
 	restore) restore_from_config; exit $? ;;
 	schedule)
@@ -378,6 +370,19 @@ case "$action" in
 		setconfig "CronSchedule=$cron_schedule"
 
 		call_script "$i_script-cronsetup.sh" || die "$ERR $FAIL update cron jobs."
+		exit 0
+esac
+
+check_lock
+
+case "$action" in
+	on|off)
+		case "$action" in
+			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
+				setconfig "NoBlock=" ;;
+			off) setconfig "NoBlock=1"
+		esac
+		call_script "$i_script-apply.sh" $action || exit 1
 		exit 0
 esac
 
