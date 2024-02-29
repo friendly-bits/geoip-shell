@@ -82,7 +82,7 @@ while getopts ":c:m:s:f:u:i:r:p:aeonkdh" opt; do
 	case $opt in
 		c) ccodes=$OPTARG ;;
 		m) list_type=$OPTARG ;;
-		s) cron_schedule_args=$OPTARG ;;
+		s) schedule_args=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
 		i) iface_type=$OPTARG ;;
@@ -395,7 +395,7 @@ esac
 
 ccodes="$(toupper "$ccodes")"
 
-cron_schedule="${cron_schedule_args:-$default_schedule}"
+schedule="${schedule_args:-$default_schedule}"
 sleeptime=30 max_attempts=30
 
 export list_type="$(tolower "$list_type")"
@@ -425,8 +425,8 @@ check_files "$script_files $lib_files cca2.list $init_script_tpl $fw_include_tpl
 check_cron_compat
 
 # validate cron schedule from args
-[ "$cron_schedule_args" ] && [ "$cron_schedule" != "disable" ] && {
-	call_script "$p_script-cronsetup.sh" -x "$cron_schedule_args" || die "$FAIL validate cron schedule '$cron_schedule'."
+[ "$schedule_args" ] && [ "$schedule" != "disable" ] && {
+	call_script "$p_script-cronsetup.sh" -x "$schedule_args" || die "$FAIL validate cron schedule '$schedule'."
 }
 
 #### MAIN
@@ -474,7 +474,7 @@ printf %s "Setting config... "
 
 makepath
 setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp=skip" \
-	"Source=$source" "Families=$families" "CronSchedule=$cron_schedule" "MaxAttempts=$max_attempts" \
+	"Source=$source" "Families=$families" "CronSchedule=$schedule" "MaxAttempts=$max_attempts" \
 	"LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
@@ -522,7 +522,7 @@ fi
 	mk_fw_inc_script="$i_script-mk-fw-include.sh"
 
 	echo "_OWRT_install=1" >> "$i_script-common.sh"
-	if [ "$schedule" = "disable" ]; then
+	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		echo "Adding the init script... "
