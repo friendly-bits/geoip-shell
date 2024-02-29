@@ -56,7 +56,7 @@ Core Options:
                                            or to all network interfaces.
                                            If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
                                            If not specified, asks during installation.
-  -p <[tcp:udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
+  -p <[tcp|udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
                                           or use "allow" to geoblock all incoming traffic except on specific ports.
                                           Multiple '-p' options are allowed to specify both tcp and udp in one command.
                                           Only works with the 'apply' action.

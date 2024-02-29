@@ -49,7 +49,7 @@ Options:
                                            must be inside double quotes.
                                            default schedule is "15 4 * * *" (at 4:15 [am] every day)
                                        disable: skip creating the autoupdate cron job
-  -p <[tcp:udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
+  -p <[tcp|udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
                                           or use "allow" to geoblock all incoming traffic except on specific ports.
                                           Multiple '-p' options are allowed to specify both tcp and udp in one command.
                                           Only works with the 'apply' action.
