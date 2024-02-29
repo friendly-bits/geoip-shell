@@ -117,7 +117,7 @@ rm "$conf_file" 2>/dev/null
 [ "$_OWRT_install" ] && {
 	. "$p_script-owrt-common.sh" || exit 1
 	echo "Deleting the init script..."
-	/etc/init.d/${p_name}-init disable && rm "/etc/init.d/${p_name}-init" 2>/dev/null
+	/etc/init.d/${p_name}-init disable 2>/dev/null && rm "/etc/init.d/${p_name}-init" 2>/dev/null
 	echo "Removing the firewall include..."
 	uci delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	echo "Restarting the firewall..."
