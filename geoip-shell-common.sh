@@ -620,7 +620,7 @@ check_cron() {
 
 check_cron_compat() {
 	unset cr_p1 cr_p2 no_cr_persist
-	[ "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
+	[ ! "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
 	[ "$no_persist" ] || [ "$_OWRTFW" ] && no_cr_persist=1
 	if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ] ; then
 		# check cron service
