@@ -21,7 +21,6 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-# shellcheck source=$p_name-lib-ip-regex.sh
 . "$script_dir/${p_name}-common.sh"
 . "$_lib-ip-regex.sh"
 
