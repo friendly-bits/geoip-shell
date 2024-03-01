@@ -77,8 +77,6 @@ daemon_prep_next() {
 	san_str -s lists "$failed_lists $missing_lists"
 }
 
-check_lock
-
 #### VARIABLES
 
 for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type" "MaxAttempts max_attempts"; do
@@ -159,7 +157,7 @@ esac
 mk_lock
 
 [ ! "$daemon_mode" ] && max_attempts=1
-nodie=1 attempt=0 secs=4 ok_lists='' missing_lists=
+attempt=0 secs=4 ok_lists='' missing_lists=
 while true; do
 	attempt=$((attempt+1))
 	secs=$((secs+1))
