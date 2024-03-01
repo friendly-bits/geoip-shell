@@ -46,23 +46,23 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 <details><summary>Read more:</summary>
 
-- Supports the 'ipdeny' source which provides compacted ip lists (useful for embedded devices with limited memory).
+- Supports the 'ipdeny' source which provides aggregated ip lists (useful for embedded devices with limited memory).
 - Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
 - With nftables, utilizes native nftables sets which allows to create efficient firewall rules with thousands of ip ranges.
 - With iptables, utilizes the ipset utility which allows to create efficient firewall rules with thousands of ip ranges.
 - List parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
-- Scripts are only active for a short time when invoked either directly by the user or by a cron job.
+- Scripts are only active for a short time when invoked either directly by the user or by the init script/reboot cron job.
 
 </details>
 
 ### **User-friendliness**:
-- Installation is easy, doesn't require many complex command line arguments and normally takes a very short time.
+- Installation is easy and normally takes a very short time.
 
 <details><summary>Read more:</summary>
 
-- Extensive documentation, including detailed installation and usage guides.
-- To simplify the installation procedure, implements autodetection of local subnets and WAN interfaces (if any).
-- Comes with an *uninstall script which completely removes the suite and geoip firewall rules. No restart is required.
+- Good command line interface and useful console messages.
+- Extensive and (usually) up-to-date documentation.
+- Comes with an *uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
 - Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, add or remove country codes, change the cron schedule etc).
@@ -82,34 +82,37 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 </details>
 
 ## **Installation**
+NOTE: Installation can be run interactively, which does not require any command line arguments and gathers the important config via a dialog with the user. Alternatively, same config may be provided via command-line arguments.
+
+Some features are only accessible via command-line arguments.
+_To find out more, use `sh geoip-shell-install.sh -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md)_
 
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-**0)** If geoblocker-bash is installed, uninstall it first.
-
-**1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager.
+**1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. Systems which only have `iptables` also require the `ipset` utility.
 
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal
 
-**4)** run `sh geoip-shell-install.sh -m <whitelist|blacklist> -c <"country_codes">`.
+**4)** For interactive installation, run `sh geoip-shell-install.sh`.
 
-_(for advanced installation options, such as selectively geoblocking certain ports, read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md))_
+_<details><summary>Examples for non-interactive installation options:</summary>_
 
-_<details><summary>Examples:</summary>_
+- installing on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
 
-- example (whitelist Germany and block all other countries): `sh geoip-shell-install.sh -m whitelist -c DE`
-- example (blacklist Germany and Netherlands and allow all other countries): `sh geoip-shell-install.sh -m blacklist -c "DE NL"`
+`sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -e`
 
-    (if specifying multiple countries, use double quotes)
+- installing on a router located in the US, blacklist Germany and Netherlands and allow all other countries:
 
-- if you prefer the **ipdeny** source, add `-u ipdeny` to the arguments
+`sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
+
+- if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments
+- to block or allow specific ports, use `-p <tcp|udp>:<block|allow>:<ports>` to the arguments. this option may be used twice to cover ports for both tcp and udp
+- to exclude certain trusted subnets on the internet from geoip blocking, add `-t "<subnets_list>"` to the arguments
+- if your machine uses nftables and has enough memory, consider installing with the `-e` option (for "performance").
+- if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 </details>
-
-- **NOTE1**: If your machine has enough memory, consider installing with the `-p` option (for "performance"). For more detailed explanation, check out (4) in [NOTES.md](/Documentation/NOTES.md). 
-
-- **NOTE2**: If your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
 
 **5)** The `-install.sh` script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
@@ -121,11 +124,11 @@ _<details><summary>Examples:</summary>_
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - OR **iptables** - firewall management utility. Should work with any relatively modern version.
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
-- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). For embedded, may require installing some packages if some of these utilities don't come by default.
+- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). For some embedded systems, may require installing additional packages.
 - **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
-- for persistence and autoupdate functionality, requires the cron service to be enabled.
+- for the autoupdate functionality, requires the cron service to be enabled. Except on OpenWrt, persistence also requires the cron service.
 
-**Optional**: the _check-ip-in-source.sh_ script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
+**Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
