@@ -9,10 +9,9 @@
 # Installer for geoip blocking suite of shell scripts
 
 # Creates system folder structure for scripts, config and data.
-# Copies all scripts included in the suite to /usr/sbin.
-# Calls the *manage script to set up geoip-shell and then call the -fetch and -apply scripts.
+# Copies the required scripts to /usr/sbin.
+# Calls the *manage script to set up geoip-shell and then call the -run script.
 # If an error occurs during installation, calls the uninstall script to revert any changes made to the system.
-# Accepts a custom cron schedule expression as an argument.
 
 #### Initial setup
 p_name="geoip-shell"
@@ -22,8 +21,6 @@ export nolog=1 manmode=1 in_install=1
 
 . "$script_dir/$p_name-common.sh" || exit 1
 . "$_lib-ip-regex.sh"
-
-check_root
 
 san_args "$@"
 newifs "$delim"
@@ -41,7 +38,6 @@ Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|d
 
 Installer for the $p_name suite.
 If run without the [-z] option, asks the user about each required option, except those specified.
-Must be run as root.
 
 Core Options:
   -c <"country_codes">               : 2-letter country codes to fetch and apply the iplists for.
@@ -112,7 +108,7 @@ done
 shift $((OPTIND-1))
 extra_args "$@"
 
-echo
+check_root
 
 debugentermsg
 
@@ -507,7 +503,7 @@ check_cron_compat
 
 case "$list_type" in
 	whitelist|blacklist) ;;
-	'') pick_list_type ;;
+	'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_list_type ;;
 	*) die "$ERR Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
 esac
 
