@@ -35,7 +35,7 @@ destroy_tmp_ipsets() {
 }
 
 enable_geoip() {
-	[ -n "$wan_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
+	[ -n "$_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
 	for family in $families; do
 		set_ipt_cmds || die_a
 		enable_rule="$($ipt_save_cmd | grep "${geotag}_enable")"
@@ -161,8 +161,19 @@ for family in $families; do
 		fi
 	done
 
-	### local networks
-	if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
+	### trusted subnets
+	eval "t_subnets=\"\$t_subnets_$family\""
+	[ -n "$t_subnets" ] && {
+		t_ipset="${geotag}_trusted_$family"
+		iplist_file="$iplist_dir/$t_ipset.iplist"
+		sp2nl t_subnets
+		printf '%s\n' "$t_subnets" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
+		mk_perm_ipset "$t_ipset"
+		ipsets_to_add="$ipsets_to_add$t_ipset $iplist_file$_nl"
+	}
+
+	### LAN subnets
+	if [ "$list_type" = "whitelist" ]; then
 		if [ ! "$autodetect" ]; then
 			eval "lan_subnets=\"\$lan_subnets_$family\""
 		else
@@ -174,7 +185,7 @@ for family in $families; do
 		[ -n "$lan_subnets" ] && {
 			lan_ipset="${geotag}_lan_$family"
 			iplist_file="$iplist_dir/$lan_ipset.iplist"
-			sp2nl "$lan_subnets" lan_subnets
+			sp2nl lan_subnets
 			printf '%s\n' "$lan_subnets" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
 			mk_perm_ipset "$lan_ipset"
 			ipsets_to_add="$ipsets_to_add$lan_ipset $iplist_file$_nl"
@@ -210,19 +221,22 @@ for family in $families; do
 
 		### Create new rules
 
-		if [ -n "$wan_ifaces" ]; then # apply geoip to wan ifaces
+		if [ -n "$_ifaces" ]; then # apply geoip to ifaces
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
-			for wan_iface in $wan_ifaces; do
-				printf '%s\n' "-i $wan_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
+			for _iface in $_ifaces; do
+				printf '%s\n' "-i $_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
 			done
 		fi
 
 		## Auxiliary rules
 
-		# local networks
-		if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
+		# trusted subnets
+		[ "$t_subnets" ] &&
+			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_trusted_$family src $ipt_comm ${geotag_aux}_trusted_$family -j ACCEPT"
+
+		# LAN subnets
+		[ "$list_type" = "whitelist" ] && [ "$lan_subnets" ] &&
 			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src $ipt_comm ${geotag_aux}_lan_$family -j ACCEPT"
-		fi
 
 		# ports
 		for proto in tcp udp; do
@@ -235,7 +249,7 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ] && \
+		[ "$list_type" = "whitelist" ] && [ ! "$_ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
