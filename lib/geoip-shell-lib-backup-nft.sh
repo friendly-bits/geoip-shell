@@ -12,13 +12,6 @@
 
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
 restorebackup() {
-	printf '%s\n' "Preparing to restore $p_name from backup..."
-
-	getconfig Lists lists "$conf_file_bak"
-	getconfig BackupExt bk_ext "$conf_file_bak"
-
-	set_extract_cmd "$bk_ext"
-
 	printf %s "Restoring files from backup... "
 	for list_id in $lists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
@@ -60,7 +53,7 @@ rstr_failed() {
 }
 
 bk_failed() {
-	rm -f "$temp_file" "$bk_dir/"*.new 2>/dev/null
+	rm -f "$tmp_file" "$bk_dir/"*.new 2>/dev/null
 	die -u "$FAIL back up $p_name ip sets."
 }
 
@@ -68,8 +61,7 @@ bk_failed() {
 create_backup() {
 	set_archive_type
 
-	getconfig Lists lists "$conf_file"
-	temp_file="/tmp/${p_name}_backup.tmp"
+	getconfig Lists lists "$conf_file" -nodie || bk_failed
 	mkdir "$bk_dir" 2>/dev/null
 
 	# back up current ip sets
@@ -80,27 +72,22 @@ create_backup() {
 		getstatus "$status_file" "PrevDate_${list_id}" list_date || bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
 
-		rm "$temp_file" 2>/dev/null
-		# extract elements and write to $temp_file
+		rm "$tmp_file" 2>/dev/null
+		# extract elements and write to $tmp_file
 		nft list set inet "$geotable" "$ipset" |
-			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$temp_file"
-		[ ! -s "$temp_file" ] && bk_failed
+			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
+		[ ! -s "$tmp_file" ] && bk_failed
 
-		[ "$debugmode" ] && backup_len="$(wc -l < "$temp_file")"
+		[ "$debugmode" ] && backup_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $backup_len"
 
-		$compr_cmd < "$temp_file" > "${bk_file}.new"; rv=$?
+		$compr_cmd < "$tmp_file" > "${bk_file}.new"; rv=$?
 		[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && bk_failed
 	done
 	OK
 
-	rm "$temp_file" 2>/dev/null
-
 	for f in "${bk_dir}"/*.new; do
 		mv -- "$f" "${f%.new}" || bk_failed
 	done
-
-	cp "$status_file" "$status_file_bak" || bk_failed
-	setconfig "BackupExt=${archive_ext:-bak}"
-	cp "$conf_file" "$conf_file_bak"  || bk_failed
+	:
 }
