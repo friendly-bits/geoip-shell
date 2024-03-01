@@ -19,7 +19,7 @@ fw_backend_lib="$_lib-$_fw_backend.sh"
 
 nolog=1
 
-check_root
+check_root || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -95,7 +95,7 @@ kill_geo_pids
 rm_lock
 
 ### Remove geoip firewall rules
-rm_all_georules >/dev/null || die 1
+rm_all_georules || die 1
 
 [ -f "$conf_file" ] && setconfig "Lists="
 set +f; rm "$iplist_dir"/* 2>/dev/null
