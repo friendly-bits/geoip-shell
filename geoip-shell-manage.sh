@@ -112,8 +112,9 @@ report_status() {
 	_Q="${red}?${n_c}"
 	issues=0
 
-	for entry in "Source ipsource" "WAN_ifaces wan_ifaces" "tcp tcp_ports" "udp udp_ports" \
-			"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
+	for entry in "Source ipsource" "Ifaces _ifaces" "tcp tcp_ports" "udp udp_ports" \
+			"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
+			"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
 		getconfig "${entry% *}" "${entry#* }"
 	done
 
@@ -128,8 +129,8 @@ report_status() {
 		active_ccodes="$active_ccodes${list_id%_*} "
 		active_families="$active_families${list_id#*_} "
 	done
-	san_str active_ccodes
-	san_str active_families
+	san_str -s active_ccodes
+	san_str -s active_families
 	printf %s "Country codes in the $list_type: "
 	case "$active_ccodes" in
 		'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -137,21 +138,32 @@ report_status() {
 	esac
 	printf %s "IP families in firewall rules: "
 	case "$active_families" in
-		'') printf '%s\n' "${red}None${n_c} $_X" ;;
+		'') printf '%s\n' "${red}None${n_c} $_X"; incr_issues ;;
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
-	[ -n "$wan_ifaces" ] && wan_ifaces_r="${blue}$wan_ifaces$n_c" || wan_ifaces_r="${blue}All$n_c"
-	printf '%s\n' "Geoip rules applied to network interfaces: $wan_ifaces_r"
+	[ "$_ifaces" ] && _ifaces_r="${blue}$_ifaces$n_c" || _ifaces_r="${blue}All$n_c"
+	printf '%s\n' "Geoip rules applied to network interfaces: $_ifaces_r"
 
-	if [ "$list_type" = "whitelist" ] && [ -z "$wan_ifaces" ]; then
-		printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
+	[ "$t_subnets_ipv4$t_subnets_ipv6" ] && {
+		printf '\n%s\n' "Exceptions for trusted subnets:"
 		for family in $families; do
-			eval "lan_subnets=\"\$lan_subnets_$family\""
-			[ -n "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}"|| lan_subnets="${red}None${n_c}"
-			printf '%s\n' "$family: $lan_subnets"
+			eval "t_subnets=\"\$t_subnets_$family\""
+			[ "$t_subnets" ] && printf '%s\n' "$family: ${blue}$t_subnets${n_c}"
 		done
-	fi
+	}
+
+	[ "$list_type" = "whitelist" ] && {
+		[ "$lan_subnets_ipv4$lan_subnets_ipv6" ] || [ ! "$_ifaces" ] && {
+			printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
+			for family in $families; do
+				eval "lan_subnets=\"\$lan_subnets_$family\""
+				[ "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}" || lan_subnets="${red}None${n_c}"
+				[ "$lan_subnets" ] || [ ! "$_ifaces" ] && printf '%s\n' "$family: $lan_subnets"
+			done
+		}
+	}
+
 
 	report_proto
 	echo
@@ -299,7 +311,7 @@ get_wrong_ccodes() {
 	for list_id in $wrong_lists; do
 		wrong_ccodes="$wrong_ccodes${list_id%_*} "
 	done
-	san_str wrong_ccodes
+	san_str -s wrong_ccodes
 }
 
 
@@ -311,9 +323,9 @@ done
 
 case "$list_type" in whitelist|blacklist) ;; *) die "$ERR Unexpected geoip mode '$list_type'!"; esac
 
-san_str ccodes_arg "$(toupper "$ccodes_arg")"
+san_str -s ccodes_arg "$(toupper "$ccodes_arg")"
 
-sp2nl "$config_lists_str" config_lists
+sp2nl config_lists "$config_lists_str"
 
 action="$(tolower "$action")"
 
@@ -360,7 +372,7 @@ esac
 
 case "$action" in
 	status) report_status; exit 0 ;;
-	showconfig) printf '\n%s\n\n' "Geoip config in $conf_file:"; cat "$conf_file"; exit 0 ;;
+	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; exit 0 ;;
 	reset) call_script "$i_script-uninstall.sh" -l; exit $? ;;
 	restore) restore_from_config; exit $? ;;
 	schedule)
@@ -398,7 +410,7 @@ lists_arg="${lists_arg%"${_nl}"}"
 case "$action" in
 	apply) lists_to_change="$config_lists"; planned_lists="$config_lists" ;;
 	add)
-		san_str requested_lists "$config_lists$_nl$lists_arg" "$_nl"
+		san_str requested_lists "$config_lists$_nl$lists_arg"
 #		debugprint "requested resulting lists: '$requested_lists'"
 
 		if [ ! "$force_action" ]; then
@@ -412,7 +424,7 @@ case "$action" in
 		else
 			lists_to_change="$lists_arg"
 		fi
-		san_str planned_lists "$config_lists$_nl$lists_to_change" "$_nl"
+		san_str planned_lists "$config_lists$_nl$lists_to_change"
 #		debugprint "action: add, lists_to_change: '$lists_to_change'"
 		;;
 
@@ -446,7 +458,7 @@ fi
 # try to prevent possible user lock-out
 [ "$action" != apply ] && { check_for_lockout || die "Error in 'check_for_lockout' function."; }
 
-nl2sp "$lists_to_change" lists_to_change_str
+nl2sp lists_to_change_str "$lists_to_change"
 
 if [ "$lo_msg" ]; then
 		printf '\n%s\n\n%s\n' "$WARN $lo_msg" "Proceed?"
@@ -461,7 +473,7 @@ fi
 
 ### Call the *run script
 
-nl2sp "$planned_lists" planned_lists_str
+nl2sp planned_lists_str "$planned_lists"
 debugprint "Writing new config to file: 'Lists=$planned_lists_str'"
 setconfig "Lists=$planned_lists_str"
 
@@ -484,7 +496,7 @@ esac
 get_active_iplists new_verified_lists
 subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
-	nl2sp "$failed_lists" failed_lists_str
+	nl2sp failed_lists_str "$failed_lists"
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
 	echolog -err "$WARN failed to apply new $list_type rules for ip lists: $failed_lists_str."
 	# if the error encountered during installation, exit with error to fail the installation
