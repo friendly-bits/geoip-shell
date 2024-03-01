@@ -18,15 +18,12 @@ restorebackup() {
 	get_ipset_bk() { sed -n "/create ${p_name}/,\$p" < "$tmp_file"; }
 
 	printf '%s\n' "Restoring firewall state from backup... "
-	getconfig BackupFile bk_file "$conf_file_bak"
-	getconfig BackupExt bk_ext "$conf_file_bak"
 
 	[ -z "$bk_file" ] && die -u "Can not restore the firewall state: no backup found."
 	[ ! -f "$bk_file" ] && die -u "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
 	tmp_file="/tmp/${p_name}_backup.tmp"
-	set_extract_cmd "$bk_ext"
 	$extract_cmd "$bk_file" > "$tmp_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
 	[ ! -s "$tmp_file" ] && rstr_failed "$ERR backup file '$bk_file' is empty or backup extraction failed."
 
@@ -80,26 +77,30 @@ restorebackup() {
 	cp "$conf_file_bak" "$conf_file" || rstr_failed "$FAIL restore the config file."
 
 	# save backup file full path to the config file
-	setconfig "BackupFile=$bk_file"
+	setconfig "BackupFile=$bk_file" || rstr_failed
 
-	return 0
+	:
 }
 
 rstr_failed() {
 	rm "$tmp_file" 2>/dev/null
-	echo "$1" >&2
+	echolog -err "$1"
 	[ "$2" = reset ] && {
-		echo "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***" >&2
+		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***"
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
 	die -u
+}
+
+bk_failed() {
+	rm "$tmp_file" "${bk_file}.new" 2>/dev/null
+	die -u "$1"
 }
 
 # Saves current firewall state to a backup file
 create_backup() {
 	set_archive_type
 
-	tmp_file="/tmp/${p_name}_backup.tmp"
 	bk_file="$datadir/firewall_backup.${archive_ext:-bak}"
 	backup_len=0
 
@@ -111,11 +112,7 @@ create_backup() {
 		printf '%s\n' "[${p_name}_IPTABLES_$family]" >> "$tmp_file" &&
 		printf '%s\n' "*$ipt_table" >> "$tmp_file" &&
 		$ipt_save_cmd | grep -i "$geotag" >> "$tmp_file" &&
-		printf '%s\n' "COMMIT" >> "$tmp_file" ||
-		{
-			rm "$tmp_file" 2>/dev/null
-			die -u "$FAIL back up $p_name state."
-		}
+		printf '%s\n' "COMMIT" >> "$tmp_file" || bk_failed "$FAIL back up $p_name state."
 	done
 	OK
 
@@ -130,23 +127,14 @@ create_backup() {
 
 		backup_len_old=$(( backup_len + 1 ))
 		backup_len="$(wc -l < "$tmp_file")"
-		[ "$rv" != 0 ] || [ "$backup_len" -le "$backup_len_old" ] && {
-			rm "$tmp_file" 2>/dev/null
-			die -u "$FAIL back up ipset '$ipset'."
-		}
+		[ "$rv" != 0 ] || [ "$backup_len" -le "$backup_len_old" ] && bk_failed "$FAIL back up ipset '$ipset'."
 		OK
 	done
 
 	printf %s "Compressing backup... "
-	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] || {
-		rm "$tmp_file" "${bk_file}.new" 2>/dev/null
-		die -u "$FAIL compress firewall backup to file '${bk_file}.new'."
-	}
-	rm "$tmp_file" 2>/dev/null
+	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] ||
+		bk_failed "$FAIL compress firewall backup to file '${bk_file}.new'."
 
-	mv "${bk_file}.new" "$bk_file" || die -u "$FAIL overwrite file '$bk_file'."
-
-	cp "$status_file" "$status_file_bak" || die -u "$FAIL back up the status file."
-	setconfig "BackupFile=$bk_file" "BackupExt=${archive_ext:-bak}"
-	cp "$conf_file" "$conf_file_bak" || die -u "$FAIL back up the config file."
+	mv "${bk_file}.new" "$bk_file" || bk_failed "$FAIL overwrite file '$bk_file'."
+	:
 }
