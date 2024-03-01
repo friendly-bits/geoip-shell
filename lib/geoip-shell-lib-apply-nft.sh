@@ -139,11 +139,26 @@ nft_cmd_chain="$(
 
 	## Auxiliary rules
 
-	# apply geoip to wan ifaces
-	[ "$wan_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $wan_ifaces) }"
+	# apply geoip to ifaces
+	[ "$_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $_ifaces) }"
 
-	# whitelist lan subnets
-	if [ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ]; then
+	# trusted subnets
+	for family in $families; do
+		eval "t_subnets=\"\$t_subnets_$family\""
+		[ -n "$t_subnets" ] && {
+			get_nft_family
+			nft_get_geotable | grep "${geotag}_trusted_$family" >/dev/null &&
+				printf '%s\n' "delete set inet $geotable ${geotag}_trusted_$family"
+			printf %s "add set inet $geotable ${geotag}_trusted_$family \
+				{ type ${family}_addr; flags interval; auto-merge; elements={ "
+			printf '%s,' $t_subnets
+			printf '%s\n' " }; }"
+			printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @${geotag}_trusted_$family accept comment ${geotag_aux}_trusted"
+		}
+	done
+
+	# LAN subnets
+	if [ "$list_type" = "whitelist" ]; then
 		for family in $families; do
 			if [ ! "$autodetect" ]; then
 				eval "lan_subnets=\"\$lan_subnets_$family\""
@@ -160,7 +175,7 @@ nft_cmd_chain="$(
 					{ type ${family}_addr; flags interval; auto-merge; elements={ "
 				printf '%s,' $lan_subnets
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert rule inet $geotable $geochain $nft_family saddr @${geotag}_lansubnets_$family accept comment ${geotag_aux}_lan"
+				printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @${geotag}_lansubnets_$family accept comment ${geotag_aux}_lan"
 			}
 		done
 	fi
@@ -176,7 +191,7 @@ nft_cmd_chain="$(
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
-	[ "$list_type" = "whitelist" ] && [ ! "$wan_ifaces" ] &&
+	[ "$list_type" = "whitelist" ] && [ ! "$_ifaces" ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
 	## add iplist-specific rules
