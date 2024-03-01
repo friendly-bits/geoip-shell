@@ -1,47 +1,79 @@
 ## **Prelude**
-- This document mainly intends to give some info on the purspose and basic use cases of each script and how they work in tandem.
-- Most scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
-- If you understand some shell code and would like to learn more about some of the scripts, you are most welcome to read the code. It has a lot of comments and I hope that it's easily readable.
+- This document mainly intends to give some info on the purspose and basic use cases of the main scripts and how they work in tandem.
+- The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
 
 ## **Overview**
-The suite currently includes 15 scripts:
+
+### Main Scripts
 1. geoip-shell-install.sh
 2. geoip-shell-uninstall.sh
 3. geoip-shell-manage.sh
 4. geoip-shell-run.sh
 5. geoip-shell-fetch.sh
 6. geoip-shell-apply.sh
-7. geoip-shell-cronsetup.sh
-8. geoip-shell-backup.sh
-9. geoip-shell-common.sh
-10. geoip-shell-nft.sh
-11. validate-cron-schedule.sh
-12. check-ip-in-registry.sh
-13. detect-local-subnets-AIO.sh
-14. posix-arrays-a-mini.sh
-15. ip-regex.sh
+7. geoip-shell-backup.sh
+8. geoip-shell-cronsetup.sh
 
-The scripts intended as user interface are **geoip-shell-install.sh**, **geoip-shell-uninstall.sh**, **geoip-shell-manage.sh** and **check-ip-in-source.sh**. All the other scripts are intended as a back-end. If you just want to install and move on, you only need to run the -install script, specify mode with the -m option and specify country codes with the "-c" option.
+### Helper Script
+This script is only used under specific conditions:
+- During installation, if installing in whitelist mode, and only if wan interfaces were set to 'all', and lan subnets were not specified via command line args. The suite then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
+- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection was enabled during installation. The suite then re-detects and refreshes the LAN subnets in the whitelist automatically. Otherwise the script does not get installed.
+1. geoip-shell-detect-lan.sh
+
+### Library Scripts
+- The -common script includes a large number of functions used throughout the suite, and assigns some essential varibles.
+- The -ipt and -nft scripts implement support for iptables and nftables, respectively.
+- When nftables is present during installation, the iptables libraries are not installed.
+- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite won't break.
+1. geoip-shell-common.sh
+2. lib/geoip-shell-lib-ipt.sh
+3. lib/geoip-shell-lib-nft.sh
+4. lib/geoip-shell-lib-apply-ipt.sh
+5. lib/geoip-shell-lib-apply-nft.sh
+6. lib/geoip-shell-lib-backup-ipt.sh
+7. lib/geoip-shell-lib-backup-nft.sh
+8. lib/geoip-shell-lib-status-ipt.sh
+9. lib/geoip-shell-lib-status-nft.sh
+10. lib/geoip-shell-lib-arrays.sh
+11. lib/geoip-shell-lib-ip-regex.sh
+
+### OpenWrt-specific scripts
+These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
+1. geoip-shell-owrt-common.sh
+2. geoip-shell-owrt-init.tpl
+3. geoip-shell-owrt-mk-fw-include.tpl
+2. geoip-shell-owrt-fw-include.tpl
+
+### Optional script
+This one is intended for checks before installation. It does not get installed.
+1. check-ip-in-source.sh
+
+### User interface
+The scripts intended as user interface are **geoip-shell-install.sh**, **geoip-shell-uninstall.sh**, **geoip-shell-manage.sh** and **check-ip-in-source.sh**. All the other scripts are intended as a back-end. If you just want to install and move on, you only need to run the -install script.
 After installation, the user interface is provided by running "geoip-shell", which is a symlink to the -manage script.
 
 ## **In detail**
 **geoip-shell-install.sh**
 - Creates system folder structure for scripts, config and data.
-- Copies the scripts to `/usr/sbin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell`.
+- Copies the scripts to `/usr/sbin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell` (or in `/etc/geoip-shell/data` for OpenWrt).
 - Calls the -manage script to set up geoip.
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
-- Required arguments are `-c <"country_codes">` and `-m <whitelist|blacklist>`
+- Installation is possible either fully interactively (no command line arguments required), partially interactively (you provide some command line arguments, the install script processes them and if needed, asks you additional questions), or completely non-interactively by calling the install script with the `-z` option which will force installation failure if any required options are missing or invalid.
 
-Additional options:
-- `-u <source>`: specify source for fetching of ip lists. Currently supports 'ripe' and 'ipdeny', defaults to ripe.
-- `-i <wan|all>`: specify whether firewall rules will be applied to specific WAN network interface(s) or to all network interfaces. If not specified, asks during installation.
-- `-a`: autodetect LAN subnets or WAN interfaces (depending on whether geoip is applied to wan interfaces or to all interfaces). If not specified, asks during installation.
-- `-f`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
-- `-p [tcp|udp]:[allow|block]:[all|ports]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
-- `-s <"schedule_expression"|disable>`: specify custom cron schedule expression for the autoupdate schedule. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' instead of the schedule will disable autoupdates.
-- `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - until the autoupdate cron job kicks in).
-- `-o`: disable automatic backups of the firewall geoip rules and geoip config.
-- `-k`: skip adding the geoip 'enable' rule. This can be used if you want to check everything before commiting to geoip blocking. To enable blocking later, use the *manage script.
+Options:
+- `-m <whitelist|blacklist>`: geoip blocking mode
+- `-c <"[country_codes]">`: country codes to include in the whitelist or blacklist
+- `-u <ripe|ipdeny>`: specify source to fetch the ip lists from. Currently supports 'ripe' and 'ipdeny'. Defaults to ipdeny for OpenWrt, to ripe for all other systems.
+- `-i <"[ifaces]"|auto|all>`: specify whether firewall rules will be applied to specific network interface(s), to autodetected WAN interfaces or to all network interfaces.
+- `-l <"[lan_subnets]"|auto|none>`: when installing in whitelist mode and for all network interfaces, specify LAN subnets to exclude from blocking, otherwise they will get blocked. `auto` will automatically detect LAN subnets at the time of installation and then later, each time when updating firewall rules and ip sets. If the machine has dedicated WAN interfaces, `auto` may misdetect the WAN subnet as LAN subnet. So don't use `auto` in this situation. The `-l` option is incompatible with blacklist mode (and the install script will not allow this combination).
+- `-t <"[trusted_subnets]">` : optional list of trusted subnets anywhere on the Internet to exclude from geoip blocking.
+- `-r <[user_country_code]|none>`: Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
+- `-f <ipv4|ipv6|"ipv4 ipv6">`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
+- `-p <tcp|udp>:<allow|block>:<all|[ports]>`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice in one command. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
+- `-s <"[schedule_expression]"|disable>`: specify custom cron schedule expression for the autoupdate schedule. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day, or "15 4 * * 5" for OpenWrt - each Friday at 4:15am. 'disable' instead of the schedule will disable autoupdates.
+- `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in).
+- `-o`: disable automatic backups of the firewall geoip rules and geoip config. Backups are used both as a backup, and for persistence. Meaning that the ip lists are loaded from the backup at reboot. Installation with this option will avoid using permanent storage for the ip lists but will trigger ip lists re-fetch at reboot. Backup compresses the downloaded ip lists the best compression tool available in the system. This option is only useful for devices with very small storage size (backup of a dozen of large ip lists takes around 0.5MB).
+- `-k`: skip adding the geoip 'enable' rule. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the *manage script.
 - `-e`: create ip sets with the 'performance' policy (defaults to 'memory' policy for low memory consumption)
 
 **geoip-shell-uninstall.sh**
