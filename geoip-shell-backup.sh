@@ -62,9 +62,6 @@ setdebug
 
 debugentermsg
 
-check_lock
-mk_lock
-
 # detects archive type (if any) of file passed in 1st argument by its extension
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
@@ -114,10 +111,11 @@ set +f
 case "$action" in
 	create-backup)
 		tmp_file="/tmp/${p_name}_backup.tmp"
+		mk_lock
 		create_backup
 		rm "$tmp_file" 2>/dev/null
 		cp "$status_file" "$status_file_bak" || bk_failed
-		setconfig -nodie "BackupExt=${archive_ext:-bak}" || bk_failed
+		setconfig "BackupExt=${archive_ext:-bak}" || bk_failed
 		cp "$conf_file" "$conf_file_bak"  || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
@@ -126,7 +124,7 @@ case "$action" in
 		getconfig Lists lists "$conf_file_bak" -nodie &&
 		getconfig BackupExt bk_ext "$conf_file_bak" -nodie || rstr_failed
 		set_extract_cmd "$bk_ext"
-
+		mk_lock
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
 		statustip ;;
