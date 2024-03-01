@@ -110,17 +110,19 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die -u
+check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die -u "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
+[ ! -f "$conf_file" ] && die "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
 
-[ ! "$iplist_dir" ] && die -u "$ERR iplist file path can not be empty!"
+[ ! "$iplist_dir" ] && die "$ERR iplist file path can not be empty!"
 
-[ ! "$list_type" ] && die -u "\$list_type variable should not be empty! Something is wrong!"
+[ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
 
 
 #### MAIN
+
+mk_lock
 
 
 # check for valid action and translate *run action to *apply action
@@ -131,7 +133,7 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove ;;
 	restore)
-		nolog=1; check_lists_coherence 2>/dev/null && exit 0
+		nolog=1; check_lists_coherence 2>/dev/null && die 0 -u
 		nolog=
 		if [ "$nobackup" ]; then
 			# if backup file doesn't exist, force re-fetch
@@ -153,8 +155,6 @@ esac
 
 
 #### Daemon loop
-
-mk_lock
 
 [ ! "$daemon_mode" ] && max_attempts=1
 attempt=0 secs=4 ok_lists='' missing_lists=
