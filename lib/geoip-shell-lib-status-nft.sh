@@ -28,12 +28,12 @@ report_proto() {
 
 report_fw_state() {
 	curr_geotable="$(nft_get_geotable)" ||
-		{ printf '%s\n' "$ERR failed to read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
+		{ printf '%s\n' "$FAIL read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
 
 	wl_rule="$(printf %s "$curr_geotable" | grep "drop comment \"${geotag}_whitelist_block\"")"
 
-	is_geochain_on && chain_status="$_V" || { chain_status="$_X"; incr_issues; }
-	printf '%s\n' "Geoip firewall chain enabled: $chain_status"
+	is_geochain_on && chain_status="${green}enabled $_V" || { chain_status="${red}disabled $_X"; incr_issues; }
+	printf '%s\n' "Geoip firewall chain: $chain_status"
 	[ "$list_type" = whitelist ] && {
 		case "$wl_rule" in
 			'') wl_rule_status="$_X"; incr_issues ;;
@@ -49,7 +49,7 @@ report_fw_state() {
 		printf "\n%s\n%s\n${fmt_str}%s\n" "${purple}Firewall rules in the $geochain chain${n_c}:" \
 			"$dashes${blue}" packets bytes ipv verdict prot dports interfaces extra "$n_c$dashes"
 		rules="$(nft_get_chain "$geochain" | sed 's/^[[:space:]]*//;s/ # handle.*//' | grep .)" ||
-			printf '%s\n' "${red}None $_X"
+			{ printf '%s\n' "${red}None $_X"; incr_issues; }
 		newifs "$_nl" rules
 		for rule in $rules; do
 			newifs ' "' wrds
@@ -78,7 +78,7 @@ report_fw_state() {
 
 		printf '\n%s' "Ip ranges count in active geoip sets: "
 		case "$active_ccodes" in
-			'') printf '%s\n' "${red}None $_X" ;;
+			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
 			*) printf '\n'
 				ipsets="$(nft -t list sets inet | grep -o ".._ipv._.*_$geotag")"
 				for ccode in $active_ccodes; do
