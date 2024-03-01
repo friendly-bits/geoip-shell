@@ -124,6 +124,7 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || di
 
 mk_lock
 
+[ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
 # check for valid action and translate *run action to *apply action
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
@@ -133,9 +134,9 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove ;;
 	restore)
-		nolog=1; check_lists_coherence 2>/dev/null && die 0 -u
-		nolog=
+		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0 -u; }
 		if [ "$nobackup" ]; then
+			echolog "$p_name was installed with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
 			action_run=update action_apply=add force="-f"
 		else
@@ -144,7 +145,7 @@ case "$action_run" in
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=1
 			else
-				echolog -err "Restore from backup failed. Attempting to restore from config."
+				echolog -err "Restore from backup failed. Changing action to 'update'."
 				rm_all_georules || die -u "$FAIL remove firewall rules."
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
