@@ -74,7 +74,7 @@ daemon_prep_next() {
 	echolog "Retrying in $secs seconds"
 	sleep $secs
 	ok_lists="$ok_lists$lists "
-	san_str lists "$failed_lists $missing_lists"
+	san_str -s lists "$failed_lists $missing_lists"
 }
 
 check_lock
@@ -159,7 +159,7 @@ esac
 mk_lock
 
 [ ! "$daemon_mode" ] && max_attempts=1
-attempt=0 secs=4 ok_lists='' missing_lists=
+nodie=1 attempt=0 secs=4 ok_lists='' missing_lists=
 while true; do
 	attempt=$((attempt+1))
 	secs=$((secs+1))
@@ -176,8 +176,8 @@ while true; do
 		call_script "$i_script-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
 
 		# read *fetch results from the status file
-		getstatus "$status_file" FailedLists failed_lists
-		getstatus "$status_file" FetchedLists lists
+		getstatus "$status_file" FailedLists failed_lists &&
+		getstatus "$status_file" FetchedLists lists || die -u
 
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
@@ -198,7 +198,7 @@ while true; do
 
 	### Apply ip lists
 
-	san_str lists "$lists $ok_lists"
+	san_str -s lists "$lists $ok_lists"
 	apply_rv=0
 	case "$action_run" in update|add|remove)
 		[ ! "$lists" ] && {
