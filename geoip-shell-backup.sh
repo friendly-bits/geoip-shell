@@ -113,9 +113,20 @@ bk_dir="$datadir/backup"
 set +f
 case "$action" in
 	create-backup)
+		tmp_file="/tmp/${p_name}_backup.tmp"
 		create_backup
+		rm "$tmp_file" 2>/dev/null
+		cp "$status_file" "$status_file_bak" || bk_failed
+		setconfig -nodie "BackupExt=${archive_ext:-bak}" || bk_failed
+		cp "$conf_file" "$conf_file_bak"  || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
+		printf '%s\n' "Preparing to restore $p_name from backup..."
+		[ ! -s "$conf_file_bak" ] && rstr_failed "$ERR '$conf_file_bak' is empty or doesn't exist."
+		getconfig Lists lists "$conf_file_bak" -nodie &&
+		getconfig BackupExt bk_ext "$conf_file_bak" -nodie || rstr_failed
+		set_extract_cmd "$bk_ext"
+
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
 		statustip ;;
