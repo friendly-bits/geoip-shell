@@ -6,7 +6,7 @@
 # Copyright: friendly bits
 # github.com/friendly-bits
 
-#### Initial setup
+## Initial setup
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
@@ -19,10 +19,10 @@ newifs "$delim"
 set -- $_args; oldifs
 
 
-#### USAGE
+## USAGE
 
 usage() {
-    cat <<EOF
+cat <<EOF
 
 Usage: $me <action> [-l <"list_ids">] [-d] [-h]
 Switches geoip blocking on/off, or loads/removes ip sets and firewall rules for specified lists.
@@ -40,7 +40,7 @@ Options:
 EOF
 }
 
-#### PARSE ARGUMENTS
+## PARSE ARGUMENTS
 
 # check for valid action
 action="$1"
@@ -69,11 +69,12 @@ setdebug
 
 debugentermsg
 
-#### VARIABLES
+## VARIABLES
 
 for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "WAN_ifaces wan_ifaces" "tcp tcp_ports" "udp udp_ports" \
-		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6"; do
+		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp tcp_ports" "udp udp_ports" \
+		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
+		"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
@@ -82,12 +83,21 @@ status_file="$iplist_dir/status"
 
 action="$(tolower "$action")"
 
-geotag_aux="${p_name}_aux"
+geotag_aux="${geotag}_aux"
 
-#### CHECKS
+## CHECKS
 
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 [ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
 [ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
+
+[ "$_ifaces" ] && {
+	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
+	nl2sp all_ifaces
+	subtract_a_from_b "$all_ifaces" "$_ifaces" bad_ifaces ' '
+	[ "$bad_ifaces" ] && die "$ERR Network interfaces '$bad_ifaces' do not exist in this system."
+}
+
+## MAIN
 
 . "$_lib-apply-$_fw_backend.sh"
