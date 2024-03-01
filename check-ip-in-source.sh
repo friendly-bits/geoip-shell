@@ -141,7 +141,7 @@ subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ ! -f "$fetch_script" ] && die "$ERR Can not find '$fetch_script'."
 
 # convert ips to upper case and remove duplicates etc
-san_str ips "$(toupper "$ips")"
+san_str -s ips "$(toupper "$ips")"
 
 
 #### Main
@@ -167,7 +167,7 @@ done
 
 # trim extra whitespaces
 invalid_ips="${invalid_ips% }"
-san_str families
+san_str -s families "$families"
 
 if [ -z "$validated_ipv4s$validated_ipv6s" ]; then
 	echo
