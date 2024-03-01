@@ -648,9 +648,12 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
-mk_lock() { touch "$lock_file"; }
+mk_lock() { check_lock; touch "$lock_file" || die "$ERR failed to set lock '$lock_file'"; nodie=1; }
 
-rm_lock() { rm -f "$lock_file" 2>/dev/null; }
+rm_lock() {
+	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null || die "$ERR failed to remove lock '$lock_file'"; }
+	nodie=
+}
 
 check_lock() {
 	[ -f "$lock_file" ] &&
