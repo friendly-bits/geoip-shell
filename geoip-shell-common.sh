@@ -53,7 +53,7 @@ statustip() {
 
 report_lists() {
 	get_active_iplists verified_lists
-	nl2sp "$verified_lists" verified_lists
+	nl2sp verified_lists
 	printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
 }
 
@@ -324,7 +324,7 @@ getstatus() {
 # Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
-	unset args_lines args_target_file keys_test_str newconfig
+	unset args_lines args_target_file keys_test_str newconfig nodie
 	IFS_OLD_sc="$IFS"
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
@@ -336,7 +336,6 @@ setconfig() {
 				case "$key_conf" in
 					'' ) ;;
 					target_file ) args_target_file="$value_conf" ;;
-					nodie ) nodie="$value_conf" ;;
 					* ) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
 						keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
 				esac
@@ -347,10 +346,9 @@ setconfig() {
 	keys_test_str="${keys_test_str%|}"
 	target_file="${args_target_file:-$conf_file}"
 
-	[ ! "$target_file" ] && die "setconfig: '\$target_file' variable is not set!"
+	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
 
-	[ -f "$target_file" ] && { oldconfig="$(cat "$target_file")" ||
-		{ echolog -err "setconfig: $ERR failed to read '$target_file'."; [ "$nodie" ] && return 1; die; }; }
+	[ -f "$target_file" ] && { oldconfig="$(cat "$target_file")" || { sc_failed "$FAIL read '$target_file'."; return 1; }; }
 	# join old and new config
 	for config_line in $oldconfig; do
 		eval "case \"$config_line\" in
@@ -358,11 +356,15 @@ setconfig() {
 				* ) newconfig=\"$newconfig$config_line$_nl\"
 			esac"
 	done
-	printf %s "$newconfig$args_lines" > "$target_file" ||
-		{ echolog "setconfig: failed to write to '$target_file'"; [ "$nodie" ] && return 1; die; }
+	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
 	oldifs sc
 	export config_var=''
 	:
+}
+
+sc_failed() {
+	echolog -err "setconfig: $ERR $1"
+	[ ! "$nodie" ] && die
 }
 
 # utilizes setconfig() for writing to status files
@@ -371,7 +373,7 @@ setconfig() {
 setstatus() {
 	target_file="$1"
 	shift 1
-	[ ! "$target_file" ] && die "setstatus: $ERR target file not specified!"
+	[ ! "$target_file" ] && { echolog -err "setstatus: $ERR target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file"
 	setconfig "target_file=$target_file" "$@"
@@ -387,35 +389,39 @@ trimsp() {
 	oldifs trim
 }
 
+# 0 - optional -s to delimit by ' '
 # 1 - var name for output
 # 2 - optional input string (otherwise uses prev value)
-# 3 - optional delimiter
+# 3 - optional input delimiter
+# 4 - optional output delimiter
 san_str() {
+	[ "$1" = '-s' ] && { _del=' '; shift; } || _del="$_nl"
 	[ "$2" ] && inp_str="$2" || eval "inp_str=\"\$$1\""
 
-	san_delim="${3:- }"
-	_words=''
-	newifs "$default_IFS" san
-	for _word in $inp_str; do
-		case "$_words" in *"$_word"*) ;; *) _words="$_words$_word$san_delim"; esac
+	_sid="${3:-"$_del"}"
+	_sod="${4:-"$_del"}"
+	_words=
+	newifs "$_sid" san
+	for _w in $inp_str; do
+		case "$_words" in "$_w"|"$_w$_sod"*|*"$_sod$_w"|*"$_sod$_w$_sod"*) ;; *) _words="$_words$_w$_sod"; esac
 	done
-	eval "$1"='${_words%$san_delim}'
+	eval "$1"='${_words%$_sod}'
 	oldifs san
 }
 
 get_intersection() {
 	[ ! "$1" ] || [ ! "$2" ] && { eval "$3"=''; return 1; }
-	_fs_gi="${4:-"$_nl"}"
+	_fs="${4:-"$_nl"}"
 	_intersect=''
 	for e in $2; do
-		case "$1" in "$e"|"$e$_fs_gi"*|*"$_fs_gi$e"|*"$_fs_gi$e$_fs_gi"*)
+		case "$1" in "$e"|"$e$_fs"*|*"$_fs$e"|*"$_fs$e$_fs"*)
 			case "$_intersect" in
-				"$e"|"$e$_fs_gi"*|*"$_fs_gi$e"|*"$_fs_gi$e$_fs_gi"*) ;;
-				*) _intersect="$_intersect$e$_fs_gi"
+				"$e"|"$e$_fs"*|*"$_fs$e"|*"$_fs$e$_fs"*) ;;
+				*) _intersect="$_intersect$e$_fs"
 			esac
 		esac
 	done
-	eval "$3"='${_intersect%$_fs_gi}'
+	eval "$3"='${_intersect%$_fs}'
 }
 
 get_difference() {
@@ -447,18 +453,20 @@ subtract_a_from_b() {
 }
 
 sp2nl() {
-	var_stn="$2"
+	var_stn="$1"
+	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
 	newifs "$trim_IFS" stn
-	set -- $1
+	set -- $_inp
 	IFS="$_nl"
 	eval "$var_stn"='$*'
 	oldifs stn
 }
 
 nl2sp() {
-	var_nts="$2"
+	var_nts="$1"
+	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
 	newifs "$_nl" nts
-	set -- $1
+	set -- $_inp
 	IFS=' '
 	eval "$var_nts"='$*'
 	oldifs nts
@@ -483,10 +491,10 @@ check_lists_coherence() {
 
 	unset unexp_lists missing_lists
 	getconfig "Lists" config_lists
-	sp2nl "$config_lists" config_lists
+	sp2nl config_lists
 	force_read_geotable=1
 	get_active_iplists active_lists || {
-		nl2sp "$ipset_lists" ips_l_str; nl2sp "$iprules_lists" ipr_l_str
+		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
 		echolog -err "$WARN ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		return 1
 	}
@@ -495,10 +503,10 @@ check_lists_coherence() {
 	get_difference "$active_lists" "$config_lists" lists_difference
 	case "$lists_difference" in
 		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
-		*) nl2sp "$active_lists" active_l_str; nl2sp "$config_lists" config_l_str
+		*) nl2sp active_l_str "$active_lists"; nl2sp config_l_str "$config_lists"
 			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
-			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp "$unexp_lists" unexpected_lists
-			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp "$missing_lists" missing_lists
+			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
+			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp missing_lists
 			return 1
 	esac
 }
@@ -515,6 +523,12 @@ validate_ccode() {
 		*" $1 "*) return 0 ;;
 		*) return 2
 	esac
+}
+
+# detects all network interfaces known to the kernel, except the loopback interface
+# returns 1 if nothing detected
+detect_ifaces() {
+	[ -r "/proc/net/dev" ] && sed -n '/^[[:space:]]*[^[:space:]]*:/{s/^[[:space:]]*//;s/:.*//p}' < /proc/net/dev | grep -vx 'lo'
 }
 
 # format: '-p [tcp|udp]:[allow|block]:[ports]'
@@ -661,13 +675,13 @@ export _lib="$lib_dir/$p_name-lib"
 init_geoscript
 
 [ ! "$geotag" ] && {
-	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name"
-	export geochain="${geochain:-"$(toupper "$geotag")"}" conf_file="$conf_dir/$p_name.conf" default_IFS="$IFS" _nl='
+	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name" _nl='
 '
+	export geochain="$(toupper "$geotag")" conf_file="$conf_dir/$p_name.conf" default_IFS=" 	$_nl"
 	set_ascii
-	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
+	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 
-	check_deps tr cut sort wc awk sed grep logger || die
+	check_deps tr cut sort wc awk sed grep logger pgrep || die
 	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{
 		nolog=1 check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
