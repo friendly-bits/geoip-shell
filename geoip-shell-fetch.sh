@@ -8,7 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
 . "$_lib-arrays.sh" || exit 1
@@ -99,7 +99,7 @@ reg_server_date() {
 get_source_list_dates_ipdeny() {
 	tmp_file_path="/tmp/${p_name}_ipdeny"
 
-	_res=''
+	_res=
 	for list_id in $valid_lists; do
 		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f$_nl"; esac
 	done
@@ -178,10 +178,10 @@ parse_ripe_json() {
 
 # populates $registries, "fetch_lists_arr" array)
 group_lists_by_registry() {
-	valid_lists=''
+	valid_lists=
 	# group lists by registry
 	for registry in $all_registries; do
-		list_ids=''
+		list_ids=
 		for list_id in $lists_arg; do
 			ccode="${list_id%_*}"
 			get_a_arr_val registry_ccodes_arr "$registry" ccodes
@@ -191,10 +191,10 @@ group_lists_by_registry() {
 				valid_lists="$valid_lists$list_id$_nl"
 			esac
 		done
-		san_str list_ids
+		san_str -s list_ids
 		set_a_arr_el fetch_lists_arr "$registry=${list_ids% }"
 	done
-	san_str registries
+	san_str -s registries
 
 	subtract_a_from_b "$valid_lists" "$lists_arg" invalid_lists
 	[ "$invalid_lists" ] && {
@@ -256,7 +256,7 @@ check_updates() {
 		* ) die "Unknown source: '$dl_src'."
 	esac
 
-	ccodes=''; families=''
+	unset ccodes families
 	for list_id in $valid_lists; do
 		get_a_arr_val server_dates_arr "$list_id" date_src_raw
 		date_raw_to_compat "$date_src_raw" date_src_compat
@@ -455,7 +455,7 @@ ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 
 [ "$script_dir" = "$install_dir" ] && getconfig HTTP http
-secure_util=''; fetch_cmd=''
+unset secure_util fetch_cmd
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
 	case "$util" in
@@ -578,7 +578,7 @@ done
 
 ### Report fetch results via status file
 if [ "$status_file" ]; then
-	subnets_cnt_str=''
+	subnets_cnt_str=
 	# convert array contents to formatted multi-line string for writing to the status file
 	get_a_arr_keys subnets_cnt_arr list_ids
 	for list_id in $list_ids; do
@@ -586,7 +586,7 @@ if [ "$status_file" ]; then
 		subnets_cnt_str="${subnets_cnt_str}PrevSubnetsCnt_${list_id}=$subnets_cnt$_nl"
 	done
 
-	list_dates_str=''
+	list_dates_str=
 	get_a_arr_keys list_date_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val list_date_arr "$list_id" prevdate
