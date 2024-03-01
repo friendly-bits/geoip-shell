@@ -35,41 +35,49 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -c <"country_codes"> -m <whitelist|blacklist> [-s <"sch_expression"|disable>] [ -f <"families"> ]
-            [-u <ripe|ipdeny>] [-t <host|router>] [-p <portoptions>] [-a] [-e] [-o] [-n] [-k] [-d] [-h]
+Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
+           [-i <"ifaces"|auto|all>] [-l <"lan_subnets"|auto|none>] [-b <"trusted_subnets"] [-p <portoptions>]
+           [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
-Installer for geoip blocking suite of shell scripts.
+Installer for the $p_name suite.
+If run without the [-z] option, asks the user about each required option, except those specified.
 Must be run as root.
 
 Core Options:
   -c <"country_codes">               : 2-letter country codes to fetch and apply the iplists for.
-                                         (if passing multiple country codes, use double quotes)
-  -m <whitelist|blacklist>           : geoip blocking mode: whitelist or blacklist
-                                         (to change the mode after installation, run the *install script again)
-  -s <"expression"|disable>          : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                         must be inside double quotes
-                                         Default is "15 4 * * *" (4:15 am every day), or for OpenWrt "15 4 * * 5" (4:15 am on Friday)
-                                       "disable" will disable automatic updates of the ip lists
-  -f <ipv4|ipv6|"ipv4 ipv6">         : families (defaults to 'ipv4 ipv6'). if specifying multiple families, use double quotes.
-  -u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny. Defaults to ripe, or to ipdeny on OpenWrt.
-  -i <wan|all>                       : Specifies whether geoip firewall rules will be applied to specific WAN network interface(s)
-                                           or to all network interfaces.
-                                           If the machine has a dedicated WAN interface, pick 'wan', otherwise pick 'all'.
-                                           If not specified, asks during installation.
+  -m <whitelist|blacklist>           : Geoip blocking mode: whitelist or blacklist.
+  -s <"expression"|disable>          : Schedule expression for the periodic cron job implementing automatic update of the ip lists.
+                                         Must be inside double quotes.
+                                       'disable' will disable automatic updates of the ip lists.
+  -f <ipv4|ipv6|"ipv4 ipv6">         : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  -u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny.
+  -i <"ifaces"|auto|all>             : Specifies whether geoip firewall rules will be applied to specific network interface(s)
+                                         or to all network interfaces.
+                                         Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
+                                         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+  -l <"lan_subnets"|auto|none>       : Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
+                                         Has no effect in blacklist mode.
+                                         Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
+                                           specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
+                                           'auto' will autodetect LAN subnets during installation and every update of the ip lists.
+                                         *Don't use 'auto' if the machine has a dedicated WAN interface*
+  -t <"trusted_subnets">             : Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
+                                         This option works independently from the above LAN subnets option.
+                                         Works in both whitelist and blacklist mode.
   -p <[tcp|udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
                                           or use "allow" to geoblock all incoming traffic except on specific ports.
                                           Multiple '-p' options are allowed to specify both tcp and udp in one command.
                                           Only works with the 'apply' action.
-                                          For examples, refer to NOTES.md.
+  -r <user_country_code|none>        : Specify user's country code. Used to prevent accidental lockout of a remote machine.
+                                          "none" disables this feature.
 
 Extra Options:
-  -a  : Autodetect LAN subnets or WAN interfaces (depending on if geoip is applied to wan interfaces or to all interfaces).
-          If not specified, asks during installation.
-  -e  : Optimize ip sets for performance (by default, optimizes for low memory consumption)
+  -e  : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
   -o  : No backup. Will not create a backup of previous firewall state after applying changes.
   -n  : No persistence. Geoip blocking may not work after reboot.
-  -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain
+  -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
           (everything will be installed and configured but geoip blocking will not be enabled)
+  -z  : Non-interactive installation. Will not ask any questions. Will fail if required options are unset.
   -d  : Debug
   -h  : This help
 
@@ -78,23 +86,25 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:r:p:aeonkdh" opt; do
+while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 	case $opt in
-		c) ccodes=$OPTARG ;;
+		c) ccodes_arg=$OPTARG ;;
 		m) list_type=$OPTARG ;;
-		s) schedule_args=$OPTARG ;;
+		s) schedule_arg=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
-		i) iface_type=$OPTARG ;;
-
-		r) ports_arg=$OPTARG ;;
-		a) autodetect=1 ;;
-		e) perf_opt=performance ;;
+		i) ifaces_arg=$OPTARG ;;
+		l) lan_subnets_arg=$OPTARG ;;
+		t) t_subnets_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
+		r) user_ccode_arg=$OPTARG ;;
+
+		e) perf_opt=performance ;;
 		o) nobackup=1 ;;
 		n) no_persist=1 ;;
 		k) noblock=1 ;;
 		d) export debugmode=1 ;;
+		z) nointeract=1 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
@@ -125,17 +135,18 @@ check_files() {
 copyscripts() {
 	for f in $1; do
 		dest="${2:-"$install_dir/${f##*/}"}"
+		# the -common script needs some variables assignments removed
+		[ "$f" = "$p_name-common.sh" ] && _cmd="grep -vE '^(export lib_dir=|export _lib=)'" || _cmd="cat"
 		rv=0
 		{
 			if [ "$_OWRTFW" ]; then
 				# strip comments
-				san_script "$script_dir/$f" > "$dest"
+				eval "$_cmd" "$script_dir/$f" | san_script > "$dest"
 			else
-				cp "$script_dir/$f" "$dest"
+				eval "$_cmd" "$script_dir/$f" > "$dest"
 			fi
 		} || install_failed "$FAIL copy file '$f' to '$dest'."
-		chown root:root "${dest}" &&
-		chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
+		chown root:root "${dest}" && chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 	done
 }
 
@@ -143,75 +154,6 @@ install_failed() {
 	printf '%s\n\n%s\n%s\n' "$*" "Installation failed." "Uninstalling ${p_name}..." >&2
 	call_script "$p_script-uninstall.sh"
 	exit 1
-}
-
-# format: '-r proto:A-B; proto:C-D,E,F-G; proto:H'
-get_ports() {
-
-	invalid_line() { usage; die "Invalid value for '-r': '$sourceline'."; }
-	check_edge_chars() {
-		[ "${1%"${1#?}"}" = "$2" ] && invalid_line
-		[ "${1#"${1%?}"}" = "$2" ] && invalid_line
-	}
-	sourceline="$1"
-	trimsp line "$sourceline"
-	check_edge_chars "$line" ";"
-	IFS=";"
-	for opt in $line; do
-		case "$opt" in *:*) ;; *) invalid_line; esac
-		proto="${opt%%:}"
-		ports="${opt#:}"
-		case "$ports" in *:*) invalid_line; esac
-		trimsp ports
-		trimsp proto
-		case $proto in
-			udp|tcp) ;;
-			*) die "Unsupported protocol '$proto'."
-		esac
-		check_edge_chars "$ports" ","
-		IFS=","
-		for chunk in $ports; do
-			trimsp chunk
-			check_edge_chars "$chunk" "-"
-			case "${chunks%%-}" in *-*) invalid_line; esac
-			fragments=''
-			IFS="-"
-			for fragment in $chunk; do
-				trimsp fragment
-				case "$fragment" in *[!0-9]*) invalid_line; esac
-				fragments="${fragments}{fragment}-}"
-			done
-			fragments="${fragments%-}"
-		done
-	done
-
-}
-
-# checks country code by asking the user, then validates against known-good list
-get_country() {
-	user_ccode=""
-
-	printf '\n%s\n%s\n%s\n' "Please enter your country code." \
-		"It will be used to check if your geoip settings may lock you out of your remote machine and warn you if so." \
-		"If you want to skip this check, press Enter." >&2
-	while true; do
-		printf '%s\n' "Country code (2 letters)/Enter to skip: " >&2
-		read -r REPLY
-		case "$REPLY" in
-			'') printf '%s\n\n' "Skipping..." >&2; return 0 ;;
-			*) REPLY="$(toupper "$REPLY")"
-				validate_ccode "$REPLY" "$script_dir/cca2.list"; rv=$?
-				case "$rv" in
-					0)  user_ccode="$REPLY"; break ;;
-					1)  die "Internal error while trying to validate country codes." ;;
-					2)  printf '\n%s\n%s\n\n' "'$REPLY' is not a valid 2-letter country code." \
-						"Try again or press Enter to skip this check." >&2
-				esac
-		esac
-	done
-
-	printf %s "$user_ccode"
-	:
 }
 
 validate_subnet() {
@@ -235,83 +177,226 @@ validate_subnet() {
 	:
 }
 
-pick_iface() {
-	all_ifaces="$(sed -n '/^[[:space:]]*[^[:space:]]*:/s/^[[:space:]]*//;s/:.*//p' < /proc/net/dev | grep -vx 'lo')"
-	[ ! "$all_ifaces" ] && die "$FAIL detect network interfaces."
-	san_str all_ifaces
+# checks country code by asking the user, then validates against known-good list
+pick_user_ccode() {
+	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=''; return 0; }
 
-	# detect OpenWrt wan interfaces
-	wan_ifaces=''
-	[ "$_OWRTFW" ] && wan_ifaces="$(fw$_OWRTFW zone wan)"
+	[ ! "$user_ccode_arg" ] && printf '\n%s\n%s\n' "Please enter your country code." \
+		"It will be used to check if your geoip settings may block your own country and warn you if so."
+	REPLY="$user_ccode_arg"
+	while true; do
+		[ ! "$REPLY" ] && {
+			printf %s "Country code (2 letters)/Enter to skip: "
+			read -r REPLY
+		}
+		case "$REPLY" in
+			'') printf '%s\n\n' "Skipped."; return 0 ;;
+			*) REPLY="$(toupper "$REPLY")"
+				validate_ccode "$REPLY" "$script_dir/cca2.list"; rv=$?
+				case "$rv" in
+					0)  user_ccode="$REPLY"; break ;;
+					1)  die "Internal error while trying to validate country codes." ;;
+					2)  printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
+						[ "$nointeract" ] && exit 1
+						printf '%s\n\n' "Try again or press Enter to skip this check."
+						REPLY=
+				esac
+		esac
+	done
+}
 
-	# fallback and non-OpenWRT
-	[ ! "$wan_ifaces" ] && wan_ifaces="$({ ip r get 1; ip -6 r get 1::; } 2>/dev/null |
-		sed 's/.*[[:space:]]dev[[:space:]][[:space:]]*//;s/[[:space:]].*//' | grep -vx 'lo')"
-	san_str wan_ifaces
-	get_intersection "$wan_ifaces" "$all_ifaces" wan_ifaces ' '
+# asks the user to entry country codes, then validates against known-good list
+pick_ccodes() {
+	[ "$nointeract" ] && [ ! "$ccodes_arg" ] && die "Specify country codes with '-c <\"country_codes\">'."
+	[ ! "$ccodes_arg" ] && printf '\n%s\n' "Please enter country codes to include in geoip $list_type."
+	REPLY="$ccodes_arg"
+	while true; do
+		unset bad_ccodes ok_ccodes
+		[ ! "$REPLY" ] && {
+			printf %s "Country codes (2 letters) or [a] to abort the installation: "
+			read -r REPLY
+		}
+		REPLY="$(toupper "$REPLY")"
+		trimsp REPLY
+		case "$REPLY" in
+			a|A) exit 0 ;;
+			*)
+				newifs ' ;,' pcc
+				for ccode in $REPLY; do
+					[ "$ccode" ] && {
+						validate_ccode "$ccode" "$script_dir/cca2.list" && ok_ccodes="$ok_ccodes$ccode " ||
+							bad_ccodes="$bad_ccodes$ccode "
+					}
+				done
+				oldifs pcc
+				[ "$bad_ccodes" ] && {
+					printf '%s\n' "Invalid 2-letter country codes: '${bad_ccodes% }'."
+					[ "$nointeract" ] && exit 1
+					REPLY=
+					continue
+				}
+				[ ! "$ok_ccodes" ] && {
+					printf '%s\n' "No country codes detected in '$REPLY'."
+					[ "$nointeract" ] && exit 1
+					REPLY=
+					continue
+				}
+				ccodes="${ok_ccodes% }"; break
+		esac
+	done
+}
 
-	printf '\n%s\n' "Firewall rules will be applied to the WAN network interfaces of your machine."
-	[ "$wan_ifaces" ] && {
+pick_list_type() {
+	printf '%s\n' "Select geoip blocking mode: [w]hitelist or [b]lacklist, or [a] to abort the installation."
+	pick_opt "w|b|a"
+	case "$REPLY" in
+		w|W) list_type=whitelist ;;
+		b|B) list_type=blacklist ;;
+		a|A) exit 0
+	esac
+}
+
+pick_ifaces() {
+	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
+
+	[ ! "$ifaces_arg" ] && {
+		# detect OpenWrt wan interfaces
+		auto_ifaces=
+		[ "$_OWRTFW" ] && auto_ifaces="$(fw$_OWRTFW zone wan)"
+
+		# fallback and non-OpenWRT
+		[ ! "$auto_ifaces" ] && auto_ifaces="$({ ip r get 1; ip -6 r get 1::; } 2>/dev/null |
+			sed 's/.*[[:space:]]dev[[:space:]][[:space:]]*//;s/[[:space:]].*//' | grep -vx 'lo')"
+		san_str auto_ifaces
+		get_intersection "$auto_ifaces" "$all_ifaces" auto_ifaces
+		nl2sp auto_ifaces
+	}
+
+	nl2sp all_ifaces
+	printf '\n%s\n' "Geoip firewall rules will be applied to specific network interfaces of this machine."
+	[ ! "$ifaces_arg" ] && [ "$auto_ifaces" ] && {
 		printf '\n%s\n%s\n\n' "All network interfaces: $all_ifaces" \
-			"Autodetected WAN interfaces: $wan_ifaces"
-		[ "$autodetect" ] && { c_wan_ifaces="$wan_ifaces"; return; }
-		printf '%s\n' "(c)onfirm, c(h)ange, or (a)bort installation? "
+			"Autodetected WAN interfaces: $auto_ifaces"
+		[ "$1" = "-a" ] && { conf_ifaces="$auto_ifaces"; return; }
+		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort installation? "
 		pick_opt "c|h|a"
 		case "$REPLY" in
-			c|C) c_wan_ifaces="$wan_ifaces"; return ;;
+			c|C) conf_ifaces="$auto_ifaces"; return ;;
 			a|A) exit 0
 		esac
 	}
+
+	REPLY="$ifaces_arg"
 	while true; do
-		printf '\n%s\n%s\n' "All network interfaces: $all_ifaces" \
-			"Type in WAN network interface names (whitespace separated), or Enter to abort installation."
-		read -r REPLY
-		[ -z "$REPLY" ] && exit 0
-		subtract_a_from_b "$all_ifaces" "$REPLY" bad_ifaces ' '
+		u_ifaces=
+		printf '\n%s\n' "All found network interfaces: $all_ifaces"
+		[ ! "$REPLY" ] && {
+			printf '%s\n' "Type in WAN network interface names, or [a] to abort installation."
+			read -r REPLY
+			case "$REPLY" in a|A) exit 0; esac
+		}
+		san_str -s u_ifaces "$REPLY"
+		[ -z "$u_ifaces" ] && {
+			printf '%s\n' "No interface names detected in '$REPLY'." >&2
+			[ "$nointeract" ] && die
+			REPLY=
+			continue
+		}
+		subtract_a_from_b "$all_ifaces" "$u_ifaces" bad_ifaces ' '
 		[ -z "$bad_ifaces" ] && break
-		printf '\n%s\n' "$ERR Network interfaces '$bad_ifaces' do not exist in this system."
+		printf '\n%s\n' "$ERR Network interfaces '$bad_ifaces' do not exist in this system." >&2
+		[ "$nointeract" ] && die
+		REPLY=
 	done
-	san_str c_wan_ifaces "$REPLY"
+	conf_ifaces="$u_ifaces"
+	printf '%s\n' "Selected interfaces: '$conf_ifaces'."
 }
 
-pick_subnets() {
-	[ ! "$autodetect" ] &&
+pick_lan_subnets() {
+	lan_picked=1 autodetect=
+	case "$lan_subnets_arg" in
+		none) return 0 ;;
+		auto) lan_subnets_arg=''; autodetect=1 ;;
+	esac
+
+	[ "$lan_subnets_arg" ] && {
+		unset bad_subnet lan_subnets
+		san_str lan_subnets_arg "$lan_subnets_arg" ' ' "$_nl"
+		for family in $families; do
+			eval "lan_subnets_$family="
+			eval "ip_regex=\"\$subnet_regex_$family\""
+			subnets="$(printf '%s\n' "$lan_subnets_arg" | grep -E "^$ip_regex$")"
+			san_str subnets
+			[ ! "$subnets" ] && continue
+			for subnet in $subnets; do
+				validate_subnet "$subnet" || bad_subnet=1
+			done
+			[ "$bad_subnet" ] && break
+			nl2sp "c_lan_subnets_$family" "$subnets"
+			lan_subnets="$lan_subnets$subnets$_nl"
+		done
+		subtract_a_from_b "$lan_subnets" "$lan_subnets_arg" bad_subnets
+		[ "${lan_subnets% }" ] && [ ! "$bad_subnet" ] && [ ! "$bad_subnets" ] && return 0
+		[ "$bad_subnets" ] &&
+			echolog -err "$ERR '$bad_subnets' are not valid subnets for families '$families'."
+		[ ! "$bad_subnet" ] && [ ! "${lan_subnets% }" ] &&
+			echolog -err "$ERR No valid subnets detected in '$lan_subnets_arg' compatible with families '$families'."
+	}
+
+	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan subnets with '-l <\"lan_subnets\"|auto|none>'."
+
+	[ ! "$nointeract" ] &&
 		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
+
 	for family in $families; do
-		printf '\n%s\n' "Detecting local $family subnets..."
+		printf '\n%s\n' "Detecting $family LAN subnets..."
 		s="$(call_script "$p_script-detect-lan.sh" -s -f "$family")" ||
-			printf '%s\n' "$FAIL autodetect $family local subnets."
-		san_str s
+			printf '%s\n' "$FAIL autodetect $family LAN subnets." >&2
+		nl2sp s
 
 		[ -n "$s" ] && {
 			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'."
 			[ "$autodetect" ] && { eval "c_lan_subnets_$family=\"$s\""; continue; }
-			printf '%s\n%s\n' "(c)onfirm, c(h)ange, (s)kip or (a)bort installation?" \
+			printf '\n%s\n%s\n\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
 				"Verify that correct LAN subnets have been detected in order to avoid problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
 				c|C) eval "c_lan_subnets_$family=\"$s\""; continue ;;
 				s|S) continue ;;
+				h|H) autodetect_off=1 ;;
 				a|A) exit 0
 			esac
 		}
-		autodetect_off=1
+
+		REPLY=
 		while true; do
-			printf '\n%s\n' "Type in $family LAN subnets (whitespace separated), or Enter to abort installation."
-			read -r REPLY
-			[ -z "$REPLY" ] && exit 0
-			bad_subnet=''
-			for subnet in $REPLY; do
-				validate_subnet "$subnet" || { bad_subnet=1; break; }
+			unset u_subnets bad_subnet
+			[ ! "$nointeract" ] && [ ! "$REPLY" ] && {
+				printf '\n%s\n' "Type in $family LAN subnets, [s] to skip or [a] to abort installation."
+				read -r REPLY
+				case "$REPLY" in
+					s|S) break ;;
+					a|A) exit 0
+				esac
+			}
+			san_str -s u_subnets "$REPLY"
+			[ -z "$u_subnets" ] && {
+				printf '%s\n' "No $family subnets detected in '$REPLY'." >&2
+				REPLY=
+				continue
+			}
+			for subnet in $u_subnets; do
+				validate_subnet "$subnet" || bad_subnet=1
 			done
 			[ ! "$bad_subnet" ] && break
+			REPLY=
 		done
-		eval "c_lan_subnets_$family=\"$REPLY\""
+		eval "c_lan_subnets_$family=\"$u_subnets\""
 	done
+
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "(A)uto-detect local subnets when autoupdating and at launch or keep this config (c)onstant?"
+	printf '\n%s\n' "[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?"
 	pick_opt "a|c"
-	autodetect=''
 	case "$REPLY" in a|A) autodetect="1"; esac
 }
 
@@ -345,12 +430,11 @@ san_script() {
 	if [ "$1" ]; then grep -vx "$p" "$1"; else grep -vx "$p"; fi
 }
 
+#### Detect the init system
+detect_sys
 
 
 #### Variables
-
-# detect the init system
-detect_sys
 
 [ "$_OWRTFW" ] && {
 	datadir="$conf_dir/data"
@@ -369,7 +453,7 @@ iplist_dir="${datadir}/ip_lists"
 ipt_libs=
 [ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common detect-lan "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup detect-lan common "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files $owrt_common_script"
@@ -395,29 +479,19 @@ esac
 
 ccodes="$(toupper "$ccodes")"
 
-schedule="${schedule_args:-$default_schedule}"
+schedule="${schedule_arg:-$default_schedule}"
 sleeptime=30 max_attempts=30
 
 export list_type="$(tolower "$list_type")"
 
+lan_picked=
+
 
 #### CHECKS
 
-# Check for valid country codes
-[ ! "$ccodes" ] && { usage; die "Specify country codes with '-c <\"country_codes\">'!"; }
-rv=0
-for ccode in $ccodes; do
-	validate_ccode "$ccode" "$script_dir/cca2.list" || { bad_ccodes="$bad_ccodes$ccode "; rv=1; }
-done
-[ "$rv" != 0 ] && die "$ERR Invalid 2-letter country codes: '${bad_ccodes% }'."
-
-case "$list_type" in
-	whitelist|blacklist) ;;
-	'') usage; die "Specify firewall mode with '-m whitelist' or '-m blacklist'!" ;;
-	*) die "$ERR Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
-esac
-
 [ ! "$families" ] && die "$ERR \$families variable should not be empty!"
+
+[ "$lan_subnets_arg" ] && [ "$list_type" = blacklist ] && die "$ERR option '-l' is incompatible with mode 'blacklist'"
 
 check_files "$script_files $lib_files cca2.list $init_script_tpl $fw_include_tpl $mk_fw_inc_script_tpl" ||
 	die "$ERR missing files: $missing_files."
@@ -425,32 +499,67 @@ check_files "$script_files $lib_files cca2.list $init_script_tpl $fw_include_tpl
 check_cron_compat
 
 # validate cron schedule from args
-[ "$schedule_args" ] && [ "$schedule" != "disable" ] && {
-	call_script "$p_script-cronsetup.sh" -x "$schedule_args" || die "$FAIL validate cron schedule '$schedule'."
+[ "$schedule_arg" ] && [ "$schedule" != "disable" ] && {
+	call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule'."
 }
 
 #### MAIN
 
-user_ccode="$(get_country)"
-
-case "$iface_type" in
-	'') ;;
-	all) REPLY=n ;;
-	wan) REPLY=y ;;
-	*) usage; die "Invalid string for the '-i' option: '$iface_type'."
+case "$list_type" in
+	whitelist|blacklist) ;;
+	'') pick_list_type ;;
+	*) die "$ERR Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
 esac
 
-[ -z "$iface_type" ] && {
-	printf '\n%s\n%s\n%s\n%s\n' "Does this machine have dedicated WAN interface(s)? (y|n)" \
+# process trusted subnets if specified
+[ "$t_subnets_arg" ] && {
+	t_subnets=
+	san_str t_subnets_arg "$t_subnets_arg" ' ' "$_nl"
+	for family in $families; do
+		eval "t_subnets_$family="
+		eval "ip_regex=\"\$subnet_regex_$family\""
+		subnets="$(printf '%s\n' "$t_subnets_arg" | grep -E "^$ip_regex$")"
+		[ ! "$subnets" ] && continue
+		for subnet in $subnets; do
+			validate_subnet "$subnet" || die
+		done
+		t_subnets="$t_subnets$subnets$_nl"
+		san_str subnets
+		nl2sp "t_subnets_$family" "$subnets"
+	done
+	subtract_a_from_b "$t_subnets" "$t_subnets_arg" bad_subnets
+	nl2sp bad_subnets
+	[ "$bad_subnets" ] && die "$ERR '$bad_subnets' are not valid subnets for families '$families'."
+	[ -z "${t_subnets% }" ] && die "$ERR No valid subnets detected in '$t_subnets_arg' compatible with families '$families'."
+}
+
+
+pick_ccodes
+
+pick_user_ccode
+
+if [ -z "$ifaces_arg" ]; then
+	[ "$nointeract" ] && die "Specify interfaces with -i <\"ifaces\"|auto|all>."
+	printf '\n%s\n%s\n%s\n\n%s\n' "Does this machine have dedicated WAN network interface(s)? [y|n] or [a] to abort the installation." \
 		"For example, a router or a virtual private server may have it." \
 		"A machine connected to a LAN behind a router is unlikely to have it." \
 		"It is important to asnwer this question correctly."
-	pick_opt "y|n"
-}
-case "$REPLY" in
-	y|Y) pick_iface ;;
-	n|N) [ "$list_type" = "whitelist" ] && pick_subnets
-esac
+	pick_opt "y|n|a"
+	case "$REPLY" in
+		a|A) exit 0 ;;
+		y|Y) pick_ifaces ;;
+		n|N) [ "$list_type" = whitelist ] && pick_lan_subnets
+	esac
+else
+	case "$ifaces_arg" in
+		all) [ "$list_type" = whitelist ] && pick_lan_subnets ;;
+		auto) ifaces_arg=''; pick_ifaces -a ;;
+		*) pick_ifaces
+	esac
+fi
+
+[ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_subnets
+
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
 call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
@@ -459,39 +568,39 @@ call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
 printf %s "Copying scripts to $install_dir... "
 copyscripts "$script_files $lib_files"
 OK
-echo
+
+lib_dir="$install_dir"
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
 rm "$i_script" 2>/dev/null
 ln -s "$i_script-manage.sh" "$i_script" ||
-	install_failed "$FAIL create symlink from ${p_name}-manage.sh to ${p_name}."
+	install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
 
-# Create the directory for config and, if required, parent directories
+# Create the directory for config
 mkdir -p "$conf_dir"
 
 # write config
 printf %s "Setting config... "
 
 makepath
-setconfig "nodie=1" "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp=skip" \
+nodie=1
+setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp=skip" \
 	"Source=$source" "Families=$families" "CronSchedule=$schedule" "MaxAttempts=$max_attempts" \
-	"LanIfaces=$c_lan_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
-	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" "WAN_ifaces=$c_wan_ifaces" \
+	"Ifaces=$conf_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
+	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" \
+	"TSubnets_ipv4=$t_subnets_ipv4" "TSubnets_ipv6=$t_subnets_ipv6" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 
-[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
-
-sed -i "s/^export lib_dir=.*//" "$install_dir/${p_name}-common.sh"
-sed -i "s/^export _lib=.*//" "$install_dir/${p_name}-common.sh"
-
-lib_dir="$install_dir"
-
+# add some variables to the installed -common script
 printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$lib_dir\"" \
 	"export _lib=\"\$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
 	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
 OK
+echo
 
-# Create the directory for downloaded lists and, if required, parent directories
+[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
+
+# Create the directory for downloaded lists
 mkdir -p "$iplist_dir"
 
 # copy cca2.list
