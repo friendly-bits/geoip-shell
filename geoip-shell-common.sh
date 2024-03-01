@@ -212,6 +212,12 @@ die() {
 		* ) die_rv="$1"; shift
 	esac
 
+	case "$die_rv" in
+		0) _err_l=notice ;;
+		254) _err_l=warn ;;
+		*) _err_l=err
+	esac
+
 	unlock='' die_args=''
 	for die_arg in "$@"; do
 		case "$die_arg" in
@@ -227,7 +233,7 @@ die() {
 		newifs "$delim" die
 		for arg in $die_args; do
 			printf '%s\n' "$yellow$me_short$n_c: $arg" >&2
-			[ ! "$nolog" ] && logger -t "$me" -p "user.err" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+			[ ! "$nolog" ] && logger -t "$me" -p "user.$_err_l" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 		done
 		oldifs die
 	}
@@ -482,8 +488,13 @@ san_args() {
 	done
 }
 
+# resets the nolog var to prev value
+r_no_l() { nolog="$_no_l"; }
+
 # checks whether current ipsets and iptables rules match ones in the config file
 check_lists_coherence() {
+	_no_l="$nolog"
+	[ "$1" = '-n' ] && nolog=1
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
@@ -496,17 +507,19 @@ check_lists_coherence() {
 	get_active_iplists active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
 		echolog -err "$WARN ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
+		r_no_l
 		return 1
 	}
 	force_read_geotable=
 
 	get_difference "$active_lists" "$config_lists" lists_difference
 	case "$lists_difference" in
-		'') debugprint "Successfully verified ip lists coherence."; return 0 ;;
+		'') debugprint "Successfully verified ip lists coherence."; r_no_l; return 0 ;;
 		*) nl2sp active_l_str "$active_lists"; nl2sp config_l_str "$config_lists"
 			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
 			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
 			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp missing_lists
+			r_no_l
 			return 1
 	esac
 }
@@ -656,8 +669,7 @@ rm_lock() {
 }
 
 check_lock() {
-	[ -f "$lock_file" ] &&
-		die "Lock file $lock_file exists, refusing to open another instance."
+	[ -f "$lock_file" ] && die 254 "Lock file $lock_file exists, refusing to open another instance."
 }
 
 kill_geo_pids() {
