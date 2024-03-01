@@ -33,49 +33,58 @@ usage() {
 cat <<EOF
 
 Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-           [-i <"ifaces"|auto|all>] [-l <"lan_subnets"|auto|none>] [-b <"trusted_subnets"] [-p <portoptions>]
+           [-i <"ifaces"|auto|all>] [-l <"lan_subnets"|auto|none>] [-b <"trusted_subnets"] [-p <port_options>]
            [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for the $p_name suite.
 If run without the [-z] option, asks the user about each required option, except those specified.
 
 Core Options:
-  -c <"country_codes">               : 2-letter country codes to fetch and apply the iplists for.
-  -m <whitelist|blacklist>           : Geoip blocking mode: whitelist or blacklist.
-  -s <"expression"|disable>          : Schedule expression for the periodic cron job implementing automatic update of the ip lists.
-                                         Must be inside double quotes.
-                                       'disable' will disable automatic updates of the ip lists.
-  -f <ipv4|ipv6|"ipv4 ipv6">         : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
-  -u <ripe|ipdeny>                   : Use this ip list source for download. Supported sources: ripe, ipdeny.
-  -i <"ifaces"|auto|all>             : Specifies whether geoip firewall rules will be applied to specific network interface(s)
-                                         or to all network interfaces.
-                                         Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
-                                         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
-  -l <"lan_subnets"|auto|none>       : Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
-                                         Has no effect in blacklist mode.
-                                         Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-                                           specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
-                                           'auto' will autodetect LAN subnets during installation and every update of the ip lists.
-                                         *Don't use 'auto' if the machine has a dedicated WAN interface*
-  -t <"trusted_subnets">             : Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
-                                         This option works independently from the above LAN subnets option.
-                                         Works in both whitelist and blacklist mode.
-  -p <[tcp|udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
-                                          or use "allow" to geoblock all incoming traffic except on specific ports.
-                                          Multiple '-p' options are allowed to specify both tcp and udp in one command.
-                                          Only works with the 'apply' action.
-  -r <user_country_code|none>        : Specify user's country code. Used to prevent accidental lockout of a remote machine.
-                                          "none" disables this feature.
+  -m <whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist.
+  -c <"country_codes"> : 2-letter country codes to include in the whitelist|blacklist.
+  -s <"expression"|disable> :
+        Schedule expression for the periodic cron job implementing automatic update of the ip lists.
+          Must be inside double quotes.
+        'disable' will disable automatic updates of the ip lists.
+  -f <ipv4|ipv6|"ipv4 ipv6"> :
+        Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  -u <ripe|ipdeny> :
+        Use this ip list source for download. Supported sources: ripe, ipdeny.
+  -i <"[ifaces]"|auto|all> :
+        Specifies whether geoip firewall rules will be applied to specific network interface(s)
+         or to all network interfaces.
+         Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
+         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+  -l <"[lan_subnets]"|auto|none> :
+        Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
+        Has no effect in blacklist mode.
+        Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
+           specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
+        'auto' will autodetect LAN subnets during installation and every update of the ip lists.
+        *Don't use 'auto' if the machine has a dedicated WAN interface*
+  -t <"[trusted_subnets]"> :
+        Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
+          This option works independently from the above LAN subnets option.
+          Works in both whitelist and blacklist mode.
+  -p <tcp|udp>:<allow|block>:<all|[ports]> :
+        For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
+          or use "allow" to geoblock all incoming traffic except on specific ports.
+          Specifying 'all' does what one would expect.
+          Multiple '-p' options are allowed to specify both tcp and udp in one command.
+          Only works with the 'apply' action.
+  -r <[user_country_code]|none> :
+        Specify user's country code. Used to prevent accidental lockout of a remote machine.
+          "none" disables this feature.
 
 Extra Options:
-  -e  : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
-  -o  : No backup. Will not create a backup of previous firewall state after applying changes.
-  -n  : No persistence. Geoip blocking may not work after reboot.
-  -k  : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
-          (everything will be installed and configured but geoip blocking will not be enabled)
-  -z  : Non-interactive installation. Will not ask any questions. Will fail if required options are unset.
-  -d  : Debug
-  -h  : This help
+  -e : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
+  -o : No backup. Will not create a backup of previous firewall state after applying changes.
+  -n : No persistence. Geoip blocking may not work after reboot.
+  -k : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
+         (everything will be installed and configured but geoip blocking will not be enabled)
+  -z : Non-interactive installation. Will not ask any questions. Will fail if required options are unset.
+  -d : Debug
+  -h : This help
 
 EOF
 }
@@ -434,11 +443,11 @@ detect_sys
 
 [ "$_OWRTFW" ] && {
 	datadir="$conf_dir/data"
-	o_script="OpenWrt/${p_name}"
-	init_script_tpl="$o_script-init.tpl"
-	fw_include_tpl="$o_script-fw-include.tpl"
-	mk_fw_inc_script_tpl="$o_script-mk-fw-include.tpl"
-	owrt_common_script="$o_script-owrt-common.sh"
+	o_script="OpenWrt/${p_name}-owrt"
+	owrt_init="$o_script-init.tpl"
+	owrt_fw_include="$o_script-fw-include.tpl"
+	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
+	owrt_common_script="$o_script-common.sh"
 	default_schedule="15 4 * * 5"
 	source_default="ipdeny"
 } || { datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe"; }
@@ -446,10 +455,12 @@ detect_sys
 export datadir
 iplist_dir="${datadir}/ip_lists"
 
+detect_lan="${p_name}-detect-lan.sh"
+
 ipt_libs=
 [ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup detect-lan common "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup common "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files $owrt_common_script"
@@ -489,7 +500,7 @@ lan_picked=
 
 [ "$lan_subnets_arg" ] && [ "$list_type" = blacklist ] && die "$ERR option '-l' is incompatible with mode 'blacklist'"
 
-check_files "$script_files $lib_files cca2.list $init_script_tpl $fw_include_tpl $mk_fw_inc_script_tpl" ||
+check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "$ERR missing files: $missing_files."
 
 check_cron_compat
@@ -556,21 +567,22 @@ fi
 
 [ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_subnets
 
+# don't copy the detect-lan script, unless autodetect is enabled
+[ "$autodetect" ] || detect_lan=
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
 call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files $lib_files"
+copyscripts "$script_files $detect_lan $lib_files"
 OK
 
 lib_dir="$install_dir"
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
 rm "$i_script" 2>/dev/null
-ln -s "$i_script-manage.sh" "$i_script" ||
-	install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
+ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
 
 # Create the directory for config
 mkdir -p "$conf_dir"
@@ -623,25 +635,25 @@ fi
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
 	init_script="/etc/init.d/${p_name}-init"
-	fw_include_script="$i_script-fw-include.sh"
-	mk_fw_inc_script="$i_script-mk-fw-include.sh"
+	fw_include="$i_script-fw-include.sh"
+	mk_fw_inc="$i_script-mk-fw-include.sh"
 
 	echo "_OWRT_install=1" >> "$i_script-common.sh"
 	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		echo "Adding the init script... "
-		eval "printf '%s\n' \"$(cat "$init_script_tpl")\"" | san_script > "$init_script" ||
+		eval "printf '%s\n' \"$(cat "$owrt_init")\"" | san_script > "$init_script" ||
 			install_failed "$FAIL create the init script."
 
 		echo "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$fw_include_tpl")\"" | san_script > "$fw_include_script" &&
+		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | san_script > "$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
-				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include_script\""
-			san_script "$mk_fw_inc_script_tpl"
-		} > "$mk_fw_inc_script" || install_failed "$FAIL prepare the firewall include."
-		chmod +x "$init_script" "$fw_include_script" "$mk_fw_inc_script" || install_failed "$FAIL set permissions."
+				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\""
+			san_script "$owrt_mk_fw_inc"
+		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
+		chmod +x "$init_script" "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
 		printf %s "Enabling and starting the init script... "
 		$init_script enable && $init_script start || install_failed "$FAIL enable or start the init script."
