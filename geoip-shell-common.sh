@@ -648,16 +648,16 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
-mk_lock() { check_lock; touch "$lock_file" || die "$ERR failed to set lock '$lock_file'"; nodie=1; }
+mk_lock() { check_lock; touch "$lock_file" || die "$ERR $FAIL set lock '$lock_file'"; nodie=1; }
 
 rm_lock() {
-	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null || die "$ERR failed to remove lock '$lock_file'"; }
+	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null || die "$ERR $FAIL remove lock '$lock_file'"; }
 	nodie=
 }
 
 check_lock() {
 	[ -f "$lock_file" ] &&
-		die "Lock file $lock_file indicates that $p_name is doing something in the background, refusing to open another instance."
+		die "Lock file $lock_file exists, refusing to open another instance."
 }
 
 kill_geo_pids() {
