@@ -18,8 +18,6 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export list_type nolog=1 manmode=1
 
-check_root
-
 san_args "$@"
 newifs "$delim"
 set -- $_args; oldifs
@@ -91,7 +89,7 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-echo
+check_root
 
 setdebug
 
