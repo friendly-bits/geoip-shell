@@ -37,44 +37,52 @@ Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|d
            [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for the $p_name suite.
-If run without the [-z] option, asks the user about each required option, except those specified.
+Asks the user about each required option, except those specified.
 
 Core Options:
+
   -m <whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist.
+
   -c <"country_codes"> : 2-letter country codes to include in the whitelist|blacklist.
+
+  -f <ipv4|ipv6|"ipv4 ipv6"> : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+
+  -u <ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny.
+
   -s <"expression"|disable> :
         Schedule expression for the periodic cron job implementing automatic update of the ip lists.
-          Must be inside double quotes.
+        Must be inside double quotes.
         'disable' will disable automatic updates of the ip lists.
-  -f <ipv4|ipv6|"ipv4 ipv6"> :
-        Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
-  -u <ripe|ipdeny> :
-        Use this ip list source for download. Supported sources: ripe, ipdeny.
+
   -i <"[ifaces]"|auto|all> :
         Specifies whether geoip firewall rules will be applied to specific network interface(s)
-         or to all network interfaces.
-         Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
-         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+        or to all network interfaces.
+        Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
+        'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+
   -l <"[lan_subnets]"|auto|none> :
         Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
         Has no effect in blacklist mode.
         Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-           specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
+        specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
         'auto' will autodetect LAN subnets during installation and every update of the ip lists.
         *Don't use 'auto' if the machine has a dedicated WAN interface*
+
   -t <"[trusted_subnets]"> :
         Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
-          This option works independently from the above LAN subnets option.
-          Works in both whitelist and blacklist mode.
+        This option works independently from the above LAN subnets option.
+        Works in both whitelist and blacklist mode.
+
   -p <tcp|udp>:<allow|block>:<all|[ports]> :
         For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
-          or use "allow" to geoblock all incoming traffic except on specific ports.
-          Specifying 'all' does what one would expect.
-          Multiple '-p' options are allowed to specify both tcp and udp in one command.
-          Only works with the 'apply' action.
+        or use "allow" to geoblock all incoming traffic except on specific ports.
+        Specifying 'all' does what one would expect.
+        Multiple '-p' options are allowed to specify both tcp and udp in one command.
+        Only works with the 'apply' action.
+
   -r <[user_country_code]|none> :
         Specify user's country code. Used to prevent accidental lockout of a remote machine.
-          "none" disables this feature.
+        "none" disables this feature.
 
 Extra Options:
   -e : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
@@ -82,7 +90,7 @@ Extra Options:
   -n : No persistence. Geoip blocking may not work after reboot.
   -k : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
          (everything will be installed and configured but geoip blocking will not be enabled)
-  -z : Non-interactive installation. Will not ask any questions. Will fail if required options are unset.
+  -z : Non-interactive installation. Will not ask any questions. Will fail if required options are not specified or invalid.
   -d : Debug
   -h : This help
 
