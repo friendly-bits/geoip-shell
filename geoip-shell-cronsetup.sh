@@ -32,89 +32,6 @@ Options:
 EOF
 }
 
-#### PARSE ARGUMENTS
-while getopts ":x:dh" opt; do
-	case $opt in
-		x) validate_cron_schedule "$OPTARG"; exit $? ;;
-		d) debugmode_args=1 ;;
-		h) usage; exit 0 ;;
-		*) unknownopt
-	esac
-done
-shift $((OPTIND-1))
-
-extra_args "$@"
-
-setdebug
-
-debugentermsg
-
-check_root
-
-
-#### Functions
-
-create_cron_job() {
-
-	job_type="$1"
-
-	[ -z "$config_lists" ] && die "$ERR Countries list in the config file is empty! No point in creating autoupdate job."
-
-	case "$job_type" in
-		autoupdate)
-			[ -z "$schedule" ] && die "$ERR cron schedule in the config file is empty!"
-			# Validate cron schedule
-			debugprint "\nValidating cron schedule: '$schedule'."
-			validate_cron_schedule "$schedule"; rv=$?
-			case "$rv" in
-				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
-				*) die "Error validating cron schedule '$schedule'."
-			esac
-
-			# Remove existing autoupdate cron job before creating new one
-			rm_cron_job "autoupdate"
-			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
-			debugprint "Creating autoupdate cron job with schedule '$schedule'... " ;;
-		persistence)
-			debugprint "Creating persistence cron job... "
-
-			# using the restore action for the *run script
-			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
-		*) die "Unrecognized type of cron job: '$job_type'."
-	esac
-
-	#### Create new cron job
-
-	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
-	printf '%s\n%s\n' "$curr_cron" "$cron_cmd" | crontab -u root -; rv2=$?
-
-	case $((rv1 & rv2)) in
-		0) debugprint "Ok." ;;
-		*) die "Error creating $job_type cron job!"
-	esac
-}
-
-
-# remove existing cron job
-# cron jobs are identified by the comment at the end of each job in crontab
-rm_cron_job() {
-	job_type="$1"
-
-	case "$job_type" in
-		autoupdate|persistence) ;;
-		*) die "rm_cron_job: $ERR unknown cron job type '$job_type'."
-	esac
-
-	debugprint "Removing $job_type cron job for $p_name... "
-	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
-	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root -; rv2=$?
-
-	case $((rv1 & rv2)) in
-		0) debugprint "Ok." ;;
-		*) die "$ERR failed to remove $job_type cron job."
-	esac
-}
-
 validate_cron_schedule() {
 	sourceline="$(tolower "$1")"
 
@@ -253,9 +170,6 @@ validate_cron_schedule() {
 		die
 	}
 
-
-	#### Main
-
 	for field in "mn $mn_val 0 59" "hr $hr_val 0 23" "dom $dom_val 1 31" "mon $mon_val 1 12" "dow $dow_val 0 6"; do
 		set -- $field
 		validateField "$1" "$2" "$3" "$4"
@@ -267,6 +181,90 @@ validate_cron_schedule() {
 	}
 
 	return $err
+}
+
+
+#### PARSE ARGUMENTS
+while getopts ":x:dh" opt; do
+	case $opt in
+		x) validate_cron_schedule "$OPTARG"; exit $? ;;
+		d) debugmode_args=1 ;;
+		h) usage; exit 0 ;;
+		*) unknownopt
+	esac
+done
+shift $((OPTIND-1))
+
+extra_args "$@"
+
+setdebug
+
+debugentermsg
+
+check_root
+
+
+#### Functions
+
+create_cron_job() {
+
+	job_type="$1"
+
+	[ -z "$config_lists" ] && die "$ERR Countries list in the config file is empty! No point in creating autoupdate job."
+
+	case "$job_type" in
+		autoupdate)
+			[ -z "$schedule" ] && die "$ERR cron schedule in the config file is empty!"
+			# Validate cron schedule
+			debugprint "\nValidating cron schedule: '$schedule'."
+			validate_cron_schedule "$schedule"; rv=$?
+			case "$rv" in
+				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
+				*) die "Error validating cron schedule '$schedule'."
+			esac
+
+			# Remove existing autoupdate cron job before creating new one
+			rm_cron_job "autoupdate"
+			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
+			debugprint "Creating autoupdate cron job with schedule '$schedule'... " ;;
+		persistence)
+			debugprint "Creating persistence cron job... "
+
+			# using the restore action for the *run script
+			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
+		*) die "Unrecognized type of cron job: '$job_type'."
+	esac
+
+	#### Create new cron job
+
+	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
+	printf '%s\n%s\n' "$curr_cron" "$cron_cmd" | crontab -u root -; rv2=$?
+
+	case $((rv1 & rv2)) in
+		0) debugprint "Ok." ;;
+		*) die "Error creating $job_type cron job!"
+	esac
+}
+
+
+# remove existing cron job
+# cron jobs are identified by the comment at the end of each job in crontab
+rm_cron_job() {
+	job_type="$1"
+
+	case "$job_type" in
+		autoupdate|persistence) ;;
+		*) die "rm_cron_job: $ERR unknown cron job type '$job_type'."
+	esac
+
+	debugprint "Removing $job_type cron job for $p_name... "
+	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
+	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root -; rv2=$?
+
+	case $((rv1 & rv2)) in
+		0) debugprint "Ok." ;;
+		*) die "$ERR failed to remove $job_type cron job."
+	esac
 }
 
 
