@@ -506,4 +506,4 @@ fi
 report_lists
 [ ! "$in_install" ] && statustip
 
-:
+die 0
