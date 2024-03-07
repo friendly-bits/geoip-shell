@@ -3,7 +3,7 @@
 
 # geoip-shell-backup-ipt.sh
 
-. "$_lib-ipt.sh" || die -u
+. "$_lib-ipt.sh" || die
 
 
 #### FUNCTIONS
@@ -19,8 +19,8 @@ restorebackup() {
 
 	printf '%s\n' "Restoring firewall state from backup... "
 
-	[ -z "$bk_file" ] && die -u "Can not restore the firewall state: no backup found."
-	[ ! -f "$bk_file" ] && die -u "Can not find the backup file '$bk_file'."
+	[ -z "$bk_file" ] && die "Can not restore the firewall state: no backup found."
+	[ ! -f "$bk_file" ] && die "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
 	tmp_file="/tmp/${p_name}_backup.tmp"
@@ -89,24 +89,19 @@ rstr_failed() {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***"
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
-	die -u
+	die
 }
 
 bk_failed() {
 	rm "$tmp_file" "${bk_file}.new" 2>/dev/null
-	die -u "$1"
+	die "$1"
 }
 
 # Saves current firewall state to a backup file
 create_backup() {
-	set_archive_type
-
-	bk_file="$datadir/firewall_backup.${archive_ext:-bak}"
-	backup_len=0
-
 	printf %s "Creating backup of current $p_name state... "
 
-	rv=0
+	bk_len=0
 	for family in $families; do
 		set_ipt_cmds
 		printf '%s\n' "[${p_name}_IPTABLES_$family]" >> "$tmp_file" &&
@@ -116,7 +111,7 @@ create_backup() {
 	done
 	OK
 
-	backup_len="$(wc -l < "$tmp_file")"
+	bk_len="$(wc -l < "$tmp_file")"
 	printf '%s\n' "[${p_name}_IPSET]" >> "$tmp_file"
 
 	for ipset in $(ipset list -n | grep $geotag); do
@@ -125,9 +120,9 @@ create_backup() {
 		# append current ipset content to tmp_file
 		ipset save "$ipset" >> "$tmp_file"; rv=$?
 
-		backup_len_old=$(( backup_len + 1 ))
-		backup_len="$(wc -l < "$tmp_file")"
-		[ "$rv" != 0 ] || [ "$backup_len" -le "$backup_len_old" ] && bk_failed "$FAIL back up ipset '$ipset'."
+		bk_len_old=$(( bk_len + 1 ))
+		bk_len="$(wc -l < "$tmp_file")"
+		[ "$rv" != 0 ] || [ "$bk_len" -le "$bk_len_old" ] && bk_failed "$FAIL back up ipset '$ipset'."
 		OK
 	done
 
