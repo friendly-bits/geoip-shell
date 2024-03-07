@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$_lib-backup-$_fw_backend.sh" || exit 1
+. "$_lib-backup-$_fw_backend.sh" || die
 
 check_root
 
@@ -66,7 +66,7 @@ debugentermsg
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
 	set_extr_cmd() { checkutil "$1" && extract_cmd="$1 -cd" ||
-		die -u "$ERR backup archive type is '$1' but the $1 utility is not found."; }
+		die "$ERR backup archive type is '$1' but the $1 utility is not found."; }
 
 	case "$1" in
 		bz2 ) set_extr_cmd bzip2 ;;
@@ -76,7 +76,7 @@ set_extract_cmd() {
 	esac
 }
 
-# detects the best available archive type and sets $compr_cmd and $archive_ext accordingly
+# detects the best available archive type and sets $compr_cmd and $bk_ext accordingly
 set_archive_type() {
 	arch_bzip2="bzip2 -zc@bz2"
 	arch_xz="xz -zc@xz"
@@ -84,7 +84,7 @@ set_archive_type() {
 	arch_cat="cat@"
 	for _util in bzip2 xz gzip cat; do
 		checkutil "$_util" && {
-			eval "compr_cmd=\"\${arch_$_util%@*}\"; archive_ext=\"\${arch_$_util#*@}\""
+			eval "compr_cmd=\"\${arch_$_util%@*}\"; bk_ext=\"\${arch_$_util#*@}\""
 			break
 		}
 	done
@@ -101,21 +101,25 @@ iplist_dir="${datadir}/ip_lists"
 status_file="$iplist_dir/status"
 bk_dir="$datadir/backup"
 
+[ "$_fw_backend" = ipt ] && bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
+
 #### CHECKS
 
-[ ! -f "$conf_file" ] && die -u "Config file '$conf_file' doesn't exist! Run the installation script again."
+[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 
 #### MAIN
 
+mk_lock
 set +f
 case "$action" in
 	create-backup)
 		tmp_file="/tmp/${p_name}_backup.tmp"
-		mk_lock
+		set_archive_type
+		mkdir "$bk_dir" 2>/dev/null
 		create_backup
 		rm "$tmp_file" 2>/dev/null
 		cp "$status_file" "$status_file_bak" || bk_failed
-		setconfig "BackupExt=${archive_ext:-bak}" || bk_failed
+		setconfig "BackupExt=${bk_ext:-bak}" || bk_failed
 		cp "$conf_file" "$conf_file_bak"  || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
@@ -124,11 +128,10 @@ case "$action" in
 		getconfig Lists lists "$conf_file_bak" -nodie &&
 		getconfig BackupExt bk_ext "$conf_file_bak" -nodie || rstr_failed
 		set_extract_cmd "$bk_ext"
-		mk_lock
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
 		statustip ;;
 	*) unknownact
 esac
 
-die 0 -u
+die 0
