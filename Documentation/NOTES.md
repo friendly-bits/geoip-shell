@@ -51,7 +51,7 @@
 13) Note that cron jobs will be run as root.
 
 14) To test before deployment:
-<details> <summary>Read more:</summary>
+    <details> <summary>Read more:</summary>
 
   - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
   - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
@@ -69,6 +69,6 @@
 
     As to the first 3 scenarios, the -manage script will warn you in each of these situations and wait for your input (you can press Y and do it anyway), but that depends on you correctly specifying your country code during installation. The -install script will ask you about it. If you prefer, you can skip by pressing Enter - that will disable this feature. If you do provide the -install script your country code, it will be added to the config file on your machine and the -manage script will read the value and perform the necessary checks, during installation or later when you want to make changes to the blacklist/whitelist.
 
-    As to the 4th scenario, there is not much I can do to prevent it, besides implementing LAN subnets automatic detection and asking you to verify that the detected LAN subnets are correct. Which is what the -install script does. The INSTALL.md file also explains how to do the verification if you don't know how. Read the documentation, follow it and you should be fine. Also note that LAN subnets **may** change in the future, for example if someone changes some config in the router or replaces the router etc. For this reason, when installing the suite for **all** network interfaces, the -install script offers to enable automatic detection of LAN subnets at each periodic update. If for some reason you do not enable this feature, you will need to make the necessary precautions when changing the LAN subnets your remote machine belongs to.
+    As to the 4th scenario, there is not much I can do to prevent it, besides implementing LAN subnets automatic detection and asking you to verify that the detected LAN subnets are correct. Which is what the -install script does. The INSTALL.md file also explains how to do the verification if you don't know how. Read the documentation, follow it and you should be fine. Also note that LAN subnets **may** change in the future, for example if someone changes some config in the router or replaces the router etc. For this reason, when installing the suite for **all** network interfaces, the -install script offers to enable automatic detection of LAN subnets at each periodic update. If for some reason you do not enable this feature, you will need to make the necessary precautions when changing LAN subnets your remote machine belongs to.
 
 </details>
