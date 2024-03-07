@@ -6,7 +6,7 @@
 
 lock_file=\"$lock_file\"
 [ -f \"\$lock_file\" ] && {
-	logger -t \"${p_name}-fw-include.sh\" -p \"user.warn\" \"Lock file \$lock_file exists, refusing to open another instance.\"
+	logger -t \"${p_name}-fw-include.sh\" -p \"user.info\" \"Lock file \$lock_file exists, refusing to open another instance.\"
 	return 0
 }
 
