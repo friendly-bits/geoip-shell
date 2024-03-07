@@ -5,7 +5,7 @@
 
 # nftables-specific library for the -backup script
 
-. "$_lib-nft.sh" || die -u
+. "$_lib-nft.sh" || die
 
 
 #### FUNCTIONS
@@ -49,25 +49,22 @@ rstr_failed() {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
 		call_script "$script_dir/${p_name}-uninstall.sh" -c
 	}
-	die -u
+	die
 }
 
 bk_failed() {
 	rm -f "$tmp_file" "$bk_dir/"*.new 2>/dev/null
-	die -u "$FAIL back up $p_name ip sets."
+	die "$FAIL back up $p_name ip sets."
 }
 
 # Saves current firewall state to a backup file
 create_backup() {
-	set_archive_type
-
 	getconfig Lists lists "$conf_file" -nodie || bk_failed
-	mkdir "$bk_dir" 2>/dev/null
 
 	# back up current ip sets
 	printf %s "Creating backup of $p_name ip sets... "
 	for list_id in $lists; do
-		bk_file="${bk_dir}/${list_id}.${archive_ext:-bak}"
+		bk_file="${bk_dir}/${list_id}.${bk_ext:-bak}"
 		iplist_file="$iplist_dir/${list_id}.iplist"
 		getstatus "$status_file" "PrevDate_${list_id}" list_date || bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
@@ -78,8 +75,8 @@ create_backup() {
 			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
 		[ ! -s "$tmp_file" ] && bk_failed
 
-		[ "$debugmode" ] && backup_len="$(wc -l < "$tmp_file")"
-		debugprint "\n$list_id backup length: $backup_len"
+		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
+		debugprint "\n$list_id backup length: $bk_len"
 
 		$compr_cmd < "$tmp_file" > "${bk_file}.new"; rv=$?
 		[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && bk_failed
