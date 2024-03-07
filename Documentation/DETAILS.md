@@ -21,10 +21,11 @@ This script is only used under specific conditions:
 1. geoip-shell-detect-lan.sh
 
 ### Library Scripts
-- The -common script includes a large number of functions used throughout the suite, and assigns some essential varibles.
+- The -common script includes a large number of functions used throughout the suite, and assigns some essential variables.
+- The -setvars script sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories etc). It is sourced from the -common script. The distribution version stores some initial values. During installation, the -install script creates a new version in the installation directory and adds the required variables to it.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively.
 - When nftables is present during installation, the iptables libraries are not installed.
-- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite won't break.
+- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
 1. geoip-shell-common.sh
 2. lib/geoip-shell-lib-ipt.sh
 3. lib/geoip-shell-lib-nft.sh
