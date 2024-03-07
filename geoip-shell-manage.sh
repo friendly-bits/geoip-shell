@@ -11,10 +11,10 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$_lib-$_fw_backend.sh" || exit 1
-. "$_lib-status-$_fw_backend.sh" || exit 1
+. "$_lib-$_fw_backend.sh" || die
+. "$_lib-status-$_fw_backend.sh" || die
 
-[ "$_OWRT_install" ] && { . "$i_script-owrt-common.sh" || exit 1; }
+[ "$_OWRT_install" ] && { . "$i_script-owrt-common.sh" || die; }
 
 export list_type nolog=1 manmode=1
 
@@ -239,7 +239,7 @@ incoherence_detected() {
 		read -r REPLY
 		case "$REPLY" in
 			[Yy] ) echo; restore_from_config; break ;;
-			[Nn] ) exit 1 ;;
+			[Nn] ) die ;;
 			[Ss] ) printf '\n\n\n%s\n' "$list_type ip lists in the config file: '$config_lists_str'" ;;
 			* ) printf '\n%s\n' "Enter 'y/n/s'."
 		esac
@@ -262,12 +262,12 @@ restore_from_config() {
 		'') echolog -err "$ERR no ip lists registered in the config file." ;;
 		*) call_script "$i_script-uninstall.sh" -l || return 1
 			setconfig "Lists=$config_lists_str"
-			call_script "$run_command" add -l "$config_lists_str"
+			call_script -l "$run_command" add -l "$config_lists_str"
 			check_reapply && return 0
 	esac
 
 	# call the *backup script to initiate recovery from fault
-	call_script "$i_script-backup.sh" restore && check_reapply && return 0
+	call_script -l "$i_script-backup.sh" restore && check_reapply && return 0
 
 	die "$FAIL restore $p_name state from backup. If it's a bug then please report it."
 }
@@ -369,10 +369,10 @@ esac
 #### MAIN
 
 case "$action" in
-	status) report_status; exit 0 ;;
-	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; exit 0 ;;
-	reset) call_script "$i_script-uninstall.sh" -l; exit $? ;;
-	restore) restore_from_config; exit $? ;;
+	status) report_status; die 0 ;;
+	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0 ;;
+	reset) call_script "$i_script-uninstall.sh" -l; die $? ;;
+	restore) restore_from_config; die $? ;;
 	schedule)
 		[ ! "$cron_schedule" ] && { usage; die "Specify cron schedule for autoupdate or 'disable'."; }
 
@@ -380,10 +380,10 @@ case "$action" in
 		setconfig "CronSchedule=$cron_schedule"
 
 		call_script "$i_script-cronsetup.sh" || die "$ERR $FAIL update cron jobs."
-		exit 0
+		die 0
 esac
 
-check_lock
+mk_lock
 
 case "$action" in
 	on|off)
@@ -392,8 +392,8 @@ case "$action" in
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
-		call_script "$i_script-apply.sh" $action || exit 1
-		exit 0
+		call_script "$i_script-apply.sh" $action || die
+		die 0
 esac
 
 check_lists_coherence || incoherence_detected
@@ -479,7 +479,7 @@ if [ "$action" = apply ]; then
 	setports "${ports_arg%"$_nl"}" || die
 	call_script "$i_script-apply.sh" "update"; rv=$?
 else
-	call_script "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
+	call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 fi
 
 # positive return code means apply failure or another permanent error, except for 254
