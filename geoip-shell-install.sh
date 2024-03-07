@@ -17,10 +17,11 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export nolog=1 manmode=1 in_install=1
+export manmode=1 in_install=1
 
 . "$script_dir/$p_name-common.sh" || exit 1
 . "$_lib-ip-regex.sh"
+export nolog=1
 
 san_args "$@"
 newifs "$delim"
@@ -148,15 +149,12 @@ check_files() {
 copyscripts() {
 	for f in $1; do
 		dest="${2:-"$install_dir/${f##*/}"}"
-		# the -common script needs some variables assignments removed
-		[ "$f" = "$p_name-common.sh" ] && _cmd="grep -vE '^(export lib_dir=|export _lib=)'" || _cmd="cat"
-		rv=0
 		{
 			if [ "$_OWRTFW" ]; then
 				# strip comments
-				eval "$_cmd" "$script_dir/$f" | san_script > "$dest"
+				san_script "$script_dir/$f" > "$dest"
 			else
-				eval "$_cmd" "$script_dir/$f" > "$dest"
+				cat "$script_dir/$f" > "$dest"
 			fi
 		} || install_failed "$FAIL copy file '$f' to '$dest'."
 		chown root:root "${dest}" && chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
@@ -468,7 +466,7 @@ detect_lan="${p_name}-detect-lan.sh"
 ipt_libs=
 [ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup common setvars "$ipt_script"; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files $owrt_common_script"
@@ -607,10 +605,10 @@ setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp
 	"TSubnets_ipv4=$t_subnets_ipv4" "TSubnets_ipv6=$t_subnets_ipv6" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 
-# add some variables to the installed -common script
+# set some variables in the installed -setvars script
 printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$lib_dir\"" \
-	"export _lib=\"\$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=$initsys default_schedule=\"$default_schedule\"" >> \
-	"$install_dir/${p_name}-common.sh" || install_failed "$FAIL set variables in the -common script"
+	"export _lib=\"\$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=\"$initsys\" default_schedule=\"$default_schedule\"" > \
+	"${i_script}-setvars.sh" || install_failed "$FAIL set variables in the -setvars script"
 OK
 echo
 
