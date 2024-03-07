@@ -695,6 +695,7 @@ export i_script="$install_dir/${p_name}"
 . "${p_script}-setvars.sh" || die "$FAIL set initial variables."
 init_geoscript
 
+_no_l="$nolog"
 [ ! "$geotag" ] && {
 	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name" _nl='
 '
@@ -710,6 +711,6 @@ init_geoscript
 			{ nolog='' check_deps ipset || die; export _fw_backend=ipt; }
 	} || die "$ERR neither nftables nor iptables found."
 }
-nolog=
+r_no_l
 
 :
