@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 . "$script_dir/${p_name}-common.sh" || exit 1
-. "$_lib-$_fw_backend.sh" || exit 1
+. "$_lib-$_fw_backend.sh" || die
 
 check_root
 
@@ -64,17 +64,16 @@ while getopts ":l:aodh" opt; do
 done
 shift $((OPTIND-1))
 
-extra_args "$@"
-
 setdebug
-
 debugentermsg
+
+extra_args "$@"
 
 daemon_prep_next() {
 	echolog "Retrying in $secs seconds"
 	sleep $secs
-	ok_lists="$ok_lists$lists "
-	san_str -s lists "$failed_lists $missing_lists"
+	ok_lists="$ok_lists$fetched_lists "
+	san_str -s lists_fetch "$failed_lists $missing_lists"
 }
 
 #### VARIABLES
@@ -134,7 +133,7 @@ case "$action_run" in
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove ;;
 	restore)
-		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0 -u; }
+		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" ]; then
 			echolog "$p_name was installed with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
@@ -146,7 +145,7 @@ case "$action_run" in
 				nobackup=1
 			else
 				echolog -err "Restore from backup failed. Changing action to 'update'."
-				rm_all_georules || die -u "$FAIL remove firewall rules."
+				rm_all_georules || die "$FAIL remove firewall rules."
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
 			fi
@@ -162,12 +161,12 @@ attempt=0 secs=4 ok_lists='' missing_lists=
 while true; do
 	attempt=$((attempt+1))
 	secs=$((secs+1))
-	[ "$daemon_mode" ] && [ $attempt -gt $max_attempts ] && die -u "Giving up."
+	[ "$daemon_mode" ] && [ $attempt -gt $max_attempts ] && die "Giving up."
 
 	### Fetch ip lists
 
 	if [ "$action_apply" = add ]; then
-		[ ! "$lists" ] && { usage; die -u "$ERR no list id's were specified!"; }
+		[ ! "$lists" ] && { usage; die "$ERR no list id's were specified!"; }
 
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 		setstatus "$status_file" "FailedLists=$lists"
@@ -176,13 +175,13 @@ while true; do
 
 		# read *fetch results from the status file
 		getstatus "$status_file" FailedLists failed_lists &&
-		getstatus "$status_file" FetchedLists lists || die -u
+		getstatus "$status_file" FetchedLists fetched_lists || die
 
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 			[ "$action_run" = add ] && {
 				set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
-				die 254 "Aborting the action 'add'." -u
+				die 254 "Aborting the action 'add'."
 			}
 			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
 		}
@@ -190,18 +189,18 @@ while true; do
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
 		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && {
 			[ "$daemon_mode" ] && { daemon_prep_next; continue; } ||
-				die 254 "All fetch attempts failed." -u
+				die 254 "All fetch attempts failed."
 		}
 	fi
 
 
 	### Apply ip lists
 
-	san_str -s lists "$lists $ok_lists"
+	san_str -s lists "$fetched_lists $ok_lists"
 	apply_rv=0
 	case "$action_run" in update|add|remove)
 		[ ! "$lists" ] && {
-			echolog "Firewall reconfiguration isn't required."; die 0 -u
+			echolog "Firewall reconfiguration isn't required."; die 0
 		}
 
 		call_script "$i_script-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
@@ -209,9 +208,9 @@ while true; do
 
 		case "$apply_rv" in
 			0) ;;
-			254) [ "$in_install" ] && die -u
+			254) [ "$in_install" ] && die
 				echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
-			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv" -u
+			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 		esac
 	esac
 
@@ -225,7 +224,7 @@ while true; do
 		for opt in unexpected missing; do
 			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
 		done
-		die -u
+		die
 	fi
 done
 
@@ -241,4 +240,4 @@ case "$failed_lists_cnt" in
 		rv=254
 esac
 
-die "$rv" -u
+die "$rv"
