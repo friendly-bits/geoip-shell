@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046
+# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090
 
 # geoip-shell-common.sh
 
@@ -36,7 +36,7 @@ check_root() {
 }
 
 extra_args() {
-	[ "$*" ] && { usage; echolog "Error in arguments. First unexpected argument: '$1'." >&2; exit 1; }
+	[ "$*" ] && { usage; echolog "Error in arguments. First unexpected argument: '$1'."; die; }
 }
 
 checkutil() {
@@ -119,7 +119,8 @@ call_script() {
 	[ "$use_lock" ] && rm_lock
 	sh "$script_to_call" "$@"; call_rv=$?; export config_var=""
 	debugexitmsg
-	[ "$use_lock" ] && mk_lock
+	[ "$use_lock" ] && mk_lock -f
+	use_lock=
 	return "$call_rv"
 }
 
@@ -192,17 +193,19 @@ debugprint() {
 }
 
 debugentermsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short_cap" ] && return 0
-	printf %s "${yellow}Started *${me_short_cap}* with args: "
-	newifs "$delim" dbn
-	for arg in $_args; do printf %s "'$arg' "; done
-	printf '%s\n' "${n_c}"
+	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
+	{
+		printf %s "${yellow}Started *"; toupper "$me_short"; printf %s "* with args: "
+		newifs "$delim" dbn
+		for arg in $_args; do printf %s "'$arg' "; done
+		printf '%s\n' "${n_c}"
+	} >&2
 	oldifs dbn
 }
 
 debugexitmsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short_cap" ] && return 0
-	printf '%s\n' "${yellow}Back to *$me_short_cap*...${n_c}"
+	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
+	{ printf %s "${yellow}Back to *"; toupper "$me_short"; printf '%s\n' "*...${n_c}"; } >&2
 }
 
 die() {
@@ -218,15 +221,16 @@ die() {
 		*) _err_l=err
 	esac
 
-	unlock='' die_args=''
+	die_args=''
 	for die_arg in "$@"; do
 		case "$die_arg" in
 			-nolog) nolog="1" ;;
-			-u) rm_lock ;;
 			'') ;;
 			*) die_args="$die_args$die_arg$delim"
 		esac
 	done
+
+	[ "$die_unlock" ] && rm_lock
 
 	[ "$die_args" ] && {
 		echo >&2
@@ -661,15 +665,18 @@ check_cron_compat() {
 OK() { echo "Ok."; }
 FAIL() { echo "Failed."; }
 
-mk_lock() { check_lock; touch "$lock_file" || die "$ERR $FAIL set lock '$lock_file'"; nodie=1; }
+mk_lock() {
+	[ "$1" != '-f' ] && check_lock
+	touch "$lock_file" || die "$FAIL set lock '$lock_file'"
+	die_unlock=1
+}
 
 rm_lock() {
-	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null || die "$ERR $FAIL remove lock '$lock_file'"; }
-	nodie=
+	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null; die_unlock=''; }
 }
 
 check_lock() {
-	[ -f "$lock_file" ] && die 254 "Lock file $lock_file exists, refusing to open another instance."
+	[ -f "$lock_file" ] && die 254 "Lock file $lock_file exists, which means $p_name is doing something in the background."
 }
 
 kill_geo_pids() {
@@ -681,12 +688,11 @@ kill_geo_pids() {
 	done
 }
 
-export lock_file="/tmp/$p_name-run.lock"
+export lock_file="/tmp/$p_name.lock"
 export install_dir="/usr/bin" p_script="$script_dir/${p_name}"
 export i_script="$install_dir/${p_name}"
-export lib_dir="$script_dir/lib"
-export _lib="$lib_dir/$p_name-lib"
 
+. "${p_script}-setvars.sh" || die "$FAIL set initial variables."
 init_geoscript
 
 [ ! "$geotag" ] && {
