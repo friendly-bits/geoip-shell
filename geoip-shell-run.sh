@@ -212,12 +212,12 @@ while true; do
 				echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
 			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 		esac
+		echolists=" for lists '$lists'"
 	esac
-
 
 	if check_lists_coherence; then
 		[ "$failed_lists" ] && [ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		echolog "Successfully executed action '$action_run' for lists '$lists'."; break
+		echolog "Successfully executed action '$action_run'$echolists."; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
 		echolog -err "$WARN actual $list_type firewall config differs from the config file!"
