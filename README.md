@@ -122,6 +122,7 @@ _<details><summary>Examples for non-interactive installation options:</summary>_
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
 - **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
+- **POSIX-compliant shell**. Should work on most relatively modern shells, including **bash**, **dash**, **yash** and **ash**. Shells slightly deviating from the POSIX standard should work as well. **ksh** should work (please let me know if you try it) if the `POSIXLY_CORRECT=yes` environment var is set (upcoming geoiop-shell release will set this var automatically). Does **not** work on **tcsh** and **zsh**.
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - OR **iptables** - firewall management utility. Should work with any relatively modern version.
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
