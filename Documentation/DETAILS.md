@@ -107,7 +107,7 @@ Advanced options:
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
 
-`geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
+`geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
