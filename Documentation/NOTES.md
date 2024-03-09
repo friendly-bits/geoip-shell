@@ -2,20 +2,23 @@
 1) Firewall rules structure created by geoip-shell:
     <details> <summary>Read more:</summary>
 
+    ### **iptables**
     - With **iptables**, all firewall rules created by geoip-shell are in the table `mangle`. The reason to use `mangle` is that this table has a built-in chain called `PREROUTING` which is attached to the `prerouting` hook in the netfilter kernel component. Via a rule in this chain, geoip-shell creates one set of rules which applies to all ingress traffic for a given ip family, rather than having to create and maintain separate rules for chains INPUT and FORWARDING which would be possible in the default `filter` table.
     - This also means that any rules you might have in the `filter` table will only see traffic which is allowed by geoip-shell rules, which may reduce the CPU load as a side-effect.
-    - Note that iptables features separate tables for ipv4 and ipv6, hence geoip-shell creates separate rules for each family (unless the user restricts geoip-shell to a certain family during installation).
+    - Note that **iptables** features separate tables for ipv4 and ipv6, hence geoip-shell creates separate rules for each family (unless the user restricts geoip-shell to a certain family during installation).
     - Inside the table `mangle`, geoip-shell creates the custom chain `GEOIP-SHELL` and redirects traffic to it via a rule in the `PREROUTING` chain. geoip-shell calls that rule the "enable" rule which can be removed or re-added on-demand with the commands `geoip-shell on` and `geoip-shell off`. If the "enable" rule is not present, system firewall will act as if all other geoip-shell rules (for a given ip family) are not present.
     - If specific network interfaces were set during installation, the "enable" rule directs traffic to a 2nd custom chain `GEOIP-SHELL_WAN` rather than to the `GEOIP-SHELL` chain. geoip-shell creates rules in the `GEOIP-SHELL_WAN` chain which selectively direct traffic only from the specified network interfaces to the `GEOIP-SHELL` chain.
     - With iptables, geoip-shell removes the "enable" rule before making any changes to the ip sets and rules, and re-adds it once the changes have been successfully made. This is a precaution measure intended to minimize any chance of potential problems. Typically ip list updates do not take more than a few seconds, and on reasonably fast systems less than a second, so the time when geoip blocking is not enabled is typically very brief.
 
+    ### **nftables**
     - With **nftables**, all firewall rules created by geoip-shell are in the table named `geoip-shell`. This includes rules for both ip families and any nftables sets geoip-shell creates. geoip-shell creates 2 chains in that table: `GEOIP-BASE` and `GEOIP-SHELL`. The base chain uses netfilter's `prerouting` hook and has a rule which directs traffic to the `GEOIP-SHELL` chain. That rule is the geoip-shell "enable" rule for nftables-based systems which acts exactly like the "enable" rule in the iptables-based systems, except it applies to both ip families.
-    - nftables allows for more control over which network interfaces each rule applies to, so when certain network interfaces are specified during installation, geoip-shell specifies these interfaces directly in the rules inside the `GEOIP-SHELL` chain, and so (contrary to iptables-based systems) there is no need in an additional chain.
-    - nftables features atomic rules updates, meaning that when issuing multiple nftables commands at once, if any command fails, all changes get cancelled and the system remains in the same state as before. geoip-shell utilizes this feature to completely eliminate time when geoip blocking is disabled during an update of the sets or rules.
+    - **nftables** allows for more control over which network interfaces each rule applies to, so when certain network interfaces are specified during installation, geoip-shell specifies these interfaces directly in the rules inside the `GEOIP-SHELL` chain, and so (contrary to iptables-based systems) there is no need in an additional chain.
+    - **nftables** features atomic rules updates, meaning that when issuing multiple nftables commands at once, if any command fails, all changes get cancelled and the system remains in the same state as before. geoip-shell utilizes this feature to completely eliminate time when geoip blocking is disabled during an update of the sets or rules.
 
-    - With both **nftables** and **iptables**, geoip-shell goes a long way to make sure that firewall rules and ip sets are correct and matching the user-defined config. Automatic corrective mechanisms are implemented which should restore geoip-shell firewall rules in case they do not match the config (which normally should never happen). When uninstalling, geoip-shell removes all its rules, chains and ip sets.
-
+    ### **nftables and iptables**
+    - With both **nftables** and **iptables**, geoip-shell goes a long way to make sure that firewall rules and ip sets are correct and matching the user-defined config. Automatic corrective mechanisms are implemented which should restore geoip-shell firewall rules in case they do not match the config (which normally should never happen).
     - geoip-shell implements rules and ip sets "tagging" to distinguish between its own rules and other rules and sets. This way, geoip-shell never makes any changes to any rules or sets which geoip-shell did not create.
+    - When uninstalling, geoip-shell removes all its rules, chains and ip sets.
 
     </details>
 
