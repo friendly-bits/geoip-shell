@@ -135,7 +135,7 @@ A list id has the format of `<country_code>_<family>`. For example, ****US_ipv4*
 `geoip-shell-apply add -l <"list_ids">` :
 - Loads ip list files for specified list id's into ip sets and applies firewall rules required for geoip blocking.
 
-List id has the format of <country_code>_<family>. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
+List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
 
 `geoip-shell-apply remove -l <"list_ids">` :
 - removes ip sets and geoip firewall rules for specified list id's.
