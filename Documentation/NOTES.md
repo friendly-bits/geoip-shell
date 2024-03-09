@@ -1,11 +1,31 @@
 ## **Notes**
-1) The suite uses RIPE as the default source for ip lists. RIPE is a regional registry, and as such, is expected to stay online and free for the foreseeable future. However, RIPE may be fairly slow in some regions. For that reason, I implemented support for fetching ip lists from ipdeny. ipdeny provides aggregated ip lists, meaning in short that there are less entries for same effective geoip blocking, so the machine which these lists are installed on has to do less work when processing incoming connection requests. All ip lists the suite fetches from ipdeny are aggregated lists.
+1) Firewall rules structure created by geoip-shell:
+    <details> <summary>Read more:</summary>
 
-2) The scripts intended as user interface are: **-install**, **-uninstall**, **-manage** (also called by running '**geoip-shell**' after installation) and **check-ip-in-registry.sh**. The -manage script saves the config to a file and implements coherence checks between that file and the actual firewall state. While you can run the other scripts individually, if you make changes to firewall geoip rules, next time you run the -manage script it may insist on reverting those changes since they are not reflected in the config file. The **-backup** script can be used individually. By default, it creates a backup of geoip-shell state after every successful action involving changes to or updates of the ip lists. If you encounter issues, you can use it with the 'restore' command to restore geoip-shell to its previous state. It also restores the config, so the -manage script will not mind.
+    - With **iptables**, all firewall rules created by geoip-shell are in the table `mangle`. The reason to use `mangle` is that this table has a built-in chain called `PREROUTING` which is attached to the `prerouting` hook in the netfilter kernel component. Via a rule in this chain, geoip-shell creates one set of rules which applies to all ingress traffic for a given ip family, rather than having to create and maintain separate rules for chains INPUT and FORWARDING which would be possible in the default `filter` table.
+    - This also means that any rules you might have in the `filter` table will only see traffic which is allowed by geoip-shell rules, which may reduce the CPU load as a side-effect.
+    - Note that iptables features separate tables for ipv4 and ipv6, hence geoip-shell creates separate rules for each family (unless the user restricts geoip-shell to a certain family during installation).
+    - Inside the table `mangle`, geoip-shell creates the custom chain `GEOIP-SHELL` and redirects traffic to it via a rule in the `PREROUTING` chain. geoip-shell calls that rule the "enable" rule which can be removed or re-added on-demand with the commands `geoip-shell on` and `geoip-shell off`. If the "enable" rule is not present, system firewall will act as if all other geoip-shell rules (for a given ip family) are not present.
+    - If specific network interfaces were set during installation, the "enable" rule directs traffic to a 2nd custom chain `GEOIP-SHELL_WAN` rather than to the `GEOIP-SHELL` chain. geoip-shell creates rules in the `GEOIP-SHELL_WAN` chain which selectively direct traffic only from the specified network interfaces to the `GEOIP-SHELL` chain.
+    - With iptables, geoip-shell removes the "enable" rule before making any changes to the ip sets and rules, and re-adds it once the changes have been successfully made. This is a precaution measure intended to minimize any chance of potential problems. Typically ip list updates do not take more than a few seconds, and on reasonably fast systems less than a second, so the time when geoip blocking is not enabled is typically very brief.
 
-3) Geoip blocking, as well as automatic list updates, is made persistent via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
+    - With **nftables**, all firewall rules created by geoip-shell are in the table named `geoip-shell`. This includes rules for both ip families and any nftables sets geoip-shell creates. geoip-shell creates 2 chains in that table: `GEOIP-BASE` and `GEOIP-SHELL`. The base chain uses netfilter's `prerouting` hook and has a rule which directs traffic to the `GEOIP-SHELL` chain. That rule is the geoip-shell "enable" rule for nftables-based systems which acts exactly like the "enable" rule in the iptables-based systems, except it applies to both ip families.
+    - nftables allows for more control over which network interfaces each rule applies to, so when certain network interfaces are specified during installation, geoip-shell specifies these interfaces directly in the rules inside the `GEOIP-SHELL` chain, and so (contrary to iptables-based systems) there is no need in an additional chain.
+    - nftables features atomic rules updates, meaning that when issuing multiple nftables commands at once, if any command fails, all changes get cancelled and the system remains in the same state as before. geoip-shell utilizes this feature to completely eliminate time when geoip blocking is disabled during an update of the sets or rules.
 
-4) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-e` option. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
+    - With both **nftables** and **iptables**, geoip-shell goes a long way to make sure that firewall rules and ip sets are correct and matching the user-defined config. Automatic corrective mechanisms are implemented which should restore geoip-shell firewall rules in case they do not match the config (which normally should never happen). When uninstalling, geoip-shell removes all its rules, chains and ip sets.
+
+    - geoip-shell implements rules and ip sets "tagging" to distinguish between its own rules and other rules and sets. This way, geoip-shell never makes any changes to any rules or sets which geoip-shell did not create.
+
+    </details>
+
+2) The suite uses RIPE as the default source for ip lists. RIPE is a regional registry, and as such, is expected to stay online and free for the foreseeable future. However, RIPE may be fairly slow in some regions. For that reason, I implemented support for fetching ip lists from ipdeny. ipdeny provides aggregated ip lists, meaning in short that there are less entries for same effective geoip blocking, so the machine which these lists are installed on has to do less work when processing incoming connection requests. All ip lists the suite fetches from ipdeny are aggregated lists.
+
+3) The scripts intended as user interface are: **-install**, **-uninstall**, **-manage** (also called by running '**geoip-shell**' after installation) and **check-ip-in-registry.sh**. The -manage script saves the config to a file and implements coherence checks between that file and the actual firewall state. While you can run the other scripts individually, if you make changes to firewall geoip rules, next time you run the -manage script it may insist on reverting those changes since they are not reflected in the config file. The **-backup** script can be used individually. By default, it creates a backup of geoip-shell state after every successful action involving changes to or updates of the ip lists. If you encounter issues, you can use it with the 'restore' command to restore geoip-shell to its previous state. It also restores the config, so the -manage script will not mind.
+
+4) How to manually check firewall rules created by geoip-shell:
+    - With nftables: `nft -t list table inet geoip-shell`. This will display all geoip-shell rules and sets.
+    - With iptables: `iptables -vL -t mangle` and `ip6tables -vL -t mangle`. This will report all geoip-shell rules. To check ipsets created by geoip-shell, use `ipset list -n | grep geoip-shell`. For a more detailed view, use this command: `ipset list -t`.
 
 5) The run, fetch and apply scripts write to syslog in case an error occurs. The run and fetch scripts also write to syslog upon success. To verify that cron jobs ran successfully, on Debian and derivatives run `cat /var/log/syslog | grep geoip-shell`. On other distributions, you may need to figure out how to access the syslog.
 
@@ -44,21 +64,25 @@
 
     Example: `geoip-shell -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
 
-11) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
+11) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-e` option. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
 
-12) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
+12) Geoip blocking, as well as automatic list updates, is made persistent via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
 
-13) Note that cron jobs will be run as root.
+13) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
 
-14) To test before deployment:
+14) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
+
+15) Note that cron jobs will be run as root.
+
+16) To test before deployment:
     <details> <summary>Read more:</summary>
 
-  - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
-  - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
+    - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
+    - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
 
-</details>
+    </details>
 
-15) How to get yourself locked out of your remote server and how to prevent this:
+17) How to get yourself locked out of your remote server and how to prevent this:
     <details> <summary>Read more:</summary>
 
     There are 4 scenarios where you can lock yourself out of your remote server with this suite:
@@ -71,4 +95,4 @@
 
     As to the 4th scenario, there is not much I can do to prevent it, besides implementing LAN subnets automatic detection and asking you to verify that the detected LAN subnets are correct. Which is what the -install script does. The INSTALL.md file also explains how to do the verification if you don't know how. Read the documentation, follow it and you should be fine. Also note that LAN subnets **may** change in the future, for example if someone changes some config in the router or replaces the router etc. For this reason, when installing the suite for **all** network interfaces, the -install script offers to enable automatic detection of LAN subnets at each periodic update. If for some reason you do not enable this feature, you will need to make the necessary precautions when changing LAN subnets your remote machine belongs to.
 
-</details>
+    </details>
