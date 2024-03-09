@@ -21,9 +21,13 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 ## **Features**
 * Core functionality is creating either a whitelist or a blacklist in the firewall using automatically downloaded ip lists for user-specified countries.
+
 * ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**. Both sources provide updated ip lists for all regions.
+
 * All firewall rules and ip sets required for geoip blocking to work are created during installation.
+
 * After installation, a tool is provided to check geoip status and firewall rules or change geoip-related config, including adding or removing countries, turning geoip on or off etc.
+
 * Implements optional (enabled by default) persistence of geoip blocking across system reboots and automatic updates of the ip lists.
 
 ### **Reliability**:
