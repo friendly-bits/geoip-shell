@@ -58,9 +58,11 @@ After installation, the user interface is provided by running "geoip-shell", whi
 
 ## **Main scripts in detail**
 **geoip-shell-install.sh**
-- Creates system folder structure for scripts, config and data.
-- Copies the scripts to `/usr/bin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell` (or in `/etc/geoip-shell/data` for OpenWrt).
-- Calls the -manage script to set up geoip.
+- Processes command line arguments, then, if needed, asks the user additional questions, then sets the initial config.
+- Creates directories for config and data.
+- Sets permissions for the data directory to be only readable and writable by root. The config directory is currently readable by any local user, writable only by root. While there is no particularly sensitive information stored in the config, an upcoming release will make it only readable by root to further improve security.
+- Copies the scripts to `/usr/bin`, config to `/etc/geoip-shell`, and creates a folder for data in `/var/lib/geoip-shell` (or in `/etc/geoip-shell/data` on OpenWrt).
+- Calls the -manage script to set up geoip (which, in turn, calls additional scripts).
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
 - Installation is possible either fully interactively (no command line arguments required), partially interactively (you provide some command line arguments, the install script processes them and if needed, asks you additional questions), or completely non-interactively by calling the install script with the `-z` option which will force installation failure if any required options are missing or invalid.
 - The -install script does not install itself into the system.
