@@ -115,7 +115,7 @@ Advanced options:
 **geoip-shell-run.sh**: Serves as a proxy to call the -fetch, -apply and -backup scripts with arguments required for each action. Executes the requested actions, depending on the config set by the -install and -manage scripts, and the command line options, and writes to system log when starting and on action completion (or if any errors encountered). If persistence or autoupdates are enabled, the cron jobs (or on OpenWrt, the firewall include script) call this script with the necessary options. If a non-fatal error is encountered during an automatic update function, the script enters sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action which runs after system reboot to impelement persistnece, such as a missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the ip lists.
 
 `geoip-shell-run add -l <"list_id [list_id] ... [list_id]">` : Fetches ip lists, loads them into ip sets and applies firewall rules for specified list id's.
-A list id has the format of <country_code>_<family>. For example, ****US_ipv4** and **GB_ipv6** are valid list id's.
+A list id has the format of `<country_code>_<family>`. For example, ****US_ipv4** and **GB_ipv6** are valid list id's.
 
 `geoip-shell-run remove -l <"list_ids">` : Removes iplists and firewall rules for specified list id's.
 
