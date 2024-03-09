@@ -60,13 +60,13 @@
 
     use `-p [tcp|udp]:block:all`.
 
-    Example: `geoip-shell -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+    Example: `geoip-shell apply -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
 
 10) How to make specific protocol packets bypass geoip blocking:
 
     use `p [tcp|udp]:allow:all`
 
-    Example: `geoip-shell -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
+    Example: `geoip-shell apply -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
 
 11) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-e` option. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
 
