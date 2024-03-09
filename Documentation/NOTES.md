@@ -81,7 +81,7 @@
 16) To test before deployment:
     <details> <summary>Read more:</summary>
 
-    - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the *manage script.
+    - You can run the install script with the "-k" (noblock) option to apply all actions except actually blocking incoming connections. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the command `geoip-shell on`.
     - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
 
     </details>
