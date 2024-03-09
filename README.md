@@ -73,7 +73,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 </details>
 
 ### **Compatibility**:
-- Since the project is written in shell code, it is compatible with virtually every Linux system (as long as it has the pre-requisites).
+- Since the project is written in shell code, it is compatible with virtually every Linux system (as long as it has the pre-requisites). It evens works well on simple embedded routers with 8MB of flash storage and 128MB of memory (for nftables, 256MB is recommended if using large ip lists such as the one for US until the nftables team releases a fix reducing memory consumption).
 
 <details><summary>Read more:</summary>
 
