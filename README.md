@@ -31,7 +31,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 ### **Reliability**:
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
 - Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
-- With nftables, utilizes nftables atomic rules replacement to completely eliminate time when geoip is disabled during an autoupdate.
+- With nftables, utilizes nftables atomic rules replacement to make the interaction with the system firewall fault-tolerant and to completely eliminate time when geoip is disabled during an automatic update.
 
 <details> <summary>Read more:</summary>
 
