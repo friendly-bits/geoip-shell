@@ -527,28 +527,27 @@ unset failed_lists fetched_lists
 #### Checks
 
 set -- $dl_src
-case "$2" in *?*) usage; die "Specify only one download source."; esac
+case "$2" in *?*) die "Specify only one download source."; esac
 
 [ ! "$dl_src" ] && die "$ERR '\$dl_src' variable should not be empty!"
 
 # debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
-case "$invalid_source" in *?*) usage; die "Invalid source: '$invalid_source'"; esac
+case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
 
 # check that either $iplist_dir or $output_file is set
 [ ! "$iplist_dir" ] && [ ! "$output_file" ] &&
-	{ usage; die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."; }
+	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
 # ... but not both
-[ "$iplist_dir" ] && [ "$output_file" ] &&
-	{ usage; die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."; }
+[ "$iplist_dir" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
 
-case "$lists_arg" in '') usage; die "Specify country code/s!"; esac
+case "$lists_arg" in '') die "Specify country code/s!"; esac
 fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 
 
 # if $output_file is set, make sure that no more than 1 list is specified
 [ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
-		{ usage; die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."; }
+		die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
 [ "$iplist_dir" ] && [ ! -d "$iplist_dir" ] &&
 	die "$ERR Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
