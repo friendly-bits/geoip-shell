@@ -151,8 +151,6 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 `geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
 
-**geoip-shell-common.sh** : Library of common functions and variables for geoip-shell.
-
 **check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
 
 `sh check-ip-in-source.sh -c <country_code> -i <"ip [ip] [ip] ... [ip]"> [-u <source>]`
