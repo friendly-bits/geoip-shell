@@ -48,10 +48,6 @@ These are only installed on OpenWrt systems. The .tpl files are "templates" whic
 3. geoip-shell-owrt-mk-fw-include.tpl
 2. geoip-shell-owrt-fw-include.tpl
 
-### Optional script
-This one is intended for checks before installation. It does not get installed.
-1. check-ip-in-source.sh
-
 ### User interface
 The scripts intended as user interface are **geoip-shell-install.sh**, **geoip-shell-uninstall.sh**, **geoip-shell-manage.sh** and **check-ip-in-source.sh**. All the other scripts are intended as a back-end. If you just want to install and move on, you only need to run the -install script.
 After installation, the user interface is provided by running "geoip-shell", which is a symlink to the -manage script.
@@ -149,7 +145,10 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 `geoip-shell-backup create-backup` : Creates a backup of the current firewall state and geoip blocking config.
 
-`geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
+`geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence, and under certain fault conditions for automatic recovery.
+
+### Optional script
+This script is intended for checks before installation. It does not get installed.
 
 **check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
 
