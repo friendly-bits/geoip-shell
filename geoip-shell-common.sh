@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090
+# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2006,SC2010,SC2181,SC3040
 
 # geoip-shell-common.sh
 
@@ -15,15 +15,47 @@ setdebug() {
 	export debugmode="${debugmode_args:-$debugmode}"
 }
 
+# prints a debug message
+debugprint() {
+	[ ! "$debugmode" ] && return
+	__nl=
+	dbg_args="$*"
+	case "$dbg_args" in "\n"* )
+		__nl="$_nl"
+		dbg_args="${dbg_args#"\n"}"
+	esac
+
+	printf '%s\n' "${__nl}Debug: ${me_short}: $dbg_args" >&2
+}
+
+debugentermsg() {
+	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
+	{
+		printf %s "${yellow}Started *"; toupper "$me_short"; printf %s "* with args: "
+		newifs "$delim" dbn
+		for arg in $_args; do printf %s "'$arg' "; done
+		printf '%s\n' "${n_c}"
+	} >&2
+	oldifs dbn
+}
+
+debugexitmsg() {
+	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
+	{ printf %s "${yellow}Back to *"; toupper "$me_short"; printf '%s\n' "*...${n_c}"; } >&2
+}
+
+# sets some variables for colors and ascii delimiter
 set_ascii() {
 	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \t')
 	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" trim_IFS=" $8"
 }
 
+# set IFS to $1 while saving its previous value to variable tagged $2
 newifs() {
 	eval "IFS_OLD_$2"='$IFS'; IFS="$1"
 }
 
+# restore IFS value from variable tagged $1
 oldifs() {
 	eval "IFS=\"\$IFS_OLD_$1\""
 }
@@ -31,12 +63,12 @@ oldifs() {
 check_root() {
 	[ "$root_ok" ] && return 0
 	case "$(id -u)" in 0) export root_ok="1" ;; *)
-		die "$ERR $me needs to be run as root."
+		die "$me needs to be run as root."
 	esac
 }
 
 extra_args() {
-	[ "$*" ] && { usage; echolog "Error in arguments. First unexpected argument: '$1'."; die; }
+	[ "$*" ] && { usage; echolog -err "Invalid arguments. First unexpected argument: '$1'."; die; }
 }
 
 checkutil() {
@@ -62,27 +94,42 @@ unknownact() {
 	case "$action" in
 		"-h") usage; exit 0 ;;
 		'') usage; die "$specifyact" ;;
-		*) usage; die "$ERR Unknown action: '$action'." "$specifyact"
+		*) usage; die "Unknown action: '$action'." "$specifyact"
 	esac
 }
 
+# asks the user to pick an option
+# $1 - input in the format 'a|b|c'
+# output via the $REPLY var
 pick_opt() {
-	opts=''
-	newifs '|' gr
-	for opt in $1; do
-		opt_c="$(toupper "$opt")"
-		opts="$opts$opt|$opt_c|"
-	done
-	opts="${opts%|}"
-	oldifs gr
+	_opts="$1|$(toupper "$1")"
 	while true; do
 		printf %s "$1: "
 		read -r REPLY
 		eval "case \"$REPLY\" in
-				$opts) return ;;
+				$_opts) return ;;
 				*) printf '\n%s\n\n' \"Please enter $1\"
 			esac"
 	done
+}
+
+# 1 - key
+# 2 - value to add
+add2config_entry() {
+	getconfig "$1" a2c_e
+	is_included "$2" "$a2c_e" && return 0
+	add2list a2c_e "$2"
+	setconfig "$1" "$a2c_e"
+}
+
+# checks if $1 is alphanumeric
+# optional '-n' in $2 silences error messages
+is_alphanum() {
+	case "$1" in *[!A-Za-z0-9_]* )
+		[ "$2" != '-n' ] && echolog -err "Invalid string '$1'. Use alphanumerics and underlines."
+		return 1
+	esac
+	:
 }
 
 # counts elements in input
@@ -124,19 +171,10 @@ call_script() {
 	return "$call_rv"
 }
 
-# sets some strings for debug and logging
-init_geoscript(){
-	: "${me:="${0##*/}"}"
-	me_short="${me#"${p_name}-"}"
-	me_short="${me_short%.sh}"
-	me_short_cap="$(toupper "$me_short")"
-	set -f
-}
-
 check_deps() {
-	missing_deps=''
+	missing_deps=
 	for dep; do ! checkutil "$dep" && missing_deps="${missing_deps}'$dep', "; done
-	[ "$missing_deps" ] && { echolog -err "$ERR missing dependencies: ${missing_deps%, }"; return 1; }
+	[ "$missing_deps" ] && { echolog -err "missing dependencies: ${missing_deps%, }"; return 1; }
 	:
 }
 
@@ -145,14 +183,15 @@ get_json_lines() {
 }
 
 # outputs args to stdout and writes them to syslog
-# if one of the args is "-err" then redirect output to stderr
+# if one of the args is '-err' or '-warn' then redirect output to stderr
 echolog() {
-	unset msg_args __nl
+	unset msg_args __nl msg_prefix
 
-	highlight="$blue"; msg_type=info
+	highlight="$blue"; err_l=info
 	for arg in "$@"; do
 		case "$arg" in
-			"-err" ) highlight="$yellow"; msg_type=err ;;
+			"-err" ) highlight="$red"; err_l=err; msg_prefix="$ERR" ;;
+			"-warn" ) highlight="$yellow"; err_l=warn; msg_prefix="$WARN" ;;
 			'') ;;
 			* ) msg_args="$msg_args$arg$delim"
 		esac
@@ -169,43 +208,14 @@ echolog() {
 
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${__nl}$highlight$me_short$n_c: $arg"
-			case "$msg_type" in
+			_msg="${__nl}$highlight$me_short$n_c: $msg_prefix $arg"
+			case "$err_l" in
 				info) printf '%s\n' "$_msg" ;;
-				err) printf '%s\n' "$_msg" >&2
+				err|warn) printf '%s\n' "$_msg" >&2
 			esac
 		}
-		[ ! "$nolog" ] && logger -t "$me" -p user."$msg_type" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+		[ ! "$nolog" ] && logger -t "$me" -p user."$err_l" "$(printf %s " $msg_prefix $arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 	done
-}
-
-# prints a debug message
-debugprint() {
-	[ ! "$debugmode" ] && return
-	__nl=
-	dbg_args="$*"
-	case "$dbg_args" in "\n"* )
-		__nl="$_nl"
-		dbg_args="${dbg_args#"\n"}"
-	esac
-
-	printf '%s\n' "${__nl}Debug: ${me_short}: $dbg_args" >&2
-}
-
-debugentermsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
-	{
-		printf %s "${yellow}Started *"; toupper "$me_short"; printf %s "* with args: "
-		newifs "$delim" dbn
-		for arg in $_args; do printf %s "'$arg' "; done
-		printf '%s\n' "${n_c}"
-	} >&2
-	oldifs dbn
-}
-
-debugexitmsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
-	{ printf %s "${yellow}Back to *"; toupper "$me_short"; printf '%s\n' "*...${n_c}"; } >&2
 }
 
 die() {
@@ -215,13 +225,13 @@ die() {
 		* ) die_rv="$1"; shift
 	esac
 
+	unset msg_type die_args
 	case "$die_rv" in
 		0) _err_l=notice ;;
-		254) _err_l=warn ;;
-		*) _err_l=err
+		254) _err_l=warn; msg_type="-warn" ;;
+		*) _err_l=err; msg_type="-err"
 	esac
 
-	die_args=''
 	for die_arg in "$@"; do
 		case "$die_arg" in
 			-nolog) nolog="1" ;;
@@ -233,11 +243,9 @@ die() {
 	[ "$die_unlock" ] && rm_lock
 
 	[ "$die_args" ] && {
-		echo >&2
 		newifs "$delim" die
 		for arg in $die_args; do
-			printf '%s\n' "$yellow$me_short$n_c: $arg" >&2
-			[ ! "$nolog" ] && logger -t "$me" -p "user.$_err_l" "$(printf %s "$arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+			echolog "$msg_type" "$arg"
 		done
 		oldifs die
 	}
@@ -247,11 +255,10 @@ die() {
 # 1 - key
 # 2 - var name for output
 # 3 - optional path to config file
-# 4 - optional '-nodie'
 getconfig() {
 	getconfig_failed() {
-		eval "$outvar_gc"=''
-		[ ! "$nodie" ] && die "$ERR $FAIL read value for '$key_conf' from file '$target_file'."
+		eval "$outvar_gc="
+		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
 	}
 
 	read_conf() {
@@ -262,8 +269,6 @@ getconfig() {
 	key_conf="$1"
 	outvar_gc="$2"
 	target_file="${3:-$conf_file}"
-	nodie=''
-	[ "$4" = "-nodie" ] && nodie=1
 	[ ! "$key_conf" ] || [ ! "$target_file" ] && { getconfig_failed; return 1; }
 
 	# re-use existing $config_var if possible
@@ -282,18 +287,22 @@ getconfig() {
 	:
 }
 
+# converts unsigned integer to either [x|xK|xM|xT|xQ] or [xB|xKiB|xMiB|xTiB|xPiB], depending on $2
+# if result is not an integer, outputs up to 2 digits after decimal point
 # 1 - int
 # 2 - (optional) "bytes"
 num2human() {
-	i=${1:-0} s=0
+	i=${1:-0} s=0 d=0
+	case "$2" in bytes) m=1024 ;; '') m=1000 ;; *) return 1; esac
+	case "$i" in *[!0-9]*) echolog -err "num2human: Invalid unsigned integer '$i'."; return 1; esac
 	for S in B KiB MiB TiB PiB; do
-		[ $((i > 1024 && s < 4)) = 0 ] && break
+		[ $((i > m && s < 4)) = 0 ] && break
 		d=$i
-		i=$((i / 1024))
-		s=$((s + 1))
+		i=$((i/m))
+		s=$((s+1))
 	done
-	[ "$2" != bytes ] && { S=${S%B}; S=${S%i}; }
-	d=$((d % 1024 * 100 / 1024))
+	[ -z "$2" ] && { S=${S%B}; S=${S%i}; [ "$S" = P ] && S=Q; }
+	d=$((d % m * 100 / m))
 	case $d in
 		0) printf "%s%s\n" "$i" "$S"; return ;;
 		[1-9]) f="02" ;;
@@ -302,15 +311,17 @@ num2human() {
 	printf "%s.%${f}d%s\n" "$i" "$d" "$S"
 }
 
+# primitive alternative to grep
 # 1 - input
-# 2 - leading '*' wildcard (if required)
+# 2 - leading '*' wildcard (if required, otherwise use empty string)
 # 3 - filter string
-# 4 - trailing '*' wildcard (if required)
+# 4 - trailing '*' wildcard (if required, otherwise use empty string)
 # 5 - optional var name for output
 # outputs the 1st match
+# return status is 0 for match, 1 for no match
 get_matching_line() {
 	newifs "$_nl" gml
-	_rv=1; _res=''
+	_rv=1; _res=
 	for _line in $1; do
 		case "$_line" in $2"$3"$4) _res="$_line"; _rv=0; break; esac
 	done
@@ -325,8 +336,8 @@ get_matching_line() {
 # 3 - var name for output
 getstatus() {
 	target_file="$1"
-	[ ! "$target_file" ] && die "$ERR getstatus: target file not specified!" ||
-		getconfig "$2" "status_value" "$target_file" "-nodie"; rv_gs=$?
+	[ ! "$target_file" ] && die "getstatus: target file not specified!" ||
+		nodie=1 getconfig "$2" "status_value" "$target_file"; rv_gs=$?
 	eval "$3"='$status_value'
 	return $rv_gs
 }
@@ -334,7 +345,7 @@ getstatus() {
 # Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
-	unset args_lines args_target_file keys_test_str newconfig nodie
+	unset args_lines args_target_file keys_test_str newconfig
 	IFS_OLD_sc="$IFS"
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
@@ -368,12 +379,12 @@ setconfig() {
 	done
 	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
 	oldifs sc
-	export config_var=''
+	export config_var=
 	:
 }
 
 sc_failed() {
-	echolog -err "setconfig: $ERR $1"
+	echolog -err "setconfig: $1"
 	[ ! "$nodie" ] && die
 }
 
@@ -383,23 +394,47 @@ sc_failed() {
 setstatus() {
 	target_file="$1"
 	shift 1
-	[ ! "$target_file" ] && { echolog -err "setstatus: $ERR target file not specified!"; [ ! "$nodie" ] && die; return 1; }
+	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file"
 	setconfig "target_file=$target_file" "$@"
 }
 
-# 1 - var name
-# (optional) 2 - string
+# trims leading, trailing and extra in-between spaces
+# 1 - output var name
+# input via $2, if unspecified then from previous value of $1
 trimsp() {
 	trim_var="$1"
 	newifs "$trim_IFS" trim
-	case "$2" in '') eval "set -- \$$1" ;; *) set -- $2; esac
+	case "$#" in 1) eval "set -- \$$1" ;; *) set -- $2; esac
 	eval "$trim_var"='$*'
 	oldifs trim
 }
 
-# 0 - optional -s to delimit by ' '
+# checks if string $1 is included in list $2, with optional field separator $3 (otherwise uses whitespace)
+# result via return status
+is_included() {
+	_fs_ii="${3:- }"
+	case "$2" in "$1"|"$1$_fs_ii"*|*"$_fs_ii$1"|*"$_fs_ii$1$_fs_ii"*) return 0 ;; *) return 1; esac
+}
+
+# adds a string to a list if it's not included yet
+# 1 - name of var which contains the list
+# 2 - new value
+# 3 - optional delimiter (otherwise uses whitespace)
+# returns 2 if value was already included, 1 if bad var name, 0 otherwise
+add2list() {
+	is_alphanum "$1" || return 1
+	a2l_fs="${3:- }"
+	eval "_curr_list=\"\$$1\""
+	is_included "$2" "$_curr_list" "$a2l_fs" && return 2
+	eval "$1=\"\${$1}$a2l_fs$2\"; $1=\"\${$1#$a2l_fs}\""
+	return 0
+}
+
+# removes duplicate words, removes leading and trailing delimiter, trims in-between extra delimiter characters
+# by default expects a newline-delimited list
+# (1) - optional -s to delimit both input and output by whitespace
 # 1 - var name for output
 # 2 - optional input string (otherwise uses prev value)
 # 3 - optional input delimiter
@@ -413,55 +448,61 @@ san_str() {
 	_words=
 	newifs "$_sid" san
 	for _w in $inp_str; do
-		case "$_words" in "$_w"|"$_w$_sod"*|*"$_sod$_w"|*"$_sod$_w$_sod"*) ;; *) _words="$_words$_w$_sod"; esac
+		add2list _words "$_w" "$_sod"
 	done
-	eval "$1"='${_words%$_sod}'
+	eval "$1"='$_words'
 	oldifs san
 }
 
+# get intersection of lists $1 and $2, with optional field separator $4 (otherwise uses newline)
+# output via variable with name $3
 get_intersection() {
-	[ ! "$1" ] || [ ! "$2" ] && { eval "$3"=''; return 1; }
-	_fs="${4:-"$_nl"}"
-	_intersect=''
+	[ ! "$1" ] || [ ! "$2" ] && { unset "$3"; return 1; }
+	_fs_gi="${4:-"$_nl"}"
+	_isect=
+	newifs "$_fs_gi" _fs_gi
 	for e in $2; do
-		case "$1" in "$e"|"$e$_fs"*|*"$_fs$e"|*"$_fs$e$_fs"*)
-			case "$_intersect" in
-				"$e"|"$e$_fs"*|*"$_fs$e"|*"$_fs$e$_fs"*) ;;
-				*) _intersect="$_intersect$e$_fs"
-			esac
-		esac
+		is_included "$e" "$1" "$_fs_gi" && add2list _isect "$e" "$_fs_gi"
 	done
-	eval "$3"='${_intersect%$_fs}'
+	eval "$3"='$_isect'
+	oldifs _fs_gi
 }
 
+# get difference between lists $1 and $2, with optional field separator $4 (otherwise uses newline)
+# output via variable with name $3
 get_difference() {
 	case "$1" in
-		'') case "$2" in '') eval "$3"=''; return 1 ;; *) eval "$3"='$2'; return 0; esac ;;
+		'') case "$2" in '') unset "$3"; return 1 ;; *) eval "$3"='$2'; return 0; esac ;;
 		*) case "$2" in '') eval "$3"='$1'; return 0; esac
 	esac
 	_fs_gd="${4:-"$_nl"}"
-	subtract_a_from_b "$1" "$2" "_diff1"
-	subtract_a_from_b "$2" "$1" "_diff2"
-	_diff="$_diff1$_diff2"
+	subtract_a_from_b "$1" "$2" "_diff1" "$_fs_gd"
+	subtract_a_from_b "$2" "$1" "_diff2" "$_fs_gd"
+	_diff="$_diff1$_fs_gd$_diff2"
+	_diff="${_diff#"$_fs_gd"}"
 	eval "$3"='${_diff%$_fs_gd}'
 }
 
+# subtract list $1 from list $2, with optional field separator $4 (otherwise uses newline)
+# output via variable with name $3
+# returns status 0 if lists match, 1 if not
 subtract_a_from_b() {
-	case "$2" in '') eval "$3"=''; return 0; esac
-	case "$1" in '') eval "$3"='$2'; return 0; esac
+	case "$2" in '') unset "$3"; return 0; esac
+	case "$1" in '') eval "$3"='$2'; [ ! "$2" ]; return; esac
 	_fs_su="${4:-"$_nl"}"
-	_diff=''
+	rv_su=0 _subt=
+	newifs "$_fs_su" _fs_su
 	for e in $2; do
-		case "$1" in "$e"|"$e$_fs_su"*|*"$_fs_su$e"|*"$_fs_su$e$_fs_su"*) ;; *)
-			case "$_diff" in
-				"$e"|"$e$_fs_su"*|*"$_fs_su$e"|*"$_fs_su$e$_fs_su"*) ;;
-				*) _diff="$_diff$e$_fs_su"
-			esac
-		esac
+		is_included "$e" "$1" "$_fs_su" || { add2list _subt "$e" "$_fs_su"; rv_su=1; }
 	done
-	eval "$3"='${_diff%$_fs_su}'
+	eval "$3"='$_subt'
+	oldifs _fs_su
+	return $rv_su
 }
 
+# converts whitespace-separated list to newline-separated list
+# 1 - var name for output
+# input via $2, if not specified then uses current value of $1
 sp2nl() {
 	var_stn="$1"
 	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
@@ -472,6 +513,9 @@ sp2nl() {
 	oldifs stn
 }
 
+# converts newline-separated list to whitespace-separated list
+# 1 - var name for output
+# input via $2, if not specified then uses current value of $1
 nl2sp() {
 	var_nts="$1"
 	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
@@ -483,16 +527,17 @@ nl2sp() {
 }
 
 # trims extra whitespaces, discards empty args
+# output via variable '_args'
 # output string is delimited with $delim
 san_args() {
-	_args=''
+	_args=
 	for arg in "$@"; do
 		trimsp arg
 		[ "$arg" ] && _args="$_args$arg$delim"
 	done
 }
 
-# resets the nolog var to prev value
+# restores the nolog var prev value
 r_no_l() { nolog="$_no_l"; }
 
 # checks whether current ipsets and iptables rules match ones in the config file
@@ -502,27 +547,27 @@ check_lists_coherence() {
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
-	case "$list_type" in whitelist|blacklist) ;; *) die "$ERR Unexpected geoip mode '$list_type'!"; esac
+	case "$list_type" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$list_type'!"; esac
 
 	unset unexp_lists missing_lists
-	getconfig "Lists" config_lists
-	sp2nl config_lists
+	getconfig "Lists" conf_lists
+	sp2nl conf_lists
 	force_read_geotable=1
 	get_active_iplists active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
-		echolog -err "$WARN ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
+		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		r_no_l
 		return 1
 	}
 	force_read_geotable=
 
-	get_difference "$active_lists" "$config_lists" lists_difference
+	get_difference "$active_lists" "$conf_lists" lists_difference
 	case "$lists_difference" in
 		'') debugprint "Successfully verified ip lists coherence."; r_no_l; return 0 ;;
-		*) nl2sp active_l_str "$active_lists"; nl2sp config_l_str "$config_lists"
+		*) nl2sp active_l_str "$active_lists"; nl2sp config_l_str "$conf_lists"
 			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
-			subtract_a_from_b "$config_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
-			subtract_a_from_b "$active_lists" "$config_lists" missing_lists; nl2sp missing_lists
+			subtract_a_from_b "$conf_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
+			subtract_a_from_b "$active_lists" "$conf_lists" missing_lists; nl2sp missing_lists
 			r_no_l
 			return 1
 	esac
@@ -536,7 +581,7 @@ validate_ccode() {
 	cca2_path="${2:-"$script_dir/cca2.list"}"
 	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
 	case "$ccode_list" in
-		'') printf '%s\n' "$ERR \$ccode_list variable is empty. Perhaps cca2.list is missing?" >&2; return 1 ;;
+		'') echolog -err "\$ccode_list variable is empty. Perhaps cca2.list is missing?"; return 1 ;;
 		*" $1 "*) return 0 ;;
 		*) return 2
 	esac
@@ -548,7 +593,7 @@ detect_ifaces() {
 	[ -r "/proc/net/dev" ] && sed -n '/^[[:space:]]*[^[:space:]]*:/{s/^[[:space:]]*//;s/:.*//p}' < /proc/net/dev | grep -vx 'lo'
 }
 
-# format: '-p [tcp|udp]:[allow|block]:[ports]'
+# format: '[tcp|udp]:[allow|block]:[ports]'
 setports() {
 	invalid_str() { usage; echolog -err "Invalid string '$1'."; }
 	check_edge_chars() {
@@ -575,7 +620,7 @@ setports() {
 			_ports="${_ports%"$p_delim"},"
 			case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && { invalid_str "$_range"; return 1; }; esac
 		done
-		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "$ERR no ports specified for protocol $_proto."; return 1; }
+		[ "$ranges_cnt" = 0 ] && { usage; echolog -err "no ports specified for protocol $_proto."; return 1; }
 		_ports="${_ports%,}"
 
 		[ "$_fw_backend" = ipt ] && {
@@ -608,11 +653,11 @@ setports() {
 		case "$proto_act" in
 			allow) neg='' ;;
 			block) neg="$_neg" ;;
-			*) { usage; echolog -err "$ERR expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
+			*) { usage; echolog -err "expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
 		esac
 		# check for valid protocol
 		case $_proto in
-			udp|tcp) case "$reg_proto" in *"$_proto"*) usage; echolog -err "$ERR can't add protocol '$_proto' twice"; return 1; esac
+			udp|tcp) case "$reg_proto" in *"$_proto"*) usage; echolog -err "can't add protocol '$_proto' twice"; return 1; esac
 				reg_proto="$reg_proto$_proto " ;;
 			*) usage; echolog -err "Unsupported protocol '$_proto'."; return 1
 		esac
@@ -636,14 +681,15 @@ setports() {
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
 	# check if cron service is enabled
-	unset cron_rv cron_reboot
-	case "$initsys" in
-		systemd ) (systemctl is-enabled cron.service || systemctl is-enabled crond.service) 1>/dev/null 2>/dev/null; cron_rv=$?
-	esac
+	cron_rv=1 cron_reboot=
+	[ "$initsys" = systemd ] &&
+			{ systemctl is-enabled cron.service || systemctl is-enabled crond.service; } 1>/dev/null 2>/dev/null && cron_rv=0
 	# check for cron or crond in running processes
-	[ "$cron_rv" != 0 ] && if ! pidof cron 1>/dev/null && ! pidof crond 1>/dev/null; then cron_rv=1; else cron_rv=0; fi
+	[ "$cron_rv" != 0 ] && { pidof cron || pidof crond; } 1>/dev/null && cron_rv=0
+
+	cron_cmd="$(command -v crond || command -v cron)" || cron_rv=1
 	export cron_rv
-	cron_cmd="$(command -v crond || command -v cron)"
+	# check for busybox cron
 	[ "$cron_cmd" ] && case "$(ls -l "$cron_cmd")" in *busybox*) ;; *) export cron_reboot=1; esac
 
 	return "$cron_rv"
@@ -655,9 +701,10 @@ check_cron_compat() {
 	[ "$no_persist" ] || [ "$_OWRTFW" ] && no_cr_persist=1
 	if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ] ; then
 		# check cron service
-		check_cron || die "$ERR cron is not running." "Enable the cron service before using this script." \
+		check_cron || die "cron is not running." "Enable and start the cron service before using this script." \
 				"Or install $p_name with option$cr_p1 '-s disable' which will disable ${cr_p2}autoupdates."
-		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] && die "$ERR cron-based persistence doesn't work with Busybox cron." \
+		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] &&
+			die "cron-based persistence doesn't work with Busybox cron." \
 			"If you want to install without persistence support, install with option '-n'"
 	fi
 }
@@ -668,11 +715,12 @@ FAIL() { echo "Failed."; }
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
 	touch "$lock_file" || die "$FAIL set lock '$lock_file'"
+	nodie=1
 	die_unlock=1
 }
 
 rm_lock() {
-	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null; die_unlock=''; }
+	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null; unset nodie die_unlock; }
 }
 
 check_lock() {
@@ -688,29 +736,63 @@ kill_geo_pids() {
 	done
 }
 
-export lock_file="/tmp/$p_name.lock"
-export install_dir="/usr/bin" p_script="$script_dir/${p_name}"
-export i_script="$install_dir/${p_name}"
-
-. "${p_script}-setvars.sh" || die "$FAIL set initial variables."
-init_geoscript
-
-_no_l="$nolog"
-[ ! "$geotag" ] && {
-	export geotag="$p_name" LC_ALL=C conf_dir="/etc/$p_name" _nl='
+export install_dir="/usr/bin" conf_dir="/etc/$p_name" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
 '
-	export geochain="$(toupper "$geotag")" conf_file="$conf_dir/$p_name.conf" default_IFS=" 	$_nl"
+export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="      $_nl"
+export lock_file="/$conf_dir/$p_name.lock" conf_file="$conf_dir/$p_name.conf" i_script="$install_dir/${p_name}"
+
+valid_sources="ripe ipdeny local"
+geosources="ripe ipdeny"
+valid_families="ipv4 ipv6"
+
+# set some vars for debug and logging
+: "${me:="${0##*/}"}"
+me_short="${me#"${p_name}-"}"
+me_short="${me_short%.sh}"
+_no_l="$nolog"
+
+set -f
+
+if [ -z "$geotag" ]; then
+	# not assuming a compatible shell at this point
+	# check for supported grep
+	_no_grep="Error: grep not found."
+	command -v grep >/dev/null || { echo "$_no_grep" >&2; exit 1; }
+	if [ $? != 0 ]; then echo "$_no_grep" >&2; exit 1; fi
+	_g_test=`echo 0112 | grep -oE '1{2}'`
+	if [ "$_g_test" != 11 ]; then echo "Error: grep doesn't support the required options." >&2; exit 1; fi
+
+	# check for supported shell
+	if command -v readlink >/dev/null; then
+		curr_shell=`readlink /proc/$$/exe`
+	else
+		curr_shell=`ls -l /proc/$$/exe | grep -oE '/[^[:space:]]+$'`
+	fi
+	ok_shell=`echo $curr_shell | grep -E '/(bash|dash|yash|ash|busybox)'`
+	if [ -z "$curr_shell" ]; then
+		echo "Warning: failed to identify current shell. $p_name may not work correctly. Please notify the developer." >&2
+	elif [ -z "$ok_shell" ]; then
+		bad_shell=`echo $curr_shell | grep -E 'zsh|csh'`
+		if [ -n "$bad_shell" ]; then echo "Error: unsupported shell $curr_shell." >&2; exit 1; fi
+		echo "Warning: whether $p_name works with your shell $curr_shell is currently unknown. Please test and notify the developer." >&2
+	fi
+
+	# check for proc
+	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
+
+	# export some vars
 	set_ascii
+	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 
-	check_deps tr cut sort wc awk sed grep logger pgrep || die
-	nolog=1
-	{ check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
-	{
-		check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null &&
-			{ nolog='' check_deps ipset || die; export _fw_backend=ipt; }
-	} || die "$ERR neither nftables nor iptables found."
-}
-r_no_l
+	. "${p_script}-setvars.sh" || { logger -s -t "$me" -p user.err "Failed to set initial variables."; exit 1; }
+
+	# check common deps
+	check_deps tr cut sort wc awk sed logger pgrep || die
+	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
+	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
+	} || die "neither nftables nor iptables+ipset found."
+	export geochain="$(toupper "$geotag")"
+fi
 
 :
