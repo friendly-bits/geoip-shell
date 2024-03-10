@@ -2,7 +2,7 @@
 
 Generally, geoip-shell is designed to run on any Linux system. For OpenWrt, because it's so minimalistic, a lot of effort has been put into implementing specific support for it. This includes translating the project from Bash to POSIX-compliant shell language, replacing certain utilities which don't come by default on OpenWrt (or come without certain features) with custom shell code, implementing support for uclient-fetch, implementing an init script and some other scripts for persistence, a lot of learning and testing and much much more.
 
-Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing exactly the same user interface and features as on any other Linux system.
+Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing exactly the same user interface and features as on any other Linux system. So installation and usage work the same way as described in the main [README.md](/README.md) file.
 
 A LuCi interface has not been implemented (yet) and the project has not been (yet) packaged for OpenWrt. As on any other Linux system, installation, uninstallation and all user interface is via a command line (but my goal is to make this an easy experience regardless). If either of these things discourages you from using geoip-shell, please let me know. A few people asking for these features will motivate me to prioritize them.
 
