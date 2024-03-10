@@ -739,7 +739,7 @@ kill_geo_pids() {
 export install_dir="/usr/bin" conf_dir="/etc/$p_name" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="      $_nl"
-export lock_file="/$conf_dir/$p_name.lock" conf_file="$conf_dir/$p_name.conf" i_script="$install_dir/${p_name}"
+export lock_file="/tmp/$p_name.lock" conf_file="$conf_dir/$p_name.conf" i_script="$install_dir/${p_name}"
 
 valid_sources="ripe ipdeny local"
 geosources="ripe ipdeny"
