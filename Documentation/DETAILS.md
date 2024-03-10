@@ -145,7 +145,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 **geoip-shell-cronsetup.sh** manages all the cron-related logic and actions. Called by the -manage script. Cron jobs are created based on the settings stored in the config file. Also used to validate cron schedule provided by the user at the time of installation or later.
 
-**geoip-shell-backup.sh**: Creates a backup of current geoip-shell state and current geoip config, or restores them from backup. By default (if you didn't run the installation with the '-o' option), backup will be created after every change to ip sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order "bzip2, xz, gzip", or simply "cat" as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-backup-ipt or the lib-backup-nft script which does most of the actual work.
+**geoip-shell-backup.sh**: Creates a backup of current geoip-shell firewall rules and ip sets and current geoip-shell config, or restores them from backup. By default (if you didn't run the installation with the '-o' option), backup will be created after every change to ip sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order "bzip2, xz, gzip", or simply "cat" as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-backup-ipt or the lib-backup-nft script which does most of the actual work.
 
 `geoip-shell-backup create-backup` : Creates a backup of the current firewall state and geoip blocking config.
 
