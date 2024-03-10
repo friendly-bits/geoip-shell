@@ -1,5 +1,5 @@
 ## **Prelude**
-- This document mainly intends to give some info on the purspose and basic use cases of the main scripts and how they work in tandem.
+- This document mainly intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
 
 ## **Overview**
