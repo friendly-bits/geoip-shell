@@ -257,7 +257,7 @@ restore_from_config() {
 
 	echolog "Restoring lists '$config_lists_str' from the config file... "
 	case "$config_lists_str" in
-		'') echolog -err "$ERR no ip lists registered in the config file." ;;
+		'') echolog -err "no ip lists registered in the config file." ;;
 		*) call_script "$i_script-uninstall.sh" -l || return 1
 			setconfig "Lists=$config_lists_str"
 			call_script -l "$run_command" add -l "$config_lists_str"
@@ -297,8 +297,7 @@ check_for_lockout() {
 
 		case "$action" in
 			add) [ "$list_type" = blacklist ] && lo_msg="$trying add your $u_ccode to the blacklist. $tip_msg"; return 0 ;;
-			remove) [ "$list_type" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"; return 0 ;;
-			*) printf '\n%s\n' "$ERR Unexpected action '$action'." >&2; return 1
+			remove) [ "$list_type" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"; return 0
 		esac
 	fi
 }
@@ -317,7 +316,7 @@ for entry in "ListType list_type" "Families families" "Lists config_lists_str" "
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-case "$list_type" in whitelist|blacklist) ;; *) die "$ERR Unexpected geoip mode '$list_type'!"; esac
+case "$list_type" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$list_type'!"; esac
 
 san_str -s ccodes_arg "$(toupper "$ccodes_arg")"
 
@@ -338,7 +337,7 @@ run_command="$i_script-run.sh"
 
 ## Check args for sanity
 
-erract="$ERR action '$action'"
+erract="action '$action'"
 incompat="$erract is incompatible with option"
 
 case "$action" in
@@ -377,7 +376,7 @@ case "$action" in
 		# communicate schedule to *cronsetup via config
 		setconfig "CronSchedule=$cron_schedule"
 
-		call_script "$i_script-cronsetup.sh" || die "$ERR $FAIL update cron jobs."
+		call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		die 0
 esac
 
