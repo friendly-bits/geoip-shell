@@ -164,7 +164,7 @@ nft_cmd_chain="$(
 				eval "lan_subnets=\"\$lan_subnets_$family\""
 			else
 				a_d_failed=
-				lan_subnets="$(sh "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
+				lan_subnets="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL autodetect $family local subnets."; exit 1; }
 				setconfig "LanSubnets_$family" "$lan_subnets"
 			fi
