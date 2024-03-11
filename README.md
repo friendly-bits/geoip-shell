@@ -128,7 +128,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 - **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
 - **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
 
-    **NOTE:** If your /bin/sh is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
+    **NOTE:** If your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - OR **iptables** - firewall management utility. Should work with any relatively modern version.
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
