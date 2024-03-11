@@ -154,7 +154,9 @@ copyscripts() {
 				# strip comments
 				san_script "$script_dir/$f" > "$dest"
 			else
-				cat "$script_dir/$f" > "$dest"
+				# replace the shebang
+				printf '%s\n' "#!${curr_shell:-/bin/sh}" > "$dest"
+				tail -n +2 "$script_dir/$f" >> "$dest"
 			fi
 		} || install_failed "$FAIL copy file '$f' to '$dest'."
 		chown root:root "${dest}" && chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
@@ -315,7 +317,8 @@ pick_ifaces() {
 		}
 		subtract_a_from_b "$all_ifaces" "$u_ifaces" bad_ifaces ' '
 		[ -z "$bad_ifaces" ] && break
-		printf '\n%s\n' "$ERR Network interfaces '$bad_ifaces' do not exist in this system." >&2
+		echolog -err "Network interfaces '$bad_ifaces' do not exist in this system."
+		echo
 		[ "$nointeract" ] && die
 		REPLY=
 	done
@@ -349,9 +352,9 @@ pick_lan_subnets() {
 		subtract_a_from_b "$lan_subnets" "$lan_subnets_arg" bad_subnets
 		[ "${lan_subnets% }" ] && [ ! "$bad_subnet" ] && [ ! "$bad_subnets" ] && return 0
 		[ "$bad_subnets" ] &&
-			echolog -err "$ERR '$bad_subnets' are not valid subnets for families '$families'."
+			echolog -err "'$bad_subnets' are not valid subnets for families '$families'."
 		[ ! "$bad_subnet" ] && [ ! "${lan_subnets% }" ] &&
-			echolog -err "$ERR No valid subnets detected in '$lan_subnets_arg' compatible with families '$families'."
+			echolog -err "No valid subnets detected in '$lan_subnets_arg' compatible with families '$families'."
 	}
 
 	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan subnets with '-l <\"lan_subnets\"|auto|none>'."
@@ -466,7 +469,7 @@ detect_lan="${p_name}-detect-lan.sh"
 ipt_libs=
 [ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common setvars "$ipt_script"; do
+for f in fetch apply manage cronsetup run uninstall backup common; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
 script_files="$script_files $owrt_common_script"
@@ -487,7 +490,7 @@ case "$families_arg" in
 	''|'ipv4 ipv6'|'ipv6 ipv4' ) families="$families_default" ;;
 	ipv4 ) families="ipv4" ;;
 	ipv6 ) families="ipv6" ;;
-	* ) printf '%s\n' "$me: $ERR invalid family '$families_arg'." >&2; exit 1
+	* ) echolog -err "invalid family '$families_arg'."; exit 1
 esac
 
 ccodes="$(toupper "$ccodes")"
@@ -502,12 +505,12 @@ lan_picked=
 
 #### CHECKS
 
-[ ! "$families" ] && die "$ERR \$families variable should not be empty!"
+[ ! "$families" ] && die "\$families variable should not be empty!"
 
-[ "$lan_subnets_arg" ] && [ "$list_type" = blacklist ] && die "$ERR option '-l' is incompatible with mode 'blacklist'"
+[ "$lan_subnets_arg" ] && [ "$list_type" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
 
 check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
-	die "$ERR missing files: $missing_files."
+	die "missing files: $missing_files."
 
 check_cron_compat
 
@@ -521,7 +524,7 @@ check_cron_compat
 case "$list_type" in
 	whitelist|blacklist) ;;
 	'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_list_type ;;
-	*) die "$ERR Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
+	*) die "Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
 esac
 
 # process trusted subnets if specified
@@ -542,8 +545,8 @@ esac
 	done
 	subtract_a_from_b "$t_subnets" "$t_subnets_arg" bad_subnets
 	nl2sp bad_subnets
-	[ "$bad_subnets" ] && die "$ERR '$bad_subnets' are not valid subnets for families '$families'."
-	[ -z "${t_subnets% }" ] && die "$ERR No valid subnets detected in '$t_subnets_arg' compatible with families '$families'."
+	[ "$bad_subnets" ] && die "'$bad_subnets' are not valid subnets for families '$families'."
+	[ -z "${t_subnets% }" ] && die "No valid subnets detected in '$t_subnets_arg' compatible with families '$families'."
 }
 
 
@@ -605,12 +608,16 @@ setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp
 	"TSubnets_ipv4=$t_subnets_ipv4" "TSubnets_ipv6=$t_subnets_ipv6" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 
-# set some variables in the installed -setvars script
-printf '%s\n%s\n' "export datadir=\"$datadir\" lib_dir=\"$lib_dir\"" \
-	"export _lib=\"\$lib_dir/$p_name-lib\" PATH=\"$PATH\" initsys=\"$initsys\" default_schedule=\"$default_schedule\"" > \
-	"${i_script}-setvars.sh" || install_failed "$FAIL set variables in the -setvars script"
+# add $install_dir to $PATH
+add2list PATH "$install_dir" ':'
+
+# set some variables in the -setvars script
+cat <<- EOF > "${conf_dir}/${p_name}-setvars.sh" || install_failed "$FAIL set variables in the -setvars script"
+	#!${curr_shell:-/bin/sh}
+	export datadir="$datadir" lib_dir="$lib_dir" PATH="$PATH"
+	export _lib="\$lib_dir/$p_name-lib" initsys="$initsys" default_schedule="$default_schedule" use_shell="$curr_shell"
+EOF
 OK
-echo
 
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 
@@ -622,8 +629,8 @@ cp "$script_dir/cca2.list" "$install_dir" || install_failed "$FAIL copy 'cca2.li
 
 # only allow root to read the $datadir and files inside it
 rv=0
-chmod -R 600 "$datadir" || rv=1
-chown -R root:root "$datadir" || rv=1
+chmod -R 600 "$datadir" "$conf_dir" || rv=1
+chown -R root:root "$datadir" "$conf_dir" || rv=1
 [ "$rv" != 0 ] && install_failed "$FAIL set permissions for '$datadir'."
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
@@ -631,7 +638,7 @@ call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL c
 
 WARN_F="$WARN Installed without"
 
-if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ]; then
+if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ]; then
 	### Set up cron jobs
 	call_script "$i_script-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
 else
