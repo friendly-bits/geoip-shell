@@ -88,10 +88,10 @@ rm_rstr_tmp() {
 
 rstr_failed() {
 	rm_rstr_tmp
-	echolog -err "$1"
+	[ "$1" ] && echolog -err "$1"
 	[ "$2" = reset ] && {
-		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***"
-		call_script "$script_dir/${p_name}-uninstall.sh" -c
+		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules. ***"
+		rm_all_georules
 	}
 	die
 }
