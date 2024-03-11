@@ -34,7 +34,7 @@ report_fw_state() {
 
 	is_geochain_on && chain_status="${green}enabled $_V" || { chain_status="${red}disabled $_X"; incr_issues; }
 	printf '%s\n' "Geoip firewall chain: $chain_status"
-	[ "$list_type" = whitelist ] && {
+	[ "$geomode" = whitelist ] && {
 		case "$wl_rule" in
 			'') wl_rule_status="$_X"; incr_issues ;;
 			*) wl_rule_status="$_V"

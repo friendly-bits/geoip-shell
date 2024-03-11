@@ -78,10 +78,10 @@ daemon_prep_next() {
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "ListType list_type" "MaxAttempts max_attempts"; do
+for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "Geomode geomode" "MaxAttempts max_attempts"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
-export config_lists list_type
+export config_lists geomode
 
 nobackup="${nobackup_args:-$nobackup_conf}"
 
@@ -116,7 +116,7 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || di
 
 [ ! "$iplist_dir" ] && die "iplist file path can not be empty!"
 
-[ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
+[ ! "$geomode" ] && die "\$geomode variable should not be empty! Something is wrong!"
 
 
 #### MAIN
@@ -220,9 +220,9 @@ while true; do
 		echolog "Successfully executed action '$action_run'$echolists."; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		echolog -err "$WARN actual $list_type firewall config differs from the config file!"
+		echolog -err "$WARN actual $geomode firewall config differs from the config file!"
 		for opt in unexpected missing; do
-			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $list_type ip lists in the firewall: '\$${opt}_lists'\"" >&2
+			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $geomode ip lists in the firewall: '\$${opt}_lists'\"" >&2
 		done
 		die
 	fi

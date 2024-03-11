@@ -99,10 +99,10 @@ nft_cnt_elements() {
 # returns a list of active ip lists
 # 1 - var name for output
 get_active_iplists() {
-	case "$list_type" in
+	case "$geomode" in
 		whitelist) nft_verdict="accept" ;;
 		blacklist) nft_verdict="drop" ;;
-		*) die "get_active_iplists: unexpected geoip mode '$list_type'."
+		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
 	esac
 
 	ipset_lists="$(nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}")"

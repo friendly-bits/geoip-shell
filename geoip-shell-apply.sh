@@ -71,7 +71,7 @@ debugentermsg
 
 ## VARIABLES
 
-for entry in "Families families" "NoBlock noblock" "ListType list_type" "PerfOpt perf_opt" \
+for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt perf_opt" \
 		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp tcp_ports" "udp udp_ports" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
 		"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
@@ -89,7 +89,7 @@ geotag_aux="${geotag}_aux"
 
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 [ ! "$datadir" ] && die "the \$datadir variable is empty."
-[ ! "$list_type" ] && die "the \$list_type variable is empty."
+[ ! "$geomode" ] && die "the \$geomode variable is empty."
 
 [ "$_ifaces" ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."

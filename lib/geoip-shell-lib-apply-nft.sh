@@ -23,10 +23,10 @@ die_a() {
 
 #### Variables
 
-case "$list_type" in
+case "$geomode" in
 	whitelist) iplist_verdict="accept" ;;
 	blacklist) iplist_verdict="drop" ;;
-	*) die "Unknown firewall mode '$list_type'."
+	*) die "Unknown firewall mode '$geomode'."
 esac
 
 : "${perf_opt:=memory}"
@@ -158,7 +158,7 @@ nft_cmd_chain="$(
 	done
 
 	# LAN subnets
-	if [ "$list_type" = "whitelist" ]; then
+	if [ "$geomode" = "whitelist" ]; then
 		for family in $families; do
 			if [ ! "$autodetect" ]; then
 				eval "lan_subnets=\"\$lan_subnets_$family\""
@@ -192,7 +192,7 @@ nft_cmd_chain="$(
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
-	[ "$list_type" = "whitelist" ] && [ ! "$_ifaces" ] &&
+	[ "$geomode" = "whitelist" ] && [ ! "$_ifaces" ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
 	## add iplist-specific rules
@@ -203,7 +203,7 @@ nft_cmd_chain="$(
 	done
 
 	## whitelist blocking rule
-	[ "$list_type" = whitelist ] && printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces counter drop comment ${geotag}_whitelist_block"
+	[ "$geomode" = whitelist ] && printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces counter drop comment ${geotag}_whitelist_block"
 
 	## geoip enable rule
 	[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"

@@ -103,7 +103,7 @@ EOF
 while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
-		m) list_type=$OPTARG ;;
+		m) geomode=$OPTARG ;;
 		s) schedule_arg=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
@@ -221,7 +221,7 @@ pick_user_ccode() {
 # asks the user to entry country codes, then validates against known-good list
 pick_ccodes() {
 	[ "$nointeract" ] && [ ! "$ccodes_arg" ] && die "Specify country codes with '-c <\"country_codes\">'."
-	[ ! "$ccodes_arg" ] && printf '\n%s\n' "Please enter country codes to include in geoip $list_type."
+	[ ! "$ccodes_arg" ] && printf '\n%s\n' "Please enter country codes to include in geoip $geomode."
 	REPLY="$ccodes_arg"
 	while true; do
 		unset bad_ccodes ok_ccodes
@@ -259,12 +259,12 @@ pick_ccodes() {
 	done
 }
 
-pick_list_type() {
+pick_geomode() {
 	printf '%s\n' "Select geoip blocking mode: [w]hitelist or [b]lacklist, or [a] to abort the installation."
 	pick_opt "w|b|a"
 	case "$REPLY" in
-		w|W) list_type=whitelist ;;
-		b|B) list_type=blacklist ;;
+		w|W) geomode=whitelist ;;
+		b|B) geomode=blacklist ;;
 		a|A) exit 0
 	esac
 }
@@ -498,7 +498,7 @@ ccodes="$(toupper "$ccodes")"
 schedule="${schedule_arg:-$default_schedule}"
 sleeptime=30 max_attempts=30
 
-export list_type="$(tolower "$list_type")"
+export geomode="$(tolower "$geomode")"
 
 lan_picked=
 
@@ -507,7 +507,7 @@ lan_picked=
 
 [ ! "$families" ] && die "\$families variable should not be empty!"
 
-[ "$lan_subnets_arg" ] && [ "$list_type" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
+[ "$lan_subnets_arg" ] && [ "$geomode" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
 
 check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "missing files: $missing_files."
@@ -521,10 +521,10 @@ check_cron_compat
 
 #### MAIN
 
-case "$list_type" in
+case "$geomode" in
 	whitelist|blacklist) ;;
-	'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_list_type ;;
-	*) die "Unrecognized mode '$list_type'! Use either 'whitelist' or 'blacklist'!"
+	'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
+	*) die "Unrecognized mode '$geomode'! Use either 'whitelist' or 'blacklist'!"
 esac
 
 # process trusted subnets if specified
@@ -564,11 +564,11 @@ if [ -z "$ifaces_arg" ]; then
 	case "$REPLY" in
 		a|A) exit 0 ;;
 		y|Y) pick_ifaces ;;
-		n|N) [ "$list_type" = whitelist ] && pick_lan_subnets
+		n|N) [ "$geomode" = whitelist ] && pick_lan_subnets
 	esac
 else
 	case "$ifaces_arg" in
-		all) [ "$list_type" = whitelist ] && pick_lan_subnets ;;
+		all) [ "$geomode" = whitelist ] && pick_lan_subnets ;;
 		auto) ifaces_arg=''; pick_ifaces -a ;;
 		*) pick_ifaces
 	esac
@@ -601,7 +601,7 @@ printf %s "Setting config... "
 
 makepath
 nodie=1
-setconfig "UserCcode=$user_ccode" "Lists=" "ListType=$list_type" "tcp=skip" "udp=skip" \
+setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp=skip" "udp=skip" \
 	"Source=$source" "Families=$families" "CronSchedule=$schedule" "MaxAttempts=$max_attempts" \
 	"Ifaces=$conf_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" \

@@ -16,7 +16,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 [ "$_OWRT_install" ] && { . "$i_script-owrt-common.sh" || die; }
 
-export list_type nolog=1 manmode=1
+export geomode nolog=1 manmode=1
 
 san_args "$@"
 newifs "$delim"
@@ -116,7 +116,7 @@ report_status() {
 
 	printf '\n%s\n' "${purple}Geoip blocking status report:${n_c}"
 
-	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${list_type}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
+	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
 
 	check_lists_coherence && lists_coherent=" $_V" || { report_incoherence; incr_issues; lists_coherent=" $_Q"; }
 
@@ -127,7 +127,7 @@ report_status() {
 	done
 	san_str -s active_ccodes
 	san_str -s active_families
-	printf %s "Country codes in the $list_type: "
+	printf %s "Country codes in the $geomode: "
 	case "$active_ccodes" in
 		'') printf '%s\n' "${red}None $_X"; incr_issues ;;
 		*) printf '%s\n' "${blue}${active_ccodes}${n_c}${lists_coherent}"
@@ -149,7 +149,7 @@ report_status() {
 		done
 	}
 
-	[ "$list_type" = "whitelist" ] && {
+	[ "$geomode" = "whitelist" ] && {
 		[ "$lan_subnets_ipv4$lan_subnets_ipv6" ] || [ ! "$_ifaces" ] && {
 			printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
 			for family in $families; do
@@ -238,7 +238,7 @@ incoherence_detected() {
 		case "$REPLY" in
 			[Yy] ) echo; restore_from_config; break ;;
 			[Nn] ) die ;;
-			[Ss] ) printf '\n\n\n%s\n' "$list_type ip lists in the config file: '$config_lists_str'" ;;
+			[Ss] ) printf '\n\n\n%s\n' "$geomode ip lists in the config file: '$config_lists_str'" ;;
 			* ) printf '\n%s\n' "Enter 'y/n/s'."
 		esac
 	done
@@ -250,7 +250,7 @@ restore_from_config() {
 	check_reapply() {
 		check_lists_coherence && { echolog "Successfully re-applied previous $p_name ip lists."; return 0; }
 
-		echolog -err "$FAIL re-apply previous $list_type lists." >&2
+		echolog -err "$FAIL re-apply previous $geomode lists." >&2
 		report_incoherence
 		return 1
 	}
@@ -276,12 +276,12 @@ check_for_lockout() {
 	[ ! "$user_ccode" ] && return 0
 	tip_msg="Make sure you do not lock yourself out."
 	u_ccode="country code '$user_ccode'"
-	inlist="in the planned $list_type"
+	inlist="in the planned $geomode"
 	trying="You are trying to"
 
 	if [ "$in_install" ]; then
 		get_matching_line "$planned_lists" "" "$user_ccode" "_*" filtered_ccode
-		case "$list_type" in
+		case "$geomode" in
 			whitelist)
 				[ ! "$filtered_ccode" ] && lo_msg="Your $u_ccode is not included $inlist. $tip_msg"
 				return 0 ;;
@@ -296,8 +296,8 @@ check_for_lockout() {
 		[ ! "$filtered_ccode" ] && return 0
 
 		case "$action" in
-			add) [ "$list_type" = blacklist ] && lo_msg="$trying add your $u_ccode to the blacklist. $tip_msg"; return 0 ;;
-			remove) [ "$list_type" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"; return 0
+			add) [ "$geomode" = blacklist ] && lo_msg="$trying add your $u_ccode to the blacklist. $tip_msg"; return 0 ;;
+			remove) [ "$geomode" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"; return 0
 		esac
 	fi
 }
@@ -312,11 +312,11 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
-for entry in "ListType list_type" "Families families" "Lists config_lists_str" "UserCcode user_ccode"; do
+for entry in "Geomode geomode" "Families families" "Lists config_lists_str" "UserCcode user_ccode"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-case "$list_type" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$list_type'!"; esac
+case "$geomode" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$geomode'!"; esac
 
 san_str -s ccodes_arg "$(toupper "$ccodes_arg")"
 
@@ -332,7 +332,7 @@ run_command="$i_script-run.sh"
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 
-[ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
+[ ! "$geomode" ] && die "\$geomode variable should not be empty! Something is wrong!"
 
 
 ## Check args for sanity
@@ -414,7 +414,7 @@ case "$action" in
 
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
-				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have already been added to the $list_type." >&2
+				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have already been added to the $geomode." >&2
 			}
 		else
 			lists_to_change="$lists_arg"
@@ -430,7 +430,7 @@ case "$action" in
 			subtract_a_from_b "$config_lists" "$lists_arg" wrong_lists
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
-				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have not been added to the $list_type, so can not remove." >&2
+				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove." >&2
 			}
 		else
 			lists_to_change="$lists_arg"
@@ -446,7 +446,7 @@ fi
 
 debugprint "planned lists after '$action': '$planned_lists'"
 
-if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$list_type" = "whitelist" ]; then
+if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$geomode" = "whitelist" ]; then
 	die "Planned whitelist is empty! Disallowing this to prevent accidental lockout of a remote server."
 fi
 
@@ -493,7 +493,7 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	nl2sp failed_lists_str "$failed_lists"
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
-	echolog -err "$WARN failed to apply new $list_type rules for ip lists: $failed_lists_str."
+	echolog -err "$WARN failed to apply new $geomode rules for ip lists: $failed_lists_str."
 	# if the error encountered during installation, exit with error to fail the installation
 	[ "$in_install" ] && die
 	get_difference "$lists_to_change" "$failed_lists" ok_lists

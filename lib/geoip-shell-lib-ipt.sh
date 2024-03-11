@@ -56,10 +56,10 @@ rm_all_georules() {
 # returns a list of active ip lists
 # 1 - var name for output
 get_active_iplists() {
-	case "$list_type" in
+	case "$geomode" in
 		whitelist) ipt_target="ACCEPT" ;;
 		blacklist) ipt_target="DROP" ;;
-		*) die "get_active_iplists: Error: unexpected geoip mode '$list_type'."
+		*) die "get_active_iplists: Error: unexpected geoip mode '$geomode'."
 	esac
 	ipset_lists="$(ipset list -n | grep "$p_name" | grep -v "_lan_" | sed -n /"$geotag"/s/"$geotag"_//p)"
 	p="${p_name}_"; t="$ipt_target"

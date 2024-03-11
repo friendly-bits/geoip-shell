@@ -88,7 +88,7 @@ statustip() {
 report_lists() {
 	get_active_iplists verified_lists
 	nl2sp verified_lists
-	printf '\n%s\n' "Ip lists in the final $list_type: '${blue}$verified_lists${n_c}'."
+	printf '\n%s\n' "Ip lists in the final $geomode: '${blue}$verified_lists${n_c}'."
 }
 
 unknownact() {
@@ -551,7 +551,7 @@ check_lists_coherence() {
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
-	case "$list_type" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$list_type'!"; esac
+	case "$geomode" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$geomode'!"; esac
 
 	unset unexp_lists missing_lists
 	getconfig "Lists" conf_lists

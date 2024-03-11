@@ -107,10 +107,10 @@ get_curr_ipsets() {
 
 #### VARIABLES
 
-case "$list_type" in
+case "$geomode" in
 	whitelist) fw_target="ACCEPT" ;;
 	blacklist) fw_target="DROP" ;;
-	*) die "Unknown firewall mode '$list_type'."
+	*) die "Unknown firewall mode '$geomode'."
 esac
 
 retval=0
@@ -173,7 +173,7 @@ for family in $families; do
 	}
 
 	### LAN subnets
-	if [ "$list_type" = "whitelist" ]; then
+	if [ "$geomode" = "whitelist" ]; then
 		if [ ! "$autodetect" ]; then
 			eval "lan_subnets=\"\$lan_subnets_$family\""
 		else
@@ -236,7 +236,7 @@ for family in $families; do
 			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_trusted_$family src $ipt_comm ${geotag_aux}_trusted_$family -j ACCEPT"
 
 		# LAN subnets
-		[ "$list_type" = "whitelist" ] && [ "$lan_subnets" ] &&
+		[ "$geomode" = "whitelist" ] && [ "$lan_subnets" ] &&
 			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src $ipt_comm ${geotag_aux}_lan_$family -j ACCEPT"
 
 		# ports
@@ -250,7 +250,7 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$list_type" = "whitelist" ] && [ ! "$_ifaces" ] && \
+		[ "$geomode" = "whitelist" ] && [ ! "$_ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
@@ -264,7 +264,7 @@ for family in $families; do
 		fi
 
 		# whitelist block
-		[ "$list_type" = "whitelist" ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
+		[ "$geomode" = "whitelist" ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
 
 		echo "COMMIT"
 		exit "$rv"

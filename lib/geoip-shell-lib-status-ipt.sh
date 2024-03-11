@@ -44,7 +44,7 @@ report_fw_state() {
 			*) chain_status="enabled $_V"
 		esac
 		printf '%s\n' "Geoip firewall chain ($family): $chain_status"
-		[ "$list_type" = whitelist ] && {
+		[ "$geomode" = whitelist ] && {
 			case "$wl_rule" in
 				'') wl_rule=''; wl_rule_status="$_X"; incr_issues ;;
 				*) wl_rule="$_nl$wl_rule"; wl_rule_status="$_V"
