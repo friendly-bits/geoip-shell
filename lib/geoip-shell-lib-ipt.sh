@@ -54,8 +54,10 @@ rm_all_georules() {
 
 # checks current ipsets and iptables rules for geoip-shell
 # returns a list of active ip lists
+# (optional: 1 - '-f', irrelevant for iptables)
 # 1 - var name for output
 get_active_iplists() {
+	[ "$1" = "-f" ] && shift
 	case "$geomode" in
 		whitelist) ipt_target="ACCEPT" ;;
 		blacklist) ipt_target="DROP" ;;
