@@ -42,8 +42,12 @@ restorebackup() {
 	:
 }
 
-rstr_failed() {
+rm_rstr_tmp() {
 	rm "$iplist_dir/"*.iplist 2>/dev/null
+}
+
+rstr_failed() {
+	rm_rstr_tmp
 	echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
@@ -52,8 +56,12 @@ rstr_failed() {
 	die
 }
 
-bk_failed() {
+rm_bk_tmp() {
 	rm -f "$tmp_file" "$bk_dir/"*.new 2>/dev/null
+}
+
+bk_failed() {
+	rm_bk_tmp
 	die "$FAIL back up $p_name ip sets."
 }
 

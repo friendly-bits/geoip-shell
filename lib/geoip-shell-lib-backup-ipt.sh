@@ -82,8 +82,12 @@ restorebackup() {
 	:
 }
 
+rm_rstr_tmp() {
+	rm -f "$tmp_file" 2>/dev/null
+}
+
 rstr_failed() {
-	rm "$tmp_file" 2>/dev/null
+	rm_rstr_tmp
 	echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and the associated cron jobs. ***"
@@ -92,8 +96,12 @@ rstr_failed() {
 	die
 }
 
+rm_bk_tmp() {
+	rm -f "$tmp_file" "${bk_file}.new" 2>/dev/null
+}
+
 bk_failed() {
-	rm "$tmp_file" "${bk_file}.new" 2>/dev/null
+	rm_bk_tmp
 	die "$1"
 }
 
