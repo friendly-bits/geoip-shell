@@ -121,7 +121,7 @@ get_source_list_dates_ipdeny() {
 
 		# 1st part of awk strips HTML tags, 2nd part trims extra spaces
 		[ -f "$server_html_file" ] && awk '{gsub("<[^>]*>", "")} {$1=$1};1' "$server_html_file" > "$server_plaintext_file" ||
-			echolog "$ERR failed to fetch server dates from the IPDENY server."
+			echolog "failed to fetch server dates from the IPDENY server."
 		rm "$server_html_file" 2>/dev/null
 	done
 
@@ -299,8 +299,12 @@ check_updates() {
 	:
 }
 
+rm_tmp_f() {
+	rm -f "$fetched_list" "$parsed_list" "$valid_list" 2>/dev/null
+}
+
 list_failed() {
-	rm "$fetched_list" "$parsed_list" "$valid_list" 2>/dev/null
+	rm_tmp_f
 	failed_lists="$failed_lists$list_id "
 	[ "$1" ] && echolog -err "$1"
 }
@@ -484,10 +488,10 @@ done
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
-[ -z "$fetch_cmd" ] && die "$ERR Compatible download utilites unavailable."
+[ -z "$fetch_cmd" ] && die "Compatible download utilites unavailable."
 
 if [ -z "$secure_util" ] && [ -z "$http" ]; then
-	[ ! "$manmode" ] && die "$ERR no fetch utility with SSL support available."
+	[ ! "$manmode" ] && die "no fetch utility with SSL support available."
 	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
 	pick_opt "y|n"
 	case "$REPLY" in
@@ -512,7 +516,7 @@ lists_arg=$(
 	for list_id in $lists_arg; do
 		case "$list_id" in
 			*_* ) toupper "${list_id%%_*}"; tolower "_${list_id#*_}"; printf '\n' ;;
-			*) die "$ERR invalid list id '$list_id'."
+			*) die "invalid list id '$list_id'."
 		esac
 	done
 )
@@ -529,7 +533,7 @@ unset failed_lists fetched_lists
 set -- $dl_src
 case "$2" in *?*) die "Specify only one download source."; esac
 
-[ ! "$dl_src" ] && die "$ERR '\$dl_src' variable should not be empty!"
+[ ! "$dl_src" ] && die "'\$dl_src' variable should not be empty!"
 
 # debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
@@ -550,10 +554,10 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 		die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
 [ "$iplist_dir" ] && [ ! -d "$iplist_dir" ] &&
-	die "$ERR Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
+	die "Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
 
 for f in "$status_file" "$output_file"; do
-	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$ERR failed to create file '$f'."; }
+	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "failed to create file '$f'."; }
 done
 
 
@@ -563,9 +567,15 @@ done
 # populates $registries, fetch_lists_arr
 group_lists_by_registry
 
-[ ! "$registries" ] && die "$ERR failed to determine relevant regions."
+[ ! "$registries" ] && die "failed to determine relevant regions."
 
 # debugprint "registries: '$registries'"
+
+trap 'rm_tmp_f; rm -f "$server_html_file" 2>/dev/null
+	for family in $families; do
+		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp" 2>/dev/null
+	done; exit' INT TERM HUP QUIT
+
 
 check_updates
 
@@ -594,7 +604,7 @@ if [ "$status_file" ]; then
 
 	setstatus "$status_file" "FetchedLists=${fetched_lists% }" "up_to_date_lists=${up_to_date_lists% }" \
 				"FailedLists=${failed_lists% }" "$subnets_cnt_str" "$list_dates_str" ||
-		die "$ERR $FAIL write to the status file '$status_file'."
+		die "$FAIL write to the status file '$status_file'."
 fi
 
 :
