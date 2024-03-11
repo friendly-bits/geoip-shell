@@ -112,9 +112,9 @@ failed_lists_cnt=0
 check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "$ERR config file '$conf_file' doesn't exist! Re-install $p_name."
+[ ! -f "$conf_file" ] && die "config file '$conf_file' doesn't exist! Re-install $p_name."
 
-[ ! "$iplist_dir" ] && die "$ERR iplist file path can not be empty!"
+[ ! "$iplist_dir" ] && die "iplist file path can not be empty!"
 
 [ ! "$list_type" ] && die "\$list_type variable should not be empty! Something is wrong!"
 
@@ -166,7 +166,7 @@ while true; do
 	### Fetch ip lists
 
 	if [ "$action_apply" = add ]; then
-		[ ! "$lists" ] && { usage; die "$ERR no list id's were specified!"; }
+		[ ! "$lists" ] && { usage; die "no list id's were specified!"; }
 
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 		setstatus "$status_file" "FailedLists=$lists"
@@ -209,7 +209,7 @@ while true; do
 		case "$apply_rv" in
 			0) ;;
 			254) [ "$in_install" ] && die
-				echolog -err "$ERR *apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
+				echolog -err "*apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
 			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 		esac
 		echolists=" for lists '$lists'"
