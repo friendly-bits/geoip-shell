@@ -131,14 +131,14 @@ case "$rv" in
 esac
 
 [ "$(printf %s "$dl_source" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
-[ -z "$dl_source" ] && die "$ERR '\$dl_source' variable should not be empty!"
+[ -z "$dl_source" ] && die "'\$dl_source' variable should not be empty!"
 
 subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ -n "$invalid_source" ] && { usage; die "Invalid source: $invalid_source"; }
 
 [ -z "$ips" ] && { usage; die "Specify the ip addresses to check with '-i <\"ip_addresses\">'."; }
 
-[ ! -f "$fetch_script" ] && die "$ERR Can not find '$fetch_script'."
+[ ! -f "$fetch_script" ] && die "Can not find '$fetch_script'."
 
 # convert ips to upper case and remove duplicates etc
 san_str -s ips "$(toupper "$ips")"
@@ -158,10 +158,10 @@ for ip in $ips; do
 
 	case "$true_grep_rv" in
 		0) ;;
-		1) die "$ERR grep reported an error but returned a non-empty '\$validated_ip'. Something is wrong." ;;
-		2) die "$ERR grep didn't report any error but returned an empty '\$validated_ip'. Something is wrong." ;;
+		1) die "grep reported an error but returned a non-empty '\$validated_ip'. Something is wrong." ;;
+		2) die "grep didn't report any error but returned an empty '\$validated_ip'. Something is wrong." ;;
 		3) invalid_ips="$invalid_ips$ip " ;;
-		*) die "$ERR unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong." ;;
+		*) die "unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong." ;;
 	esac
 done
 
@@ -171,18 +171,18 @@ san_str -s families "$families"
 
 if [ -z "$validated_ipv4s$validated_ipv6s" ]; then
 	echo
-	die "$ERR all ip addresses failed validation."
+	die "all ip addresses failed validation."
 fi
 
 ### Fetch the ip list file
 
-[ -z "$families" ] && die "$ERR \$families variable is empty."
+[ -z "$families" ] && die "\$families variable is empty."
 
 for family in $families; do
 	case "$family" in
 		ipv4 ) validated_ips="${validated_ipv4s% }" ;;
 		ipv6 ) validated_ips="${validated_ipv6s% }" ;;
-		* ) die "$ERR unexpected family: '$family'." ;;
+		* ) die "unexpected family: '$family'." ;;
 	esac
 
 	list_id="${ccode}_${family}"
@@ -195,9 +195,9 @@ for family in $families; do
 
 	# read *fetch results from the status file
 	getstatus "$status_file" "FailedLists" failed_lists ||
-		die "$ERR Couldn't read value for 'failed_lists' from status file '$status_file'."
+		die "Couldn't read value for 'failed_lists' from status file '$status_file'."
 
-	[ -n "$failed_lists" ] && die "$ERR ip list fetch failed."
+	[ -n "$failed_lists" ] && die "ip list fetch failed."
 
 	### Test the fetched list for specified ip's
 
@@ -206,17 +206,17 @@ for family in $families; do
 	for validated_ip in $validated_ips; do
 		unset match
 		filtered_ip="$(printf '%s\n' "$validated_ip" | grepcidr -f "$list_file")"; rv=$?
-		[ "$rv" -gt 1 ] && die "$ERR grepcidr returned error code '$grep_rv'."
+		[ "$rv" -gt 1 ] && die "grepcidr returned error code '$grep_rv'."
 
 		# process grep results
 		process_grep_results "$rv" "$filtered_ip"; true_grep_rv=$?
 
 		case "$true_grep_rv" in
 			0) no='' ;;
-			1) die "$ERR grepcidr reported an error but returned a non-empty '\$filtered_ip'. Something is wrong." ;;
-			2) die "$ERR grepcidr didn't report any error but returned an empty '\$filtered_ip'. Something is wrong." ;;
+			1) die "grepcidr reported an error but returned a non-empty '\$filtered_ip'. Something is wrong." ;;
+			2) die "grepcidr didn't report any error but returned an empty '\$filtered_ip'. Something is wrong." ;;
 			3) no="no" ;;
-			*) die "$ERR unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong."
+			*) die "unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong."
 		esac
 
 		eval "${no}match_ips=\"\${${no}match_ips}$validated_ip$_nl\""
