@@ -119,7 +119,7 @@ _(Note that all commands require root privileges, so you will likely need to run
   - if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
   </details>
 
-**5)** The `-install.sh` script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
+**5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
 **6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro. on some distributions, a different command should be used, such as `logread`).
 
