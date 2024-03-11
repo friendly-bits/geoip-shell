@@ -78,9 +78,6 @@ for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt pe
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-iplist_dir="${datadir}/ip_lists"
-status_file="$iplist_dir/status"
-
 action="$(tolower "$action")"
 
 geotag_aux="${geotag}_aux"
