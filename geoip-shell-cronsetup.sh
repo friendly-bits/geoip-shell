@@ -210,11 +210,11 @@ create_cron_job() {
 
 	job_type="$1"
 
-	[ -z "$config_lists" ] && die "$ERR Countries list in the config file is empty! No point in creating autoupdate job."
+	[ -z "$config_lists" ] && die "Countries list in the config file is empty! No point in creating autoupdate job."
 
 	case "$job_type" in
 		autoupdate)
-			[ -z "$schedule" ] && die "$ERR cron schedule in the config file is empty!"
+			[ -z "$schedule" ] && die "cron schedule in the config file is empty!"
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
 			validate_cron_schedule "$schedule"; rv=$?
@@ -254,7 +254,7 @@ rm_cron_job() {
 
 	case "$job_type" in
 		autoupdate|persistence) ;;
-		*) die "rm_cron_job: $ERR unknown cron job type '$job_type'."
+		*) die "rm_cron_job: unknown cron job type '$job_type'."
 	esac
 
 	debugprint "Removing $job_type cron job for $p_name... "
@@ -263,7 +263,7 @@ rm_cron_job() {
 
 	case $((rv1 & rv2)) in
 		0) debugprint "Ok." ;;
-		*) die "$ERR failed to remove $job_type cron job."
+		*) die "failed to remove $job_type cron job."
 	esac
 }
 
