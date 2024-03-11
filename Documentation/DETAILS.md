@@ -1,6 +1,7 @@
 ## **Prelude**
 - This document mainly intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
+- Because shells are many and some systems may have both compatible and incompatible shells installed, the upcoming version of geoip-shell detects the shell it's running in during installation and replaces the "shebang" of all its scripts to point to the detected shell (rather than to /bin/sh which is typically a symlink to the actual shell which could be anything). So for example, if you like to use zsh (an incompatible shell), you can install a package which provides a simpler shell like dash and then run the -install script from it. This way you can continue to use an incompatible fancy shell for your other tasks, while geoip-shell will happily use a simple and compatible shell. It is also a good practice even if you have a fancy and compatible shell (like Bash) because a simpler shell runs 3x to 4x faster.
 
 ## **Overview**
 
@@ -23,7 +24,7 @@ This script is only used under specific conditions:
 ### Library Scripts
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -common script includes a large number of functions used throughout the suite, and assigns some essential variables.
-- The -setvars script sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories etc). It is sourced from the -common script. The distribution version stores some initial values. During installation, the -install script creates a new version in the installation directory and adds the required variables to it.
+- The -setvars script sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories etc). It is sourced from the -common script. The distribution version stores some initial values. During installation, the -install script creates a new version and adds the required variables to it. It is stored in the config directory rather than in /usr/bin as other scripts because it essentially a part of the config which is simply more convenient to implement as a script, and the installed version contains some potentially sensitive data which should not be readable by unprivileged users.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from the main scripts which need to interact with the firewall utility directly.
 - When nftables is present during installation, the iptables libraries are not installed.
 - When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
