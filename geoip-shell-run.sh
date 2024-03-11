@@ -147,7 +147,6 @@ case "$action_run" in
 				nobackup=1
 			else
 				echolog -err "Restore from backup failed. Changing action to 'update'."
-				rm_all_georules || die "$FAIL remove firewall rules."
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
 			fi
@@ -168,7 +167,7 @@ while true; do
 	### Fetch ip lists
 
 	if [ "$action_apply" = add ]; then
-		[ ! "$lists" ] && { usage; die "no list id's were specified!"; }
+		[ ! "$lists" ] && die "no list id's were specified!"
 
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
 		setstatus "$status_file" "FailedLists=$lists"
