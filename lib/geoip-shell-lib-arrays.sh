@@ -64,20 +64,19 @@ get_a_arr_val() {
 ## Backend functions
 
 _check_vars() {
-	case "$1$2$3" in *[!A-Za-z0-9_]* )
-		for _test_seq in "_arr_name|array name" "_out_var|output variable name" "___key|key"; do
-			eval "_var_val=\"\$${_test_seq%%|*}\""; _var_desc="${_test_seq#*|}"
-			case "$_var_val" in *[!A-Za-z0-9_]* ) printf '%s\n' "$___me: Error: invalid $_var_desc '$_var_val'." >&2; esac
-		done
-		return 1
-	esac
+	is_alphanum "$1$2$3" -n && return 0
+	for ___seq in _arr_name _out_var ___key; do
+		eval "_var_val=\"\$$___seq\""
+		is_alphanum "$_var_val"
+	done
+	return 1
 }
 
 check_pair() {
-	case "$___pair" in *=* ) ;; *) printf '%s\n' "$___me: Error: '$___pair' is not a 'key=value' pair." >&2; return 1; esac
+	case "$___pair" in *=* ) ;; *) echolog -err "$___me: '$___pair' is not a 'key=value' pair."; return 1; esac
 }
 
 wrongargs() {
-	echo "$___me: Error: '$*': wrong number of arguments '$#'." >&2
+	echolog -err "$___me: '$*': wrong number of arguments '$#'."
 }
 
