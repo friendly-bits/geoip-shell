@@ -79,7 +79,6 @@ install_dir="${old_install_dir:-"$install_dir"}"
 }
 
 : "${conf_dir:=/etc/$p_name}"
-status_file="$datadir/ip_lists/status"
 
 #### CHECKS
 
