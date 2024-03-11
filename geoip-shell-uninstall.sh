@@ -15,7 +15,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 manmode=1
 . "$script_dir/${p_name}-common.sh" || exit 1
 fw_backend_lib="$_lib-$_fw_backend.sh"
-[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || exit 1
+[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || die "$fw_backend_lib not found."
 
 nolog=1
 
@@ -78,8 +78,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 	call_script "$install_dir/${p_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
 }
 
-iplist_dir="$datadir/ip_lists"
-conf_dir="${conf_dir:-/etc/$p_name}"
+"${conf_dir:=/etc/$p_name}"
 status_file="$datadir/ip_lists/status"
 
 #### CHECKS
