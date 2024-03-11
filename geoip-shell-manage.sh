@@ -381,6 +381,8 @@ case "$action" in
 esac
 
 mk_lock
+trap 'eval "$trap_args_unlock"' INT TERM HUP QUIT
+
 
 case "$action" in
 	on|off)
