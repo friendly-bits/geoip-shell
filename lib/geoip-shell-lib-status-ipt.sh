@@ -34,7 +34,7 @@ report_fw_state() {
 	dashes="$(printf '%158s' ' ' | tr ' ' '-')"
 	for family in $families; do
 		set_ipt_cmds
-		ipt_output="$($ipt_cmd -vL)" || die "$ERR $FAIL get $family iptables state."
+		ipt_output="$($ipt_cmd -vL)" || die "$FAIL get $family iptables state."
 
 		wl_rule="$(printf %s "$ipt_output" | filter_ipt_rules "${p_name}_whitelist_block" "DROP")"
 		ipt_header="$dashes$_nl${blue}$(printf %s "$ipt_output" | grep -m1 "pkts.*destination")${n_c}$_nl$dashes"
