@@ -88,14 +88,14 @@ geotag_aux="${geotag}_aux"
 ## CHECKS
 
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
-[ ! "$datadir" ] && die "$ERR the \$datadir variable is empty."
-[ ! "$list_type" ] && die "$ERR the \$list_type variable is empty."
+[ ! "$datadir" ] && die "the \$datadir variable is empty."
+[ ! "$list_type" ] && die "the \$list_type variable is empty."
 
 [ "$_ifaces" ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
 	nl2sp all_ifaces
 	subtract_a_from_b "$all_ifaces" "$_ifaces" bad_ifaces ' '
-	[ "$bad_ifaces" ] && die "$ERR Network interfaces '$bad_ifaces' do not exist in this system."
+	[ "$bad_ifaces" ] && die "Network interfaces '$bad_ifaces' do not exist in this system."
 }
 
 ## MAIN
