@@ -718,7 +718,7 @@ FAIL() { echo "Failed."; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
-	touch "$lock_file" || die "$FAIL set lock '$lock_file'"
+	echo $$ > "$lock_file" || die "$FAIL set lock '$lock_file'"
 	nodie=1
 	die_unlock=1
 }
@@ -728,7 +728,14 @@ rm_lock() {
 }
 
 check_lock() {
-	[ -f "$lock_file" ] && die 254 "Lock file $lock_file exists, which means $p_name is doing something in the background."
+	used_pid=
+	[ -f $lock_file ] && used_pid="$(cat ${lock_file})"
+	[ ! "$used_pid" ] && return 0
+	kill -0 "used_pid" &&
+	die 254 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
+	echolog -info "Removing stale lock file $lock_file"
+	rm_lock
+	return 0
 }
 
 kill_geo_pids() {
@@ -753,6 +760,9 @@ valid_families="ipv4 ipv6"
 me_short="${me#"${p_name}-"}"
 me_short="${me_short%.sh}"
 _no_l="$nolog"
+
+# trap var
+trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] && rm -f $lock_file 2>/dev/null; exit;'
 
 set -f
 
