@@ -165,7 +165,7 @@ call_script() {
 	: "${use_shell:=sh}"
 
 	# call the daughter script, then reset $config_var to force re-read of the config file
-	[ ! "$script_to_call" ] && { echolog -err "call_script: $ERR received empty string."; return 1 ; }
+	[ ! "$script_to_call" ] && { echolog -err "call_script: received empty string."; return 1 ; }
 
 	[ "$use_lock" ] && rm_lock
 	$use_shell "$script_to_call" "$@"; call_rv=$?; export config_var=
@@ -552,7 +552,7 @@ check_lists_coherence() {
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
-	case "$geomode" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$geomode'!"; esac
+	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; die "Unexpected geoip mode '$geomode'!"; esac
 
 	unset unexp_lists missing_lists
 	getconfig "Lists" conf_lists
@@ -828,5 +828,6 @@ if [ -z "$geotag" ]; then
 	} || die "neither nftables nor iptables+ipset found."
 	export geochain="$(toupper "$geotag")"
 fi
+r_no_l
 
 :
