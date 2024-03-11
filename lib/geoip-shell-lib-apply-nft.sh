@@ -34,9 +34,9 @@ esac
 #### MAIN
 
 ### Read current firewall geoip rules
-geochain_on=''
+nft_get_geotable -f 1>/dev/null
+geochain_on=
 is_geochain_on && geochain_on=1
-nft_get_geotable 1>/dev/null
 geochain_cont="$(nft_get_chain "$geochain")"
 base_chain_cont="$(nft_get_chain "$base_geochain")"
 
@@ -45,7 +45,7 @@ case "$action" in
 	off) [ -z "$geochain_on" ] && { echo "Geoip chain is already switched off."; exit 0; }
 		printf %s "Removing the geoip enable rule... "
 		mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" | nft -f -; rv=$?
-		[ $rv != 0 ] || is_geochain_on && { FAIL; die "$FAIL remove firewall rule."; }
+		[ $rv != 0 ] || is_geochain_on -f && { FAIL; die "$FAIL remove firewall rule."; }
 		OK
 		exit 0 ;;
 	on) [ -n "$geochain_on" ] && { echo "Geoip chain is already switched on."; exit 0; }
@@ -55,7 +55,7 @@ case "$action" in
 
 		printf %s "Adding the geoip enable rule... "
 		printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable" | nft -f -; rv=$?
-		[ $rv != 0 ] || ! is_geochain_on && { FAIL; die "$FAIL add firewall rule."; }
+		[ $rv != 0 ] || ! is_geochain_on -f && { FAIL; die "$FAIL add firewall rule."; }
 		OK
 		exit 0
 esac
@@ -219,7 +219,7 @@ printf %s "Applying new firewall rules... "
 printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "$FAIL apply new firewall rules"
 OK
 
-[ -n "$noblock" ] && echolog -err "$WARN Geoip blocking is disabled via config."
+[ -n "$noblock" ] && echolog -warn "Geoip blocking is disabled via config."
 
 echo
 
