@@ -55,7 +55,7 @@ EOF
 while getopts ":l:p:o:s:u:rfdh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
-		p) iplist_dir=$OPTARG ;;
+		p) iplist_dir_f=$OPTARG ;;
 		s) status_file=$OPTARG ;;
 		o) output_file=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
@@ -327,8 +327,8 @@ process_ccode() {
 			* ) die "Unsupported source: '$dl_src'."
 		esac
 
-		# set list_path to $output_file if it is set, or to $iplist_dir/$list_id otherwise
-		list_path="${output_file:-$iplist_dir/$list_id.iplist}"
+		# set list_path to $output_file if it is set, or to $iplist_dir_f/$list_id otherwise
+		list_path="${output_file:-$iplist_dir_f/$list_id.iplist}"
 
 		# temp files
 		parsed_list="/tmp/${p_name}_parsed-${list_id}.tmp"
@@ -539,11 +539,11 @@ case "$2" in *?*) die "Specify only one download source."; esac
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
 case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
 
-# check that either $iplist_dir or $output_file is set
-[ ! "$iplist_dir" ] && [ ! "$output_file" ] &&
+# check that either $iplist_dir_f or $output_file is set
+[ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
 	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
 # ... but not both
-[ "$iplist_dir" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
+[ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
 
 case "$lists_arg" in '') die "Specify country code/s!"; esac
 fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
@@ -553,8 +553,8 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 [ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
 		die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
-[ "$iplist_dir" ] && [ ! -d "$iplist_dir" ] &&
-	die "Directory '$iplist_dir' doesn't exist!" || iplist_dir="${iplist_dir%/}"
+[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] &&
+	die "Directory '$iplist_dir_f' doesn't exist!" || iplist_dir_f="${iplist_dir_f%/}"
 
 for f in "$status_file" "$output_file"; do
 	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "failed to create file '$f'."; }
