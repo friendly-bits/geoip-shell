@@ -122,6 +122,8 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || di
 #### MAIN
 
 mk_lock
+trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unlock"' INT TERM HUP QUIT
+
 
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
@@ -220,7 +222,7 @@ while true; do
 		echolog "Successfully executed action '$action_run'$echolists."; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		echolog -err "$WARN actual $geomode firewall config differs from the config file!"
+		echolog -warn "actual $geomode firewall config differs from the config file!"
 		for opt in unexpected missing; do
 			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $geomode ip lists in the firewall: '\$${opt}_lists'\"" >&2
 		done
