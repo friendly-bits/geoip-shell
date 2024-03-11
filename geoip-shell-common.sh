@@ -48,7 +48,7 @@ debugexitmsg() {
 set_ascii() {
 	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \342\234\224 \342\234\230 \t')
 	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" _V="$8" _X="$9" trim_IFS=" ${10}"
-	_V="$green$_V$n_c" _X="$red$_X$n_c"
+	export _V="$green$_V$n_c" _X="$red$_X$n_c"
 }
 
 # set IFS to $1 while saving its previous value to variable tagged $2
