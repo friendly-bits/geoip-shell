@@ -134,7 +134,7 @@ debugentermsg
 #### FUNCTIONS
 
 check_files() {
-	missing_files=""
+	missing_files=
 	err=0
 	for dep_file in $1; do
 		if [ ! -s "$script_dir/$dep_file" ]; then
