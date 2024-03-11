@@ -105,8 +105,6 @@ report_status() {
 
 	incr_issues() { issues=$((issues+1)); }
 
-	_V="${green}✔${n_c}"
-	_X="${red}✘${n_c}"
 	_Q="${red}?${n_c}"
 	issues=0
 
