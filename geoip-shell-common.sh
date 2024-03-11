@@ -46,8 +46,10 @@ debugexitmsg() {
 
 # sets some variables for colors and ascii delimiter
 set_ascii() {
-	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \t')
-	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" trim_IFS=" $8"
+	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \xE2\x9C\x94 \xE2\x9C\x98 \t')
+	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" _V="$8" _X="$9" trim_IFS=" ${10}"
+	case "$curr_shell" in *yash*) _V="[Ok]"; _X="[!]"; esac
+	_V="$green$_V$n_c" _X="$red$_X$n_c"
 }
 
 # set IFS to $1 while saving its previous value to variable tagged $2
@@ -160,11 +162,14 @@ call_script() {
 	script_to_call="$1"
 	shift
 
+	: "${use_shell:=$curr_shell}"
+	: "${use_shell:=sh}"
+
 	# call the daughter script, then reset $config_var to force re-read of the config file
 	[ ! "$script_to_call" ] && { echolog -err "call_script: $ERR received empty string."; return 1 ; }
 
 	[ "$use_lock" ] && rm_lock
-	sh "$script_to_call" "$@"; call_rv=$?; export config_var=""
+	$use_shell "$script_to_call" "$@"; call_rv=$?; export config_var=
 	debugexitmsg
 	[ "$use_lock" ] && mk_lock -f
 	use_lock=
@@ -353,7 +358,7 @@ setconfig() {
 		for line in $argument_conf; do
 			case "$line" in *'='* )
 				key_conf="${line%%=*}"
-		   		value_conf="${line#*=}"
+				value_conf="${line#*=}"
 				case "$key_conf" in
 					'' ) ;;
 					target_file ) args_target_file="$value_conf" ;;
@@ -363,8 +368,7 @@ setconfig() {
 			esac
 		done
 	done
-
-	keys_test_str="${keys_test_str%|}"
+	keys_test_str="${keys_test_str%\|}"
 	target_file="${args_target_file:-$conf_file}"
 
 	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
@@ -373,8 +377,8 @@ setconfig() {
 	# join old and new config
 	for config_line in $oldconfig; do
 		eval "case \"$config_line\" in
-				''|$keys_test_str ) ;;
-				* ) newconfig=\"$newconfig$config_line$_nl\"
+				''|$keys_test_str) ;;
+				*) newconfig=\"$newconfig$config_line$_nl\"
 			esac"
 	done
 	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
@@ -738,11 +742,10 @@ kill_geo_pids() {
 
 export install_dir="/usr/bin" conf_dir="/etc/$p_name" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
 '
-export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="      $_nl"
+export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
 export lock_file="/tmp/$p_name.lock" conf_file="$conf_dir/$p_name.conf" i_script="$install_dir/${p_name}"
 
-valid_sources="ripe ipdeny local"
-geosources="ripe ipdeny"
+valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
 
 # set some vars for debug and logging
@@ -768,7 +771,7 @@ if [ -z "$geotag" ]; then
 	else
 		curr_shell=`ls -l /proc/$$/exe | grep -oE '/[^[:space:]]+$'`
 	fi
-	ok_shell=`echo $curr_shell | grep -E '/(bash|dash|yash|ash|busybox)'`
+	ok_shell=`echo $curr_shell | grep -E '/(bash|dash|yash|ash|busybox|ksh93)'`
 	if [ -z "$curr_shell" ]; then
 		echo "Warning: failed to identify current shell. $p_name may not work correctly. Please notify the developer." >&2
 	elif [ -z "$ok_shell" ]; then
@@ -776,6 +779,7 @@ if [ -z "$geotag" ]; then
 		if [ -n "$bad_shell" ]; then echo "Error: unsupported shell $curr_shell." >&2; exit 1; fi
 		echo "Warning: whether $p_name works with your shell $curr_shell is currently unknown. Please test and notify the developer." >&2
 	fi
+	case "$curr_shell" in *busybox*) curr_shell="/bin/sh"; esac
 
 	# check for proc
 	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
@@ -785,7 +789,11 @@ if [ -z "$geotag" ]; then
 	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 
-	. "${p_script}-setvars.sh" || { logger -s -t "$me" -p user.err "Failed to set initial variables."; exit 1; }
+	if [ -f "${p_script}-setvars.sh" ]; then
+		. "${p_script}-setvars.sh"
+	else
+		. "${conf_dir}/${p_name}-setvars.sh"
+	fi
 
 	# check common deps
 	check_deps tr cut sort wc awk sed logger pgrep || die
