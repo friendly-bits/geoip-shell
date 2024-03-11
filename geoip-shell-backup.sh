@@ -127,8 +127,8 @@ case "$action" in
 		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
 		[ ! -s "$conf_file_bak" ] && rstr_failed "'$conf_file_bak' is empty or doesn't exist."
-		getconfig Lists lists "$conf_file_bak" -nodie &&
-		getconfig BackupExt bk_ext "$conf_file_bak" -nodie || rstr_failed
+		getconfig Lists lists "$conf_file_bak" &&
+		getconfig BackupExt bk_ext "$conf_file_bak" || rstr_failed
 		set_extract_cmd "$bk_ext"
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
