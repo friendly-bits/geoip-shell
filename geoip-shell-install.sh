@@ -614,24 +614,24 @@ add2list PATH "$install_dir" ':'
 # set some variables in the -setvars script
 cat <<- EOF > "${conf_dir}/${p_name}-setvars.sh" || install_failed "$FAIL set variables in the -setvars script"
 	#!${curr_shell:-/bin/sh}
-	export datadir="$datadir" lib_dir="$lib_dir" PATH="$PATH"
-	export _lib="\$lib_dir/$p_name-lib" initsys="$initsys" default_schedule="$default_schedule" use_shell="$curr_shell"
+	export datadir="$datadir" lib_dir="$lib_dir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
+	export _lib="\$lib_dir/$p_name-lib" status_file="$datadir/status" use_shell="$curr_shell"
 EOF
 OK
 
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 
-# Create the directory for downloaded lists
-mkdir -p "$iplist_dir"
-
 # copy cca2.list
 cp "$script_dir/cca2.list" "$install_dir" || install_failed "$FAIL copy 'cca2.list' to '$install_dir'."
 
 # only allow root to read the $datadir and files inside it
-rv=0
-chmod -R 600 "$datadir" "$conf_dir" || rv=1
-chown -R root:root "$datadir" "$conf_dir" || rv=1
-[ "$rv" != 0 ] && install_failed "$FAIL set permissions for '$datadir'."
+mkdir -p "$datadir" &&
+chmod -R 600 "$datadir" "$conf_dir" &&
+chown -R root:root "$datadir" "$conf_dir" ||
+install_failed "$FAIL to create '$datadir'."
+
+# Use vars from the installed setvars script
+. "${conf_dir}/${p_name}-setvars.sh"
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
 call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
