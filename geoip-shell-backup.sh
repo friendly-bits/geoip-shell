@@ -97,8 +97,6 @@ getconfig Lists config_lists
 
 conf_file_bak="$datadir/${p_name}.conf.bak"
 status_file_bak="$datadir/status.bak"
-iplist_dir="${datadir}/ip_lists"
-status_file="$iplist_dir/status"
 bk_dir="$datadir/backup"
 
 [ "$_fw_backend" = ipt ] && bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
