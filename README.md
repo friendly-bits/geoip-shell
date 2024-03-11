@@ -99,23 +99,25 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **4)** For interactive installation, run `sh geoip-shell-install.sh`.
 
-_<details><summary>Examples for non-interactive installation options:</summary>_
+  **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh`. Check out [Pre-Requisites](#pre-requisites) for a list of compatible shells. If you don't have one of these installed, use your package manager to install one (you don't need to make it your default shell).
 
-- installing on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
+  _<details><summary>Examples for non-interactive installation options:</summary>_
 
-`sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -e`
+  - installing on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
 
-- installing on a router located in the US, blacklist Germany and Netherlands and allow all other countries:
+  `sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -e`
 
-`sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
+  - installing on a router located in the US, blacklist Germany and Netherlands and allow all other countries:
 
-- if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments
-- to block or allow specific ports, use `-p <tcp|udp>:<block|allow>:<ports>`. This option may be used twice in one command to specify ports for both tcp and udp
-- to exclude certain trusted subnets on the internet from geoip blocking, add `-t "<subnets_list>"` to the arguments
-- if your machine uses nftables and has enough memory, consider installing with the `-e` option (for "performance")
-- if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
-- if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
-</details>
+  `sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
+
+  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments
+  - to block or allow specific ports, use `-p <tcp|udp>:<block|allow>:<ports>`. This option may be used twice in one command to specify ports for both tcp and udp
+  - to exclude certain trusted subnets on the internet from geoip blocking, add `-t "<subnets_list>"` to the arguments
+  - if your machine uses nftables and has enough memory, consider installing with the `-e` option (for "performance")
+  - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+  - if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
+  </details>
 
 **5)** The `-install.sh` script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
