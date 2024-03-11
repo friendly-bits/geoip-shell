@@ -35,7 +35,6 @@ restorebackup() {
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
-	export force_read_geotable=1
 	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
@@ -48,10 +47,10 @@ rm_rstr_tmp() {
 
 rstr_failed() {
 	rm_rstr_tmp
-	echolog -err "$1"
+	[ "$1" ] && echolog -err "$1"
 	[ "$2" = reset ] && {
-		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules and cron jobs. ***"
-		call_script "$script_dir/${p_name}-uninstall.sh" -c
+		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules. ***"
+		rm_all_georules
 	}
 	die
 }
@@ -67,7 +66,7 @@ bk_failed() {
 
 # Saves current firewall state to a backup file
 create_backup() {
-	getconfig Lists lists "$conf_file" -nodie || bk_failed
+	getconfig Lists lists "$conf_file" || bk_failed
 
 	# back up current ip sets
 	printf %s "Creating backup of $p_name ip sets... "
