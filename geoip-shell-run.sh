@@ -98,10 +98,6 @@ fi
 trimsp lists
 fast_el_cnt "$lists" " " lists_cnt
 
-iplist_dir="$datadir/ip_lists"
-
-status_file="$iplist_dir/status"
-
 failed_lists_cnt=0
 
 [ "$_fw_backend" = ipt ] && raw_mode="-r"
@@ -130,10 +126,10 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unloc
 # check for valid action and translate *run action to *apply action
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
 case "$action_run" in
-	add) action_apply=add ;;
+	add) action_apply=add; [ ! "$lists" ] && die "no list id's were specified!" ;;
 	# if firewall is in incoherent state, force re-fetch
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
-	remove) action_apply=remove ;;
+	remove) action_apply=remove; rm_lists="$lists" ;;
 	restore)
 		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" ]; then
@@ -157,8 +153,12 @@ esac
 
 #### Daemon loop
 
+unset echolists ok_lists missing_lists lists_fetch fetched_lists
+
 [ ! "$daemon_mode" ] && max_attempts=1
-attempt=0 secs=4 ok_lists='' missing_lists=
+case "$action_run" in add|update) lists_fetch="$lists" ;; *) max_attempts=1; esac
+
+attempt=0 secs=4
 while true; do
 	attempt=$((attempt+1))
 	secs=$((secs+1))
@@ -166,13 +166,11 @@ while true; do
 
 	### Fetch ip lists
 
-	if [ "$action_apply" = add ]; then
-		[ ! "$lists" ] && die "no list id's were specified!"
-
+	if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
-		setstatus "$status_file" "FailedLists=$lists"
+		setstatus "$status_file" "FailedLists=$lists_fetch"
 
-		call_script "$i_script-fetch.sh" -l "$lists" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
+		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
 
 		# read *fetch results from the status file
 		getstatus "$status_file" FailedLists failed_lists &&
@@ -197,14 +195,16 @@ while true; do
 
 	### Apply ip lists
 
-	san_str -s lists "$fetched_lists $ok_lists"
+	lists_fetch=
+	san_str -s ok_lists "$fetched_lists $ok_lists"
+	san_str -s apply_lists "$ok_lists $rm_lists"
 	apply_rv=0
 	case "$action_run" in update|add|remove)
-		[ ! "$lists" ] && {
+		[ ! "$apply_lists" ] && {
 			echolog "Firewall reconfiguration isn't required."; die 0
 		}
 
-		call_script "$i_script-apply.sh" "$action_apply" -l "$lists"; apply_rv=$?
+		call_script "$i_script-apply.sh" "$action_apply" -l "$apply_lists"; apply_rv=$?
 		set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
 
 		case "$apply_rv" in
@@ -213,7 +213,7 @@ while true; do
 				echolog -err "*apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
 			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
 		esac
-		echolists=" for lists '$lists'"
+		echolists=" for lists '$ok_lists$rm_lists'"
 	esac
 
 	if check_lists_coherence; then
