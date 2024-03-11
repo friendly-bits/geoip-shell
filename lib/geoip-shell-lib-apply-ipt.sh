@@ -56,7 +56,7 @@ mk_ipt_rm_cmd() {
 
 add_ipset() {
 	perm_ipset="$1"; tmp_ipset="${1}_temp"; iplist_file="$2"
-	[ ! -f "$iplist_file" ] && critical "$ERR Can not find the iplist file in path: '$iplist_file'."
+	[ ! -f "$iplist_file" ] && critical "Can not find the iplist file in path: '$iplist_file'."
 
 	ipset destroy "$tmp_ipset" 1>/dev/null 2>/dev/null
 
@@ -268,7 +268,7 @@ for family in $families; do
 
 		echo "COMMIT"
 		exit "$rv"
-	)" || die_a "$ERR $FAIL assemble commands for iptables-restore"
+	)" || die_a "$FAIL assemble commands for iptables-restore"
 	OK
 
 	### "Apply new rules
