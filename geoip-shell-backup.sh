@@ -113,6 +113,7 @@ mk_lock
 set +f
 case "$action" in
 	create-backup)
+		trap 'rm_bk_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		set_archive_type
 		mkdir "$bk_dir" 2>/dev/null
@@ -120,9 +121,10 @@ case "$action" in
 		rm "$tmp_file" 2>/dev/null
 		cp "$status_file" "$status_file_bak" &&
 		setconfig "BackupExt=${bk_ext:-bak}" &&
-		cp "$conf_file" "$conf_file_bak"  || bk_failed
+		cp "$conf_file" "$conf_file_bak" || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
+		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
 		[ ! -s "$conf_file_bak" ] && rstr_failed "'$conf_file_bak' is empty or doesn't exist."
 		getconfig Lists lists "$conf_file_bak" -nodie &&
