@@ -66,7 +66,7 @@ debugentermsg
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
 	set_extr_cmd() { checkutil "$1" && extract_cmd="$1 -cd" ||
-		die "$ERR backup archive type is '$1' but the $1 utility is not found."; }
+		die "backup archive type is '$1' but the $1 utility is not found."; }
 
 	case "$1" in
 		bz2 ) set_extr_cmd bzip2 ;;
@@ -118,13 +118,13 @@ case "$action" in
 		mkdir "$bk_dir" 2>/dev/null
 		create_backup
 		rm "$tmp_file" 2>/dev/null
-		cp "$status_file" "$status_file_bak" || bk_failed
-		setconfig "BackupExt=${bk_ext:-bak}" || bk_failed
+		cp "$status_file" "$status_file_bak" &&
+		setconfig "BackupExt=${bk_ext:-bak}" &&
 		cp "$conf_file" "$conf_file_bak"  || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
 		printf '%s\n' "Preparing to restore $p_name from backup..."
-		[ ! -s "$conf_file_bak" ] && rstr_failed "$ERR '$conf_file_bak' is empty or doesn't exist."
+		[ ! -s "$conf_file_bak" ] && rstr_failed "'$conf_file_bak' is empty or doesn't exist."
 		getconfig Lists lists "$conf_file_bak" -nodie &&
 		getconfig BackupExt bk_ext "$conf_file_bak" -nodie || rstr_failed
 		set_extract_cmd "$bk_ext"
