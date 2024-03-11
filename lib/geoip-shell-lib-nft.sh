@@ -15,31 +15,30 @@ get_nft_family() {
 
 ### Tables and chains
 
+# 1 - optional -f for forced re-read
 is_geochain_on() {
-	old_force="$force_read_geotable"
-	force_read_geotable=1
-	get_matching_line "$(nft_get_chain "$base_geochain")" "*" "${geotag}_enable" "*"; rv=$?
-	force_read_geotable="$old_force"
+	get_matching_line "$(nft_get_chain "$base_geochain" "$1")" "*" "${geotag}_enable" "*" test; rv=$?
 	return $rv
 }
 
 nft_get_geotable() {
-	[ -z "$force_read_geotable" ] && [ -n "$_geotable_cont" ] &&  { printf '%s\n' "$_geotable_cont"; return 0; }
-
+	[ "$1" != "-f" ] && [ -n "$_geotable_cont" ] && { printf '%s\n' "$_geotable_cont"; return 0; }
 	export _geotable_cont="$(nft -ta list ruleset inet | sed -n -e /"^table inet $geotable"/\{:1 -e n\;/^\}/q\;p\;b1 -e \})"
 	[ -z "$_geotable_cont" ] && return 1 || { printf '%s\n' "$_geotable_cont"; return 0; }
 }
 
 # 1 - chain name
+# 2 - optional '-f' for forced re-read
 nft_get_chain() {
-	_chain_cont="$(nft_get_geotable | sed -n -e /"chain $1 {"/\{:1 -e n\;/"^[[:space:]]*}"/q\;p\;b1 -e \})"
+	_chain_cont="$(nft_get_geotable "$2" | sed -n -e /"chain $1 {"/\{:1 -e n\;/"^[[:space:]]*}"/q\;p\;b1 -e \})"
 	[ -z "$_chain_cont" ] && return 1 || { printf '%s\n' "$_chain_cont"; return 0; }
 }
 
 rm_all_georules() {
 	printf %s "Removing firewall geoip rules... "
-	nolog=1 nft_get_geotable 1>/dev/null 2>/dev/null ||  return 0
-	nft delete table inet "$geotable" || { echolog -err "$FAIL delete table '$geotable'."; return 1; }
+	nft_get_geotable -f 1>/dev/null 2>/dev/null || return 0
+	nft delete table inet "$geotable" || { echolog -err -nolog "$FAIL delete table '$geotable'."; return 1; }
+	export _geotable_cont=
 	OK
 }
 
@@ -81,15 +80,20 @@ get_ipset_id() {
 	case "$family" in
 		ipv4|ipv6) return 0 ;;
 		*) echolog -err "ip set name '$1' has unexpected format."
-			family=''; list_id=''
+			unset family list_id
 			return 1
 	esac
 }
 
 # 1 - set name
-nft_cnt_elements() {
+get_ipset_elements() {
 	nft list set inet "$geotable" "$1" |
-		sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \} | wc -w
+		sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
+}
+
+# 1 - set name
+nft_cnt_elements() {
+	get_ipset_elements "$1" | wc -w
 }
 
 
@@ -97,8 +101,11 @@ nft_cnt_elements() {
 
 # checks current ipsets and firewall rules for geoip-shell
 # returns a list of active ip lists
+# (optional: 1 - '-f' to force re-read of the table)
 # 1 - var name for output
 get_active_iplists() {
+	force_read=
+	[ "$1" = "-f" ] && { force_read="-f"; shift; }
 	case "$geomode" in
 		whitelist) nft_verdict="accept" ;;
 		blacklist) nft_verdict="drop" ;;
@@ -106,7 +113,7 @@ get_active_iplists() {
 	esac
 
 	ipset_lists="$(nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}")"
-	iprules_lists="$(nft_get_geotable |
+	iprules_lists="$(nft_get_geotable "$force_read" |
 		sed -n "/saddr[[:space:]]*@.*${geotag}.*$nft_verdict/{s/.*@//;s/_.........._${geotag}.*//p}")"
 
 	debugprint "ipset_lists: '$ipset_lists', iprules_lists: '$iprules_lists'"
