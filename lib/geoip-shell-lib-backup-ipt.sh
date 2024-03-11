@@ -25,7 +25,7 @@ restorebackup() {
 	# extract the backup archive into tmp_file
 	tmp_file="/tmp/${p_name}_backup.tmp"
 	$extract_cmd "$bk_file" > "$tmp_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
-	[ ! -s "$tmp_file" ] && rstr_failed "$ERR backup file '$bk_file' is empty or backup extraction failed."
+	[ ! -s "$tmp_file" ] && rstr_failed "backup file '$bk_file' is empty or backup extraction failed."
 
 	printf '%s\n\n' "Successfully read backup file: '$bk_file'."
 
@@ -35,7 +35,7 @@ restorebackup() {
 	for family in $families; do
 		line_cnt=$(get_iptables_bk | wc -l)
 		debugprint "Firewall $family lines number in backup: $line_cnt"
-		[ "$line_cnt" -lt 2 ] && rstr_failed "$ERR firewall $family backup appears to be empty or non-existing."
+		[ "$line_cnt" -lt 2 ] && rstr_failed "firewall $family backup appears to be empty or non-existing."
 	done
 	OK
 
@@ -43,7 +43,7 @@ restorebackup() {
 	# count lines in the ipset portion of the backup file
 	line_cnt=$(get_ipset_bk | grep -c "add ${p_name}")
 	debugprint "ipset lines number in backup: $line_cnt"
-	[ "$line_cnt" = 0 ] && rstr_failed "$ERR ipset backup appears to be empty or non-existing."
+	[ "$line_cnt" = 0 ] && rstr_failed "ipset backup appears to be empty or non-existing."
 	OK; echo
 
 	### Remove geoip iptables rules and ipsets
