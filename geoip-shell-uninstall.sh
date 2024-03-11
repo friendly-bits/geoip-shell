@@ -78,7 +78,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 	call_script "$install_dir/${p_name}-uninstall.sh" "$resetonly" "$resetonly_lists" "$reset_only_lists_cron" && exit 0
 }
 
-"${conf_dir:=/etc/$p_name}"
+: "${conf_dir:=/etc/$p_name}"
 status_file="$datadir/ip_lists/status"
 
 #### CHECKS
