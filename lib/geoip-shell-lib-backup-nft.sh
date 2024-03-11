@@ -17,7 +17,7 @@ restorebackup() {
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
 
-		[ ! -s "$bk_file" ] && rstr_failed "$ERR '$bk_file' is empty or doesn't exist."
+		[ ! -s "$bk_file" ] && rstr_failed "'$bk_file' is empty or doesn't exist."
 
 		# extract elements and write to $iplist_file
 		$extract_cmd "$bk_file" > "$iplist_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
@@ -33,7 +33,7 @@ restorebackup() {
 	OK
 
 	# remove geoip rules
-	rm_all_georules || rstr_failed "Error removing firewall rules."
+	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
 	export force_read_geotable=1
 	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
