@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2006,SC2010,SC2181,SC3040
+# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2006,SC2010,SC2181,SC3040,SC2016
 
 # geoip-shell-common.sh
 
@@ -190,13 +190,14 @@ get_json_lines() {
 # outputs args to stdout and writes them to syslog
 # if one of the args is '-err' or '-warn' then redirect output to stderr
 echolog() {
-	unset msg_args __nl msg_prefix
+	unset msg_args __nl msg_prefix o_nolog
 
 	highlight="$blue"; err_l=info
 	for arg in "$@"; do
 		case "$arg" in
 			"-err" ) highlight="$red"; err_l=err; msg_prefix="$ERR" ;;
 			"-warn" ) highlight="$yellow"; err_l=warn; msg_prefix="$WARN" ;;
+			"-nolog" ) o_nolog=1 ;;
 			'') ;;
 			* ) msg_args="$msg_args$arg$delim"
 		esac
@@ -219,7 +220,8 @@ echolog() {
 				err|warn) printf '%s\n' "$_msg" >&2
 			esac
 		}
-		[ ! "$nolog" ] && logger -t "$me" -p user."$err_l" "$(printf %s " $msg_prefix $arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
+			logger -t "$me" -p user."$err_l" "$(printf %s " $msg_prefix $arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
 	done
 }
 
@@ -556,14 +558,12 @@ check_lists_coherence() {
 	unset unexp_lists missing_lists
 	getconfig "Lists" conf_lists
 	sp2nl conf_lists
-	force_read_geotable=1
-	get_active_iplists active_lists || {
+	get_active_iplists -f active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
 		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		r_no_l
 		return 1
 	}
-	force_read_geotable=
 
 	get_difference "$active_lists" "$conf_lists" lists_difference
 	case "$lists_difference" in
@@ -728,23 +728,39 @@ rm_lock() {
 }
 
 check_lock() {
-	used_pid=
-	[ -f $lock_file ] && used_pid="$(cat ${lock_file})"
-	[ ! "$used_pid" ] && return 0
-	kill -0 "used_pid" &&
+	[ ! -f $lock_file ] && return 0
+	used_pid="$(cat ${lock_file})"
+	[ "$used_pid" ] && kill -0 "used_pid" &&
 	die 254 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
-	echolog -info "Removing stale lock file $lock_file"
+	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
 	return 0
 }
 
 kill_geo_pids() {
-	for i in 1 2; do
-		for script in run fetch apply cronsetup backup; do
-			_pids="$(pgrep -fa "geoip-shell-$script.sh" | grep -v pgrep | grep -Eo "^[0-9]+")"
-			for _pid in $_pids; do kill "$_pid"; done
+	i_kgp=0 _parent="$(grep -o "${p_name}[^[:space:]]*" "/proc/$PPID/comm")"
+	while true; do
+		i_kgp=$((i_kgp+1)); _killed=
+		_geo_ps="$(pgrep -fa "${p_name}[^[:space:]]*" | grep -v pgrep)"
+		newifs "$_nl" kgp
+		for _p in $_geo_ps; do
+			pid="${_p% *}"
+			_p="$p_name${_p##*"$p_name"}"
+			_p="${_p%% *}"
+			case "$_pid" in $$|$PPID|*[!0-9]*) continue; esac
+			[ "$_p" = "$_parent" ] && continue
+			IFS=' '
+			for g in run fetch apply cronsetup backup detect-lan; do
+				case "$_p" in *${p_name}-$g*)
+					kill "$_pid" 2>/dev/null
+					_killed=1
+				esac
+			done
 		done
+		oldifs kgp
+		[ ! "$_killed" ] || [ $i_kgp -gt 10 ] && break
 	done
+	sleep 0.1 2>/dev/null || sleep 1
 }
 
 export install_dir="/usr/bin" conf_dir="/etc/$p_name" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
@@ -775,10 +791,14 @@ if [ -z "$geotag" ]; then
 	_g_test=`echo 0112 | grep -oE '1{2}'`
 	if [ "$_g_test" != 11 ]; then echo "Error: grep doesn't support the required options." >&2; exit 1; fi
 
+	# check for proc
+	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
+
 	# check for supported shell
 	if command -v readlink >/dev/null; then
 		curr_shell=`readlink /proc/$$/exe`
-	else
+	fi
+	if [ -z "$curr_shell" ]; then
 		curr_shell=`ls -l /proc/$$/exe | grep -oE '/[^[:space:]]+$'`
 	fi
 	ok_shell=`echo $curr_shell | grep -E '/(bash|dash|yash|ash|busybox|ksh93)'`
@@ -790,9 +810,6 @@ if [ -z "$geotag" ]; then
 		echo "Warning: whether $p_name works with your shell $curr_shell is currently unknown. Please test and notify the developer." >&2
 	fi
 	case "$curr_shell" in *busybox*) curr_shell="/bin/sh"; esac
-
-	# check for proc
-	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
 
 	# export some vars
 	set_ascii
