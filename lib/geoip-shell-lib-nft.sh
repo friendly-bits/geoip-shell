@@ -39,7 +39,7 @@ nft_get_chain() {
 rm_all_georules() {
 	printf %s "Removing firewall geoip rules... "
 	nolog=1 nft_get_geotable 1>/dev/null 2>/dev/null ||  return 0
-	nft delete table inet "$geotable" || { echolog -err "$ERR $FAIL delete table '$geotable'."; return 1; }
+	nft delete table inet "$geotable" || { echolog -err "$FAIL delete table '$geotable'."; return 1; }
 	OK
 }
 
@@ -80,7 +80,7 @@ get_ipset_id() {
 	family="${list_id#*_}"
 	case "$family" in
 		ipv4|ipv6) return 0 ;;
-		*) echolog -err "$ERR ip set name '$1' has unexpected format."
+		*) echolog -err "ip set name '$1' has unexpected format."
 			family=''; list_id=''
 			return 1
 	esac
@@ -102,7 +102,7 @@ get_active_iplists() {
 	case "$list_type" in
 		whitelist) nft_verdict="accept" ;;
 		blacklist) nft_verdict="drop" ;;
-		*) die "get_active_iplists: $ERR unexpected geoip mode '$list_type'."
+		*) die "get_active_iplists: unexpected geoip mode '$list_type'."
 	esac
 
 	ipset_lists="$(nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}")"
