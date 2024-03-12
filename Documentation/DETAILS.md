@@ -1,7 +1,6 @@
 ## **Prelude**
 - This document mainly intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
-- Because shells are many and some systems may have both compatible and incompatible shells installed, geoip-shell detects the shell it's running in during installation and replaces the "shebang" in all of the installed scripts to point to the detected shell. So for example, if you like to use zsh (an incompatible shell), you can install a package which provides a simpler shell like dash and then run the -install script from it. This way you can continue to use a fancy shell for your other tasks, while geoip-shell will happily use a simple and compatible shell. This also makes sense from the performance perspective since a simpler shell runs 3x to 4x faster.
 
 ## **Overview**
 
