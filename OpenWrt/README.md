@@ -1,6 +1,6 @@
 ## geoip-shell on OpenWrt
 
-Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing exactly the same user interface and features as on any other Linux system. So installation and usage work the same way as described in the main [README.md](/README.md) file.
+Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing exactly the same user interface and features as on any other Linux system. So installation and usage work the same way as described in the main [README.md](/README.md) file, while some parts of the backend (namely the persistence implementation) and some defaults are different.
 
 A LuCi interface has not been implemented (yet) and the project has not been (yet) packaged for OpenWrt. As on any other Linux system, installation, uninstallation and all user interface is via a command line (but my goal is to make this an easy experience regardless). If either of these things discourages you from using geoip-shell, please let me know. A few people asking for these features will motivate me to prioritize them.
 
@@ -18,6 +18,9 @@ Typical geoip-shell installation on nftables-based OpenWrt system currently cons
 To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /usr/bin/geoip-shell-*`.
 
 On iptables-based systems, the installation takes additional ~20kB because in that case geoip-shell installs both libraries required for iptables and for nftables, so if you upgrade your system to nftables at some point, geoip-shell should not break. If you are certain that you won't need these nftables library scripts then you can manually delete them from the /usr/bin directory. You can recognize them by the `-lib-nft` suffix.
+
+## Persistence on OpenWrt
+Persistence of geoip settings between reboots works differenetly on OpenWrt than on other Linuxes, as geoip-shell has an OpenWrt-specific init.d script, and integrates into firewall3 or firewall4 via what's called an "include". The init script's only task is to call the geoip-shell-mk-fw-include.sh script, which, makes sure that the firewall include exists and is correct, if not then it creates the include. The firewall include is what does the actual persistence work. On OpenWrt, a firewall include is a setting which tells firewall3 or firewall4 to do something specific in response to certain events. geoip-shell firewall include triggers on firewall reload (which happens either at reboot or when the system decides that a reload of the firewall is necessary, or when initiated by the user). The include then calls the -run script with the "restore" action. The -run script verifies that geoip nftables/iptables rules and ip sets exist, and if not then it restores them from backup, or (if backup doesn't exist or if error is encountered during the restore) initiates re-fetch of the ip lists and then re-creates the rules and the ip sets.
 
 ## Defaults for OpenWrt
 Generally the defaults are the same as for other systems, except:
