@@ -8,9 +8,14 @@
 
 #### Initial setup
 p_name="geoip-shell"
-script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${p_name}-common.sh" || exit 1
+geoinit="${p_name}-init.sh"
+for init_path in "$script_dir/$geoinit" "/etc/${p_name}/$geoinit"; do
+	[ -f "$init_path" ] && break
+done
+
+. "$init_path" || exit 1
 . "$_lib-arrays.sh" || exit 1
 . "$_lib-ip-regex.sh"
 
@@ -446,8 +451,12 @@ check_subnets_cnt_drop() {
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
 newifs "$_nl" cca
-cca2_file="$script_dir/cca2.list"
-[ -f "$cca2_file" ] && cca2_list="$(cat "$cca2_file")" || die "$FAIL load the cca2 list."
+cca2_f="cca2.list"
+for cca2_path in "$script_dir/$cca2_f" "$conf_dir/$cca2_f"; do
+	[ -f "$cca2_path" ] && break
+done
+
+[ -f "$cca2_path" ] && cca2_list="$(cat "$cca2_path")" || die "$FAIL load the cca2 list."
 set -- $cca2_list
 for i in 1 2 3 4 5; do
 	eval "c=\"\${$i}\""
@@ -491,9 +500,13 @@ done
 [ -z "$fetch_cmd" ] && die "Compatible download utilites unavailable."
 
 if [ -z "$secure_util" ] && [ -z "$http" ]; then
-	[ ! "$manmode" ] && die "no fetch utility with SSL support available."
-	printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
-	pick_opt "y|n"
+	if [ "$nointeract" ]; then
+		REPLY=y
+	else
+		[ ! "$manmode" ] && die "no fetch utility with SSL support available."
+		printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
+		pick_opt "y|n"
+	fi
 	case "$REPLY" in
 		n|N) die "No fetch utility available." ;;
 		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig "HTTP=http"
