@@ -13,19 +13,13 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
-
-geoinit="${p_name}-init.sh"
-for init_path in "$script_dir/$geoinit" "/etc/${p_name}/$geoinit"; do
-	[ -f "$init_path" ] && break
-done
-. "$init_path" || exit 1
-
-fw_backend_lib="$_lib-$_fw_backend.sh"
-[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || die "$fw_backend_lib not found."
-
 nolog=1
 
-check_root || exit 1
+geoinit="${p_name}-geoinit.sh"
+for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
+	[ -f "$geoinit_path" ] && break
+done
+. "$geoinit_path" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -68,7 +62,10 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-echo
+check_root || exit 1
+
+fw_backend_lib="$_lib-$_fw_backend.sh"
+[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || die "$fw_backend_lib not found."
 
 debugentermsg
 
