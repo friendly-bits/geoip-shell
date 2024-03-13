@@ -35,7 +35,7 @@ restorebackup() {
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
-	call_script "$script_dir/${p_name}-apply.sh" add -l "$lists"; apply_rv=$?
+	call_script "${i_script}-apply.sh" add -l "$lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
 	:
