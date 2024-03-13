@@ -19,7 +19,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1
 
-. "$script_dir/$p_name-common.sh" || exit 1
+. "$script_dir/$p_name-init.sh" || exit 1
 . "$_lib-ip-regex.sh"
 export nolog=1
 
@@ -118,7 +118,7 @@ while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 		n) no_persist=1 ;;
 		k) noblock=1 ;;
 		d) export debugmode=1 ;;
-		z) nointeract=1 ;;
+		z) export nointeract=1 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
@@ -147,19 +147,21 @@ check_files() {
 }
 
 copyscripts() {
+	[ "$1" = '-n' ] && { _mod=444; shift; } || _mod=555
 	for f in $1; do
-		dest="${2:-"$install_dir/${f##*/}"}"
+		dest="$install_dir/${f##*/}"
+		[ "$2" ] && dest="$2/${f##*/}"
 		{
 			if [ "$_OWRTFW" ]; then
 				# strip comments
 				san_script "$script_dir/$f" > "$dest"
 			else
 				# replace the shebang
-				printf '%s\n' "#!${curr_shell:-/bin/sh}" > "$dest"
+				printf '%s\n' "#!${curr_sh:-/bin/sh}" > "$dest"
 				tail -n +2 "$script_dir/$f" >> "$dest"
 			fi
 		} || install_failed "$FAIL copy file '$f' to '$dest'."
-		chown root:root "${dest}" && chmod 555 "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
+		chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 	done
 }
 
@@ -190,11 +192,45 @@ validate_subnet() {
 	:
 }
 
+pick_shell() {
+	unset sh_msg s_shs_avail f_shs_avail
+	curr_sh_b="${curr_sh##*"/"}"
+	is_included "$curr_sh_b" "${simple_sh}|busybox sh" "|" && return 0
+	newifs "|" psh
+	for ___sh in $simple_sh; do
+		checkutil "$___sh" && add2list s_shs_avail "$___sh"
+	done
+	oldifs psh
+	[ -z "$s_shs_avail" ] && [ -n "$ok_sh" ] && return 0
+	newifs "|" psh
+	for ___sh in $fancy_sh; do
+		checkutil "$___sh" && add2list f_shs_avail "$___sh"
+	done
+	oldifs psh
+	[ -z "$f_shs_avail" ] && return 0
+	is_included "$curr_sh_b" "$fancy_sh" "|" && sh_msg="Your fancy shell '$curr_sh_b' is supported by $p_name" ||
+		sh_msg="I'm running under an unsupported/uknown shell '$curr_sh_b'"
+	if [ -n "$s_shs_avail" ]; then
+		recomm_sh="${s_shs_avail%% *}"
+		rec_sh_type="simple"
+	elif [ -n "$f_shs_avail" ]; then
+		recomm_sh="${f_shs_avail%% *}"
+		rec_sh_type="supported"
+	fi
+	printf '\n%s\n%s\n' "$blue$sh_msg but a $rec_sh_type shell '$recomm_sh' is available in this system, using it instead is recommended.$n_c" "Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
+	pick_opt "y|n|a"
+	case "$REPLY" in
+		a|A) exit 0 ;;
+		y|Y) curr_sh="$(command -v "$recomm_sh")" ;;
+		n|N) if [ -n "$bad_sh" ]; then exit 1; fi
+	esac
+}
+
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=''; return 0; }
 
-	[ ! "$user_ccode_arg" ] && printf '\n%s\n%s\n' "Please enter your country code." \
+	[ ! "$user_ccode_arg" ] && printf '\n%s\n%s\n' "${blue}Please enter your country code.$n_c" \
 		"It will be used to check if your geoip settings may block your own country and warn you if so."
 	REPLY="$user_ccode_arg"
 	while true; do
@@ -221,7 +257,7 @@ pick_user_ccode() {
 # asks the user to entry country codes, then validates against known-good list
 pick_ccodes() {
 	[ "$nointeract" ] && [ ! "$ccodes_arg" ] && die "Specify country codes with '-c <\"country_codes\">'."
-	[ ! "$ccodes_arg" ] && printf '\n%s\n' "Please enter country codes to include in geoip $geomode."
+	[ ! "$ccodes_arg" ] && printf '\n%s\n' "${blue}Please enter country codes to include in geoip $geomode.$n_c"
 	REPLY="$ccodes_arg"
 	while true; do
 		unset bad_ccodes ok_ccodes
@@ -260,7 +296,7 @@ pick_ccodes() {
 }
 
 pick_geomode() {
-	printf '%s\n' "Select geoip blocking mode: [w]hitelist or [b]lacklist, or [a] to abort the installation."
+	printf '\n%s\n' "${blue}Select geoip blocking mode:$n_c [w]hitelist or [b]lacklist, or [a] to abort the installation."
 	pick_opt "w|b|a"
 	case "$REPLY" in
 		w|W) geomode=whitelist ;;
@@ -286,12 +322,12 @@ pick_ifaces() {
 	}
 
 	nl2sp all_ifaces
-	printf '\n%s\n' "Geoip firewall rules will be applied to specific network interfaces of this machine."
+	printf '\n%s\n' "${yellow}*NOTE*: ${blue}Geoip firewall rules will be applied to specific network interfaces of this machine.$n_c"
 	[ ! "$ifaces_arg" ] && [ "$auto_ifaces" ] && {
-		printf '\n%s\n%s\n\n' "All network interfaces: $all_ifaces" \
-			"Autodetected WAN interfaces: $auto_ifaces"
+		printf '%s\n%s\n' "All found network interfaces: $all_ifaces" \
+			"Autodetected WAN interfaces: $blue$auto_ifaces$n_c"
 		[ "$1" = "-a" ] && { conf_ifaces="$auto_ifaces"; return; }
-		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort installation? "
+		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort installation?"
 		pick_opt "c|h|a"
 		case "$REPLY" in
 			c|C) conf_ifaces="$auto_ifaces"; return ;;
@@ -360,7 +396,7 @@ pick_lan_subnets() {
 	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan subnets with '-l <\"lan_subnets\"|auto|none>'."
 
 	[ ! "$nointeract" ] &&
-		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them."
+		printf '\n\n%s\n' "${yellow}*NOTE*: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
 
 	for family in $families; do
 		printf '\n%s\n' "Detecting $family LAN subnets..."
@@ -369,9 +405,9 @@ pick_lan_subnets() {
 		nl2sp s
 
 		[ -n "$s" ] && {
-			printf '\n%s\n' "Autodetected $family LAN subnets: '$s'."
+			printf '%s\n' "Autodetected $family LAN subnets: '$blue$s$n_c'."
 			[ "$autodetect" ] && { eval "c_lan_subnets_$family=\"$s\""; continue; }
-			printf '\n%s\n%s\n\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
+			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
 				"Verify that correct LAN subnets have been detected in order to avoid problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
@@ -409,7 +445,7 @@ pick_lan_subnets() {
 	done
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?"
+	printf '\n%s\n' "${blue}[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?$n_c"
 	pick_opt "a|c"
 	case "$REPLY" in a|A) autodetect="1"; esac
 }
@@ -427,14 +463,9 @@ detect_sys() {
 	esac
 	case "$initsys" in
 		unknown) return 1 ;;
-		procd) . "$script_dir/OpenWrt/${p_name}-owrt-common.sh" || exit 1
+		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1; curr_sh="/bin/sh"
 	esac
 	:
-}
-
-makepath() {
-	d="$install_dir"
-	case "$PATH" in *:"$d":*|"$d"|*:"$d"|"$d":* );; *) PATH="$PATH:$d"; esac
 }
 
 # removes comments
@@ -444,40 +475,43 @@ san_script() {
 	if [ "$1" ]; then grep -vx "$p" "$1"; else grep -vx "$p"; fi
 }
 
+
 #### Detect the init system
 detect_sys
 
-
 #### Variables
 
+export conf_dir="/etc/$p_name"
 [ "$_OWRTFW" ] && {
 	datadir="$conf_dir/data"
 	o_script="OpenWrt/${p_name}-owrt"
 	owrt_init="$o_script-init.tpl"
 	owrt_fw_include="$o_script-fw-include.tpl"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
-	owrt_common_script="$o_script-common.sh"
+	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
 	default_schedule="15 4 * * 5"
 	source_default="ipdeny"
-} || { datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe"; }
-
-export datadir
-iplist_dir="${datadir}/ip_lists"
+} || {
+	datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe" check_compat="check-compat"
+	init_check_compat=". \"${_lib}-check-compat.sh\" || exit 1"
+}
 
 detect_lan="${p_name}-detect-lan.sh"
 
-ipt_libs=
-[ "$_fw_backend" = ipt ] && ipt_libs="lib-ipt lib-apply-ipt lib-backup-ipt lib-status-ipt"
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup common; do
+for f in fetch apply manage cronsetup run uninstall backup; do
 	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
 done
-script_files="$script_files $owrt_common_script"
 
-lib_files=
-for f in lib-arrays lib-nft lib-apply-nft lib-backup-nft lib-status-nft lib-ip-regex $ipt_libs; do
-	lib_files="${lib_files}lib/${p_name}-$f.sh "
+unset lib_files ipt_libs
+[ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt status-ipt"
+for f in common arrays nft apply-nft backup-nft status-nft ip-regex $check_compat $ipt_libs; do
+	lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
+lib_files="$lib_files $owrt_comm"
+
+export datadir lib_dir="/usr/lib"
+export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh"
 
 source_arg="$(tolower "$source_arg")"
 case "$source_arg" in ''|ripe|ipdeny) ;; *) usage; die "Unsupported source: '$source_arg'."; esac
@@ -519,7 +553,10 @@ check_cron_compat
 	call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule'."
 }
 
+
 #### MAIN
+
+[ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
 
 case "$geomode" in
 	whitelist|blacklist) ;;
@@ -549,17 +586,16 @@ esac
 	[ -z "${t_subnets% }" ] && die "No valid subnets detected in '$t_subnets_arg' compatible with families '$families'."
 }
 
-
 pick_ccodes
 
 pick_user_ccode
 
 if [ -z "$ifaces_arg" ]; then
 	[ "$nointeract" ] && die "Specify interfaces with -i <\"ifaces\"|auto|all>."
-	printf '\n%s\n%s\n%s\n\n%s\n' "Does this machine have dedicated WAN network interface(s)? [y|n] or [a] to abort the installation." \
+	printf '\n%s\n%s\n%s\n%s\n' "${blue}Does this machine have dedicated WAN network interface(s)?$n_c [y|n] or [a] to abort the installation." \
 		"For example, a router or a virtual private server may have it." \
 		"A machine connected to a LAN behind a router is unlikely to have it." \
-		"It is important to asnwer this question correctly."
+		"It is important to answer this question correctly."
 	pick_opt "y|n|a"
 	case "$REPLY" in
 		a|A) exit 0 ;;
@@ -584,10 +620,12 @@ call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files $detect_lan $lib_files"
+copyscripts "$script_files $detect_lan"
 OK
 
-lib_dir="$install_dir"
+printf %s "Copying library scripts to $lib_dir... "
+copyscripts -n "$lib_files" "$lib_dir"
+OK
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
 rm "$i_script" 2>/dev/null
@@ -599,7 +637,18 @@ mkdir -p "$conf_dir"
 # write config
 printf %s "Setting config... "
 
-makepath
+# add $install_dir to $PATH
+add2list PATH "$install_dir" ':'
+
+# set some variables in the -init script
+cat <<- EOF > "$conf_dir/${p_name}-init.sh" || install_failed "$FAIL set variables in the -init script"
+	#!${curr_sh:-/bin/sh}
+	export lib_dir="$lib_dir" conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
+	export _lib="$_lib" conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh"
+	$init_check_compat
+	. "${_lib}-common.sh" || exit 1
+EOF
+
 nodie=1
 setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp=skip" "udp=skip" \
 	"Source=$source" "Families=$families" "CronSchedule=$schedule" "MaxAttempts=$max_attempts" \
@@ -607,31 +656,18 @@ setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp=skip" "udp=sk
 	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" \
 	"TSubnets_ipv4=$t_subnets_ipv4" "TSubnets_ipv6=$t_subnets_ipv6" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
-
-# add $install_dir to $PATH
-add2list PATH "$install_dir" ':'
-
-# set some variables in the -setvars script
-cat <<- EOF > "${conf_dir}/${p_name}-setvars.sh" || install_failed "$FAIL set variables in the -setvars script"
-	#!${curr_shell:-/bin/sh}
-	export datadir="$datadir" lib_dir="$lib_dir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
-	export _lib="\$lib_dir/$p_name-lib" status_file="$datadir/status" use_shell="$curr_shell"
-EOF
 OK
 
 [ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || install_failed; }
 
 # copy cca2.list
-cp "$script_dir/cca2.list" "$install_dir" || install_failed "$FAIL copy 'cca2.list' to '$install_dir'."
+cp "$script_dir/cca2.list" "$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
-# only allow root to read the $datadir and files inside it
+# only allow root to read the $datadir and $conf_dir and files inside it
 mkdir -p "$datadir" &&
 chmod -R 600 "$datadir" "$conf_dir" &&
 chown -R root:root "$datadir" "$conf_dir" ||
 install_failed "$FAIL to create '$datadir'."
-
-# Use vars from the installed setvars script
-. "${conf_dir}/${p_name}-setvars.sh"
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
 call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
@@ -651,7 +687,7 @@ fi
 	fw_include="$i_script-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	echo "_OWRT_install=1" >> "$i_script-common.sh"
+	echo "export _OWRT_install=1" >> "$conf_dir/${p_name}-init.sh"
 	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
@@ -663,10 +699,10 @@ fi
 		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | san_script > "$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
-				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\""
+				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\" _lib=\"$_lib\""
 			san_script "$owrt_mk_fw_inc"
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
-		chmod +x "$init_script" "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
+		chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
 		printf %s "Enabling and starting the init script... "
 		$init_script enable && $init_script start || install_failed "$FAIL enable or start the init script."
