@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2006,SC2010,SC2181,SC3040,SC2016
+# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2181,SC3040,SC2016
 
 # geoip-shell-common.sh
 
@@ -44,8 +44,8 @@ debugexitmsg() {
 	{ printf %s "${yellow}Back to *"; toupper "$me_short"; printf '%s\n' "*...${n_c}"; } >&2
 }
 
-# sets some variables for colors and ascii delimiter
-set_ascii() {
+# sets some variables for colors, symbols and delimiter
+set_ansi() {
 	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \342\234\224 \342\234\230 \t')
 	export red="$1" green="$2" blue="$3" yellow="$4" purple="$5" n_c="$6" delim="$7" _V="$8" _X="$9" trim_IFS=" ${10}"
 	export _V="$green$_V$n_c" _X="$red$_X$n_c"
@@ -161,7 +161,7 @@ call_script() {
 	script_to_call="$1"
 	shift
 
-	: "${use_shell:=$curr_shell}"
+	: "${use_shell:=$curr_sh}"
 	: "${use_shell:=sh}"
 
 	# call the daughter script, then reset $config_var to force re-read of the config file
@@ -194,8 +194,8 @@ echolog() {
 	highlight="$blue"; err_l=info
 	for arg in "$@"; do
 		case "$arg" in
-			"-err" ) highlight="$red"; err_l=err; msg_prefix="$ERR" ;;
-			"-warn" ) highlight="$yellow"; err_l=warn; msg_prefix="$WARN" ;;
+			"-err" ) highlight="$red"; err_l=err; msg_prefix="$ERR " ;;
+			"-warn" ) highlight="$yellow"; err_l=warn; msg_prefix="$WARN " ;;
 			"-nolog" ) o_nolog=1 ;;
 			'') ;;
 			* ) msg_args="$msg_args$arg$delim"
@@ -220,7 +220,7 @@ echolog() {
 			esac
 		}
 		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
-			logger -t "$me" -p user."$err_l" "$(printf %s " $msg_prefix $arg" | sed -e 's/\x1b\[[0-9;]*m//g' | tr '\n' ' ')"
+			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\x1b\[[0-9;]*m/,"")}1' ORS=' ')"
 	done
 }
 
@@ -581,7 +581,7 @@ check_lists_coherence() {
 # optional $2 may contain path to cca2.list
 # returns 0 if validation successful, 2 if not, 1 if cca2 list is empty
 validate_ccode() {
-	cca2_path="${2:-"$script_dir/cca2.list"}"
+	cca2_path="${2:-"$conf_dir/cca2.list"}"
 	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
 	case "$ccode_list" in
 		'') echolog -err "\$ccode_list variable is empty. Perhaps cca2.list is missing?"; return 1 ;;
@@ -684,16 +684,18 @@ setports() {
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
 	# check if cron service is enabled
-	cron_rv=1 cron_reboot=
-	[ "$initsys" = systemd ] &&
-			{ systemctl is-enabled cron.service || systemctl is-enabled crond.service; } 1>/dev/null 2>/dev/null && cron_rv=0
+	cron_rv=1; unset cron_reboot cron_cmd cron_path
 	# check for cron or crond in running processes
-	[ "$cron_rv" != 0 ] && { pidof cron || pidof crond; } 1>/dev/null && cron_rv=0
+	[ "$cron_rv" != 0 ] && {
+		for cron_cmd in cron crond; do
+			pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" && ls -l "$cron_path" 1>/dev/null 2>/dev/null &&
+				{ cron_rv=0; break; }
+		done
+	}
 
-	cron_cmd="$(command -v crond || command -v cron)" || cron_rv=1
 	export cron_rv
 	# check for busybox cron
-	[ "$cron_cmd" ] && case "$(ls -l "$cron_cmd")" in *busybox*) ;; *) export cron_reboot=1; esac
+	[ "$cron_rv" = 0 ] && [ "$cron_path" ] && case "$(ls -l "$cron_path")" in *busybox*) ;; *) export cron_reboot=1; esac
 
 	return "$cron_rv"
 }
@@ -762,10 +764,10 @@ kill_geo_pids() {
 	sleep 0.1 2>/dev/null || sleep 1
 }
 
-export install_dir="/usr/bin" conf_dir="/etc/$p_name" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
+export install_dir="/usr/bin" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
-export lock_file="/tmp/$p_name.lock" conf_file="$conf_dir/$p_name.conf" i_script="$install_dir/${p_name}"
+export lock_file="/tmp/$p_name.lock" i_script="$install_dir/${p_name}"
 
 valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
@@ -782,47 +784,11 @@ trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] &&
 set -f
 
 if [ -z "$geotag" ]; then
-	# not assuming a compatible shell at this point
-	# check for supported grep
-	_no_grep="Error: grep not found."
-	command -v grep >/dev/null || { echo "$_no_grep" >&2; exit 1; }
-	if [ $? != 0 ]; then echo "$_no_grep" >&2; exit 1; fi
-	_g_test=`echo 0112 | grep -oE '1{2}'`
-	if [ "$_g_test" != 11 ]; then echo "Error: grep doesn't support the required options." >&2; exit 1; fi
-
-	# check for proc
-	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
-
-	# check for supported shell
-	if command -v readlink >/dev/null; then
-		curr_shell=`readlink /proc/$$/exe`
-	fi
-	if [ -z "$curr_shell" ]; then
-		curr_shell=`ls -l /proc/$$/exe | grep -oE '/[^[:space:]]+$'`
-	fi
-	ok_shell=`echo $curr_shell | grep -E '/(bash|dash|yash|ash|busybox|ksh93)'`
-	if [ -z "$curr_shell" ]; then
-		echo "Warning: failed to identify current shell. $p_name may not work correctly. Please notify the developer." >&2
-	elif [ -z "$ok_shell" ]; then
-		bad_shell=`echo $curr_shell | grep -E 'zsh|csh'`
-		if [ -n "$bad_shell" ]; then echo "Error: unsupported shell $curr_shell." >&2; exit 1; fi
-		echo "Warning: whether $p_name works with your shell $curr_shell is currently unknown. Please test and notify the developer." >&2
-	fi
-	case "$curr_shell" in *busybox*) curr_shell="/bin/sh"; esac
-
 	# export some vars
-	set_ascii
+	set_ansi
 	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 
-	if [ -f "${p_script}-setvars.sh" ]; then
-		. "${p_script}-setvars.sh"
-	else
-		. "${conf_dir}/${p_name}-setvars.sh"
-	fi
-
-	# check common deps
-	check_deps tr cut sort wc awk sed logger pgrep || die
 	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
 	} || die "neither nftables nor iptables+ipset found."
