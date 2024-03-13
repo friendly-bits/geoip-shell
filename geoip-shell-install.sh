@@ -19,7 +19,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1
 
-. "$script_dir/$p_name-init.sh" || exit 1
+. "$script_dir/$p_name-geoinit.sh" || exit 1
 . "$_lib-ip-regex.sh"
 export nolog=1
 
@@ -127,7 +127,6 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 check_root
-
 debugentermsg
 
 
@@ -493,7 +492,7 @@ export conf_dir="/etc/$p_name"
 	source_default="ipdeny"
 } || {
 	datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe" check_compat="check-compat"
-	init_check_compat=". \"${_lib}-check-compat.sh\" || exit 1"
+	init_check_compat=". \"\${_lib}-check-compat.sh\" || exit 1"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
@@ -509,9 +508,6 @@ for f in common arrays nft apply-nft backup-nft status-nft ip-regex $check_compa
 	lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
-
-export datadir lib_dir="/usr/lib"
-export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh"
 
 source_arg="$(tolower "$source_arg")"
 case "$source_arg" in ''|ripe|ipdeny) ;; *) usage; die "Unsupported source: '$source_arg'."; esac
@@ -610,6 +606,9 @@ else
 	esac
 fi
 
+export datadir lib_dir="/usr/lib"
+export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh"
+
 [ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_subnets
 
 # don't copy the detect-lan script, unless autodetect is enabled
@@ -641,12 +640,28 @@ printf %s "Setting config... "
 add2list PATH "$install_dir" ':'
 
 # set some variables in the -init script
-cat <<- EOF > "$conf_dir/${p_name}-init.sh" || install_failed "$FAIL set variables in the -init script"
-	#!${curr_sh:-/bin/sh}
-	export lib_dir="$lib_dir" conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
-	export _lib="$_lib" conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh"
+cat <<- EOF > "$conf_dir/${p_name}-consts" || install_failed "$FAIL set essential variables."
+	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
+	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh"
+EOF
+
+. "$conf_dir/${p_name}-consts"
+
+# create the -init script
+cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
+	export lib_dir="$lib_dir"
+	export _lib="\$lib_dir/\${p_name}-lib"
 	$init_check_compat
-	. "${_lib}-common.sh" || exit 1
+	. "\${_lib}-common.sh" || exit 1
+	if [ -z "\$root_ok" ] && [ "\$(id -u)" = 0 ]; then
+		_no_l="\$nolog"
+		. "$conf_dir/\${p_name}-consts" || exit 1
+		{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
+		{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
+		} || die "neither nftables nor iptables+ipset found."
+		export root_ok=1
+		r_no_l
+	fi
 EOF
 
 nodie=1
@@ -687,7 +702,7 @@ fi
 	fw_include="$i_script-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	echo "export _OWRT_install=1" >> "$conf_dir/${p_name}-init.sh"
+	echo "export _OWRT_install=1" >> "$conf_dir/${p_name}-consts"
 	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
