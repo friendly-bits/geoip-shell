@@ -8,9 +8,7 @@
 
 ## Initial setup
 p_name="geoip-shell"
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-
-. "$script_dir/${p_name}-common.sh" || exit 1
+. "/etc/${p_name}/${p_name}-init.sh" || exit 1
 
 check_root
 
