@@ -10,12 +10,12 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-geoinit="${p_name}-init.sh"
-for init_path in "$script_dir/$geoinit" "/etc/${p_name}/$geoinit"; do
-	[ -f "$init_path" ] && break
+geoinit="${p_name}-geoinit.sh"
+for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
+	[ -f "$geoinit_path" ] && break
 done
 
-. "$init_path" || exit 1
+. "$geoinit_path" || exit 1
 . "$_lib-arrays.sh" || exit 1
 . "$_lib-ip-regex.sh"
 
