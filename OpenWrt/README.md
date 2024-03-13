@@ -1,13 +1,11 @@
 ## geoip-shell on OpenWrt
 
-Generally, geoip-shell is designed to run on any Linux system. For OpenWrt, because it's so minimalistic, a lot of effort has been put into implementing specific support for it. This includes translating the project from Bash to POSIX-compliant shell language, replacing certain utilities which don't come by default on OpenWrt (or come without certain features) with custom shell code, implementing support for uclient-fetch, implementing an init script and some other scripts for persistence, a lot of learning and testing and much much more.
-
 Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing exactly the same user interface and features as on any other Linux system. So installation and usage work the same way as described in the main [README.md](/README.md) file.
 
 A LuCi interface has not been implemented (yet) and the project has not been (yet) packaged for OpenWrt. As on any other Linux system, installation, uninstallation and all user interface is via a command line (but my goal is to make this an easy experience regardless). If either of these things discourages you from using geoip-shell, please let me know. A few people asking for these features will motivate me to prioritize them.
 
 ## Resources management on OpenWrt
-I am very much aware of the fact that OpenWrt typically runs on embedded devices with limited memory and very small flash storage. geoip-shell is designed to conserve these resources as much as possible, and some specific techniques are implemented for OpenWrt:
+Because OpenWrt typically runs on embedded devices with limited memory and very small flash storage, geoip-shell implements some techniques to conserve these resources as much as possible:
 - during installation on OpenWrt, comments are stripped from the scripts to reduce their size.
 - the install script selectively copies only the required scripts and libraries, depending on the system and the installation options.
 - I've researched the most memory-efficient way for loading ip lists into nftables sets. Currently, nftables has some bugs related to this process which may cause unnecessarily high memory consumption. geoip-shell works around these bugs.
