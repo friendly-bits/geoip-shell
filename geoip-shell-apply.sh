@@ -8,9 +8,7 @@
 
 ## Initial setup
 p_name="geoip-shell"
-. "/etc/${p_name}/${p_name}-init.sh" || exit 1
-
-check_root
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -61,10 +59,8 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-echo
-
+check_root
 setdebug
-
 debugentermsg
 
 ## VARIABLES
