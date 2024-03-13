@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1
-. "$script_dir/${p_name}-init.sh" || exit 1
+. "$script_dir/${p_name}-geoinit.sh" || exit 1
 . "$_lib-ip-regex.sh"
 
 
@@ -26,7 +26,7 @@ For each of the specified ip addresses, checks whether it belongs to one of the 
     in the list fetched from a source (either RIPE or ipdeny) for a given country code.
 Accepts a mix of ipv4 and ipv6 addresses.
 
-Requires the 'grepcidr' utility, '${p_name}-fetch.sh', '${p_name}-common.sh', 'cca2.list'
+Requires the 'grepcidr' utility
 
 Options:
   -c <country_code>    : Country code (ISO 3166-1 alpha-2)
