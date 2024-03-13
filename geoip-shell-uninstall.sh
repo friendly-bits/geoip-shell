@@ -141,7 +141,7 @@ done
 printf '%s\n' "Deleting library scripts from $lib_dir..."
 for script_name in owrt-common common ipt nft ip-regex arrays apply-ipt apply-nft backup-ipt \
 	backup-nft status-ipt status-nft check-compat; do
-		rm "${_lib_dir}/${p_name}-lib-$script_name.sh" 2>/dev/null
+		rm "${lib_dir}/${p_name}-lib-$script_name.sh" 2>/dev/null
 done
 
 echo "Deleting config..."
