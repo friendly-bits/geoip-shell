@@ -170,6 +170,8 @@ _<details><summary>Example</summary>_
 
 **To disable ip lists autoupdates:** `geoip-shell schedule -s disable`
 
+**To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
+
 **To uninstall:** run `geoip-shell-uninstall.sh`
 
 **To switch mode (from whitelist to blacklist or the opposite):** re-install
