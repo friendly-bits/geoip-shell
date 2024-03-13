@@ -8,10 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-. "/etc/${p_name}/${p_name}-init.sh" || exit 1
-. "$_lib-$_fw_backend.sh" || die
-
-check_root
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -62,10 +59,14 @@ while getopts ":l:aodh" opt; do
 done
 shift $((OPTIND-1))
 
+extra_args "$@"
+
+check_root
+. "$_lib-$_fw_backend.sh" || die
+
 setdebug
 debugentermsg
 
-extra_args "$@"
 
 daemon_prep_next() {
 	echolog "Retrying in $secs seconds"
