@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1
-. "$script_dir/${p_name}-common.sh" || exit 1
+. "$script_dir/${p_name}-init.sh" || exit 1
 . "$_lib-ip-regex.sh"
 
 
