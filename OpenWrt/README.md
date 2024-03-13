@@ -15,7 +15,7 @@ Because OpenWrt typically runs on embedded devices with limited memory and very 
 ### Scripts size
 Typical geoip-shell installation on nftables-based OpenWrt system currently consumes around 85kB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but once geoip-shell has been installed, you can delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
 
-To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /usr/bin/geoip-shell-*`.
+To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /etc/geoip-shell/geoip-shell-* /usr/bin/geoip-shell-* /usr/lib/geoip-shell-*`.
 
 On iptables-based systems, the installation takes additional ~20kB because in that case geoip-shell installs both libraries required for iptables and for nftables, so if you upgrade your system to nftables at some point, geoip-shell should not break. If you are certain that you won't need these nftables library scripts then you can manually delete them from the /usr/bin directory. You can recognize them by the `-lib-nft` suffix.
 

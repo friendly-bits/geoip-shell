@@ -13,6 +13,7 @@
 6. geoip-shell-apply.sh
 7. geoip-shell-backup.sh
 8. geoip-shell-cronsetup.sh
+9. geoip-shell-init.sh
 
 ### Helper Script
 This script is only used under specific conditions:
@@ -22,14 +23,14 @@ This script is only used under specific conditions:
 
 ### Library Scripts
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
-- The -common script includes a large number of functions used throughout the suite, and assigns some essential variables.
-- The -setvars script sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories etc). It is sourced from the -common script. The distribution version stores some initial values. During installation, the -install script creates a new version and adds the required variables to it. It is stored in the config directory rather than in /usr/bin as other scripts because it essentially a part of the config which is simply more convenient to implement as a script, and the installed version contains some potentially sensitive data which should not be readable by unprivileged users.
+- The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from the main scripts which need to interact with the firewall utility directly.
 - When nftables is present during installation, the iptables libraries are not installed.
 - When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
-- The lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
-- The lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
-1. geoip-shell-common.sh
+- The -lib-check-compat script checks for some essential dependencies
+- The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
+- The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
+1. lib/geoip-shell-lib-common.sh
 2. lib/geoip-shell-lib-ipt.sh
 3. lib/geoip-shell-lib-nft.sh
 4. lib/geoip-shell-lib-apply-ipt.sh
@@ -38,12 +39,13 @@ This script is only used under specific conditions:
 7. lib/geoip-shell-lib-backup-nft.sh
 8. lib/geoip-shell-lib-status-ipt.sh
 9. lib/geoip-shell-lib-status-nft.sh
-10. lib/geoip-shell-lib-arrays.sh
-11. lib/geoip-shell-lib-ip-regex.sh
+10. lib/geoip-shell-lib-check-compat.sh
+11. lib/geoip-shell-lib-arrays.sh
+12. lib/geoip-shell-lib-ip-regex.sh
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
-1. geoip-shell-owrt-common.sh
+1. geoip-shell-lib-owrt-common.sh
 2. geoip-shell-owrt-init.tpl
 3. geoip-shell-owrt-mk-fw-include.tpl
 2. geoip-shell-owrt-fw-include.tpl
@@ -150,6 +152,9 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 `geoip-shell-backup create-backup` : Creates a backup of the current firewall state and geoip blocking config.
 
 `geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
+
+**geoip-shell-init.sh**: This script is sourced from most other scripts. It sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories and files), checks for compatible shell and other essential dependencies via the -lib-check-compat script and then sources the -lib-common script. The distribution version stores some initial values. During installation, the -install script creates a new version and adds the required variables to it. This script is stored in /etc/geoip-shell/ rather than in /usr/bin/ as other main scripts because the installed version contains some information about the system which should not be readable by unprivileged users.
+
 
 ## **Optional script in detail**
 **check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.

@@ -1,5 +1,9 @@
 # Notes about the questions asked by the _-install_ script
 
+## **'Your fancy shell 'X' is supported by geoip-shell but a simple shell 'Y' is available in this system, using it instead is recommended. Would you like to use 'Y' with geoip-shell?'
+
+geoip-shell will work with the shell X you ran it from, but it doesn't need or use the fancy features and it will work faster with a simpler shell Y which is also installed in your system. Your call - type in `y` or `n`. The recommendation is clear.
+
 ## **'Please enter your country code':**
 
 If you answer this question, the _-manage_ script will check that the changes in ip lists which you request to make will not block your own country. This applies both to the installation process, and to any subsequent changes to the ip lists which you may want to make in the future. The idea behind this is to make this tool as fool-proof as possible.
