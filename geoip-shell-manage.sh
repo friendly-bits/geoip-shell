@@ -8,13 +8,11 @@
 
 #### Initial setup
 p_name="geoip-shell"
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-
-. "$script_dir/${p_name}-common.sh" || exit 1
+. "/etc/${p_name}/${p_name}-init.sh" || exit 1
 . "$_lib-$_fw_backend.sh" || die
 . "$_lib-status-$_fw_backend.sh" || die
 
-[ "$_OWRT_install" ] && { . "$i_script-owrt-common.sh" || die; }
+[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
 
 export geomode nolog=1 manmode=1
 
@@ -114,7 +112,7 @@ report_status() {
 		getconfig "${entry% *}" "${entry#* }"
 	done
 
-	printf '\n%s\n' "${purple}Geoip blocking status report:${n_c}"
+	printf '\n%s\n' "${blue}Geoip blocking status report:${n_c}"
 
 	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
 
