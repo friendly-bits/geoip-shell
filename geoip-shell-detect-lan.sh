@@ -21,7 +21,12 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/${p_name}-common.sh"
+geocomm="${p_name}-lib-common.sh"
+for comm_path in "$script_dir/lib/$geocomm" "/usr/lib/$geocomm"; do
+	[ -f "$comm_path" ] && break
+done
+
+. "$comm_path" || exit 1
 . "$_lib-ip-regex.sh"
 
 ## Simple args parsing
