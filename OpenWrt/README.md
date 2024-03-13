@@ -26,7 +26,7 @@ Persistence of geoip firewall rules and ip sets works differenetly on OpenWrt th
 Generally the defaults are the same as for other systems, except:
 - the default ip lists source for OpenWrt is ipdeny (rather than ripe). While ipdeny is a 3rd party, they provide aggregated lists which take less space and consume less memory (on nftables-based systems the ip lists are automatically optimized after loading into memory, so there the source does not matter, but a smaller initial ip lists size will cause a smaller memory consumption spike while loading the ip list).
 - the default ip lists cron update schedule for OpenWrt is "15 4 * * 5", which translates to "Friday, 4:15am". The default for other Linux systems is daily updates. This is mainly to reduce the stress on the flash storage (in case backups are enabled). You can change the cron schedule during installation or after it if you choose to.
-- the data folder which geoip-shell uses to store the status file and the backups, is in `/etc/geoip-shell/data`, rather than in `/var/lib/geoip-shell` as on every other Linux system. This is because the `/var/lib` path in OpenWrt may be mounted in the ramdisk.
+- the data folder which geoip-shell uses to store the status file and the backups is in `/etc/geoip-shell/data`, rather than in `/var/lib/geoip-shell` as on every other Linux system. This is because the `/var/lib` path in OpenWrt may be mounted in the ramdisk.
 
 This is about it for this document. If you have any questions, go ahead and use the Discussions tab, or contact me in this thread:
 https://forum.openwrt.org/t/geoip-shell-flexible-geoip-blocker-for-linux-now-supports-openwrt/189611
