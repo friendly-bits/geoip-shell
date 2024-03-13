@@ -13,7 +13,13 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
-. "$script_dir/${p_name}-common.sh" || exit 1
+
+geoinit="${p_name}-init.sh"
+for init_path in "$script_dir/$geoinit" "/etc/${p_name}/$geoinit"; do
+	[ -f "$init_path" ] && break
+done
+. "$init_path" || exit 1
+
 fw_backend_lib="$_lib-$_fw_backend.sh"
 [ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || die "$fw_backend_lib not found."
 
@@ -70,6 +76,7 @@ debugentermsg
 old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
 install_dir="${old_install_dir:-"$install_dir"}"
+lib_dir="/usr/lib"
 
 [ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually"
 
@@ -113,7 +120,7 @@ rm "$conf_file" 2>/dev/null
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
-	. "$p_script-owrt-common.sh" || exit 1
+	. "$_lib-owrt-common.sh" || exit 1
 	echo "Deleting the init script..."
 	/etc/init.d/${p_name}-init disable 2>/dev/null && rm "/etc/init.d/${p_name}-init" 2>/dev/null
 	echo "Removing the firewall include..."
@@ -126,10 +133,15 @@ printf '%s\n' "Deleting the data folder $datadir..."
 rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
-rm "$install_dir/$p_name" 2>/dev/null
-for script_name in fetch apply manage cronsetup run uninstall backup mk-fw-include fw-include owrt-common common lib-ipt lib-nft setvars \
-	detect-lan lib-ip-regex lib-arrays lib-apply-ipt lib-apply-nft lib-backup-ipt lib-backup-nft lib-status-ipt lib-status-nft; do
-		rm "$install_dir/$p_name-$script_name.sh" 2>/dev/null
+rm "${install_dir}/${p_name}" 2>/dev/null
+for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall; do
+	rm "${install_dir}/${p_name}-$script_name.sh" 2>/dev/null
+done
+
+printf '%s\n' "Deleting library scripts from $lib_dir..."
+for script_name in owrt-common common ipt nft ip-regex arrays apply-ipt apply-nft backup-ipt \
+	backup-nft status-ipt status-nft check-compat; do
+		rm "${_lib_dir}/${p_name}-lib-$script_name.sh" 2>/dev/null
 done
 
 echo "Deleting config..."
