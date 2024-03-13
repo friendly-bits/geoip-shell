@@ -10,5 +10,5 @@ lock_file=\"$lock_file\"
 	return 0
 }
 
-$curr_shell \"$install_dir/${p_name}-run.sh\" restore -a 1>/dev/null &
+$curr_sh \"$install_dir/${p_name}-run.sh\" restore -a 1>/dev/null &
 :
