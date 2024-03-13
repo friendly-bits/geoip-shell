@@ -8,10 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-. "/etc/${p_name}/${p_name}-init.sh" || exit 1
-. "$_lib-backup-$_fw_backend.sh" || die
-
-check_root
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -54,10 +51,11 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-echo
+check_root
+
+. "$_lib-backup-$_fw_backend.sh" || die
 
 setdebug
-
 debugentermsg
 
 # detects archive type (if any) of file passed in 1st argument by its extension
