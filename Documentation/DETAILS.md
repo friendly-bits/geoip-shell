@@ -13,7 +13,7 @@
 6. geoip-shell-apply.sh
 7. geoip-shell-backup.sh
 8. geoip-shell-cronsetup.sh
-9. geoip-shell-init.sh
+9. geoip-shell-geoinit.sh
 
 ### Helper Script
 This script is only used under specific conditions:
@@ -153,7 +153,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 `geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
 
-**geoip-shell-init.sh**: This script is sourced from most other scripts. It sets some system-specific variables (such as the PATH environment variable, the detected init system, paths to some directories and files), checks for compatible shell and other essential dependencies via the -lib-check-compat script and then sources the -lib-common script. The distribution version stores some initial values. During installation, the -install script creates a new version and adds the required variables to it. This script is stored in /etc/geoip-shell/ rather than in /usr/bin/ as other main scripts because the installed version contains some information about the system which should not be readable by unprivileged users.
+**geoip-shell-geoinit.sh**: This script is sourced from most other scripts. It checks for compatible shell and other essential dependencies, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
 
 
 ## **Optional script in detail**
