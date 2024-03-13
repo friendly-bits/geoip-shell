@@ -9,9 +9,11 @@
 #### Initial setup
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-
-. "$script_dir/${p_name}-common.sh" || exit 1
-[ "$_OWRT_install" ] && { . "$p_script-owrt-common.sh" || exit 1; }
+geoinit="${p_name}-init.sh"
+for init_path in "$script_dir/$geoinit" "/etc/${p_name}/$geoinit"; do
+	[ -f "$init_path" ] && break
+done
+. "$init_path" || exit 1
 
 nolog=1
 
