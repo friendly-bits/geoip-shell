@@ -8,11 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-. "/etc/${p_name}/${p_name}-init.sh" || exit 1
-. "$_lib-$_fw_backend.sh" || die
-. "$_lib-status-$_fw_backend.sh" || die
-
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 export geomode nolog=1 manmode=1
 
@@ -88,9 +84,11 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 check_root
+. "$_lib-$_fw_backend.sh" || die
+. "$_lib-status-$_fw_backend.sh" || die
+[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
 
 setdebug
-
 debugentermsg
 
 
