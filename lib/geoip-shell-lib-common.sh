@@ -764,10 +764,10 @@ kill_geo_pids() {
 	sleep 0.1 2>/dev/null || sleep 1
 }
 
-export install_dir="/usr/bin" iplist_dir="/tmp" p_script="$script_dir/${p_name}" _nl='
+export install_dir="/usr/bin" iplist_dir="/tmp" _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
-export lock_file="/tmp/$p_name.lock" i_script="$install_dir/${p_name}"
+export lock_file="/tmp/$p_name.lock" p_script="$script_dir/${p_name}" i_script="$install_dir/${p_name}"
 
 valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
@@ -776,7 +776,6 @@ valid_families="ipv4 ipv6"
 : "${me:="${0##*/}"}"
 me_short="${me#"${p_name}-"}"
 me_short="${me_short%.sh}"
-_no_l="$nolog"
 
 # trap var
 trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] && rm -f $lock_file 2>/dev/null; exit;'
@@ -788,12 +787,7 @@ if [ -z "$geotag" ]; then
 	set_ansi
 	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
-
-	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
-	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
-	} || die "neither nftables nor iptables+ipset found."
 	export geochain="$(toupper "$geotag")"
 fi
-r_no_l
 
 :
