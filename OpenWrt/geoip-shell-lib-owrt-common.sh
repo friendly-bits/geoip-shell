@@ -38,3 +38,4 @@ done
 	logger -s -t "$me" -p user.err "Failed to detect OpenWrt firewall"
 	return 1
 }
+:
