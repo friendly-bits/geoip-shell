@@ -66,7 +66,7 @@ debugentermsg
 ## VARIABLES
 
 for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp tcp_ports" "udp udp_ports" \
+		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports" \
 		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
 		"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
