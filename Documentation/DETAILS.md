@@ -32,17 +32,18 @@ This script is only used under specific conditions:
 - The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 - The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
 1. lib/geoip-shell-lib-common.sh
-2. lib/geoip-shell-lib-ipt.sh
-3. lib/geoip-shell-lib-nft.sh
-4. lib/geoip-shell-lib-apply-ipt.sh
-5. lib/geoip-shell-lib-apply-nft.sh
-6. lib/geoip-shell-lib-backup-ipt.sh
-7. lib/geoip-shell-lib-backup-nft.sh
-8. lib/geoip-shell-lib-status-ipt.sh
-9. lib/geoip-shell-lib-status-nft.sh
-10. lib/geoip-shell-lib-check-compat.sh
-11. lib/geoip-shell-lib-arrays.sh
-12. lib/geoip-shell-lib-ip-regex.sh
+2. lib/geoip-shell-lib-setup.sh
+3. lib/geoip-shell-lib-ipt.sh
+4. lib/geoip-shell-lib-nft.sh
+5. lib/geoip-shell-lib-apply-ipt.sh
+6. lib/geoip-shell-lib-apply-nft.sh
+7. lib/geoip-shell-lib-backup-ipt.sh
+8. lib/geoip-shell-lib-backup-nft.sh
+9. lib/geoip-shell-lib-status-ipt.sh
+10. lib/geoip-shell-lib-status-nft.sh
+11. lib/geoip-shell-lib-check-compat.sh
+12. lib/geoip-shell-lib-arrays.sh
+13. lib/geoip-shell-lib-ip-regex.sh
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
@@ -63,7 +64,7 @@ After installation, the user interface is provided by running "geoip-shell", whi
 **geoip-shell-install.sh**
 - Processes command line arguments, then, if needed, asks the user additional questions.
 - Creates directories for config and data.
-- Sets permissions for the data directory to be only readable and writable by root. The config directory is currently readable by any local user, writable only by root. While there is no particularly sensitive information stored in the config, an upcoming release will make it only readable by root to further improve security.
+- Sets permissions for the data and config directories to be only readable and writable by root.
 - Copies the scripts to `/usr/bin`, config to `/etc/geoip-shell`, and creates a directory for data in `/var/lib/geoip-shell` (or in `/etc/geoip-shell/data` on OpenWrt).
 - Sets the initial config.
 - Calls the -manage script to set up geoip (which, in turn, calls additional scripts).
