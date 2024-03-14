@@ -47,7 +47,7 @@ daemon_mode=
 # check for valid action
 action_run="$(tolower "$1")"
 case "$action_run" in
-	add|remove|status|schedule|restore|reset|on|off|apply|showconfig) ;;
+	add|remove|update|restore) ;;
 	*) action="$action_run"; unknownact
 esac
 
