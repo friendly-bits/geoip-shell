@@ -29,7 +29,7 @@ One way to do that is by typing in 'c' to confirm and once installation complete
 Of course, this is risky in cases where you do not have physical access to the machine.
 
 Another way to do that is by checking which ip address you need to access the machine from, and then verifying that said ip address is included in one of the autodetected subnets. For example, if your other machine's ip is `192.168.1.5` and one of the autodetected subnets is `192.168.1.0/24` then you will want to check that `192.168.1.5` is included in subnet `192.168.1.0/24`. Provided you don't know how to make this calculation manually, you can use the `grepcidr` tool this way:
-`echo "192.168.1.1" | grepcidr "192.168.1.0/24"`
+`echo "192.168.1.5" | grepcidr "192.168.1.0/24"`
 
 The syntax to check in multiple subnets (note the double quotes):
 `echo "[ip]" | grepcidr "[subnet1] [subnet2] ... [subnetN]"`
