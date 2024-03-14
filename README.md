@@ -96,9 +96,11 @@ _(Note that all commands require root privileges, so you will likely need to run
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases
   _<details><summary>Or download using the command line:</summary>_
   - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
-  - or run `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep tarball_url | head -n 1 | cut -d '"' -f 4)" > geoip-shell.tar` - this will download the latest release.
+  - or to download the latest release:
+
+    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep tarball_url | head -n 1 | cut -d '"' -f 4)" > geoip-shell.tar`
   
-  To untar, run: `tar -xvf geoip-shell.tar`
+  - to extract, run: `tar -xvf geoip-shell.tar`
   </details>
 
 
