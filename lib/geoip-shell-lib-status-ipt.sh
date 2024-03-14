@@ -5,29 +5,6 @@
 
 # iptables-specific library for report_status() in the -manage script
 
-
-# Report protocols and ports
-report_proto() {
-	printf '\n%s\n' "Protocols:"
-	for proto in tcp udp; do
-		ports_act=''; p_sel=''
-		eval "ports=\"\$${proto}_ports\""
-		if [ ! "$ports" ]; then
-			ports_act="${red}*Geoip inactive*"; ports=''
-		elif [ "$ports" = skip ]; then
-			ports="to ${green}all ports"
-		else
-			case "$ports" in
-				*"! --dport"*) p_sel="${yellow}only to ports " ;;
-				*) p_sel="to ${yellow}all ports except "
-			esac
-			ports="'$(printf %s "$ports" | sed 's/.*dport[s]* //;s/:/-/g')'"
-		fi
-		[ ! "$ports_act" ] && ports_act="Geoip applied "
-		printf '%s\n' "${blue}$proto${n_c}: $ports_act$p_sel$ports${n_c}"
-	done
-}
-
 echo
 
 report_fw_state() {
