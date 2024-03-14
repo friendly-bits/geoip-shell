@@ -183,9 +183,16 @@ nft_cmd_chain="$(
 
 	# ports
 	for proto in tcp udp; do
-		eval "proto_exp=\"\$${proto}_ports\""
-		[ "$proto_exp" = skip ] && continue
-		printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $proto_exp counter accept comment ${geotag_aux}_ports"
+		eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
+		eval "proto_ports=\"\$${proto}_ports\""
+		debugprint "proto_ports: '$proto_ports', ports_exp: '$ports_exp', ports: '$ports'"
+		[ "$ports_exp" = skip ] && continue
+		if [ "$ports_exp" = all ]; then
+			ports_exp="meta l4proto $proto"
+		else
+			ports_exp="$proto $(printf %s "$ports_exp" | sed "s/multiport //;s/!dport/dport !=/") { $ports }"
+		fi
+		printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $ports_exp counter accept comment ${geotag_aux}_ports"
 	done
 
 	# established/related
