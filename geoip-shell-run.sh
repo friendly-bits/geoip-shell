@@ -42,8 +42,14 @@ EOF
 
 #### PARSE ARGUMENTS
 
-action_run="$(tolower "$1")"
 daemon_mode=
+
+# check for valid action
+action_run="$(tolower "$1")"
+case "$action_run" in
+	add|remove|status|schedule|restore|reset|on|off|apply|showconfig) ;;
+	*) action="$action_run"; unknownact
+esac
 
 # process the rest of the args
 shift 1
@@ -145,8 +151,7 @@ case "$action_run" in
 				# if restore failed, force re-fetch
 				action_run=update action_apply=add force="-f"
 			fi
-		fi ;;
-	*) action="$action_run"; unknownact
+		fi
 esac
 
 
