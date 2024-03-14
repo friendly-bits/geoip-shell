@@ -8,9 +8,10 @@
 
 #### Initial setup
 p_name="geoip-shell"
-. "/usr/bin/${p_name}-geoinit.sh" || exit 1
-
 export geomode nolog=1 manmode=1
+
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
+. "$_lib-setup.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -94,6 +95,27 @@ debugentermsg
 
 #### FUNCTIONS
 
+# Report protocols and ports
+report_proto() {
+	printf '\n%s\n' "Protocols:"
+	for proto in tcp udp; do
+		unset ports ports_act p_sel
+		eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
+
+		case "$ports_exp" in
+			all) ports_act="${red}*Geoip inactive*"; ports='' ;;
+			skip) ports="to ${green}all ports" ;;
+			*"!dport"*) p_sel="${yellow}only to ports " ;;
+			*) p_sel="to ${yellow}all ports except "
+		esac
+
+		[ "$p_sel" ] && [ ! "$ports" ] &&
+			die "$FAIL get ports from the config, or the config is invalid. \$ports_exp: '$ports_exp', \$ports_act: '$ports_act', \$ports: '$ports'$n_c, \$p_sel: '$p_sel'."
+		[ ! "$ports_act" ] && ports_act="Geoip is applied "
+		printf '%s\n' "${blue}$proto${n_c}: $ports_act$p_sel$ports${n_c}"
+	done
+}
+
 report_status() {
 	warn_persist() {
 		printf '\n%s\n' "$WARN $1 Geoip${cr_p# and} $wont_work." >&2
@@ -104,8 +126,8 @@ report_status() {
 	_Q="${red}?${n_c}"
 	issues=0
 
-	for entry in "Source ipsource" "Ifaces _ifaces" "tcp tcp_ports" "udp udp_ports" \
-			"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
+	for entry in "Source ipsource" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports" \
+		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
 			"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
 		getconfig "${entry% *}" "${entry#* }"
 	done
@@ -308,7 +330,8 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
-for entry in "Geomode geomode" "Families families" "Lists config_lists_str" "UserCcode user_ccode"; do
+for entry in "Geomode geomode" "Families families" "Lists config_lists_str" "UserCcode user_ccode"\
+	"tcp_ports tcp_ports" "udp_ports udp_ports"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
@@ -472,6 +495,7 @@ setconfig "Lists=$planned_lists_str"
 
 if [ "$action" = apply ]; then
 	setports "${ports_arg%"$_nl"}" || die
+	setconfig "tcp_ports=$tcp_ports" "udp_ports=$udp_ports"
 	call_script "$i_script-apply.sh" "update"; rv=$?
 else
 	call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
