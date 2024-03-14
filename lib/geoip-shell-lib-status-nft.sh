@@ -5,27 +5,6 @@
 
 # nftables-specific library for report_status() in the -manage script
 
-
-# Report protocols and ports
-report_proto() {
-	printf '\n%s\n' "Protocols:"
-	for proto in tcp udp; do
-		ports_act=''; p_sel=''
-		eval "ports=\"\$${proto}_ports\""
-
-		case "$ports" in
-			*"meta l4proto"*) ports_act="${red}*Geoip inactive*"; ports='' ;;
-			skip) ports="to ${green}all ports" ;;
-			*"dport !="*) p_sel="${yellow}only to ports " ;;
-			*) p_sel="to ${yellow}all ports except "
-		esac
-		case "$ports" in ''|*all*) ;; *) ports="'$(printf %s "$ports" | sed 's/.*dport [!= ]*//;s/{ //g;s/ }//g')'"; esac
-
-		[ ! "$ports_act" ] && ports_act="Geoip is applied "
-		printf '%s\n' "${blue}$proto${n_c}: $ports_act$p_sel$ports${n_c}"
-	done
-}
-
 report_fw_state() {
 	curr_geotable="$(nft_get_geotable)" ||
 		{ printf '%s\n' "$FAIL read the firewall state or firewall table $geotable does not exist." >&2; incr_issues; }
