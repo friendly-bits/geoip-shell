@@ -24,6 +24,7 @@ This script is only used under specific conditions:
 ### Library Scripts
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
+- The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from the main scripts which need to interact with the firewall utility directly.
 - When nftables is present during installation, the iptables libraries are not installed.
 - When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
