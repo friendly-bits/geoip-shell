@@ -241,9 +241,17 @@ for family in $families; do
 
 		# ports
 		for proto in tcp udp; do
-			eval "dport=\"\$${proto}_ports\""
-			[ "$dport" = skip ] && continue
-			printf '%s\n' "-I $geochain -p $proto $dport -j ACCEPT $ipt_comm ${geotag_aux}_ports"
+			eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
+			[ "$ports_exp" = skip ] && continue
+			if [ "$ports_exp" = all ]; then
+				ports_exp=
+			else
+				dport='--dport'
+				case "$ports_exp" in *multiport*) dport='--dports'; esac
+				ports="$(printf %s "$ports" | sed 's/-/:/g')"
+				ports_exp="$(printf %s "$ports_exp" | sed "s/all//;s/multiport/-m multiport/;s/!/! /;s/dport/$dport/") $ports"
+			fi
+			printf '%s\n' "-I $geochain -p $proto $ports_exp -j ACCEPT $ipt_comm ${geotag_aux}_ports"
 		done
 
 		# established/related
