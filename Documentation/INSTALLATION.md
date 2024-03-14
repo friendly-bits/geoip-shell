@@ -1,4 +1,4 @@
-# Notes about the questions asked by the _-install_ script
+# Notes about questions asked by the _-install_ script
 
 ## **'Your fancy shell 'X' is supported by geoip-shell but a simple shell 'Y' is available in this system, using it instead is recommended. Would you like to use 'Y' with geoip-shell?'**
 
@@ -8,7 +8,7 @@ geoip-shell will work with the shell X you ran it from, but it doesn't need or u
 
 If you answer this question, the _-manage_ script will check that the changes in ip lists which you request to make will not block your own country. This applies both to the installation process, and to any subsequent changes to the ip lists which you may want to make in the future. The idea behind this is to make this tool as fool-proof as possible.
 
-## **'Does this machine have dedicated WAN interface(s)? (y|n)':**
+## **'Does this machine have dedicated WAN interface(s)? [y|n]':**
 
 Answering this question is mandatory because the firewall is configured differently, depending on the answer. Answering it incorrectly may cause unexpected results, including having no geoip blocking or losing remote access to your machine.
 
@@ -16,7 +16,7 @@ When a machine has dedicated WAN interfaces, for example if it's a router, geoip
 
 Otherwise, geoip rules are applied to traffic arriving from all network interfaces, except the loopback interface. Besides that, when geoip-shell is installed in whitelist mode and you picked `n` in this question, additional firewall rules may be created which add LAN subnets to the whitelist in order to avoid blocking them (you can approve that on the next step of the installation). This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. This is because while the 'drop' verdict is final, the 'accept' verdict is not.
 
-## **'Autodetected ipvX LAN subnets: ... (c)onfirm, c(h)ange, (s)kip or (a)bort installation?'**
+## **'Autodetected ipvX LAN subnets: ... [c]onfirm, c[h]ange, [s]kip or [a]bort installation?'**
 
 You will see this question if installing the suite in whitelist mode and you chose `n` in the previous question. The reason why under these conditions this question is asked is explained above, in short - to avoid blocking your LAN from accessing your machine.
 
@@ -44,7 +44,7 @@ A third way to do that is by examining your network configuration (in your route
 
 If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets which you want to whitelist. I would also appreciate if you let me know about that so I can improve the autodetection code (I will need some details about your network).
 
-## **'(A)uto-detect local subnets when autoupdating and at launch or keep this config (c)onstant?'**
+## **'[A]uto-detect local subnets when autoupdating and at launch or keep this config [c]onstant?'**
 
 As the above question, you will see this one if installing the suite in whitelist mode and you answered `n` to the question about WAN interfaces.
 
