@@ -94,6 +94,13 @@ _(Note that all commands require root privileges, so you will likely need to run
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. Systems which only have `iptables` also require the `ipset` utility.
 
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases
+  _<details><summary>Or download using the command line:</summary>_
+  - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
+  - or run `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep tarball_url | head -n 1 | cut -d '"' -f 4)" > geoip-shell.tar` - this will download the latest release.
+  
+  To untar, run: `tar -xvf geoip-shell.tar`
+  </details>
+
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal.
 
