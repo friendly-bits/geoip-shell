@@ -14,7 +14,8 @@
 validate_subnet() {
 	case "$1" in */*) ;; *) printf '%s\n' "Invalid subnet '$1': missing '/[maskbits]'." >&2; return 1; esac
 	maskbits="${1#*/}"
-	case "$maskbits" in ''|*[!0-9]*) printf '%s\n' "Invalid mask bits '$maskbits' in subnet '$1'." >&2; return 1; esac
+	case "$maskbits" in
+		''|*[!0-9]*) printf '%s\n' "Invalid mask bits '$maskbits' in subnet '$1'." >&2; return 1; esac
 	ip="${1%%/*}"
 	case "$family" in
 		ipv4 ) ip_len_bits=32; ip_regex="$ipv4_regex" ;;
@@ -337,11 +338,17 @@ setports() {
 
 get_prefs() {
 	sleeptime=30 max_attempts=30
-	# cron schedule
+
+	# cron
+	check_cron_compat
+	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
+		call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
+	}
+
 	[ "$_OWRTFW" ] && {
-		default_schedule="15 4 * * 5" source_default="ipdeny"
+		default_schedule="15 4 * * 5" source_default=ipdeny
 	} ||
-	{ default_schedule="15 4 * * *" source_default="ripe"; }
+	{ default_schedule="15 4 * * *" source_default=ripe; }
 	schedule="${schedule_arg:-$default_schedule}"
 
 	# source
@@ -360,25 +367,6 @@ get_prefs() {
 		* ) echolog -err "invalid family '$families_arg'."; exit 1
 	esac
 	[ ! "$families" ] && die "\$families variable should not be empty!"
-
-	# country codes
-	ccodes="$(toupper "$ccodes")"
-
-	# geoip mode
-	export geomode="$(tolower "$geomode")"
-	case "$geomode" in
-		whitelist|blacklist) ;;
-		'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
-		*) die "Unrecognized mode '$geomode'! Use either 'whitelist' or 'blacklist'!"
-	esac
-	[ "$lan_subnets_arg" ] && [ "$geomode" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
-
-	# cron
-	check_cron_compat
-	# validate cron schedule from args
-	[ "$schedule_arg" ] && [ "$schedule" != "disable" ] && {
-		call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule'."
-	}
 
 	# trusted subnets
 	[ "$t_subnets_arg" ] && {
@@ -405,6 +393,18 @@ get_prefs() {
 	# ports
 	tcp_ports=skip udp_ports=skip
 	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
+
+	# country codes
+	ccodes="$(toupper "$ccodes")"
+
+	# geoip mode
+	export geomode="$(tolower "$geomode")"
+	case "$geomode" in
+		whitelist|blacklist) ;;
+		'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
+		*) die "Unrecognized mode '$geomode'! Use either 'whitelist' or 'blacklist'!"
+	esac
+	[ "$lan_subnets_arg" ] && [ "$geomode" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
 
 	pick_ccodes
 
