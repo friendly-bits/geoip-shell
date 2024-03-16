@@ -132,7 +132,7 @@ report_status() {
 		getconfig "${entry% *}" "${entry#* }"
 	done
 
-	printf '\n%s\n' "${blue}Geoip blocking status report:${n_c}"
+	printf '\n%s\n\n%s\n' "${purple}Geoip blocking status report:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
 
 	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
 
