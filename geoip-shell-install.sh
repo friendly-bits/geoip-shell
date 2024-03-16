@@ -15,6 +15,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+curr_ver="0.3"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
@@ -150,16 +151,7 @@ copyscripts() {
 	for f in $1; do
 		dest="$install_dir/${f##*/}"
 		[ "$2" ] && dest="$2/${f##*/}"
-		{
-			if [ "$_OWRTFW" ]; then
-				# strip comments
-				san_script "$script_dir/$f" > "$dest"
-			else
-				# replace the shebang
-				printf '%s\n' "#!${curr_sh:-/bin/sh}" > "$dest"
-				tail -n +2 "$script_dir/$f" >> "$dest"
-			fi
-		} || install_failed "$FAIL copy file '$f' to '$dest'."
+		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL copy file '$f' to '$dest'."
 		chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 	done
 }
@@ -172,8 +164,8 @@ install_failed() {
 
 pick_shell() {
 	unset sh_msg s_shs_avail f_shs_avail
-	curr_sh_b="${curr_sh##*"/"}"
-	is_included "$curr_sh_b" "${simple_sh}|busybox sh" "|" && return 0
+	curr_sh_g_b="${curr_sh_g##*"/"}"
+	is_included "$curr_sh_g_b" "${simple_sh}|busybox sh" "|" && return 0
 	newifs "|" psh
 	for ___sh in $simple_sh; do
 		checkutil "$___sh" && add2list s_shs_avail "$___sh"
@@ -186,8 +178,8 @@ pick_shell() {
 	done
 	oldifs psh
 	[ -z "$f_shs_avail" ] && return 0
-	is_included "$curr_sh_b" "$fancy_sh" "|" && sh_msg="Your fancy shell '$curr_sh_b' is supported by $p_name" ||
-		sh_msg="I'm running under an unsupported/uknown shell '$curr_sh_b'"
+	is_included "$curr_sh_g_b" "$fancy_sh" "|" && sh_msg="Your fancy shell '$curr_sh_g_b' is supported by $p_name" ||
+		sh_msg="I'm running under an unsupported/uknown shell '$curr_sh_g_b'"
 	if [ -n "$s_shs_avail" ]; then
 		recomm_sh="${s_shs_avail%% *}"
 		rec_sh_type="simple"
@@ -199,39 +191,51 @@ pick_shell() {
 	pick_opt "y|n|a"
 	case "$REPLY" in
 		a|A) exit 0 ;;
-		y|Y) curr_sh="$(command -v "$recomm_sh")" ;;
+		y|Y) curr_sh_g="$(command -v "$recomm_sh")" ;;
 		n|N) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
 
-detect_sys() {
-	# init process is pid 1
-	_pid1="$(ls -l /proc/1/exe)"
-	for initsys in systemd procd initctl busybox upstart unknown; do
-		case "$_pid1" in *"$initsys"* ) break; esac
-	done
-	[ "$initsys" = unknown ] && case "$_pid1" in *"/sbin/init"* )
-		for initsys in systemd upstart unknown; do
-			case "$_pid1" in *"$initsys"* ) break; esac
-		done
-	esac
+# detects the init system and sources the OWRT -common script if needed
+detect_init() {
+	# check /run/systemd/system/
+	[ -d "/run/systemd/system/" ] && { initsys=systemd; return 0; }
+	# check /sbin/init strings
+	initsys="$(awk 'match($0, /(upstart|systemd|procd|sysvinit|busybox)/) \
+		{ print substr($0, RSTART, RLENGTH);exit; }' /sbin/init 2>/dev/null | grep .)" ||
+		# check process with pid 1
+		{
+			_pid1="$(ls -l /proc/1/exe)"
+			for initsys in systemd procd busybox upstart initctl unknown; do
+					case "$_pid1" in *"$initsys"* ) break; esac
+			done
+		}
 	case "$initsys" in
-		unknown) return 1 ;;
-		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1; curr_sh="/bin/sh"
+		initctl) initsys=sysvinit ;;
+		unknown) die "Failed to detect the init system. Please notify the developer." ;;
+		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1
 	esac
 	:
 }
 
-# removes comments
 # 1 - (optional) input filename, otherwise reads from STDIN
-san_script() {
-	p="^[[:space:]]*#[^\!].*$"
-	if [ "$1" ]; then grep -vx "$p" "$1"; else grep -vx "$p"; fi
+prep_script() {
+	# print new shebang and version
+	printf '%s\n%s\n' "#!${curr_sh_g:-/bin/sh}" "curr_ver=$curr_ver"
+
+	if [ "$_OWRTFW" ]; then
+		# remove the shebang and comments
+		p="^[[:space:]]*#.*$"
+	else
+		# remove the shebang and shellcheck directives
+		p="^[[:space:]]*#(!/|[[:space:]]*shellcheck).*$"
+	fi
+	if [ "$1" ]; then grep -vxE "$p" "$1"; else grep -vxE "$p"; fi
 }
 
 
 #### Detect the init system
-detect_sys
+detect_init
 
 #### Variables
 
@@ -276,7 +280,7 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 get_prefs || die
 
 export datadir lib_dir="/usr/lib"
-export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh"
+export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g"
 
 # don't copy the detect-lan script, unless autodetect is enabled
 [ "$autodetect" ] || detect_lan=
@@ -318,14 +322,14 @@ OK
 # create the -constants file
 cat <<- EOF > "$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
 	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
-	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh"
+	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh_g"
 EOF
 
 . "$conf_dir/${p_name}-constants"
 
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
-	#!$curr_shell
+	#!$curr_sh_g
 	export lib_dir="$lib_dir"
 	export _lib="\$lib_dir/\${p_name}-lib"
 	$init_check_compat
@@ -345,9 +349,7 @@ EOF
 cp "$script_dir/cca2.list" "$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
 # only allow root to read the $datadir and $conf_dir and files inside it
-mkdir -p "$datadir" &&
-chmod -R 600 "$datadir" "$conf_dir" &&
-chown -R root:root "$datadir" "$conf_dir" ||
+mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
 install_failed "$FAIL to create '$datadir'."
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
@@ -374,15 +376,15 @@ fi
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		echo "Adding the init script... "
-		eval "printf '%s\n' \"$(cat "$owrt_init")\"" | san_script > "$init_script" ||
+		eval "printf '%s\n' \"$(cat "$owrt_init")\"" | prep_script > "$init_script" ||
 			install_failed "$FAIL create the init script."
 
 		echo "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | san_script > "$fw_include" &&
+		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | prep_script > "$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\" _lib=\"$_lib\""
-			san_script "$owrt_mk_fw_inc"
+			prep_script "$owrt_mk_fw_inc"
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
 		chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
