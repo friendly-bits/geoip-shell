@@ -131,7 +131,7 @@ rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "${install_dir}/${p_name}" 2>/dev/null
-for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall; do
+for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall geoinit; do
 	rm "${install_dir}/${p_name}-$script_name.sh" 2>/dev/null
 done
 
