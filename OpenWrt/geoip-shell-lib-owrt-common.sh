@@ -35,7 +35,8 @@ checkutil uci && checkutil procd && for i in 3 4; do
 done
 
 [ -z "$_OWRTFW" ] && {
-	logger -s -t "$me" -p user.err "Failed to detect OpenWrt firewall"
-	return 1
+	logger -s -t "$me" -p user.warn "Warning: Detected procd init but no OpenWrt firewall."
+	return 0
 }
+curr_sh_g="/bin/sh"
 :

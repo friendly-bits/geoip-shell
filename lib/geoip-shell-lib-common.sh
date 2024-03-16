@@ -161,7 +161,7 @@ call_script() {
 	script_to_call="$1"
 	shift
 
-	: "${use_shell:=$curr_sh}"
+	: "${use_shell:=$curr_sh_g}"
 	: "${use_shell:=sh}"
 
 	# call the daughter script, then reset $config_var to force re-read of the config file
