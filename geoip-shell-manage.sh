@@ -23,13 +23,13 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>]  [-p <portoptions>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
-  add|remove  : add or remove country codes (ISO 3166-1 alpha-2) to/from geoip blocking rules
+  add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
   apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
   schedule    : change the cron schedule
   status      : check on the current status of geoip blocking
@@ -38,20 +38,24 @@ Actions:
   showconfig  : print the contents of the config file
 
 Options:
-  -c <"country_codes">               : country codes (ISO 3166-1 alpha-2). if passing multiple country codes, use double quotes.
-  -s <"expression"|disable>          : schedule expression for the periodic cron job implementing auto-updates of the ip lists,
-                                           must be inside double quotes.
-                                           default schedule is "15 4 * * *" (at 4:15 [am] every day)
-                                       disable: skip creating the autoupdate cron job
-  -p <[tcp|udp]:[allow|block]:ports> : For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
-                                          or use "allow" to geoblock all incoming traffic except on specific ports.
-                                          Multiple '-p' options are allowed to specify both tcp and udp in one command.
-                                          Only works with the 'apply' action.
-                                          For examples, refer to NOTES.md.
-  -v                                 : Verbose status output
-  -f                                 : Force the action
-  -d                                 : Debug
-  -h                                 : This help
+
+  -c <"country_codes"> : 2-letter country codes. If passing multiple country codes, use double quotes.
+
+  -s <"[expression]"|disable> :
+        Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
+        Default schedule is "15 4 * * *" (at 4:15 [am] every day)
+        disable: skip creating the autoupdate cron job
+
+  -p <[tcp|udp]:[allow|block]:ports> :
+        For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
+        or use "allow" to geoblock all incoming traffic except on specific ports.
+        Multiple '-p' options are allowed to specify both tcp and udp in one command.
+        Only works with the 'apply' action.
+
+  -v  : Verbose status output
+  -f  : Force the action
+  -d  : Debug
+  -h  : This help
 
 EOF
 }
@@ -157,8 +161,9 @@ report_status() {
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
-	[ "$_ifaces" ] && _ifaces_r="${blue}$_ifaces$n_c" || _ifaces_r="${blue}All$n_c"
-	printf '%s\n' "Geoip rules applied to network interfaces: $_ifaces_r"
+	unset _ifaces_r _ifaces_all
+	[ "$_ifaces" ] && _ifaces_r=": ${blue}$_ifaces$n_c" || _ifaces_all="${blue}all$n_c "
+	printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
 
 	trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
 	trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
@@ -182,7 +187,6 @@ report_status() {
 			done
 		}
 	}
-
 
 	report_proto
 	echo
