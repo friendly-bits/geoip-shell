@@ -730,32 +730,33 @@ me_short="${me_short%.sh}"
 trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] && rm -f $lock_file 2>/dev/null; exit;'
 
 # vars for usage() functions
+sp8="        "
 ifaces_usage="<\"[ifaces]\"|auto|all> :
-        Changes which network interface(s) geoip firewall rules will be applied to.
-        'all' will apply geoip to all network interfaces
-        'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
-        Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
-        Only works with the 'apply' action."
+${sp8}Changes which network interface(s) geoip firewall rules will be applied to.
+${sp8}'all' will apply geoip to all network interfaces
+${sp8}'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
+${sp8}Only works with the 'apply' action."
 lan_ips_usage="<\"[lan_ips]\"|auto|none> :
-        Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-        Has no effect in blacklist mode.
-        Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-        specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
-        'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
-        *Don't use 'auto' if the machine has a dedicated WAN interface*"
+${sp8}Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
+${sp8}Has no effect in blacklist mode.
+${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
+${sp8}specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
+${sp8}'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
+${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*"
 trusted_ips_usage="<\"[trusted_ips]\"> :
-        Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-        This option works independently from the above LAN ip's option.
-        Works in both whitelist and blacklist mode."
+${sp8}Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
+${sp8}This option works independently from the above LAN ip's option.
+${sp8}Works in both whitelist and blacklist mode."
 ports_usage="<[tcp|udp]:[allow|block]:ports> :
-        For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
-        or use 'allow' to geoblock all incoming traffic except on specific ports.
-        Multiple '-p' options are allowed to specify both tcp and udp in one command.
-        Only works with the 'apply' action."
+${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
+${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
+${sp8}Multiple '-p' options are allowed to specify both tcp and udp in one command.
+${sp8}Only works with the 'apply' action."
 schedule_usage="<\"[expression]\"|disable> :
-        Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
-        Default schedule is \"15 4 * * *\" (at 4:15 [am] every day)
-        'disable' will disable automatic updates of the ip lists."
+${sp8}Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
+${sp8}Default schedule is \"15 4 * * *\" (at 4:15 [am] every day)
+${sp8}'disable' will disable automatic updates of the ip lists."
 ccodes_usage="<\"country_codes\"> : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
 sources_usage="<ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny."
 families_usage="<ipv4|ipv6|\"ipv4 ipv6\"> : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
