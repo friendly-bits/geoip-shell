@@ -66,7 +66,7 @@ esac
 }
 
 # generate lists of $new_ipsets and $old_ipsets
-old_ipsets=''; new_ipsets=''
+unset old_ipsets new_ipsets
 curr_ipsets="$(nft -t list sets inet | grep "$geotag")"
 for list_id in $list_ids; do
 	case "$list_id" in *_*) ;; *) die "Invalid iplist id '$list_id'."; esac
@@ -142,41 +142,52 @@ nft_cmd_chain="$(
 	# apply geoip to ifaces
 	[ "$_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $_ifaces) }"
 
-	# trusted subnets
+	# trusted subnets/ips
 	for family in $families; do
-		eval "t_subnets=\"\$t_subnets_$family\""
-		[ -n "$t_subnets" ] && {
+		eval "trusted=\"\$trusted_$family\""
+		interval=
+		case "${trusted%%":"*}" in net|ip)
+			[ "${trusted%%":"*}" = net ] && interval="flags interval; auto-merge;"
+			trusted="${trusted#*":"}"
+		esac
+
+		[ -n "$trusted" ] && {
 			get_nft_family
-			nft_get_geotable | grep "${geotag}_trusted_$family" >/dev/null &&
-				printf '%s\n' "delete set inet $geotable ${geotag}_trusted_$family"
-			printf %s "add set inet $geotable ${geotag}_trusted_$family \
-				{ type ${family}_addr; flags interval; auto-merge; elements={ "
-			printf '%s,' $t_subnets
+			nft_get_geotable | grep "trusted_${family}_${geotag}" >/dev/null &&
+				printf '%s\n' "delete set inet $geotable trusted_${family}_${geotag}"
+			printf %s "add set inet $geotable trusted_${family}_${geotag} \
+				{ type ${family}_addr; $interval elements={ "
+			printf '%s,' $trusted
 			printf '%s\n' " }; }"
-			printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @${geotag}_trusted_$family accept comment ${geotag_aux}_trusted"
+			printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
 		}
 	done
 
-	# LAN subnets
+	# LAN subnets/ips
 	if [ "$geomode" = "whitelist" ]; then
 		for family in $families; do
 			if [ ! "$autodetect" ]; then
-				eval "lan_subnets=\"\$lan_subnets_$family\""
+				eval "lan_ips=\"\$lan_ips_$family\""
 			else
 				a_d_failed=
-				lan_subnets="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
-				[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL autodetect $family local subnets."; exit 1; }
-				setconfig "LanSubnets_$family" "$lan_subnets"
+				lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
+				[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
+				lan_ips="net:$lan_ips"
+				setconfig "lanips_$family" "$lan_ips"
 			fi
-			[ -n "$lan_subnets" ] && {
+
+			interval=
+			[ "${lan_ips%%":"*}" = net ] && interval="flags interval; auto-merge;"
+			lan_ips="${lan_ips#*":"}"
+			[ -n "$lan_ips" ] && {
 				get_nft_family
-				nft_get_geotable | grep "${geotag}_lansubnets_$family" >/dev/null &&
-					printf '%s\n' "delete set inet $geotable ${geotag}_lansubnets_$family"
-				printf %s "add set inet $geotable ${geotag}_lansubnets_$family \
-					{ type ${family}_addr; flags interval; auto-merge; elements={ "
-				printf '%s,' $lan_subnets
+				nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
+					printf '%s\n' "delete set inet $geotable lan_ips_${family}_${geotag}"
+				printf %s "add set inet $geotable lan_ips_${family}_${geotag} \
+					{ type ${family}_addr; $interval elements={ "
+				printf '%s,' $lan_ips
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @${geotag}_lansubnets_$family accept comment ${geotag_aux}_lan"
+				printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
 			}
 		done
 	fi
