@@ -36,7 +36,7 @@ cat <<EOF
 v$curr_ver
 
 Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-           [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-b <"trusted_ips"] [-p <port_options>]
+           [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips"] [-p <port_options>]
            [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
@@ -46,42 +46,21 @@ Core Options:
 
   -m <whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist.
 
-  -c <"country_codes"> : 2-letter country codes to include in the whitelist|blacklist.
+  -c $ccodes_usage
 
-  -f <ipv4|ipv6|"ipv4 ipv6"> : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  -f $families_usage
 
-  -u <ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny.
+  -u $sources_usage
 
-  -s <"expression"|disable> :
-        Schedule expression for the periodic cron job implementing automatic update of the ip lists.
-        Must be inside double quotes.
-        'disable' will disable automatic updates of the ip lists.
+  -s $schedule_usage
 
-  -i <"[ifaces]"|auto|all> :
-        Specifies whether geoip firewall rules will be applied to specific network interface(s)
-        or to all network interfaces.
-        Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
-        'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+  -i $ifaces_usage
 
-  -l <"[lan_ips]"|auto|none> :
-        Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-        Has no effect in blacklist mode.
-        Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-        specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
-        'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
-        *Don't use 'auto' if the machine has a dedicated WAN interface*
+  -l $lan_ips_usage
 
-  -t <"[trusted_ips]"> :
-        Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-        This option works independently from the above LAN ip's option.
-        Works in both whitelist and blacklist mode.
+  -t $trusted_ips_usage
 
-  -p <tcp|udp>:<allow|block>:<all|[ports]> :
-        For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
-        or use "allow" to geoblock all incoming traffic except on specific ports.
-        Specifying 'all' does what one would expect.
-        Multiple '-p' options are allowed to specify both tcp and udp in one command.
-        Only works with the 'apply' action.
+  -p $ports_usage
 
   -r <[user_country_code]|none> :
         Specify user's country code. Used to prevent accidental lockout of a remote machine.
