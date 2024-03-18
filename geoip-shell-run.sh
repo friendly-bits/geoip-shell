@@ -31,7 +31,7 @@ Actions:
   restore     : Restore previously downloaded lists (skip fetching).
 
 Options:
-  -l <"list_ids">  : List id's in the format <countrycode>_<family>. if passing multiple list id's, use double quotes.
+  -l $list_ids_usage
   -o               : No backup: don't create backup of current firewall state after the action.
 
   -a               : daemon mode (will retry actions \$max_attempts times with growing time intervals)
