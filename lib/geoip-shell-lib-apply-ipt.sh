@@ -55,7 +55,7 @@ mk_ipt_rm_cmd() {
 }
 
 add_ipset() {
-	perm_ipset="$1"; tmp_ipset="${1}_temp"; iplist_file="$2"
+	perm_ipset="$1"; tmp_ipset="${1}_temp"; iplist_file="$2"; ipset_type="$3"
 	[ ! -f "$iplist_file" ] && critical "Can not find the iplist file in path: '$iplist_file'."
 
 	ipset destroy "$tmp_ipset" 1>/dev/null 2>/dev/null
@@ -70,7 +70,7 @@ add_ipset() {
 	debugprint "hashsize for ipset $list_id: $ipset_hs"
 
 	debugprint "Creating ipset '$tmp_ipset'... "
-	ipset create "$tmp_ipset" hash:net family "$family" hashsize "$ipset_hs" maxelem "$ip_cnt" ||
+	ipset create "$tmp_ipset" hash:$ipset_type family "$family" hashsize "$ipset_hs" maxelem "$ip_cnt" ||
 		crtical "$FAIL create ipset '$tmp_ipset'."
 	debugprint "Ok."
 
@@ -80,7 +80,7 @@ add_ipset() {
 		critical "$FAIL import the iplist from '$iplist_file' into ipset '$tmp_ipset'."
 	debugprint "Ok."
 
-	[ "$debugmode" ] && debugprint "Subnets in the temporary ipset: $(ipset save "$tmp_ipset" | grep -c "add $tmp_ipset")"
+	[ "$debugmode" ] && debugprint "ip's in the temporary ipset: $(ipset save "$tmp_ipset" | grep -c "add $tmp_ipset")"
 
 	# swap the temp ipset with the permanent ipset
 	debugprint "Making the ipset '$perm_ipset' permanent... "
@@ -90,11 +90,11 @@ add_ipset() {
 }
 
 mk_perm_ipset() {
-	perm_ipset="$1"; tmp_ipset="${perm_ipset}_temp"
+	perm_ipset="$1"; ipset_type="$2"; tmp_ipset="${perm_ipset}_temp"
 	# create new permanent ipset if it doesn't exist
 	case "$curr_ipsets" in *"$perm_ipset"* ) ;; *)
 		debugprint "Creating permanent ipset '$perm_ipset'... "
-		ipset create "$perm_ipset" hash:net family "$family" hashsize 1 maxelem 1 ||
+		ipset create "$perm_ipset" hash:$ipset_type family "$family" hashsize 1 maxelem 1 ||
 			die_a "$FAIL create ipset '$perm_ipset'."
 		debugprint "Ok."
 	esac
@@ -151,45 +151,54 @@ for family in $families; do
 	for list_id in $list_ids; do
 		case "$list_id" in *_*) ;; *) die_a "Invalid iplist id '$list_id'."; esac
 		[ "${list_id#*_}" != "$family" ] && continue
-		perm_ipset="${p_name}_${list_id}"
+		perm_ipset="${list_id}_$geotag"
 		if [ "$action" = "add" ]; then
 			iplist_file="${iplist_dir}/${list_id}.iplist"
-			mk_perm_ipset "$perm_ipset"
+			mk_perm_ipset "$perm_ipset" net
 			ipsets_to_add="$ipsets_to_add$perm_ipset $iplist_file$_nl"
 		elif [ "$action" = "remove" ]; then
 			ipsets_to_rm="$ipsets_to_rm$perm_ipset "
 		fi
 	done
 
-	### trusted subnets
-	eval "t_subnets=\"\$t_subnets_$family\""
-	[ -n "$t_subnets" ] && {
-		t_ipset="${geotag}_trusted_$family"
+	### trusted subnets/ip's
+	eval "trusted=\"\$trusted_$family\""
+	ipset_type=net
+	case "${trusted%%":"*}" in net|ip)
+		ipset_type="${trusted%%":"*}"
+		trusted="${trusted#*":"}"
+	esac
+
+	[ -n "$trusted" ] && {
+		t_ipset="trusted_${family}_${geotag}"
 		iplist_file="$iplist_dir/$t_ipset.iplist"
-		sp2nl t_subnets
-		printf '%s\n' "$t_subnets" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
-		mk_perm_ipset "$t_ipset"
-		ipsets_to_add="$ipsets_to_add$t_ipset $iplist_file$_nl"
+		sp2nl trusted
+		printf '%s\n' "$trusted" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
+		mk_perm_ipset "$t_ipset" "$ipset_type"
+		ipsets_to_add="$ipsets_to_add$ipset_type:$t_ipset $iplist_file$_nl"
 	}
 
-	### LAN subnets
+	### LAN subnets/ip's
 	if [ "$geomode" = "whitelist" ]; then
 		if [ ! "$autodetect" ]; then
-			eval "lan_subnets=\"\$lan_subnets_$family\""
+			eval "lan_ips=\"\$lan_ips_$family\""
 		else
 			a_d_failed=
-			lan_subnets="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
-			[ ! "$lan_subnets" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL autodetect $family local subnets."; exit 1; }
-			setconfig "LanSubnets_$family" "$lan_subnets"
+			lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
+			[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
+			lan_ips="net:$lan_ips"
+			setconfig "LanSubnets_$family" "$lan_ips"
 		fi
 
-		[ -n "$lan_subnets" ] && {
-			lan_ipset="${geotag}_lan_$family"
+		ipset_type="${lan_ips%%":"*}"
+		lan_ips="${lan_ips#*":"}"
+		[ -n "$lan_ips" ] && {
+			lan_ipset="lan_ips_${family}_${geotag}"
 			iplist_file="$iplist_dir/$lan_ipset.iplist"
-			sp2nl lan_subnets
-			printf '%s\n' "$lan_subnets" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
-			mk_perm_ipset "$lan_ipset"
-			ipsets_to_add="$ipsets_to_add$lan_ipset $iplist_file$_nl"
+			sp2nl lan_ips
+			printf '%s\n' "$lan_ips" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
+			mk_perm_ipset "$lan_ipset" "$ipset_type"
+			ipsets_to_add="$ipsets_to_add$ipset_type:$lan_ipset $iplist_file$_nl"
 		}
 	fi
 
@@ -231,13 +240,13 @@ for family in $families; do
 
 		## Auxiliary rules
 
-		# trusted subnets
-		[ "$t_subnets" ] &&
-			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_trusted_$family src $ipt_comm ${geotag_aux}_trusted_$family -j ACCEPT"
+		# trusted subnets/ips
+		[ "$trusted" ] &&
+			printf '%s\n' "-I $geochain -m set --match-set trusted_${family}_${geotag} src $ipt_comm trusted_${family}_${geotag_aux} -j ACCEPT"
 
-		# LAN subnets
-		[ "$geomode" = "whitelist" ] && [ "$lan_subnets" ] &&
-			printf '%s\n' "-I $geochain -m set --match-set ${geotag}_lan_$family src $ipt_comm ${geotag_aux}_lan_$family -j ACCEPT"
+		# LAN subnets/ips
+		[ "$geomode" = "whitelist" ] && [ "$lan_ips" ] &&
+			printf '%s\n' "-I $geochain -m set --match-set lan_ips_${family}_${geotag} src $ipt_comm lan_ips_${family}_${geotag_aux} -j ACCEPT"
 
 		# ports
 		for proto in tcp udp; do
@@ -265,8 +274,8 @@ for family in $families; do
 		if [ "$action" = "add" ]; then
 			for list_id in $list_ids; do
 				[ "$family" != "${list_id#*_}" ] && continue
-				perm_ipset="${geotag}_${list_id}"
-				list_tag="${geotag}_${list_id}"
+				perm_ipset="${list_id}_${geotag}"
+				list_tag="${list_id}_${geotag}"
 				printf '%s\n' "-A $geochain -m set --match-set $perm_ipset src $ipt_comm $list_tag -j $fw_target"
 			done
 		fi
@@ -288,7 +297,9 @@ for family in $families; do
 		printf %s "Adding $family ipsets... "
 		newifs "$_nl" apply
 		for entry in ${ipsets_to_add%"$_nl"}; do
-			add_ipset "${entry%% *}" "${entry#* }"
+			ipset_type=net
+			case "$entry" in "ip:"*|"net:"*) ipset_type="${entry%%":"*}"; entry="${entry#*":"}"; esac
+			add_ipset "${entry%% *}" "${entry#* }" "$ipset_type"
 			ipsets_to_rm="$ipsets_to_rm${entry%% *}_temp "
 		done
 		oldifs apply
