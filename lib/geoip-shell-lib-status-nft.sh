@@ -54,26 +54,5 @@ report_fw_state() {
 			printf "$fmt_str" "$pkts " "$bytes " "$ipv " "$verd " "$prot " "$dports " "$in " "${line% }"
 		done
 		oldifs rules
-
-		printf '\n%s' "Ip ranges count in active geoip sets: "
-		case "$active_ccodes" in
-			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
-			*) printf '\n'
-				ipsets="$(nft -t list sets inet | grep -o ".._ipv._.*_$geotag")"
-				for ccode in $active_ccodes; do
-					el_summary=''
-					printf %s "${blue}${ccode}${n_c}: "
-					for family in $active_families; do
-						get_matching_line "$ipsets" "" "${ccode}_${family}" "*" ipset
-						el_cnt=0
-						[ -n "$ipset" ] && el_cnt="$(nft_cnt_elements "$ipset")"
-						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $_X"; incr_issues; }
-						el_summary="$el_summary$family - $el_cnt$list_empty, "
-						total_el_cnt=$((total_el_cnt+el_cnt))
-					done
-					printf '%s\n' "${el_summary%, }"
-				done
-		esac
-		printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
 	fi
 }
