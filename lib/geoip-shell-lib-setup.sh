@@ -205,7 +205,7 @@ pick_lan_ips() {
 			ipset_type="net"
 			printf '\n%s\n' "Autodetected $family LAN subnets: '$blue$u_ips$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
-			printf '\n%s\n%s\n\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
+			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
 				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
@@ -235,7 +235,7 @@ pick_lan_ips() {
 	done
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?"
+	printf '\n%s\n' "${blue}[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?$n_c"
 	pick_opt "a|c"
 	case "$REPLY" in a|A) autodetect="1"; esac
 }
