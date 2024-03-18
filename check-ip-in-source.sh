@@ -29,9 +29,9 @@ Accepts a mix of ipv4 and ipv6 addresses.
 Requires the 'grepcidr' utility
 
 Options:
-  -c <country_code>    : Country code (ISO 3166-1 alpha-2)
+  -c <country_code>    : 2-letter country code
   -i <"ip_addresses">  : ip addresses to check
-                         - if specifying multiple addresses, use double quotes
+                         if specifying multiple addresses, use double quotes
   -u <ripe|ipdeny>     : Source to check in. By default checks in RIPE.
 
   -d                   : Debug
