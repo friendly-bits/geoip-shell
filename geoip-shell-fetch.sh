@@ -32,25 +32,24 @@ v$curr_ver
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-h]
 
-1) Fetches ip subnets for given country codes from RIPE API or from ipdeny
-	(RIPE seems to store lists for all countries)
+1) Fetches ip lists for given country codes from RIPE API or from ipdeny
 	(supports any combination of ipv4 and ipv6 lists)
 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-  -l <"list_id's">  : List id's in the format '<ccode>_<family>'. If passing multiple list id's, use double quotes.
-  -p <path>         : Path to directory where downloaded and compiled subnet lists will be stored.
-  -o <output_file>  : Path to output file where fetched list will be stored.
+  -l $list_ids_usage
+  -p <path>        : Path to directory where downloaded and compiled subnet lists will be stored.
+  -o <output_file> : Path to output file where fetched list will be stored.
                          With this option, specify exactly 1 country code.
                          (use either '-p' or '-o' but not both)
-  -s <status_file>  : Path to a status file to register fetch results in.
-  -u <"source">     : Source for the download. Currently supports 'ripe' and 'ipdeny'.
+  -s <status_file> : Path to a status file to register fetch results in.
+  -u $sources_usage
  
-  -r                : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
-  -f                : force using fetched lists even if list timestamp didn't change compared to existing list
-  -d                : Debug
-  -h                : This help
+  -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
+  -f : force using fetched lists even if list timestamp didn't change compared to existing list
+  -d : Debug
+  -h : This help
 
 EOF
 }
