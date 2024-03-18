@@ -21,7 +21,8 @@ nolog=1
 #### USAGE
 
 usage() {
-    cat <<EOF
+cat <<EOF
+v$curr_ver
 
 Usage: $me [-v <expr>] [-d] [-h]
 Validates a cron expression, or loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
