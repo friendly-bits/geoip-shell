@@ -19,6 +19,7 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
+v$curr_ver
 
 Usage: $me <action> [-d] [-h]
 
