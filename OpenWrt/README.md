@@ -13,7 +13,7 @@ Because OpenWrt typically runs on embedded devices with limited memory and very 
 - to avoid unnecessary flash storage wear, all filesystem-related tasks geoip-shell does which do not require permanent storage are done in the /tmp directory which in the typical OpenWrt installation is mounted on the ramdisk.
 
 ### Scripts size
-Typical geoip-shell installation on nftables-based OpenWrt system currently consumes around 85kB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but once geoip-shell has been installed, you can delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
+Typical geoip-shell installation on nftables-based OpenWrt system currently consumes around 99kB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but once geoip-shell has been installed, you can delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
 
 To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /etc/geoip-shell/geoip-shell-* /usr/bin/geoip-shell-* /usr/lib/geoip-shell-*`.
 
