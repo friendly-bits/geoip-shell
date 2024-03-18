@@ -24,7 +24,7 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me [-v <expr>] [-d] [-h]
+Usage: $me [-x <"expression">] [-d] [-h]
 Validates a cron expression, or loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
 
 Options:
