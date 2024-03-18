@@ -23,14 +23,15 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-i <"ifaces"|auto|all>]
+                    [-l <"lan_ips"|auto|none>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  apply       : apply current config settings. If used with option '-p', allows to change ports geoblocking applies to.
+  apply       : apply current config settings. May be used with options: '-p', '-i', '-l'
   schedule    : change the cron schedule
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
@@ -39,18 +40,15 @@ Actions:
 
 Options:
 
-  -c <"country_codes"> : 2-letter country codes. If passing multiple country codes, use double quotes.
+  -c $ccodes_usage
 
-  -s <"[expression]"|disable> :
-        Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
-        Default schedule is "15 4 * * *" (at 4:15 [am] every day)
-        disable: skip creating the autoupdate cron job
+  -s $schedule_usage
 
-  -p <[tcp|udp]:[allow|block]:ports> :
-        For given protocol (tcp/udp), use "block" to only geoblock incoming traffic on specific ports,
-        or use "allow" to geoblock all incoming traffic except on specific ports.
-        Multiple '-p' options are allowed to specify both tcp and udp in one command.
-        Only works with the 'apply' action.
+  -i $ifaces_usage
+
+  -l $lan_ips_usage
+
+  -p $ports_usage
 
   -v  : Verbose status output
   -f  : Force the action
@@ -72,7 +70,7 @@ esac
 
 # process the rest of the args
 shift 1
-while getopts ":c:s:p:vfdh" opt; do
+while getopts ":c:s:i:l:p:vfdh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		s) cron_schedule=$OPTARG ;;
