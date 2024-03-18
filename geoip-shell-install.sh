@@ -64,16 +64,16 @@ Core Options:
         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
 
   -l <"[lan_ips]"|auto|none> :
-        Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
+        Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
         Has no effect in blacklist mode.
         Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
         specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
-        'auto' will autodetect LAN subnets during installation and every update of the ip lists.
+        'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
         *Don't use 'auto' if the machine has a dedicated WAN interface*
 
   -t <"[trusted_ips]"> :
-        Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
-        This option works independently from the above LAN subnets option.
+        Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
+        This option works independently from the above LAN ip's option.
         Works in both whitelist and blacklist mode.
 
   -p <tcp|udp>:<allow|block>:<all|[ports]> :
