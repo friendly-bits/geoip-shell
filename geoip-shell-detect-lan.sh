@@ -1,20 +1,21 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2086,SC2317,SC2018,SC2019,SC1091,SC1090
+# shellcheck disable=SC2154,SC2086,SC1090,SC2018,SC2019
 
 # geoip-shell-detect-lan.sh
 
 # Copyright: friendly bits
 # github.com/friendly-bits
 
-# Unix shell script which uses standard utilities to detect local area ipv4 and ipv6 subnets, regardless of the device it's running on (router or host)
-# Some heuristics are employed which are likely to work on Linux but for other Unixes, testing is recommended
+# Detects local area ipv4 and ipv6 subnets
+# Only use on a machine which has no dedicated WAN interfaces (physical or logical)
+# otherwise WAN subnet may be wrongly detected as LAN subnet
 
-# by default, outputs all found local ip addresses, and aggregated subnets
+# outputs aggregated subnets
 # to output only aggregated subnets (and no other text), run with the '-s' argument
 # to only check a specific family (inet or inet6), run with the '-f <family>' argument
-# running with the '-n' argument disables validation which speeds up the processing significantly, but the results are not as safe
-# '-d' argument is for debug
 
+# This is a customized version of detect-local-subnets-AIO.sh script found here:
+# github.com/friendly-bits/subnet-tools
 
 #### Initial setup
 
@@ -33,7 +34,6 @@ done
 for arg in "$@"; do
 	case "$arg" in
 		-s ) subnets_only=1 ;;
-		-n ) novalidation=1 ;;
 		-f ) families_arg=check ;;
 		* ) case "$families_arg" in check) families_arg="$arg"; esac
 	esac
@@ -82,28 +82,6 @@ generate_mask() {
 			bytes_done="${bytes_done}1"
 		done
 	esac
-}
-
-# 1 - ip's
-# 2 - regex
-validate_ip() {
-	addr="$1"; ip_regex="$2"
-	[ ! "$addr" ] && { echo "validate_ip: Error: received an empty ip address." >&2; return 1; }
-
-	# using the 'ip route get' command to put the address through kernel's validation
-	# it normally returns 0 if the ip address is correct and it has a route, 1 if the address is invalid
-	# 2 if validation successful but for some reason it can't check the route
-	for address in $addr; do
-		ip route get "$address" 1>/dev/null 2>/dev/null
-		case $? in 0|2) ;; *)
-			{ printf '%s\n' "validate_ip: Error: ip address'$address' failed kernel validation." >&2; return 1; }
-		esac
-	done
-
-	## regex validation
-	printf '%s\n' "$addr" | grep -vE "^$ip_regex$" > /dev/null
-	[ $? != 1 ] && { printf '%s\n' "validate_ip: Error: one or more addresses failed regex validation: '$addr'." >&2; return 1; }
-	:
 }
 
 # 1 - ip
@@ -168,8 +146,8 @@ get_local_subnets() {
 	family="$1"; res_subnets=''; res_ips=''
 
 	case "$family" in
-		inet ) ip_len_bits=32; chunk_len_bits=8; ip_regex="$ipv4_regex"; _fmt_id='d'; _fmt_delim='.' ;;
-		inet6 ) ip_len_bits=128; chunk_len_bits=16; ip_regex="$ipv6_regex"; _fmt_id='x'; _fmt_delim=':' ;;
+		inet ) ip_len_bits=32; chunk_len_bits=8; _fmt_id='d'; _fmt_delim='.' ;;
+		inet6 ) ip_len_bits=128; chunk_len_bits=16; _fmt_id='x'; _fmt_delim=':' ;;
 		* ) printf '%s\n' "get_local_subnets: invalid family '$family'." >&2; return 1
 	esac
 
@@ -306,8 +284,8 @@ get_local_subnets() {
 		IFS="$IFS_OLD"
 	done
 
-	case "$novalidation" in '') validate_ip "${res_ips%"$_nl"}" "$ip_regex" ||
-		{ echo "get_local_subnets: Error: failed to validate one or more of output addresses." >&2; return 1; }; esac
+	validate_ip "${res_ips%"$_nl"}" "$family" ||
+		{ echo "get_local_subnets: Error: failed to validate one or more of output addresses." >&2; return 1; }
 
 	[ ! "$subnets_only" ] && printf '%s\n' "Local $family subnets (aggregated):"
 	case "$res_subnets" in
@@ -319,22 +297,15 @@ get_local_subnets() {
 	:
 }
 
-## Checks
-
-[ "$novalidation" ] || {
-	# check dependencies
-	! checkutil tr || ! checkutil grep || ! checkutil ip &&
-		{ echo "$me: Error: missing dependencies, can not proceed" >&2; exit 1; }
-}
 
 ## Main
 
 families=
-[ -n "$families_arg" ] && for word in $(printf '%s' "$families_arg" | tr 'A-Z' 'a-z'); do
-	case "$word" in
+[ -n "$families_arg" ] && for f in $(tolower "$families_arg"); do
+	case "$f" in
 		inet|ipv4) families="${families}inet " ;;
 		inet6|ipv6) families="${families}inet6 " ;;
-		*) printf '%s\n' "$me: Error: invalid family '$word'." >&2; exit 1
+		*) printf '%s\n' "$me: Error: invalid family '$f'." >&2; exit 1
 	esac
 done
 : "${families:="inet inet6"}"
