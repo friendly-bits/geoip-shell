@@ -21,6 +21,7 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
+v$curr_ver
 
 Usage: $me <action> [-c <"country_codes">] [-s <"expression"|disable>]  [-p <portoptions>] [-v] [-f] [-d] [-h]
 
@@ -118,7 +119,7 @@ report_proto() {
 
 report_status() {
 	warn_persist() {
-		printf '\n%s\n' "$WARN $1 Geoip${cr_p# and} $wont_work." >&2
+		echolog -warn "$_nl$1 Geoip${cr_p# and} $wont_work."
 	}
 
 	incr_issues() { issues=$((issues+1)); }
@@ -126,11 +127,11 @@ report_status() {
 	_Q="${red}?${n_c}"
 	issues=0
 
-	for entry in "Source ipsource" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports" \
-		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
-			"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
+	for entry in "Source ipsource" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports"; do
 		getconfig "${entry% *}" "${entry#* }"
 	done
+
+	ipsets="$(get_ipsets)"
 
 	printf '\n%s\n\n%s\n' "${purple}Geoip blocking status report:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
 
@@ -159,21 +160,25 @@ report_status() {
 	[ "$_ifaces" ] && _ifaces_r="${blue}$_ifaces$n_c" || _ifaces_r="${blue}All$n_c"
 	printf '%s\n' "Geoip rules applied to network interfaces: $_ifaces_r"
 
-	[ "$t_subnets_ipv4$t_subnets_ipv6" ] && {
-		printf '\n%s\n' "Exceptions for trusted subnets:"
-		for family in $families; do
-			eval "t_subnets=\"\$t_subnets_$family\""
-			[ "$t_subnets" ] && printf '%s\n' "$family: ${blue}$t_subnets${n_c}"
+	trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
+	trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
+	[ "$trusted_ipv4$trusted_ipv6" ] && {
+		printf '\n%s\n' "Allowed trusted ip's:"
+		for f in $families; do
+			eval "trusted=\"\${trusted_$f#*":"}\""
+			[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
 		done
 	}
 
 	[ "$geomode" = "whitelist" ] && {
-		[ "$lan_subnets_ipv4$lan_subnets_ipv6" ] || [ ! "$_ifaces" ] && {
-			printf '\n%s\n' "Whitelist exceptions for LAN subnets:"
-			for family in $families; do
-				eval "lan_subnets=\"\$lan_subnets_$family\""
-				[ "$lan_subnets" ] && lan_subnets="${blue}$lan_subnets${n_c}" || lan_subnets="${red}None${n_c}"
-				[ "$lan_subnets" ] || [ ! "$_ifaces" ] && printf '%s\n' "$family: $lan_subnets"
+		lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
+		lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
+		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$_ifaces" ] && {
+			printf '\n%s\n' "Allowed LAN ip's:"
+			for f in $families; do
+				eval "lan_ips=\"\${lan_ips_$f#*":"}\""
+				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
+				[ "$lan_ips" ] || [ ! "$_ifaces" ] && printf '%s\n' "$f: $lan_ips"
 			done
 		}
 	}
@@ -182,6 +187,26 @@ report_status() {
 	report_proto
 	echo
 	report_fw_state
+
+	[ "$verb_status" ] && {
+		printf '\n%s' "Ip ranges count in active geoip sets: "
+		case "$active_ccodes" in
+			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
+			*) echo
+				for ccode in $active_ccodes; do
+					el_summary=''
+					printf %s "${blue}${ccode}${n_c}: "
+					for family in $active_families; do
+						el_cnt="$(cnt_ipset_elements "${ccode}_${family}")"
+						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $_X"; incr_issues; }
+						el_summary="$el_summary$family - $el_cnt$list_empty, "
+						total_el_cnt=$((total_el_cnt+el_cnt))
+					done
+					printf '%s\n' "${el_summary%, }"
+				done
+		esac
+		printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
+	}
 
 	unset cr_p
 	[ ! "$_OWRTFW" ] && cr_p=" and persistence across reboots"
@@ -406,7 +431,8 @@ trap 'eval "$trap_args_unlock"' INT TERM HUP QUIT
 case "$action" in
 	on|off)
 		case "$action" in
-			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
+			on)
+				[ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
@@ -417,8 +443,8 @@ esac
 check_lists_coherence || incoherence_detected
 
 for ccode in $ccodes_arg; do
-	for family in $families; do
-		lists_arg="${lists_arg}${ccode}_${family}${_nl}"
+	for f in $families; do
+		lists_arg="${lists_arg}${ccode}_${f}${_nl}"
 	done
 done
 lists_arg="${lists_arg%"${_nl}"}"
@@ -515,7 +541,7 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	nl2sp failed_lists_str "$failed_lists"
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
-	echolog -err "$WARN failed to apply new $geomode rules for ip lists: $failed_lists_str."
+	echolog -warn "failed to apply new $geomode rules for ip lists: $failed_lists_str."
 	# if the error encountered during installation, exit with error to fail the installation
 	[ "$in_install" ] && die
 	get_difference "$lists_to_change" "$failed_lists" ok_lists
