@@ -41,6 +41,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - Verifies firewall rules coherence after each action.
 - Automatic backup of geoip-shell state (optional, enabled by default).
 - Automatic recovery of geoip-shell state after a reboot (a.k.a persistence) or in case of unexpected errors.
+- During installation, you can specify trusted ip addresses anywhere on the Internet which will bypass geoip blocking to make it easier to regain access to the machine if something goes wrong.
 </details>
 
 ### **Efficiency**:
@@ -122,7 +123,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
   - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments
   - to block or allow specific ports, use `-p <tcp|udp>:<block|allow>:<ports>`. This option may be used twice in one command to specify ports for both tcp and udp
-  - to exclude certain trusted subnets on the internet from geoip blocking, add `-t "<subnets_list>"` to the arguments
+  - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
   - if your machine uses nftables and has enough memory, consider installing with the `-e` option (for "performance")
   - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
   - if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
