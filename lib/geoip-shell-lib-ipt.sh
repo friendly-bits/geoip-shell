@@ -15,6 +15,23 @@ filter_ipt_rules() {
 	grep "$1" | grep -o "$2.* \*/"
 }
 
+get_ipsets() {
+	ipset list -t
+}
+
+# 1 - ipset tag
+# expects $ipsets to be set
+print_ipset_elements() {
+	get_matching_line "$ipsets" "*" "$1" "*" ipset &&
+		ipset list "${1}_$geotag" | sed -n -e /"Members:"/\{:1 -e n\; -e p\; -e b1\; -e \} | tr '\n' ' '
+}
+
+cnt_ipset_elements() {
+	printf %s "$ipsets" |
+		sed -n -e /"$1"/\{:1 -e n\;/maxelem/\{s/.*maxelem\ //\; -e s/\ .*//\; -e p\; -e q\; -e \}\;b1 -e \} |
+			grep . || echo 0
+}
+
 # 1 - iptables tag
 rm_ipt_rules() {
 	printf %s "Removing $family iptables rules tagged '$1'... "
@@ -63,10 +80,10 @@ get_active_iplists() {
 		blacklist) ipt_target="DROP" ;;
 		*) die "get_active_iplists: Error: unexpected geoip mode '$geomode'."
 	esac
-	ipset_lists="$(ipset list -n | grep "$p_name" | grep -v "_lan_" | sed -n /"$geotag"/s/"$geotag"_//p)"
-	p="${p_name}_"; t="$ipt_target"
-	iprules_lists="$( { iptables-save -t "$ipt_table"; ip6tables-save -t "$ipt_table"; } | grep -v "_lan_" |
-		sed -n "/match-set $p.* -j $t/{s/.*$p//;s/ -j $t.*//p}")"
+	ipset_lists="$(ipset list -n | grep "$p_name" | sed -n /"$geotag"/s/_"$geotag"//p | grep -vE "(lan_ips_|trusted_)")"
+	p="_${p_name}"; t="$ipt_target"
+	iprules_lists="$( { iptables-save -t "$ipt_table"; ip6tables-save -t "$ipt_table"; } |
+		sed -n "/match-set .*$p.* -j $t/{s/.*match-set //;s/$p.*//;p}" | grep -vE "(lan_ips_|trusted_)")"
 
 	get_difference "$ipset_lists" "$iprules_lists" lists_difference
 	get_intersection "$ipset_lists" "$iprules_lists" "$1"
