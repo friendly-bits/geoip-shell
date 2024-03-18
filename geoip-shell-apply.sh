@@ -19,6 +19,7 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
+v$curr_ver
 
 Usage: $me <action> [-l <"list_ids">] [-d] [-h]
 Switches geoip blocking on/off, or loads/removes ip sets and firewall rules for specified lists.
@@ -67,8 +68,8 @@ debugentermsg
 
 for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt perf_opt" \
 		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports" \
-		"LanSubnets_ipv4 lan_subnets_ipv4" "LanSubnets_ipv6 lan_subnets_ipv6" \
-		"TSubnets_ipv4 t_subnets_ipv4" "TSubnets_ipv6 t_subnets_ipv6"; do
+		"LanIps_ipv4 lan_ips_ipv4" "LanIps_ipv6 lan_ips_ipv6" \
+		"Trusted_ipv4 trusted_ipv4" "Trusted_ipv6 trusted_ipv6"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
