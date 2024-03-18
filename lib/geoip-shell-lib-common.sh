@@ -220,7 +220,7 @@ echolog() {
 			esac
 		}
 		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
-			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\x1b\[[0-9;]*m/,"")}1' ORS=' ')"
+			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
 	done
 }
 
