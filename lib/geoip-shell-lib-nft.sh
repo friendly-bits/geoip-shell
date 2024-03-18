@@ -85,15 +85,28 @@ get_ipset_id() {
 	esac
 }
 
-# 1 - set name
-get_ipset_elements() {
-	nft list set inet "$geotable" "$1" |
-		sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
+get_ipsets() {
+	nft -t list sets inet | grep -o "[a-zA-Z0-9_-]*_$geotag"
 }
 
-# 1 - set name
-nft_cnt_elements() {
-	get_ipset_elements "$1" | wc -w
+# 1 - ipset tag
+# expects $ipsets to be set
+get_ipset_elements() {
+    get_matching_line "$ipsets" "" "$1" "*" ipset
+    [ "$ipset" ] && nft list set inet "$geotable" "$ipset" |
+        sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
+}
+
+# 1 - ipset tag
+# expects $ipsets to be set
+cnt_ipset_elements() {
+    get_matching_line "$ipsets" "" "$1" "*" ipset
+    [ ! "$ipset" ] && { echo 0; return 1; }
+    get_ipset_elements "$1" | wc -w
+}
+
+print_ipset_elements() {
+	get_ipset_elements "$1" | awk '{gsub(",", "");$1=$1};1' ORS=' '
 }
 
 
