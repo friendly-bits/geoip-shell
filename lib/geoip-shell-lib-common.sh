@@ -311,10 +311,10 @@ num2human() {
 	d=$((d % m * 100 / m))
 	case $d in
 		0) printf "%s%s\n" "$i" "$S"; return ;;
-		[1-9]) f="02" ;;
-		*0) d=${d%0}; f="01"
+		[1-9]) fp="02" ;;
+		*0) d=${d%0}; fp="01"
 	esac
-	printf "%s.%${f}d%s\n" "$i" "$d" "$S"
+	printf "%s.%${fp}d%s\n" "$i" "$d" "$S"
 }
 
 # primitive alternative to grep
@@ -555,7 +555,8 @@ check_lists_coherence() {
 	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; die "Unexpected geoip mode '$geomode'!"; esac
 
 	unset unexp_lists missing_lists
-	getconfig "Lists" conf_lists
+	getconfig Lists conf_lists
+
 	sp2nl conf_lists
 	get_active_iplists -f active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
@@ -678,6 +679,39 @@ kill_geo_pids() {
 	done
 	sleep 0.1 2>/dev/null || sleep 1
 }
+
+validate_ip() {
+	[ ! "$1" ] && { echolog -err "validate_ip: received an empty string."; return 1; }
+	ipset_type=ip; family="$2"; o_ips=
+	sp2nl i_ips "$1"
+	case "$family" in
+		inet|ipv4) family=ipv4 ip_len=32 ;;
+		inet6|ipv6) family=ipv6 ip_len=128 ;;
+		*) echolog -err "Invalid family '$family'."; return 1
+	esac
+	eval "ip_regex=\"\$${family}_regex\""
+
+	newifs "$_nl"
+	for i_ip in $i_ips; do
+		case "$i_ip" in */*)
+			ipset_type="net"
+			_mb="${i_ip#*/}"
+			case "$_mb" in ''|*[!0-9]*)
+				echolog -err "Invalid mask bits '$_mb' in subnet '$i_ip'."; oldifs; return 1; esac
+			i_ip="${i_ip%%/*}"
+			case $(( (_mb<8) | (_mb>ip_len) )) in 1) echolog -err "Invalid $family mask bits '$_mb'."; oldifs; return 1; esac
+		esac
+
+		ip route get "$i_ip" 1>/dev/null 2>/dev/null
+		case $? in 0|2) ;; *) echolog -err "ip address '$i_ip' failed kernel validation."; oldifs; return 1; esac
+		o_ips="$o_ips$i_ip$_nl"
+	done
+	oldifs
+	printf '%s\n' "${o_ips%"$_nl"}" | grep -vE "^$ip_regex$" > /dev/null
+	[ $? != 1 ] && { echolog -err "'$i_ips' failed regex validation."; return 1; }
+	:
+}
+
 
 export install_dir="/usr/bin" iplist_dir="/tmp" _nl='
 '
