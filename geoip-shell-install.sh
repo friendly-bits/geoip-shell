@@ -36,8 +36,8 @@ cat <<EOF
 v$curr_ver
 
 Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-           [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips"] [-p <port_options>]
-           [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
+$sp8$sp8$sp8      [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips"] [-p <port_options>]
+$sp8$sp8$sp8      [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
 Asks the user about each required option, except those specified.
