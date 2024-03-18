@@ -33,12 +33,13 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
+v$curr_ver
 
 Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-           [-i <"ifaces"|auto|all>] [-l <"lan_subnets"|auto|none>] [-b <"trusted_subnets"] [-p <port_options>]
+           [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-b <"trusted_ips"] [-p <port_options>]
            [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
-Installer for the $p_name suite.
+Installer for $p_name.
 Asks the user about each required option, except those specified.
 
 Core Options:
@@ -62,7 +63,7 @@ Core Options:
         Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
         'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
 
-  -l <"[lan_subnets]"|auto|none> :
+  -l <"[lan_ips]"|auto|none> :
         Specifies LAN subnets to exclude from geoip blocking (both ipv4 and ipv6).
         Has no effect in blacklist mode.
         Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
@@ -70,7 +71,7 @@ Core Options:
         'auto' will autodetect LAN subnets during installation and every update of the ip lists.
         *Don't use 'auto' if the machine has a dedicated WAN interface*
 
-  -t <"[trusted_subnets]"> :
+  -t <"[trusted_ips]"> :
         Specifies trusted subnets to exclude from geoip blocking (both ipv4 and ipv6).
         This option works independently from the above LAN subnets option.
         Works in both whitelist and blacklist mode.
@@ -109,8 +110,8 @@ while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
 		i) ifaces_arg=$OPTARG ;;
-		l) lan_subnets_arg=$OPTARG ;;
-		t) t_subnets_arg=$OPTARG ;;
+		l) lan_ips_arg=$OPTARG ;;
+		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 		r) user_ccode_arg=$OPTARG ;;
 
@@ -219,9 +220,15 @@ detect_init() {
 }
 
 # 1 - (optional) input filename, otherwise reads from STDIN
+# (optional) -n - skip adding the shebang and the version
 prep_script() {
+	unset noshebang prep_args
+	for i in "$@"; do
+		[ "$i" = '-n' ] && noshebang=1 || prep_args="$prep_args$i "
+	done
+	set -- $prep_args
 	# print new shebang and version
-	printf '%s\n%s\n' "#!${curr_sh_g:-/bin/sh}" "curr_ver=$curr_ver"
+	[ ! "$noshebang" ] && printf '%s\n%s\n' "#!${curr_sh_g:-/bin/sh}" "curr_ver=$curr_ver"
 
 	if [ "$_OWRTFW" ]; then
 		# remove the shebang and comments
@@ -314,8 +321,8 @@ nodie=1
 setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp_ports=$tcp_ports" "udp_ports=$udp_ports" \
 	"Source=$source" "Families=$families" "CronSchedule=$schedule" \
 	"MaxAttempts=$max_attempts" "Ifaces=$conf_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
-	"LanSubnets_ipv4=$c_lan_subnets_ipv4" "LanSubnets_ipv6=$c_lan_subnets_ipv6" \
-	"TSubnets_ipv4=$t_subnets_ipv4" "TSubnets_ipv6=$t_subnets_ipv6" \
+	"LanIps_ipv4=$c_lan_ips_ipv4" "LanIps_ipv6=$c_lan_ips_ipv6" \
+	"Trusted_ipv4=$trusted_ipv4" "Trusted_ipv6=$trusted_ipv6" \
 	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
 OK
 
@@ -376,20 +383,23 @@ fi
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		echo "Adding the init script... "
-		eval "printf '%s\n' \"$(cat "$owrt_init")\"" | prep_script > "$init_script" ||
-			install_failed "$FAIL create the init script."
+		{
+			echo "#!/bin/sh /etc/rc.common"
+			eval "printf '%s\n' \"$(cat "$owrt_init")\"" | prep_script -n
+		} > "$init_script" || install_failed "$FAIL create the init script."
 
 		echo "Preparing the firewall include... "
 		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | prep_script > "$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\" _lib=\"$_lib\""
-			prep_script "$owrt_mk_fw_inc"
+			prep_script "$owrt_mk_fw_inc" -n
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
 		chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
 		printf %s "Enabling and starting the init script... "
-		$init_script enable && $init_script start || install_failed "$FAIL enable or start the init script."
+		$init_script enable
+		$init_script start
 		sleep 1
 		check_owrt_init || install_failed "$FAIL enable '$init_script'."
 		check_owrt_include || install_failed "$FAIL add firewall include."
