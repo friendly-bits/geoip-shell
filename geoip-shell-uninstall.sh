@@ -28,7 +28,8 @@ set -- $_args; oldifs
 #### USAGE
 
 usage() {
-    cat <<EOF
+cat <<EOF
+v$curr_ver
 
 Usage: $me [-l] [-c] [-r] [-h]
 
