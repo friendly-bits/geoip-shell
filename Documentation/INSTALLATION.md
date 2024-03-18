@@ -21,7 +21,7 @@ Otherwise, geoip rules are applied to traffic arriving from all network interfac
 You will see this question if installing the suite in whitelist mode and you chose `n` in the previous question. The reason why under these conditions this question is asked is explained above, in short - to avoid blocking your LAN from accessing your machine.
 
 If you are absolutely sure that you will not need to access the machine from the LAN then you can type in 's' to skip.
-Otherwise I recommend to add LAN subnets to the whitelist.
+Otherwise I recommend to add LAN ip's or subnets to the whitelist.
 
 The autodetection code should, in most cases, detect correct LAN subnets. However, it is up to you to verify that it's done its job correctly.
 
@@ -42,7 +42,7 @@ Alternatively, you can use an online service which will do the same check for yo
 
 A third way to do that is by examining your network configuration (in your router) and making sure that the autodetected subnets match those in the configuration.
 
-If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets which you want to whitelist. I would also appreciate if you let me know about that so I can improve the autodetection code (I will need some details about your network).
+If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets or ip addresses which you want to allow connections from.
 
 ## **'[A]uto-detect local subnets when autoupdating and at launch or keep this config [c]onstant?'**
 
