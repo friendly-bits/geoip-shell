@@ -29,7 +29,7 @@ Actions:
   add|remove       : Add or remove ip sets and firewall rules for lists specified with the '-l' option
 
 Options:
-  -l <"list_ids">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
+  -l $list_ids_usage
 
   -d               : Debug
   -h               : This help
