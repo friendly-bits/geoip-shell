@@ -37,7 +37,12 @@ EOF
 
 #### PARSE ARGUMENTS
 
+# check for valid action
 action="$1"
+case "$action" in
+	create-backup|restore) ;;
+	* ) unknownact
+esac
 
 # process the rest of the args
 shift 1
@@ -128,7 +133,6 @@ case "$action" in
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
 		statustip ;;
-	*) unknownact
 esac
 
 die 0
