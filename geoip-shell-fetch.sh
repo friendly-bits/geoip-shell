@@ -27,7 +27,8 @@ set -- $_args; oldifs
 #### USAGE
 
 usage() {
-    cat <<EOF
+cat <<EOF
+v$curr_ver
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-h]
 
