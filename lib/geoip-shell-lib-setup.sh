@@ -11,28 +11,6 @@
 
 #### FUNCTIONS
 
-validate_subnet() {
-	case "$1" in */*) ;; *) printf '%s\n' "Invalid subnet '$1': missing '/[maskbits]'." >&2; return 1; esac
-	maskbits="${1#*/}"
-	case "$maskbits" in
-		''|*[!0-9]*) printf '%s\n' "Invalid mask bits '$maskbits' in subnet '$1'." >&2; return 1; esac
-	ip="${1%%/*}"
-	case "$family" in
-		ipv4 ) ip_len_bits=32; ip_regex="$ipv4_regex" ;;
-		ipv6 ) ip_len_bits=128; ip_regex="$ipv6_regex" ;;
-	esac
-
-	case $(( (maskbits<8) | (maskbits>ip_len_bits)  )) in 1)
-		printf '%s\n' "Invalid $family mask bits '$maskbits'." >&2; return 1
-	esac
-
-	ip route get "$ip" 1>/dev/null 2>/dev/null
-	case $? in 0|2) ;; *) { printf '%s\n' "ip address '$ip' failed kernel validation." >&2; return 1; }; esac
-	printf '%s\n' "$ip" | grep -vE "^$ip_regex$" > /dev/null
-	[ $? != 1 ] && { printf '%s\n' "$family address '$ip' failed regex validation." >&2; return 1; }
-	:
-}
-
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=''; return 0; }
@@ -169,93 +147,100 @@ pick_ifaces() {
 	printf '%s\n' "Selected interfaces: '$conf_ifaces'."
 }
 
-pick_lan_subnets() {
+# 1 - input ip's/subnets
+# 2 - output var base name
+# output via $2_$family
+# if a subnet detected in ips of a particular family, output is prefixed with 'subnet: '
+# expects the $families var to be set
+validate_arg_ips() {
+	va_ips_a=
+	sp2nl va_ips_i "$1"
+	san_str va_ips_i
+	[ ! "$va_ips_i" ] && { echolog -err "No ip's detected in '$1'."; return 1; }
+	for f in $families; do
+		unset "va_$f" ipset_type
+		eval "ip_regex=\"\$${f}_regex\" mb_regex=\"\$maskbits_regex_$f\""
+		va_ips_f="$(printf '%s\n' "$va_ips_i" | grep -E "^${ip_regex}(/$mb_regex){0,1}$")"
+		[ "$va_ips_f" ] && {
+			validate_ip "$va_ips_f" "$f" || return 1
+			nl2sp "va_$f" "$ipset_type:$va_ips_f"
+		}
+		va_ips_a="$va_ips_a$va_ips_f$_nl"
+	done
+	subtract_a_from_b "$va_ips_a" "$va_ips_i" bad_ips || { nl2sp bad_ips; echolog -err "Invalid ip's: '$bad_ips'"; return 1; }
+	for f in $families; do
+		eval "${2}_$f=\"\$va_$f\""
+	done
+	:
+}
+
+pick_lan_ips() {
+	confirm_ips() { eval "c_lan_ips_$family=\"$ipset_type:$u_ips\""; }
+
 	lan_picked=1 autodetect=
-	case "$lan_subnets_arg" in
+	case "$lan_ips_arg" in
 		none) return 0 ;;
-		auto) lan_subnets_arg=''; autodetect=1 ;;
+		auto) lan_ips_arg=''; autodetect=1
 	esac
 
-	[ "$lan_subnets_arg" ] && {
-		unset bad_subnet lan_subnets
-		san_str lan_subnets_arg "$lan_subnets_arg" ' ' "$_nl"
-		for family in $families; do
-			eval "lan_subnets_$family="
-			eval "ip_regex=\"\$subnet_regex_$family\""
-			subnets="$(printf '%s\n' "$lan_subnets_arg" | grep -E "^$ip_regex$")"
-			san_str subnets
-			[ ! "$subnets" ] && continue
-			for subnet in $subnets; do
-				validate_subnet "$subnet" || bad_subnet=1
-			done
-			[ "$bad_subnet" ] && break
-			nl2sp "c_lan_subnets_$family" "$subnets"
-			lan_subnets="$lan_subnets$subnets$_nl"
-		done
-		subtract_a_from_b "$lan_subnets" "$lan_subnets_arg" bad_subnets
-		[ "${lan_subnets% }" ] && [ ! "$bad_subnet" ] && [ ! "$bad_subnets" ] && return 0
-		[ "$bad_subnets" ] &&
-			echolog -err "'$bad_subnets' are not valid subnets for families '$families'."
-		[ ! "$bad_subnet" ] && [ ! "${lan_subnets% }" ] &&
-			echolog -err "No valid subnets detected in '$lan_subnets_arg' compatible with families '$families'."
+	[ "$lan_ips_arg" ] && validate_arg_ips "$lan_ips_arg" c_lan_ips && return 0
+
+	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan ip's with '-l <\"lan_ips\"|auto|none>'."
+
+	[ ! "$nointeract" ] && {
+		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
+		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual ip's to allow."
 	}
-
-	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan subnets with '-l <\"lan_subnets\"|auto|none>'."
-
-	[ ! "$nointeract" ] &&
-		printf '\n\n%s\n' "${yellow}*NOTE*: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
 
 	for family in $families; do
 		printf '\n%s\n' "Detecting $family LAN subnets..."
-		s="$(call_script "$p_script-detect-lan.sh" -s -f "$family")" ||
-			printf '%s\n' "$FAIL autodetect $family LAN subnets." >&2
+		u_ips="$(call_script "$p_script-detect-lan.sh" -s -f "$family")" || {
+			echolog -err "$FAIL detect $family LAN subnets."
+			[ "$nointeract" ] && die
+		}
 		nl2sp s
 
-		[ -n "$s" ] && {
-			printf '%s\n' "Autodetected $family LAN subnets: '$blue$s$n_c'."
-			[ "$autodetect" ] && { eval "c_lan_subnets_$family=\"$s\""; continue; }
-			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
-				"Verify that correct LAN subnets have been detected in order to avoid problems."
+		[ -n "$u_ips" ] && {
+			nl2sp u_ips
+			ipset_type="net"
+			printf '\n%s\n' "Autodetected $family LAN subnets: '$blue$u_ips$n_c'."
+			[ "$autodetect" ] && { confirm_ips; continue; }
+			printf '\n%s\n%s\n\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
+				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
-				c|C) eval "c_lan_subnets_$family=\"$s\""; continue ;;
+				c|C) confirm_ips; continue ;;
 				s|S) continue ;;
 				h|H) autodetect_off=1 ;;
 				a|A) exit 0
 			esac
 		}
 
-		REPLY=
 		while true; do
-			unset u_subnets bad_subnet
-			[ ! "$nointeract" ] && [ ! "$REPLY" ] && {
-				printf '\n%s\n' "Type in $family LAN subnets, [s] to skip or [a] to abort installation."
+			unset REPLY u_ips
+			ipset_type=ip
+			[ ! "$nointeract" ] && {
+				printf '\n%s\n' "Type in $family LAN ip addresses and/or subnets, [s] to skip or [a] to abort installation."
 				read -r REPLY
 				case "$REPLY" in
 					s|S) break ;;
 					a|A) exit 0
 				esac
 			}
-			san_str -s u_subnets "$REPLY"
-			[ -z "$u_subnets" ] && {
-				printf '%s\n' "No $family subnets detected in '$REPLY'." >&2
-				REPLY=
-				continue
-			}
-			for subnet in $u_subnets; do
-				validate_subnet "$subnet" || bad_subnet=1
-			done
-			[ ! "$bad_subnet" ] && break
-			REPLY=
+			san_str -s u_ips "$REPLY"
+			[ -z "$u_ips" ] && continue
+			validate_ip "$u_ips" "$family" && break
 		done
-		eval "c_lan_subnets_$family=\"$u_subnets\""
+		confirm_ips
 	done
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "${blue}[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?$n_c"
+	printf '\n%s\n' "[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?"
 	pick_opt "a|c"
 	case "$REPLY" in a|A) autodetect="1"; esac
 }
+
+
 
 invalid_str() { echolog -err "Invalid string '$1'."; }
 
@@ -368,27 +353,8 @@ get_prefs() {
 	esac
 	[ ! "$families" ] && die "\$families variable should not be empty!"
 
-	# trusted subnets
-	[ "$t_subnets_arg" ] && {
-		t_subnets=
-		san_str t_subnets_arg "$t_subnets_arg" ' ' "$_nl"
-		for family in $families; do
-			eval "t_subnets_$family="
-			eval "ip_regex=\"\$subnet_regex_$family\""
-			subnets="$(printf '%s\n' "$t_subnets_arg" | grep -E "^$ip_regex$")"
-			[ ! "$subnets" ] && continue
-			for subnet in $subnets; do
-				validate_subnet "$subnet" || die
-			done
-			t_subnets="$t_subnets$subnets$_nl"
-			san_str subnets
-			nl2sp "t_subnets_$family" "$subnets"
-		done
-		subtract_a_from_b "$t_subnets" "$t_subnets_arg" bad_subnets
-		nl2sp bad_subnets
-		[ "$bad_subnets" ] && die "'$bad_subnets' are not valid subnets for families '$families'."
-		[ -z "${t_subnets% }" ] && die "No valid subnets detected in '$t_subnets_arg' compatible with families '$families'."
-	}
+	# process trusted ip's if specified
+	[ "$trusted_arg" ] && { validate_arg_ips "$trusted_arg" trusted || die; }
 
 	# ports
 	tcp_ports=skip udp_ports=skip
@@ -422,16 +388,16 @@ get_prefs() {
 		case "$REPLY" in
 			a|A) exit 0 ;;
 			y|Y) pick_ifaces ;;
-			n|N) [ "$geomode" = whitelist ] && pick_lan_subnets
+			n|N) [ "$geomode" = whitelist ] && pick_lan_ips
 		esac
 	else
 		case "$ifaces_arg" in
-			all) [ "$geomode" = whitelist ] && pick_lan_subnets ;;
+			all) [ "$geomode" = whitelist ] && pick_lan_ips ;;
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
 		esac
 	fi
 
-	[ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_subnets
+	[ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_ips
 	:
 }
