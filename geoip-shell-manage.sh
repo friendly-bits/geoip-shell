@@ -23,8 +23,8 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-i <"ifaces"|auto|all>]
-                    [-l <"lan_ips"|auto|none>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-i <"[ifaces]"|auto|all>]
+$sp8$sp8$sp8    [-l <"[lan_ips]"|auto|none>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
