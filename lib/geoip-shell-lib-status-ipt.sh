@@ -39,27 +39,4 @@ report_fw_state() {
 	done
 
 	echo
-	if [ "$verb_status" ]; then
-		total_el_cnt=0
-		printf '%s' "Ip ranges count in active geoip sets: "
-		case "$active_ccodes" in
-			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
-			*) echo
-				ipsets="$(ipset list -t)"
-				for ccode in $active_ccodes; do
-					el_summary=''
-					printf %s "${blue}${ccode}${n_c}: "
-					for family in $families; do
-						el_cnt="$(printf %s "$ipsets" |
-							sed -n -e /"${ccode}_$family"/\{:1 -e n\;/maxelem/\{s/.*maxelem\ //\; -e s/\ .*//\; -e p\; -e q\; -e \}\;b1 -e \})"
-						: "${el_cnt:=0}"
-						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $_X"; incr_issues; }
-						el_summary="$el_summary$family - $el_cnt$list_empty, "
-						total_el_cnt=$((total_el_cnt+el_cnt))
-					done
-					printf '%s\n' "${el_summary%, }"
-				done
-		esac
-		printf '\n%s\n\n\n' "Total number of ip ranges: $total_el_cnt"
-	fi
 }
