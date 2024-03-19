@@ -35,26 +35,27 @@ cnt_ipset_elements() {
 # 1 - iptables tag
 rm_ipt_rules() {
 	printf %s "Removing $family iptables rules tagged '$1'... "
-	set_ipt_cmds || return 1
+	set_ipt_cmds
 
-	{ echo "*$ipt_table"; $ipt_save_cmd -t "$ipt_table" | sed -n "/$1/"'s/^-A /-D /p'; echo "COMMIT"; } | $ipt_restore_cmd ||
-		{ echo "Failed."; echolog -err "rm_ipt_rules: Error when removing firewall rules tagged '$1'." >&2; return 1; }
-	echo "Ok."
+	{ echo "*$ipt_table"; eval "$ipt_save_cmd" | sed -n "/$1/"'s/^-A /-D /p'; echo "COMMIT"; } |
+		eval "$ipt_restore_cmd" ||
+		{ FAIL; echolog -err "rm_ipt_rules: Error when removing firewall rules tagged '$1'."; return 1; }
+	OK
 }
 
 rm_all_georules() {
 	for family in ipv4 ipv6; do
-		rm_ipt_rules "${geotag}_enable" || return 1
-		ipt_state="$($ipt_save_cmd)"
+		rm_ipt_rules "${geotag}_enable"
+		ipt_state="$(eval "$ipt_save_cmd")"
 		printf '%s\n' "$ipt_state" | grep "$iface_chain" >/dev/null && {
 			printf %s "Removing $family chain '$iface_chain'... "
 			printf '%s\n%s\n%s\n%s\n' "*$ipt_table" "-F $iface_chain" "-X $iface_chain" "COMMIT" |
-				$ipt_restore_cmd && echo "Ok." || { echo "Failed."; return 1; }
+				eval "$ipt_restore_cmd" && OK || { FAIL; return 1; }
 		}
 		printf '%s\n' "$ipt_state" | grep "$geochain" >/dev/null && {
 			printf %s "Removing $family chain '$geochain'... "
-			printf '%s\n%s\n%s\n%s\n' "*$ipt_table" "-F $geochain" "-X $geochain" "COMMIT" | $ipt_restore_cmd && echo "Ok." ||
-				{ echo "Failed."; return 1; }
+			printf '%s\n%s\n%s\n%s\n' "*$ipt_table" "-F $geochain" "-X $geochain" "COMMIT" | eval "$ipt_restore_cmd" && OK ||
+				{ FAIL; return 1; }
 		}
 	done
 	# remove ipsets
@@ -64,7 +65,7 @@ rm_all_georules() {
 	for ipset in $(ipset list -n | grep "$geotag"); do
 		ipset destroy "$ipset" || rm_ipsets_rv=1
 	done
-	[ "$rm_ipsets_rv" = 0 ] && echo "Ok." || echo "Failed."
+	[ "$rm_ipsets_rv" = 0 ] && OK || FAIL
 	return "$rm_ipsets_rv"
 }
 
