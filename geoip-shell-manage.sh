@@ -483,18 +483,18 @@ for ccode in $ccodes_arg; do
 		add2list lists_arg "${ccode}_$f" "$_nl"
 	done
 done
-nl2sp lists_arg_str "$lists_arg"
 
 case "$action" in
 	apply) unset restore_req geomode_change geomode_prev ifaces_change planned_lists_str
 		[ "$geomode_arg" ] && [ "$geomode_arg" != "$geomode" ] && { geomode_change=1; geomode_prev="$geomode"; }
 		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$conf_ifaces" ] && ifaces_change=1
 		: "${source_arg:="$source"}"
+		: "${lists_arg:="$config_lists"}"
+		nl2sp lists_arg_str "$lists_arg"
 		[ "$geomode_change" ] || [ "$source_arg" != "$source" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
 			! get_difference "$config_lists" "$lists_arg" && restore_req=1
-
 		get_prefs || die
-		planned_lists_str="${lists_arg_str:-"$config_lists_str"}"
+		planned_lists_str="$lists_arg_str"
 		lists_to_change_str="$planned_lists_str"
 		config_lists_str="$planned_lists_str"
 		sp2nl planned_lists "$planned_lists_str"
