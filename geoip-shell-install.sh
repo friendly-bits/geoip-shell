@@ -15,14 +15,13 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.3.0.1"
+curr_ver="0.3.1"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" || exit 1
 . "$_lib-setup.sh" || exit 1
-. "$_lib-ip-regex.sh"
 
 san_args "$@"
 newifs "$delim"
@@ -36,7 +35,7 @@ cat <<EOF
 v$curr_ver
 
 Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-$sp8$sp8$sp8      [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips"] [-p <port_options>]
+$sp8$sp8$sp8      [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips">] [-p <port_options>]
 $sp8$sp8$sp8      [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
@@ -44,7 +43,7 @@ Asks the user about each required option, except those specified.
 
 Core Options:
 
-  -m <whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist.
+  -m $geomode_usage
 
   -c $ccodes_usage
 
@@ -84,7 +83,7 @@ EOF
 while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
-		m) geomode=$OPTARG ;;
+		m) geomode_arg=$OPTARG ;;
 		s) schedule_arg=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
@@ -117,6 +116,7 @@ check_files() {
 	missing_files=
 	err=0
 	for dep_file in $1; do
+		[ ! "$dep_file" ] && continue
 		if [ ! -s "$script_dir/$dep_file" ]; then
 			missing_files="${missing_files}'$dep_file', "
 			err=$((err+1))
@@ -241,6 +241,9 @@ export conf_dir="/etc/$p_name"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
+# don't copy the detect-lan script on OpenWrt, unless autodetect is enabled
+[ "$_OWRTFW" ] && [ ! "$autodetect" ] && detect_lan=
+
 
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup; do
@@ -263,13 +266,11 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 
 [ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
 
+tcp_ports=skip udp_ports=skip
 get_prefs || die
 
 export datadir lib_dir="/usr/lib"
 export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g"
-
-# don't copy the detect-lan script, unless autodetect is enabled
-[ "$autodetect" ] || detect_lan=
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
 call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
