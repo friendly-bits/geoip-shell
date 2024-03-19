@@ -146,15 +146,11 @@ report_status() {
 	_Q="${red}?${n_c}"
 	issues=0
 
-	for entry in "Source ipsource" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports"; do
-		getconfig "${entry% *}" "${entry#* }"
-	done
-
 	ipsets="$(get_ipsets)"
 
 	printf '\n%s\n\n%s\n' "${purple}Geoip blocking status report:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
 
-	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${ipsource}${n_c}"
+	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${source}${n_c}"
 
 	check_lists_coherence && lists_coherent=" $_V" || { report_incoherence; incr_issues; lists_coherent=" $_Q"; }
 
@@ -177,7 +173,7 @@ report_status() {
 	esac
 
 	unset _ifaces_r _ifaces_all
-	[ "$_ifaces" ] && _ifaces_r=": ${blue}$_ifaces$n_c" || _ifaces_all="${blue}all$n_c "
+	[ "$conf_ifaces" ] && _ifaces_r=": ${blue}$_ifaces$n_c" || _ifaces_all="${blue}all$n_c "
 	printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
 
 	trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
@@ -193,13 +189,16 @@ report_status() {
 	[ "$geomode" = "whitelist" ] && {
 		lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
 		lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
-		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$_ifaces" ] && {
+		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$conf_ifaces" ] && {
 			printf '\n%s\n' "Allowed LAN ip's:"
 			for f in $families; do
 				eval "lan_ips=\"\$lan_ips_$f\""
 				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
-				[ "$lan_ips" ] || [ ! "$_ifaces" ] && printf '%s\n' "$f: $lan_ips"
+				[ "$lan_ips" ] || [ ! "$conf_ifaces" ] && printf '%s\n' "$f: $lan_ips"
 			done
+			autodetect_hr=Off
+			[ "$autodetect" ] && autodetect_hr=On
+			printf '%s\n' "LAN subnets automatic detection: $blue$autodetect_hr$n_c"
 		}
 	}
 
