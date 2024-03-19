@@ -247,13 +247,13 @@ detect_lan="${p_name}-detect-lan.sh"
 
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup; do
-	[ "$f" ] && script_files="$script_files${p_name}-$f.sh "
+	script_files="$script_files${p_name}-$f.sh "
 done
 
 unset lib_files ipt_libs
 [ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt status-ipt"
 for f in common arrays nft apply-nft backup-nft status-nft setup ip-regex $check_compat $ipt_libs; do
-	lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
+	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
 
@@ -337,7 +337,7 @@ cp "$script_dir/cca2.list" "$conf_dir/" || install_failed "$FAIL copy 'cca2.list
 
 # only allow root to read the $datadir and $conf_dir and files inside it
 mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
-install_failed "$FAIL to create '$datadir'."
+install_failed "$FAIL create '$datadir'."
 
 ### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
 call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
