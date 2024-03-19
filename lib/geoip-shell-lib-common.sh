@@ -731,6 +731,7 @@ trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] &&
 
 # vars for usage() functions
 sp8="        "
+geomode_usage="<whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist."
 ifaces_usage="<\"[ifaces]\"|auto|all> :
 ${sp8}Changes which network interface(s) geoip firewall rules will be applied to.
 ${sp8}'all' will apply geoip to all network interfaces
@@ -744,10 +745,10 @@ ${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfac
 ${sp8}specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
 ${sp8}'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
 ${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*"
-trusted_ips_usage="<\"[trusted_ips]\"> :
+trusted_ips_usage="<\"[trusted_ips]|none\"> :
 ${sp8}Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
 ${sp8}This option works independently from the above LAN ip's option.
-${sp8}Works in both whitelist and blacklist mode."
+${sp8}Works both in whitelist and blacklist mode."
 ports_usage="<[tcp|udp]:[allow|block]:ports> :
 ${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
 ${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
