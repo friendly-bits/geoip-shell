@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2086,SC2154,SC2155,SC2034
+# shellcheck disable=SC2086,SC2154,SC2155,SC2034,SC1090
 
 # geoip-shell-lib-setup.sh
 
@@ -8,6 +8,7 @@
 
 # implements CLI interactive/noninteractive setup and args parsing
 
+. "$_lib-ip-regex.sh"
 
 #### FUNCTIONS
 
@@ -47,7 +48,7 @@ pick_ccodes() {
 	while true; do
 		unset bad_ccodes ok_ccodes
 		[ ! "$REPLY" ] && {
-			printf %s "Country codes (2 letters) or [a] to abort the installation: "
+			printf %s "Country codes (2 letters) or [a] to abort: "
 			read -r REPLY
 		}
 		REPLY="$(toupper "$REPLY")"
@@ -81,7 +82,7 @@ pick_ccodes() {
 }
 
 pick_geomode() {
-	printf '\n%s\n' "${blue}Select geoip blocking mode:$n_c [w]hitelist or [b]lacklist, or [a] to abort the installation."
+	printf '\n%s\n' "${blue}Select geoip blocking mode:$n_c [w]hitelist or [b]lacklist, or [a] to abort."
 	pick_opt "w|b|a"
 	case "$REPLY" in
 		w|W) geomode=whitelist ;;
@@ -112,7 +113,7 @@ pick_ifaces() {
 		printf '%s\n%s\n' "All found network interfaces: $all_ifaces" \
 			"Autodetected WAN interfaces: $blue$auto_ifaces$n_c"
 		[ "$1" = "-a" ] && { conf_ifaces="$auto_ifaces"; return; }
-		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort installation?"
+		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort?"
 		pick_opt "c|h|a"
 		case "$REPLY" in
 			c|C) conf_ifaces="$auto_ifaces"; return ;;
@@ -125,7 +126,7 @@ pick_ifaces() {
 		u_ifaces=
 		printf '\n%s\n' "All found network interfaces: $all_ifaces"
 		[ ! "$REPLY" ] && {
-			printf '%s\n' "Type in WAN network interface names, or [a] to abort installation."
+			printf '%s\n' "Type in WAN network interface names, or [a] to abort."
 			read -r REPLY
 			case "$REPLY" in a|A) exit 0; esac
 		}
@@ -177,7 +178,8 @@ validate_arg_ips() {
 pick_lan_ips() {
 	confirm_ips() { eval "c_lan_ips_$family=\"$ipset_type:$u_ips\""; }
 
-	lan_picked=1 autodetect=
+	lan_picked=1
+	unset autodetect ipset_type u_ips c_lan_ips_ipv4 c_lan_ips_ipv6
 	case "$lan_ips_arg" in
 		none) return 0 ;;
 		auto) lan_ips_arg=''; autodetect=1
@@ -188,13 +190,12 @@ pick_lan_ips() {
 	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan ip's with '-l <\"lan_ips\"|auto|none>'."
 
 	[ ! "$nointeract" ] && {
-		printf '\n\n%s\n' "${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
 		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual ip's to allow."
 	}
 
 	for family in $families; do
 		printf '\n%s\n' "Detecting $family LAN subnets..."
-		u_ips="$(call_script "$p_script-detect-lan.sh" -s -f "$family")" || {
+		u_ips="$(call_script "$_script-detect-lan.sh" -s -f "$family")" || {
 			echolog -err "$FAIL detect $family LAN subnets."
 			[ "$nointeract" ] && die
 		}
@@ -205,7 +206,7 @@ pick_lan_ips() {
 			ipset_type="net"
 			printf '\n%s\n' "Autodetected $family LAN subnets: '$blue$u_ips$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
-			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort installation?" \
+			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
 				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
@@ -220,7 +221,7 @@ pick_lan_ips() {
 			unset REPLY u_ips
 			ipset_type=ip
 			[ ! "$nointeract" ] && {
-				printf '\n%s\n' "Type in $family LAN ip addresses and/or subnets, [s] to skip or [a] to abort installation."
+				printf '\n%s\n' "Type in $family LAN ip addresses and/or subnets, [s] to skip or [a] to abort."
 				read -r REPLY
 				case "$REPLY" in
 					s|S) break ;;
@@ -324,63 +325,75 @@ setports() {
 get_prefs() {
 	sleeptime=30 max_attempts=30
 
-	# cron
-	check_cron_compat
-	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
-		call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
-	}
+	[ "$in_install" ] && {
+		# OpenWrt defaults
+		[ "$_OWRTFW" ] && {
+			default_schedule="15 4 * * 5" source_default=ipdeny
+		} ||
+		{ default_schedule="15 4 * * *" source_default=ripe; }
+		schedule="${schedule_arg:-$default_schedule}"
 
-	[ "$_OWRTFW" ] && {
-		default_schedule="15 4 * * 5" source_default=ipdeny
-	} ||
-	{ default_schedule="15 4 * * *" source_default=ripe; }
-	schedule="${schedule_arg:-$default_schedule}"
+		# cron
+		check_cron_compat
+		[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
+			call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
+		}
+
+		# families
+		families_default="ipv4 ipv6"
+		[ "$families_arg" ] && families_arg="$(tolower "$families_arg")"
+		case "$families_arg" in
+			inet|inet6|'inet inet6'|'inet6 inet' ) families="$families_arg" ;;
+			''|'ipv4 ipv6'|'ipv6 ipv4' ) families="$families_default" ;;
+			ipv4 ) families="ipv4" ;;
+			ipv6 ) families="ipv6" ;;
+			* ) echolog -err "invalid family '$families_arg'."; exit 1
+		esac
+		[ ! "$families" ] && die "\$families variable should not be empty!"
+	}
 
 	# source
 	source_arg="$(tolower "$source_arg")"
 	case "$source_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$source_arg'."; esac
 	source="${source_arg:-$source_default}"
 
-	# families
-	families_default="ipv4 ipv6"
-	[ "$families_arg" ] && families_arg="$(tolower "$families_arg")"
-	case "$families_arg" in
-		inet|inet6|'inet inet6'|'inet6 inet' ) families="$families_arg" ;;
-		''|'ipv4 ipv6'|'ipv6 ipv4' ) families="$families_default" ;;
-		ipv4 ) families="ipv4" ;;
-		ipv6 ) families="ipv6" ;;
-		* ) echolog -err "invalid family '$families_arg'."; exit 1
-	esac
-	[ ! "$families" ] && die "\$families variable should not be empty!"
-
 	# process trusted ip's if specified
-	[ "$trusted_arg" ] && { validate_arg_ips "$trusted_arg" trusted || die; }
+	[ "$trusted_arg" ] && {
+		if [ "$trusted_arg" = none ]; then
+			unset trusted_ipv4 trusted_ipv6
+		else
+			validate_arg_ips "$trusted_arg" trusted || die
+		fi
+	}
 
 	# ports
-	tcp_ports=skip udp_ports=skip
 	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
 
+	[ "$geomode_arg" ] || [ "$in_install" ] && {
+		# geoip mode
+		geomode_arg="$(tolower "$geomode_arg")"
+		case "$geomode_arg" in
+			whitelist|blacklist) geomode="$geomode_arg" ;;
+			'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
+			*) [ "$nointeract" ] && die "Unrecognized mode '$geomode_arg'! Use either 'whitelist' or 'blacklist'!"; pick_geomode
+		esac
+		[ "$geomode" = blacklist ] && unset c_lan_ips_ipv4 c_lan_ips_ipv6
+	}
+
+	[ "$lan_ips_arg" ] && [ "$lan_ips_arg" != none ] && [ "$geomode" = blacklist ] &&
+		die "option '-l' is incompatible with mode 'blacklist'"
+
 	# country codes
-	ccodes="$(toupper "$ccodes")"
-
-	# geoip mode
-	export geomode="$(tolower "$geomode")"
-	case "$geomode" in
-		whitelist|blacklist) ;;
-		'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
-		*) die "Unrecognized mode '$geomode'! Use either 'whitelist' or 'blacklist'!"
-	esac
-	[ "$lan_subnets_arg" ] && [ "$geomode" = blacklist ] && die "option '-l' is incompatible with mode 'blacklist'"
-
-	pick_ccodes
-
-	pick_user_ccode
+	[ "$in_install" ] || [ "$geomode_change" ] && pick_ccodes
+	[ "$in_install" ] && pick_user_ccode
 
 	# ifaces and lan subnets
 	lan_picked=
-	if [ -z "$ifaces_arg" ]; then
+	warn_lockout="${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
+
+	if [ "$in_install" ] && [ -z "$ifaces_arg" ]; then
 		[ "$nointeract" ] && die "Specify interfaces with -i <\"ifaces\"|auto|all>."
-		printf '\n%s\n%s\n%s\n%s\n' "${blue}Does this machine have dedicated WAN network interface(s)?$n_c [y|n] or [a] to abort the installation." \
+		printf '\n%s\n%s\n%s\n%s\n' "${blue}Does this machine have dedicated WAN network interface(s)?$n_c [y|n] or [a] to abort." \
 			"For example, a router or a virtual private server may have it." \
 			"A machine connected to a LAN behind a router is unlikely to have it." \
 			"It is important to answer this question correctly."
@@ -388,16 +401,23 @@ get_prefs() {
 		case "$REPLY" in
 			a|A) exit 0 ;;
 			y|Y) pick_ifaces ;;
-			n|N) [ "$geomode" = whitelist ] && pick_lan_ips
+			n|N) [ "$geomode" = whitelist ] && { printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; }
 		esac
-	else
+	elif [ "$ifaces_arg" ]; then
+		conf_ifaces=
 		case "$ifaces_arg" in
-			all) [ "$geomode" = whitelist ] && pick_lan_ips ;;
+			all) ifaces_arg=
+				[ "$geomode" = whitelist ] && { [ "$in_install" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+					{ printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; } ;;
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
 		esac
+	elif [ "$geomode_change" ] && [ "$geomode" = whitelist ] && [ ! "$conf_ifaces" ]; then
+		printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips
 	fi
 
-	[ "$lan_subnets_arg" ] && [ "$lan_subnets_arg" != none ] && [ ! "$lan_picked" ] && pick_lan_ips
+	[ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
 	:
 }
+
+[ "$script_dir"  = "$install_dir" ] && _script="$i_script" || _script="$p_script"
