@@ -144,6 +144,8 @@ nft_cmd_chain="$(
 
 	# trusted subnets/ips
 	for family in $families; do
+		nft_get_geotable | grep "trusted_${family}_${geotag}" >/dev/null &&
+			printf '%s\n' "delete set inet $geotable trusted_${family}_${geotag}"
 		eval "trusted=\"\$trusted_$family\""
 		interval=
 		case "${trusted%%":"*}" in net|ip)
@@ -153,8 +155,6 @@ nft_cmd_chain="$(
 
 		[ -n "$trusted" ] && {
 			get_nft_family
-			nft_get_geotable | grep "trusted_${family}_${geotag}" >/dev/null &&
-				printf '%s\n' "delete set inet $geotable trusted_${family}_${geotag}"
 			printf %s "add set inet $geotable trusted_${family}_${geotag} \
 				{ type ${family}_addr; $interval elements={ "
 			printf '%s,' $trusted
@@ -176,13 +176,13 @@ nft_cmd_chain="$(
 				setconfig "lanips_$family" "$lan_ips"
 			fi
 
+			nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
+				printf '%s\n' "delete set inet $geotable lan_ips_${family}_${geotag}"
 			interval=
 			[ "${lan_ips%%":"*}" = net ] && interval="flags interval; auto-merge;"
 			lan_ips="${lan_ips#*":"}"
 			[ -n "$lan_ips" ] && {
 				get_nft_family
-				nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
-					printf '%s\n' "delete set inet $geotable lan_ips_${family}_${geotag}"
 				printf %s "add set inet $geotable lan_ips_${family}_${geotag} \
 					{ type ${family}_addr; $interval elements={ "
 				printf '%s,' $lan_ips
