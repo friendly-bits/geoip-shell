@@ -12,8 +12,8 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 ## Table of contents
 - [Features](#features)
 - [Installation](#installation)
-- [Pre-requisites](#pre-requisites)
 - [Usage](#usage)
+- [Pre-requisites](#pre-requisites)
 - [Notes](#notes)
 - [In detail](#in-detail)
 - [Privacy](#privacy)
@@ -90,7 +90,7 @@ NOTE: Installation can be run interactively, which does not require any command 
 Some features are only accessible via command-line arguments.
 _To find out more, use `sh geoip-shell-install.sh -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md)_
 
-_(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
+_(Note that some commands require root privileges, so you will likely need to run them with `sudo`)_
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. Systems which only have `iptables` also require the `ipset` utility.
 
@@ -133,21 +133,6 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 **6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `cat /var/log/syslog | grep geoip-shell` on the next day (change syslog path if necessary, according to the location assigned by your distro. on some distributions, a different command should be used, such as `logread`).
 
-## **Pre-requisites**
-(if a pre-requisite is missing, the _-install.sh_ script will tell you which)
-- **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
-- **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
-
-    **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh` The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
-- **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
-- OR **iptables** - firewall management utility. Should work with any relatively modern version.
-- for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
-- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
-- **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
-- for the autoupdate functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
-
-**Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
-
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
@@ -189,6 +174,21 @@ _<details><summary>Example</summary>_
 **To uninstall:** `geoip-shell-uninstall.sh`
 
 **For info about some additional actions:** `geoip-shell -h`
+
+## **Pre-requisites**
+(if a pre-requisite is missing, the _-install.sh_ script will tell you which)
+- **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
+- **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
+
+    **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh` The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
+- **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
+- OR **iptables** - firewall management utility. Should work with any relatively modern version.
+- for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
+- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
+- **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
+- for the autoupdate functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
+
+**Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
