@@ -10,7 +10,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 
 ## Table of contents
-- [Features](#features)
+- [Main Features](#main-features)
 - [Installation](#installation)
 - [Usage](#usage)
 - [Pre-requisites](#pre-requisites)
