@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export geomode nolog=1 manmode=1
 
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
@@ -24,14 +25,15 @@ cat <<EOF
 v$curr_ver
 
 Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-i <"[ifaces]"|auto|all>]
-$sp8$sp8$sp8    [-l <"[lan_ips]"|auto|none>] [-v] [-f] [-d] [-h]
+$sp8$sp8$sp8    [-l <"[lan_ips]"|auto|none>] [-t <"[trusted_ips]"|none>] [-m <whitelist|blacklist>] [-u <ripe|ipdeny>]
+$sp8$sp8$sp8    [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips">] [-p <port_options>] [-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  apply       : apply current config settings. May be used with options: '-p', '-i', '-l'
+  apply       : change geoip blocking config. May be used with options: '-c', 'u', '-m', '-i', '-l', '-t', '-p'
   schedule    : change the cron schedule
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
@@ -40,13 +42,23 @@ Actions:
 
 Options:
 
-  -c $ccodes_usage
+  -c 2-letter country codes to add or remove. If passing multiple country codes, use double quotes."
 
   -s $schedule_usage
+
+Options for the 'apply' action:
+
+  -c $ccodes_usage
+
+  -u $sources_usage
+
+  -m $geomode_usage
 
   -i $ifaces_usage
 
   -l $lan_ips_usage
+
+  -t $trusted_ips_usage
 
   -p $ports_usage
 
@@ -70,11 +82,16 @@ esac
 
 # process the rest of the args
 shift 1
-while getopts ":c:s:i:l:p:vfdh" opt; do
+while getopts ":c:m:s:i:l:t:p:u:vfdh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
+		m) geomode_arg=$OPTARG ;;
 		s) cron_schedule=$OPTARG ;;
+		i) ifaces_arg=$OPTARG ;;
+		l) lan_ips_arg=$OPTARG ;;
+		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
+		u) source_arg=$OPTARG ;;
 
 		v) verb_status=1 ;;
 		f) force_action=1 ;;
@@ -168,7 +185,7 @@ report_status() {
 	[ "$trusted_ipv4$trusted_ipv6" ] && {
 		printf '\n%s\n' "Allowed trusted ip's:"
 		for f in $families; do
-			eval "trusted=\"\${trusted_$f#*":"}\""
+			eval "trusted=\"\$trusted_$f\""
 			[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
 		done
 	}
@@ -179,7 +196,7 @@ report_status() {
 		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$_ifaces" ] && {
 			printf '\n%s\n' "Allowed LAN ip's:"
 			for f in $families; do
-				eval "lan_ips=\"\${lan_ips_$f#*":"}\""
+				eval "lan_ips=\"\$lan_ips_$f\""
 				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
 				[ "$lan_ips" ] || [ ! "$_ifaces" ] && printf '%s\n' "$f: $lan_ips"
 			done
@@ -293,14 +310,19 @@ incoherence_detected() {
 # if that fails, restore from backup
 restore_from_config() {
 	check_reapply() {
-		check_lists_coherence && { echolog "Successfully re-applied previous $p_name ip lists."; return 0; }
-
-		echolog -err "$FAIL re-apply previous $geomode lists." >&2
+		check_lists_coherence && { echolog "$restore_ok_msg"; return 0; }
+		echolog -err "$FAIL apply $p_name config."
 		report_incoherence
 		return 1
 	}
 
-	echolog "Restoring lists '$config_lists_str' from the config file... "
+	restore_msg="Restoring $p_name from config... "
+	restore_ok_msg="Successfully restored $p_name from config."
+	[ "$restore_req" ] && {
+		restore_msg="Applying new config... "
+		restore_ok_msg="Successfully applied new config."
+	}
+	echolog "$restore_msg"
 	case "$config_lists_str" in
 		'') echolog -err "no ip lists registered in the config file." ;;
 		*) call_script "$i_script-uninstall.sh" -l || return 1
@@ -324,15 +346,11 @@ check_for_lockout() {
 	inlist="in the planned $geomode"
 	trying="You are trying to"
 
-	if [ "$in_install" ]; then
+	if [ "$in_install" ] || [ "$geomode_change" ]; then
 		get_matching_line "$planned_lists" "" "$user_ccode" "_*" filtered_ccode
 		case "$geomode" in
-			whitelist)
-				[ ! "$filtered_ccode" ] && lo_msg="Your $u_ccode is not included $inlist. $tip_msg"
-				return 0 ;;
-			blacklist)
-				[ "$filtered_ccode" ] && lo_msg="Your $u_ccode is included $inlist. $tip_msg"
-				return 0
+			whitelist) [ ! "$filtered_ccode" ] && lo_msg="Your $u_ccode is not included $inlist. $tip_msg" ;;
+			blacklist) [ "$filtered_ccode" ] && lo_msg="Your $u_ccode is included $inlist. $tip_msg"
 		esac
 	else
 		get_matching_line "$lists_to_change" "" "$user_ccode" "_*" filtered_ccode
@@ -341,10 +359,23 @@ check_for_lockout() {
 		[ ! "$filtered_ccode" ] && return 0
 
 		case "$action" in
-			add) [ "$geomode" = blacklist ] && lo_msg="$trying add your $u_ccode to the blacklist. $tip_msg"; return 0 ;;
-			remove) [ "$geomode" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"; return 0
+			add) [ "$geomode" = blacklist ] && lo_msg="$trying add your $u_ccode to the blacklist. $tip_msg" ;;
+			remove) [ "$geomode" = whitelist ] && lo_msg="$trying remove your $u_ccode from the whitelist. $tip_msg"
 		esac
 	fi
+	[ "$lo_msg" ] && {
+		printf '\n%s\n\n%s\n' "$WARN $lo_msg" "Proceed?"
+		pick_opt "y|n"
+		case "$REPLY" in
+			y|Y) printf '\n%s\n' "Proceeding..." ;;
+			n|N)
+				[ "$geomode_change" ] && geomode="$geomode_prev"
+				[ ! "$in_install" ] && report_lists
+				echo
+				die 0 "Aborted action '$action' for ip lists '$lists_to_change_str'."
+		esac
+	}
+	:
 }
 
 get_wrong_ccodes() {
@@ -358,7 +389,9 @@ get_wrong_ccodes() {
 #### VARIABLES
 
 for entry in "Geomode geomode" "Families families" "Lists config_lists_str" "UserCcode user_ccode"\
-	"tcp_ports tcp_ports" "udp_ports udp_ports"; do
+		"tcp_ports tcp_ports" "udp_ports udp_ports" "LanIps_ipv4 c_lan_ips_ipv4" \
+		"LanIps_ipv6 c_lan_ips_ipv6" "Autodetect autodetect" "Trusted_ipv4 trusted_ipv4" \
+		"Trusted_ipv6 trusted_ipv6" "Ifaces conf_ifaces" "Source source" ; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
@@ -390,22 +423,27 @@ case "$action" in
 	add|remove)
 		# check for valid country codes
 		[ ! "$ccodes_arg" ] && die "$erract requires to specify countries with '-c <country_codes>'!"
-		rv=0
+		bad_ccodes=
 		for ccode in $ccodes_arg; do
 			validate_ccode "$ccode"
 			case $? in
-				1)  die "Internal error while trying to validate country codes." ;;
-				2)  bad_ccodes="$bad_ccodes$ccode "; rv=1
+				1) die "Internal error while trying to validate country codes." ;;
+				2) bad_ccodes="$bad_ccodes$ccode "
 			esac
 		done
-
-		[ "$rv" != 0 ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'." ;;
-	schedule|status|restore|reset|on|off|apply|showconfig)
-		[ "$ccodes_arg" ] && die "$incompat '-c'."
+		[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'." ;;
+	schedule|status|restore|reset|on|off|showconfig) [ "$ccodes_arg" ] && die "$incompat '-c'."
 esac
 
-[ "$action" != apply ] && [ "$ports_arg" ] && { usage; die "$incompat '-p'."; }
-[ "$action" != schedule ] && [ "$cron_schedule" ] && { usage; die "$incompat '-s'."; }
+[ "$action" != apply ] && {
+	[ "$geomode_arg" ] && die "$incompat '-m'."
+	[ "$trusted_arg" ] && die "$incompat '-t'."
+	[ "$ports_arg" ] && die "$incompat '-p'."
+	[ "$lan_ips_arg" ] && die "$incompat '-l'."
+	[ "$ifaces_arg" ] && die "$incompat '-i'."
+	[ "$source_arg" ] && die "$incompat '-u'."
+}
+[ "$action" != schedule ] && [ "$cron_schedule" ] && die "$incompat '-s'."
 
 
 
@@ -414,14 +452,9 @@ esac
 case "$action" in
 	status) report_status; die 0 ;;
 	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0 ;;
-	reset) call_script "$i_script-uninstall.sh" -l; die $? ;;
-	restore) restore_from_config; die $? ;;
-	schedule)
-		[ ! "$cron_schedule" ] && { usage; die "Specify cron schedule for autoupdate or 'disable'."; }
-
+	schedule) [ ! "$cron_schedule" ] && die "Specify cron schedule for autoupdate or 'disable'."
 		# communicate schedule to *cronsetup via config
 		setconfig "CronSchedule=$cron_schedule"
-
 		call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		die 0
 esac
@@ -433,26 +466,51 @@ trap 'eval "$trap_args_unlock"' INT TERM HUP QUIT
 case "$action" in
 	on|off)
 		case "$action" in
-			on)
-				[ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
+			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
 				setconfig "NoBlock=" ;;
 			off) setconfig "NoBlock=1"
 		esac
 		call_script "$i_script-apply.sh" $action || die
-		die 0
+		die 0 ;;
+	reset) call_script "$i_script-uninstall.sh" -l; die $? ;;
+	restore) restore_from_config; die $?
 esac
 
 check_lists_coherence || incoherence_detected
 
 for ccode in $ccodes_arg; do
 	for f in $families; do
-		lists_arg="${lists_arg}${ccode}_${f}${_nl}"
+		add2list lists_arg "${ccode}_$f" "$_nl"
 	done
 done
-lists_arg="${lists_arg%"${_nl}"}"
+nl2sp lists_arg_str "$lists_arg"
 
 case "$action" in
-	apply) lists_to_change="$config_lists"; planned_lists="$config_lists" ;;
+	apply) unset restore_req geomode_change geomode_prev ifaces_change planned_lists_str
+		[ "$geomode_arg" ] && [ "$geomode_arg" != "$geomode" ] && { geomode_change=1; geomode_prev="$geomode"; }
+		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$conf_ifaces" ] && ifaces_change=1
+		: "${source_arg:="$source"}"
+		[ "$geomode_change" ] || [ "$source_arg" != "$source" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
+			! get_difference "$config_lists" "$lists_arg" && restore_req=1
+
+		get_prefs || die
+		planned_lists_str="${lists_arg_str:-"$config_lists_str"}"
+		lists_to_change_str="$planned_lists_str"
+		config_lists_str="$planned_lists_str"
+		sp2nl planned_lists "$planned_lists_str"
+		[ "$geomode_change" ] && check_for_lockout
+
+		setconfig "tcp_ports=$tcp_ports" "udp_ports=$udp_ports" "Source=$source" "LanIps_ipv4=$c_lan_ips_ipv4" \
+			"LanIps_ipv6=$c_lan_ips_ipv6" "Autodetect=$autodetect" "Trusted_ipv4=$trusted_ipv4" \
+			"Trusted_ipv6=$trusted_ipv6" "Ifaces=$conf_ifaces" "Geomode=$geomode" "Lists=$planned_lists_str"
+
+		if [ ! "$restore_req" ]; then
+			call_script "$i_script-apply.sh" "update"; rv_apply=$?
+			[ $rv_apply != 0 ] || ! check_lists_coherence && { restore_from_config && rv_apply=254 || rv_apply=1; }
+		else
+			restore_from_config; rv_apply=$?
+		fi
+		die $rv_apply ;;
 	add)
 		san_str requested_lists "$config_lists$_nl$lists_arg"
 #		debugprint "requested resulting lists: '$requested_lists'"
@@ -488,7 +546,7 @@ case "$action" in
 		subtract_a_from_b "$lists_to_change" "$config_lists" planned_lists
 esac
 
-if [ ! "$lists_to_change" ] && [ "$action" != apply ] && [ ! "$force_action" ]; then
+if [ ! "$lists_to_change" ] && [ ! "$force_action" ]; then
 	report_lists
 	die 254 "Nothing to do, exiting."
 fi
@@ -499,21 +557,10 @@ if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$geomode" = "whitelist"
 	die "Planned whitelist is empty! Disallowing this to prevent accidental lockout of a remote server."
 fi
 
-# try to prevent possible user lock-out
-[ "$action" != apply ] && { check_for_lockout || die "Error in 'check_for_lockout' function."; }
-
 nl2sp lists_to_change_str "$lists_to_change"
 
-if [ "$lo_msg" ]; then
-		printf '\n%s\n\n%s\n' "$WARN $lo_msg" "Proceed?"
-		pick_opt "y|n"
-		case "$REPLY" in
-			y|Y) printf '\n%s\n' "Proceeding..." ;;
-			n|N) [ ! "$in_install" ] && report_lists
-				echo
-				die "Aborted action '$action' for ip lists '$lists_to_change_str'."
-		esac
-fi
+# try to prevent possible user lock-out
+check_for_lockout
 
 ### Call the *run script
 
@@ -521,13 +568,7 @@ nl2sp planned_lists_str "$planned_lists"
 debugprint "Writing new config to file: 'Lists=$planned_lists_str'"
 setconfig "Lists=$planned_lists_str"
 
-if [ "$action" = apply ]; then
-	setports "${ports_arg%"$_nl"}" || die
-	setconfig "tcp_ports=$tcp_ports" "udp_ports=$udp_ports"
-	call_script "$i_script-apply.sh" "update"; rv=$?
-else
-	call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
-fi
+call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 
 # positive return code means apply failure or another permanent error, except for 254
 case "$rv" in 0|254) ;; *)
