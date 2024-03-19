@@ -96,7 +96,7 @@ Advanced options:
 - `-c`: cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
 - `-r`: prepares the system for re-installation of the suite: cleans up previous firewall geoip rules, removes the cron jobs (and the OpenWrt-specific scripts) and removes the config.
 
-**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it really implements a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status-ipt or lib-status-nft when generating a status report.
+**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it really implements a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status-ipt or lib-status-nft when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
 `geoip-shell <on|off> [-c <"country_codes">]` : Enable or disable the geoip blocking chain (via a rule in the base geoip chain)
 
@@ -115,6 +115,18 @@ Advanced options:
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
 
 `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
+
+`geoip-shell apply -u [ripe|ipdeny]`: change ip lists source.
+
+`geoip-shell apply -m [whitelist|blacklist]`: change geoip blocking mode.
+
+`geoip-shell apply -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
+
+`geoip-shell apply -c <"country codes">`: change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
+
+`geoip-shell apply -l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled.
+
+`geoip-shell apply -t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
 `geoip-shell showconfig` : prints the contents of the config file.
 

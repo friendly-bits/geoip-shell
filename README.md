@@ -68,7 +68,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - Comes with an *uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
-- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, add or remove country codes, change the cron schedule etc).
+- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, change country codes, change geoip blocking mode, change ip lists source, change the cron schedule etc).
 - Post-installation, provides a command _('geoip-shell status')_ to check geoip blocking status, which also reports if there are any issues.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
 - Most scripts display detailed 'usage' info when executed with the '-h' option.
@@ -153,18 +153,22 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking current geoip blocking status.
 
-**To check current geoip blocking status:** run `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list, run `geoip-shell status -v`.
+**To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
-**To add or remove ip lists for countries:** run `geoip-shell <add|remove> -c <"country_codes">`
+**To add or remove ip lists for countries:** `geoip-shell <add|remove> -c <"country_codes">`
 
 _<details><summary>Examples:</summary>_
 - example (to add ip lists for Germany and Netherlands): `geoip-shell add -c "DE NL"`
 - example (to remove the ip list for Germany): `geoip-shell remove -c DE`
 </details>
 
-**To enable or disable geoip blocking:** run `geoip-shell <on|off>`
+**To enable or disable geoip blocking:** `geoip-shell <on|off>`
 
-**To change protocols and ports geoblocking applies to:** run `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
+**To change ip lists source:** `geoip-shell apply -u [ripe|ipdeny]`
+
+**To change geoip blocking mode:** `geoip-shell apply -m [whitelist|blacklist]`
+
+**To change protocols and ports geoblocking applies to:** `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
 
 _(for details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10)_
 
@@ -182,13 +186,9 @@ _<details><summary>Example</summary>_
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
 
-**To uninstall:** run `geoip-shell-uninstall.sh`
+**To uninstall:** `geoip-shell-uninstall.sh`
 
-**To switch mode (from whitelist to blacklist or the opposite):** re-install
-
-**To change ip lists source (from RIPE to ipdeny or the opposite):** re-install
-
-**For info about some additional actions:** run `geoip-shell -h`
+**For info about some additional actions:** `geoip-shell -h`
 
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
