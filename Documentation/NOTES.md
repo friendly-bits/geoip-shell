@@ -72,7 +72,7 @@
 
 12) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-e` option. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
 
-13) Geoip blocking, as well as automatic list updates, is made persistent via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
+13) Firewall rules persistence, as well as automatic list updates, is implemented via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
 
 14) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
 
