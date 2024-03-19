@@ -462,45 +462,50 @@ san_str() {
 # get intersection of lists $1 and $2, with optional field separator $4 (otherwise uses newline)
 # output via variable with name $3
 get_intersection() {
-	[ ! "$1" ] || [ ! "$2" ] && { unset "$3"; return 1; }
+	gi_out="${3:-___dummy}"
+	[ ! "$1" ] || [ ! "$2" ] && { unset "$gi_out"; return 1; }
 	_fs_gi="${4:-"$_nl"}"
 	_isect=
 	newifs "$_fs_gi" _fs_gi
 	for e in $2; do
 		is_included "$e" "$1" "$_fs_gi" && add2list _isect "$e" "$_fs_gi"
 	done
-	eval "$3"='$_isect'
+	eval "$gi_out"='$_isect'
 	oldifs _fs_gi
 }
 
 # get difference between lists $1 and $2, with optional field separator $4 (otherwise uses newline)
-# output via variable with name $3
+# output via optional variable with name $3
+# returns status 0 if lists match, 1 if not
 get_difference() {
+	gd_out="${3:-___dummy}"
 	case "$1" in
-		'') case "$2" in '') unset "$3"; return 1 ;; *) eval "$3"='$2'; return 0; esac ;;
-		*) case "$2" in '') eval "$3"='$1'; return 0; esac
+		'') case "$2" in '') unset "$gd_out"; return 0 ;; *) eval "$gd_out"='$2'; return 1; esac ;;
+		*) case "$2" in '') eval "$gd_out"='$1'; return 1; esac
 	esac
 	_fs_gd="${4:-"$_nl"}"
 	subtract_a_from_b "$1" "$2" "_diff1" "$_fs_gd"
 	subtract_a_from_b "$2" "$1" "_diff2" "$_fs_gd"
 	_diff="$_diff1$_fs_gd$_diff2"
 	_diff="${_diff#"$_fs_gd"}"
-	eval "$3"='${_diff%$_fs_gd}'
+	eval "$gd_out"='${_diff%$_fs_gd}'
+	[ "$_diff1$_diff2" ] && return 1 || return 0
 }
 
 # subtract list $1 from list $2, with optional field separator $4 (otherwise uses newline)
-# output via variable with name $3
-# returns status 0 if lists match, 1 if not
+# output via optional variable with name $3
+# returns status 0 if the result is null, 1 if not
 subtract_a_from_b() {
-	case "$2" in '') unset "$3"; return 0; esac
-	case "$1" in '') eval "$3"='$2'; [ ! "$2" ]; return; esac
+	sab_out="${3:-___dummy}"
+	case "$2" in '') unset "$sab_out"; return 0; esac
+	case "$1" in '') eval "$sab_out"='$2'; [ ! "$2" ]; return; esac
 	_fs_su="${4:-"$_nl"}"
 	rv_su=0 _subt=
 	newifs "$_fs_su" _fs_su
 	for e in $2; do
 		is_included "$e" "$1" "$_fs_su" || { add2list _subt "$e" "$_fs_su"; rv_su=1; }
 	done
-	eval "$3"='$_subt'
+	eval "$sab_out"='$_subt'
 	oldifs _fs_su
 	return $rv_su
 }
