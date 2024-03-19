@@ -38,10 +38,10 @@ enable_geoip() {
 	[ -n "$_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
 	for family in $families; do
 		set_ipt_cmds || die_a
-		enable_rule="$($ipt_save_cmd | grep "${geotag}_enable")"
+		enable_rule="$(eval "$ipt_save_cmd" | grep "${geotag}_enable")"
 		[ ! "$enable_rule" ] && {
 			printf %s "Inserting the enable geoip $family rule... "
-			$ipt_cmd -I PREROUTING -j "$first_chain" $ipt_comm "${geotag}_enable" || critical "$insert_failed"
+			eval "$ipt_cmd" -I PREROUTING -j "$first_chain" $ipt_comm "${geotag}_enable" || critical "$insert_failed"
 			OK
 		} || printf '%s\n' "Geoip is already enabled for $family."
 	done
@@ -104,12 +104,25 @@ get_curr_ipsets() {
 	curr_ipsets="$(ipset list -n | grep "$p_name")"
 }
 
+rm_ipset() {
+	[ ! "$1" ] && return 0
+	case "$curr_ipsets" in
+		*"$1"* )
+			debugprint "Destroying ipset '$1'... "
+			ipset destroy "$1"; rv=$?
+			case "$rv" in
+				0) debugprint "Ok." ;;
+				*) debugprint "Failed."; echolog -warn "$FAIL destroy ipset '$1'."; retval="254"
+			esac
+	esac
+}
+
 
 #### VARIABLES
 
 case "$geomode" in
-	whitelist) fw_target="ACCEPT" ;;
-	blacklist) fw_target="DROP" ;;
+	whitelist) fw_target=ACCEPT ;;
+	blacklist) fw_target=DROP ;;
 	*) die "Unknown firewall mode '$geomode'."
 esac
 
@@ -118,8 +131,7 @@ retval=0
 insert_failed="$FAIL insert a firewall rule."
 ipt_comm="-m comment --comment"
 
-ipsets_to_rm=''
-get_curr_ipsets
+ipsets_to_rm=
 
 #### MAIN
 
@@ -128,7 +140,7 @@ case "$action" in
 	off)
 		for family in $families; do
 			set_ipt_cmds || die
-			enable_rule="$($ipt_save_cmd | grep "${geotag}_enable")"
+			enable_rule="$(eval "$ipt_save_cmd" | grep "${geotag}_enable")"
 			if [ "$enable_rule" ]; then
 				rm_ipt_rules "${geotag}_enable" || critical
 			else
@@ -144,19 +156,36 @@ esac
 	die 254 "Specify iplist id's!"
 }
 
+get_curr_ipsets
+
 for family in $families; do
-	ipsets_to_add=''
+	set_ipt_cmds || die_a
+	curr_ipt="$(eval "$ipt_save_cmd")" || die_a "$FAIL read iptables rules."
+
+	# remove lan and trusted ipsets
+	t_ipset="trusted_${family}_${geotag}"
+	lan_ipset="lan_ips_${family}_${geotag}"
+	rm_ipt_rules "$t_ipset" >/dev/null
+	rm_ipt_rules "$lan_ipset" >/dev/null
+	sleep 0.1 2>/dev/null || sleep 1
+	rm_ipset "$t_ipset"
+	rm_ipset "$lan_ipset"
+
+	get_curr_ipsets
+	curr_ipt="$(eval "$ipt_save_cmd")" || die_a "$FAIL read iptables rules."
+
+	ipsets_to_add=
 
 	### make perm ipsets, assemble $ipsets_to_add and $ipsets_to_rm
 	for list_id in $list_ids; do
 		case "$list_id" in *_*) ;; *) die_a "Invalid iplist id '$list_id'."; esac
 		[ "${list_id#*_}" != "$family" ] && continue
 		perm_ipset="${list_id}_$geotag"
-		if [ "$action" = "add" ]; then
+		if [ "$action" = add ]; then
 			iplist_file="${iplist_dir}/${list_id}.iplist"
 			mk_perm_ipset "$perm_ipset" net
 			ipsets_to_add="$ipsets_to_add$perm_ipset $iplist_file$_nl"
-		elif [ "$action" = "remove" ]; then
+		elif [ "$action" = remove ]; then
 			ipsets_to_rm="$ipsets_to_rm$perm_ipset "
 		fi
 	done
@@ -170,7 +199,6 @@ for family in $families; do
 	esac
 
 	[ -n "$trusted" ] && {
-		t_ipset="trusted_${family}_${geotag}"
 		iplist_file="$iplist_dir/$t_ipset.iplist"
 		sp2nl trusted
 		printf '%s\n' "$trusted" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
@@ -179,7 +207,7 @@ for family in $families; do
 	}
 
 	### LAN subnets/ip's
-	if [ "$geomode" = "whitelist" ]; then
+	[ "$geomode" = whitelist ] && {
 		if [ ! "$autodetect" ]; then
 			eval "lan_ips=\"\$lan_ips_$family\""
 		else
@@ -193,20 +221,18 @@ for family in $families; do
 		ipset_type="${lan_ips%%":"*}"
 		lan_ips="${lan_ips#*":"}"
 		[ -n "$lan_ips" ] && {
-			lan_ipset="lan_ips_${family}_${geotag}"
 			iplist_file="$iplist_dir/$lan_ipset.iplist"
 			sp2nl lan_ips
 			printf '%s\n' "$lan_ips" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
 			mk_perm_ipset "$lan_ipset" "$ipset_type"
 			ipsets_to_add="$ipsets_to_add$ipset_type:$lan_ipset $iplist_file$_nl"
 		}
-	fi
+	}
 
 	#### Assemble commands for iptables-restore
 	printf %s "Assembling new $family firewall rules... "
 	### Read current iptables rules
 	set_ipt_cmds || die_a
-	curr_ipt="$($ipt_save_cmd)" || die_a "$FAIL read iptables rules."
 
 	iptr_cmd_chain="$(
 		rv=0
@@ -231,7 +257,8 @@ for family in $families; do
 
 		### Create new rules
 
-		if [ -n "$_ifaces" ]; then # apply geoip to ifaces
+		# interfaces
+		if [ -n "$_ifaces" ]; then
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
 			for _iface in $_ifaces; do
 				printf '%s\n' "-i $_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
@@ -245,7 +272,7 @@ for family in $families; do
 			printf '%s\n' "-I $geochain -m set --match-set trusted_${family}_${geotag} src $ipt_comm trusted_${family}_${geotag_aux} -j ACCEPT"
 
 		# LAN subnets/ips
-		[ "$geomode" = "whitelist" ] && [ "$lan_ips" ] &&
+		[ "$geomode" = whitelist ] && [ "$lan_ips" ] &&
 			printf '%s\n' "-I $geochain -m set --match-set lan_ips_${family}_${geotag} src $ipt_comm lan_ips_${family}_${geotag_aux} -j ACCEPT"
 
 		# ports
@@ -267,11 +294,11 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$geomode" = "whitelist" ] && [ ! "$_ifaces" ] && \
+		[ "$geomode" = whitelist ] && [ ! "$_ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
-		if [ "$action" = "add" ]; then
+		if [ "$action" = add ]; then
 			for list_id in $list_ids; do
 				[ "$family" != "${list_id#*_}" ] && continue
 				perm_ipset="${list_id}_${geotag}"
@@ -281,7 +308,7 @@ for family in $families; do
 		fi
 
 		# whitelist block
-		[ "$geomode" = "whitelist" ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
+		[ "$geomode" = whitelist ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
 
 		echo "COMMIT"
 		exit "$rv"
@@ -290,7 +317,7 @@ for family in $families; do
 
 	### "Apply new rules
 	printf %s "Applying new $family firewall rules... "
-	printf '%s\n' "$iptr_cmd_chain" | $ipt_restore_cmd || critical "$FAIL apply new iptables rules"
+	printf '%s\n' "$iptr_cmd_chain" | eval "$ipt_restore_cmd" || critical "$FAIL apply new iptables rules"
 	OK
 
 	[ -n "$ipsets_to_add" ] && {
@@ -312,16 +339,7 @@ done
 	get_curr_ipsets
 	sleep "0.1" 2>/dev/null || sleep 1
 	for ipset in $ipsets_to_rm; do
-		case "$curr_ipsets" in
-			*"$ipset"* )
-				debugprint "Destroying ipset '$ipset'... "
-				ipset destroy "$ipset"; rv=$?
-				case "$rv" in
-					0) debugprint "Ok." ;;
-					*) echo "Failed."; echolog -err "$WARN $FAIL destroy ipset '$ipset'."; retval="254"
-				esac ;;
-			*) echo "Failed."; echolog -err "$WARN Can't remove ipset '$ipset' because it doesn't exist."; retval="254"
-		esac
+		rm_ipset "$ipset"
 	done
 	[ "$retval" = 0 ] && OK
 }
@@ -330,7 +348,7 @@ done
 # insert the main blocking rule
 case "$noblock" in
 	'') enable_geoip ;;
-	*) echolog -err "WARNING: Geoip blocking is disabled via config." >&2
+	*) echolog -warn "Geoip blocking is disabled via config." >&2
 esac
 
 echo
