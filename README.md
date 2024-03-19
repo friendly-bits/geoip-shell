@@ -153,6 +153,10 @@ _<details><summary>Examples:</summary>_
 
 **To change geoip blocking mode:** `geoip-shell apply -m [whitelist|blacklist]`
 
+**To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -t ["ip_addresses"]`
+
+**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -l <["ip_addresses"]|auto>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces)
+
 **To change protocols and ports geoblocking applies to:** `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
 
 _(for details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10)_
