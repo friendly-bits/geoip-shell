@@ -663,7 +663,7 @@ kill_geo_pids() {
 	i_kgp=0 _parent="$(grep -o "${p_name}[^[:space:]]*" "/proc/$PPID/comm")"
 	while true; do
 		i_kgp=$((i_kgp+1)); _killed=
-		_geo_ps="$(pgrep -fa "(${p_name}\-|${ripe_url_stats#*"://"}|${ripe_url_api#*"://"}|${ipdeny_ipv4_url#*"://"}|${ipdeny_ipv6_url#*"://"})" | grep -v pgrep)"
+		_geo_ps="$(pgrep -fa "(${p_name}\-|$ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | grep -v pgrep)"
 		_fetch_ps="$(pgrep -fa "${p_name}[^[:space:]]*")"
 		newifs "$_nl" kgp
 		for _p in $_geo_ps; do
@@ -731,10 +731,10 @@ export lock_file="/tmp/$p_name.lock" p_script="$script_dir/${p_name}" i_script="
 valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
 
-ripe_url_stats="${http}://ftp.ripe.net/pub/stats"
-ripe_url_api="${http}://stat.ripe.net/data/country-resource-list/data.json?"
-ipdeny_ipv4_url="${http}://www.ipdeny.com/ipblocks/data/aggregated"
-ipdeny_ipv6_url="${http}://www.ipdeny.com/ipv6/ipaddresses/aggregated"
+ripe_url_stats="ftp.ripe.net/pub/stats"
+ripe_url_api="stat.ripe.net/data/country-resource-list/data.json?"
+ipdeny_ipv4_url="www.ipdeny.com/ipblocks/data/aggregated"
+ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
 
 # set some vars for debug and logging
 : "${me:="${0##*/}"}"
