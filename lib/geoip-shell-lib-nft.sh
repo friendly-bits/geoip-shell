@@ -120,8 +120,8 @@ get_active_iplists() {
 	force_read=
 	[ "$1" = "-f" ] && { force_read="-f"; shift; }
 	case "$geomode" in
-		whitelist) nft_verdict="accept" ;;
-		blacklist) nft_verdict="drop" ;;
+		whitelist) nft_verdict=accept ;;
+		blacklist) nft_verdict=drop ;;
 		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
 	esac
 
@@ -134,7 +134,7 @@ get_active_iplists() {
 	get_difference "$ipset_lists" "$iprules_lists" lists_difference
 	get_intersection "$ipset_lists" "$iprules_lists" "$1"
 
-	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent="true"; return 1; esac
+	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent=1; return 1; esac
 }
 
 # checks whether current ipsets and firewall rules match the config
