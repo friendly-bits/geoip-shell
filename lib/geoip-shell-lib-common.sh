@@ -682,7 +682,7 @@ kill_geo_pids() {
 		oldifs kgp
 		[ ! "$_killed" ] || [ $i_kgp -gt 10 ] && break
 	done
-	sleep 0.1 2>/dev/null || sleep 1
+	unisleep
 }
 
 validate_ip() {
@@ -717,6 +717,10 @@ validate_ip() {
 	:
 }
 
+# sleeps for 0.1s on systems which support this, or 1s on systems which don't
+unisleep() {
+	sleep 0.1 2>/dev/null || sleep 1
+}
 
 export install_dir="/usr/bin" iplist_dir="/tmp" _nl='
 '
