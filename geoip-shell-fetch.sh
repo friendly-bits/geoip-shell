@@ -546,6 +546,11 @@ case "$2" in *?*) die "Specify only one download source."; esac
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
 case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
 
+case "$dl_src" in
+	ripe) dl_srv="${ripe_url_api%%/*}" ;;
+	ipdeny) dl_srv="${ipdeny_ipv4_url%%/*}"
+esac
+
 # check that either $iplist_dir_f or $output_file is set
 [ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
 	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
@@ -562,6 +567,17 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 
 [ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] &&
 	die "Directory '$iplist_dir_f' doesn't exist!" || iplist_dir_f="${iplist_dir_f%/}"
+
+# check internet connectivity
+printf '\n%s' "Checking connectivity... "
+nslookup="nslookup -retry=1"
+{
+	eval "$nslookup" 127.0.0.1 || eval "$nslookup" ::1 || nslookup="nslookup"
+	for ns in "8.8.8.8" "208.68.222.222" "2001:4860:4860::8888" "2620:119:35::35"; do
+		eval "$nslookup" "$dl_srv" "$ns" && break
+	done
+} 1>/dev/null 2>/dev/null || die "Machine appears to have no Internet connectivity or $dl_src_cap server is currently down."
+OK
 
 for f in "$status_file" "$output_file"; do
 	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "failed to create file '$f'."; }
