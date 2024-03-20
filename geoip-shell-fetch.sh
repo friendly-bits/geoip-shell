@@ -517,12 +517,6 @@ fi
 valid_sources="ripe${_nl}ipdeny"
 default_source="ripe"
 
-ripe_url_stats="${http}://ftp.ripe.net/pub/stats"
-ripe_url_api="${http}://stat.ripe.net/data/country-resource-list/data.json?"
-ipdeny_ipv4_url="${http}://www.ipdeny.com/ipblocks/data/aggregated"
-ipdeny_ipv6_url="${http}://www.ipdeny.com/ipv6/ipaddresses/aggregated"
-
-
 #### VARIABLES
 
 lists_arg=$(
