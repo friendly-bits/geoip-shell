@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # intended to be run from procd init script
 # makes sure that OpenWrt firewall include exists. if not then adds it.
 
