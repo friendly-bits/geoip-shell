@@ -39,7 +39,7 @@ rm_ipt_rules() {
 
 	{ echo "*$ipt_table"; eval "$ipt_save_cmd" | sed -n "/$1/"'s/^-A /-D /p'; echo "COMMIT"; } |
 		eval "$ipt_restore_cmd" ||
-		{ FAIL; echolog -err "rm_ipt_rules: Error when removing firewall rules tagged '$1'."; return 1; }
+		{ FAIL; echolog -err "rm_ipt_rules: $FAIL remove firewall rules tagged '$1'."; return 1; }
 	OK
 }
 
@@ -60,7 +60,7 @@ rm_all_georules() {
 	done
 	# remove ipsets
 	rm_ipsets_rv=0
-	sleep "0.1" 2>/dev/null || sleep 1
+	unisleep
 	printf %s "Destroying ipsets tagged '$geotag'... "
 	for ipset in $(ipset list -n | grep "$geotag"); do
 		ipset destroy "$ipset" || rm_ipsets_rv=1
@@ -79,7 +79,7 @@ get_active_iplists() {
 	case "$geomode" in
 		whitelist) ipt_target="ACCEPT" ;;
 		blacklist) ipt_target="DROP" ;;
-		*) die "get_active_iplists: Error: unexpected geoip mode '$geomode'."
+		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
 	esac
 	ipset_lists="$(ipset list -n | grep "$p_name" | sed -n /"$geotag"/s/_"$geotag"//p | grep -vE "(lan_ips_|trusted_)")"
 	p="_${p_name}"; t="$ipt_target"
@@ -89,8 +89,8 @@ get_active_iplists() {
 	get_difference "$ipset_lists" "$iprules_lists" lists_difference
 	get_intersection "$ipset_lists" "$iprules_lists" "$1"
 
-	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent="true"; return 1; esac
+	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent=1; return 1; esac
 }
 
-ipt_table="mangle"
+ipt_table=mangle
 iface_chain="${geochain}_WAN"
