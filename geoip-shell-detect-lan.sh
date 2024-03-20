@@ -133,6 +133,8 @@ hex_to_ip() {
 
 		# trim leading colon if it's not a double colon
 		case "$ip" in
+			::::*) ip="${ip#::}" ;;
+			:::*) ip="${ip#:}" ;;
 			::*) ;;
 			:*) ip="${ip#:}"
 		esac
