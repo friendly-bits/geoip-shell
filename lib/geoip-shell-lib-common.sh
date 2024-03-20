@@ -652,7 +652,7 @@ rm_lock() {
 check_lock() {
 	[ ! -f $lock_file ] && return 0
 	used_pid="$(cat ${lock_file})"
-	[ "$used_pid" ] && kill -0 "used_pid" &&
+	[ "$used_pid" ] && kill -0 "$used_pid" &&
 	die 254 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
