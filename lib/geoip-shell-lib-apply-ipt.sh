@@ -167,7 +167,7 @@ for family in $families; do
 	lan_ipset="lan_ips_${family}_${geotag}"
 	rm_ipt_rules "$t_ipset" >/dev/null
 	rm_ipt_rules "$lan_ipset" >/dev/null
-	sleep 0.1 2>/dev/null || sleep 1
+	unisleep
 	rm_ipset "$t_ipset"
 	rm_ipset "$lan_ipset"
 
@@ -337,7 +337,7 @@ done
 [ -n "$ipsets_to_rm" ] && {
 	printf %s "Removing old ipsets... "
 	get_curr_ipsets
-	sleep "0.1" 2>/dev/null || sleep 1
+	unisleep
 	for ipset in $ipsets_to_rm; do
 		rm_ipset "$ipset"
 	done
