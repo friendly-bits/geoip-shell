@@ -120,7 +120,7 @@ get_source_list_dates_ipdeny() {
 		server_html_file="${tmp_file_path}_dl_page_${family}.tmp"
 		server_plaintext_file="${tmp_file_path}_plaintext_${family}.tmp"
 		# debugprint "timestamp fetch command: '$fetch_cmd \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_q "$server_url" > "$server_html_file"
+		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
 
 		debugprint "Processing $family listing on the IPDENY server..."
 
@@ -159,7 +159,7 @@ get_source_list_dates_ripe() {
 		[ ! "$server_url" ] && { echolog -err "get_source_list_dates_ripe(): $server_url variable should not be empty!"; return 1; }
 
 		# debugprint "timestamp fetch command: '$fetch_cmd_q \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_q "$server_url" > "$server_html_file"
+		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
 
 		debugprint "Processing the listing..."
 		# gets a listing and filters it by something like '-xxxxxxxx.md5' where x's are numbers,
@@ -351,8 +351,8 @@ process_ccode() {
 				ipdeny ) printf '%s\n' "Fetching ip list for '${purple}$list_id${n_c}' from $dl_src_cap..."
 			esac
 
-			debugprint "fetch command: $fetch_cmd \"$dl_url\" > \"$fetched_list\""
-			$fetch_cmd "$dl_url" > "$fetched_list" ||
+			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_list\""
+			$fetch_cmd "${http}://$dl_url" > "$fetched_list" ||
 				{ list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue; }
 			printf '%s\n\n' "Fetch successful."
 		fi
