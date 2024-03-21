@@ -24,16 +24,16 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me <action> [-c <"country_codes">] [-s <"[expression]"|disable>]  [-p <portoptions>] [-i <"[ifaces]"|auto|all>]
-$sp8$sp8$sp8    [-l <"[lan_ips]"|auto|none>] [-t <"[trusted_ips]"|none>] [-m <whitelist|blacklist>] [-u <ripe|ipdeny>]
-$sp8$sp8$sp8    [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips">] [-p <port_options>] [-v] [-f] [-d] [-h]
+Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn]
+${sp8}[-u <ripe|ipdeny>] [-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn]
+${sp8}[-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  apply       : change geoip blocking config. May be used with options: '-c', 'u', '-m', '-i', '-l', '-t', '-p'
+  apply       : change geoip blocking config. May be used with options: '-c', '-u', '-m', '-i', '-l', '-t', '-p'
   schedule    : change the cron schedule
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
