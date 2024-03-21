@@ -64,7 +64,8 @@ oldifs() {
 check_root() {
 	[ "$root_ok" ] && return 0
 	case "$(id -u)" in 0) export root_ok="1" ;; *)
-		die "$me needs to be run as root."
+		[ "$in_install" ] && tip=" For usage, run '$me -h'."
+		die 0 "$me needs to be run as root.$tip"
 	esac
 }
 
@@ -213,7 +214,7 @@ echolog() {
 
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${__nl}$highlight$me_short$n_c: $msg_prefix $arg"
+			_msg="${__nl}$highlight$me_short$n_c: $msg_prefix$arg"
 			case "$err_l" in
 				info) printf '%s\n' "$_msg" ;;
 				err|warn) printf '%s\n' "$_msg" >&2
@@ -370,7 +371,7 @@ setconfig() {
 		done
 	done
 	keys_test_str="${keys_test_str%\|}"
-	target_file="${args_target_file:-$conf_file}"
+	target_file="${args_target_file:-$install_root_gs$conf_file}"
 
 	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
 
@@ -726,7 +727,7 @@ unisleep() {
 export install_dir="/usr/bin" iplist_dir="/tmp" _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
-export lock_file="/tmp/$p_name.lock" p_script="$script_dir/${p_name}" i_script="$install_dir/${p_name}"
+export lock_file="/tmp/$p_name.lock" p_script="$script_dir/${p_name}" i_script="$install_root_gs$install_dir/${p_name}"
 
 valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
@@ -746,36 +747,43 @@ trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] &&
 
 # vars for usage() functions
 sp8="        "
-geomode_usage="<whitelist|blacklist> : Geoip blocking mode: whitelist or blacklist."
-ifaces_usage="<\"[ifaces]\"|auto|all> :
+mode_syn="<whitelist|blacklist>"
+geomode_usage="$mode_syn : Geoip blocking mode: whitelist or blacklist."
+if_syn="<\"[ifaces]\"|auto|all>"
+ifaces_usage="$if_syn :
 ${sp8}Changes which network interface(s) geoip firewall rules will be applied to.
 ${sp8}'all' will apply geoip to all network interfaces
 ${sp8}'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
 ${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
 ${sp8}Only works with the 'apply' action."
-lan_ips_usage="<\"[lan_ips]\"|auto|none> :
+lan_syn="<\"[lan_ips]\"|auto|none>"
+lan_ips_usage="$lan_syn :
 ${sp8}Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
 ${sp8}Has no effect in blacklist mode.
 ${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
 ${sp8}specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
 ${sp8}'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
 ${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*"
-trusted_ips_usage="<\"[trusted_ips]|none\"> :
+tr_syn="<\"[trusted_ips]\"|none>"
+trusted_ips_usage="$tr_syn :
 ${sp8}Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
 ${sp8}This option works independently from the above LAN ip's option.
 ${sp8}Works both in whitelist and blacklist mode."
-ports_usage="<[tcp|udp]:[allow|block]:ports> :
+ports_syn="<[tcp|udp]:[allow|block]:ports>"
+ports_usage="$ports_syn :
 ${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
 ${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
 ${sp8}Multiple '-p' options are allowed to specify both tcp and udp in one command.
 ${sp8}Only works with the 'apply' action."
-schedule_usage="<\"[expression]\"|disable> :
+sch_syn="<\"[expression]\"|disable>"
+schedule_usage="$sch_syn :
 ${sp8}Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
 ${sp8}Default schedule is \"15 4 * * *\" (at 4:15 [am] every day)
 ${sp8}'disable' will disable automatic updates of the ip lists."
 ccodes_usage="<\"country_codes\"> : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
 sources_usage="<ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny."
-families_usage="<ipv4|ipv6|\"ipv4 ipv6\"> : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
+fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
+families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
 list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
 
 set -f
