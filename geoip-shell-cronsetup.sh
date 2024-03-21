@@ -28,14 +28,14 @@ Usage: $me [-x <"expression">] [-d] [-h]
 Validates a cron expression, or loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
 
 Options:
-  -x  <expr> : validate cron expression
-  -d         : Debug
-  -h         : This help
+  -x <"expr"> : validate cron expression
+  -d          : Debug
+  -h          : This help
 
 EOF
 }
 
-validate_cron_schedule() {
+val_cron_exp() {
 	sourceline="$(tolower "$1")"
 
 	# Functions
@@ -190,7 +190,7 @@ validate_cron_schedule() {
 #### PARSE ARGUMENTS
 while getopts ":x:dh" opt; do
 	case $opt in
-		x) validate_cron_schedule "$OPTARG"; exit $? ;;
+		x) val_cron_exp "$OPTARG"; exit $? ;;
 		d) debugmode_args=1 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
@@ -218,7 +218,7 @@ create_cron_job() {
 			[ -z "$schedule" ] && die "cron schedule in the config file is empty!"
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
-			validate_cron_schedule "$schedule"; rv=$?
+			val_cron_exp "$schedule"; rv=$?
 			case "$rv" in
 				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
 				*) die "Error validating cron schedule '$schedule'."
