@@ -15,7 +15,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.3.1.2"
+curr_ver="0.3.1.3"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
