@@ -155,7 +155,7 @@ _<details><summary>Examples:</summary>_
 
 **To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -t <["ip_addresses"]|none>`. `none` removes previously set trusted ip addresses.
 
-**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. Typically this is only needed if the machine has no dedicated WAN network interfaces, otherwise you should apply geoip blocking only to those interfaces, so it doesn't apply to your LAN networks.
+**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
 
 **To change protocols and ports geoblocking applies to:** `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
 
