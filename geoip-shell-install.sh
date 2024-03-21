@@ -34,12 +34,12 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me [-c <"country_codes">] [-m <whitelist|blacklist>] [-s <"expression"|disable>] [ -f <"families"> ] [-u <ripe|ipdeny>]
-$sp8$sp8$sp8      [-i <"ifaces"|auto|all>] [-l <"lan_ips"|auto|none>] [-t <"trusted_ips">] [-p <port_options>]
-$sp8$sp8$sp8      [-a] [-e] [-o] [-n] [-k] [-z] [-d] [-h]
+Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn]
+${sp8}[-i $if_syn] [-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r <[user_country_code]|none>]
+${sp8}[-e] [-o] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
-Asks the user about each required option, except those specified.
+Asks the user about each required option, except those specified in arguments.
 
 Core Options:
 
@@ -97,8 +97,8 @@ while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 		o) nobackup=1 ;;
 		n) no_persist=1 ;;
 		k) noblock=1 ;;
-		d) export debugmode=1 ;;
 		z) export nointeract=1 ;;
+		d) export debugmode=1 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
@@ -106,7 +106,7 @@ done
 shift $((OPTIND-1))
 extra_args "$@"
 
-check_root
+[ ! "$install_root_gs" ] && check_root
 debugentermsg
 
 
@@ -129,16 +129,18 @@ check_files() {
 copyscripts() {
 	[ "$1" = '-n' ] && { _mod=444; shift; } || _mod=555
 	for f in $1; do
-		dest="$install_dir/${f##*/}"
-		[ "$2" ] && dest="$2/${f##*/}"
+		dest="$install_root_gs$install_dir/${f##*/}"
+		[ "$2" ] && dest="$install_root_gs$2/${f##*/}"
 		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL copy file '$f' to '$dest'."
-		chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
+		[ ! "$install_root_gs" ] && {
+			chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
+		}
 	done
 }
 
 install_failed() {
 	printf '%s\n\n%s\n%s\n' "$*" "Installation failed." "Uninstalling ${p_name}..." >&2
-	call_script "$p_script-uninstall.sh"
+	[ ! "$install_root_gs" ] && call_script "$p_script-uninstall.sh"
 	exit 1
 }
 
@@ -178,6 +180,7 @@ pick_shell() {
 
 # detects the init system and sources the OWRT -common script if needed
 detect_init() {
+	[ "$_OWRTFW" ] && return 0
 	# check /run/systemd/system/
 	[ -d "/run/systemd/system/" ] && { initsys=systemd; return 0; }
 	# check /sbin/init strings
@@ -267,13 +270,15 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 [ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
 
 tcp_ports=skip udp_ports=skip
-get_prefs || die
+
+# parse command line args and make interactive install if needed
+[ ! "$install_root_gs" ] && { get_prefs || die; }
 
 export datadir lib_dir="/usr/lib"
 export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."
+[ ! "$install_root_gs" ] && { call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."; }
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
@@ -285,14 +290,16 @@ copyscripts -n "$lib_files" "$lib_dir"
 OK
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
-rm "$i_script" 2>/dev/null
-ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
+[ ! "$install_root_gs" ] && {
+	rm "$i_script" 2>/dev/null
+	ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
+	# add $install_dir to $PATH
+	add2list PATH "$install_dir" ':'
+}
 
 # Create the directory for config
-mkdir -p "$conf_dir"
+mkdir -p "$install_root_gs$conf_dir"
 
-# add $install_dir to $PATH
-add2list PATH "$install_dir" ':'
 
 # write config
 printf %s "Setting config... "
@@ -307,12 +314,12 @@ setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp_ports=$tcp_po
 OK
 
 # create the -constants file
-cat <<- EOF > "$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
+cat <<- EOF > "$install_root_gs$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
 	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
 	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh_g"
 EOF
 
-. "$conf_dir/${p_name}-constants"
+. "$install_root_gs$conf_dir/${p_name}-constants"
 
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
@@ -321,71 +328,74 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	export _lib="\$lib_dir/\${p_name}-lib"
 	$init_check_compat
 	. "\${_lib}-common.sh" || exit 1
-	if [ -z "\$root_ok" ] && [ "\$(id -u)" = 0 ]; then
-		_no_l="\$nolog"
-		. "$conf_dir/\${p_name}-constants" || exit 1
-		{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
-		{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
-		} || die "neither nftables nor iptables+ipset found."
-		export root_ok=1
-		r_no_l
-	fi
+	[ "\$root_ok" ] || [ "\$(id -u)" != 0 ] && return 0
+	_no_l="\$nolog"
+	. "$conf_dir/\${p_name}-constants" || exit 1
+	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
+	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
+	} || die "neither nftables nor iptables+ipset found."
+	export root_ok=1
+	r_no_l
+	:
 EOF
 
 # copy cca2.list
-cp "$script_dir/cca2.list" "$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
+cp "$script_dir/cca2.list" "$install_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
-# only allow root to read the $datadir and $conf_dir and files inside it
-mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
-install_failed "$FAIL create '$datadir'."
+[ ! "$install_root_gs" ] && {
+	# only allow root to read the $datadir and $conf_dir and files inside it
+	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
+	install_failed "$FAIL create '$datadir'."
 
-### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
+	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
+	call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
 
-WARN_F="$WARN Installed without"
+	WARN_F="$WARN Installed without"
 
-if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ]; then
-	### Set up cron jobs
-	call_script "$i_script-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
-else
-	printf '%s\n\n' "$WARN_F ${cr_p2}autoupdate functionality."
-fi
-
+	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ]; then
+		### Set up cron jobs
+		call_script "$i_script-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
+	else
+		printf '%s\n\n' "$WARN_F ${cr_p2}autoupdate functionality."
+	fi
+}
 
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
 	init_script="/etc/init.d/${p_name}-init"
-	fw_include="$i_script-fw-include.sh"
+	fw_include="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	echo "export _OWRT_install=1" >> "$conf_dir/${p_name}-constants"
+	echo "export _OWRT_install=1" >> "$install_root_gs$conf_dir/${p_name}-constants"
 	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
 		echo "Adding the init script... "
 		{
 			echo "#!/bin/sh /etc/rc.common"
-			eval "printf '%s\n' \"$(cat "$owrt_init")\"" | prep_script -n
-		} > "$init_script" || install_failed "$FAIL create the init script."
+			eval "printf '%s\n' \"$(cat "$script_dir/$owrt_init")\"" | prep_script -n
+		} > "$install_root_gs$init_script" || install_failed "$FAIL create the init script."
 
 		echo "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$owrt_fw_include")\"" | prep_script > "$fw_include" &&
+		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$install_root_gs$fw_include" &&
 		{
-			printf '%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
-				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\" _lib=\"$_lib\""
-			prep_script "$owrt_mk_fw_inc" -n
+			printf '%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
+				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
+			prep_script "$script_dir/$owrt_mk_fw_inc" -n
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
-		chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
+		[ ! "$install_root_gs" ] && {
+			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
-		printf %s "Enabling and starting the init script... "
-		$init_script enable
-		$init_script start
-		sleep 1
-		check_owrt_init || install_failed "$FAIL enable '$init_script'."
-		check_owrt_include || install_failed "$FAIL add firewall include."
-		OK
+			printf %s "Enabling and starting the init script... "
+			$init_script enable
+			$init_script start
+			sleep 1
+			check_owrt_init || install_failed "$FAIL enable '$init_script'."
+			check_owrt_include || install_failed "$FAIL add firewall include."
+			OK
+		}
 	fi
 }
 
-statustip
+[ ! "$install_root_gs" ] && statustip
 echo "Install done."
