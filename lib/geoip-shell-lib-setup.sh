@@ -26,7 +26,7 @@ pick_user_ccode() {
 		}
 		case "$REPLY" in
 			'') printf '%s\n\n' "Skipped."; return 0 ;;
-			*) REPLY="$(toupper "$REPLY")"
+			*) toupper REPLY
 				validate_ccode "$REPLY" "$script_dir/cca2.list"; rv=$?
 				case "$rv" in
 					0)  user_ccode="$REPLY"; break ;;
@@ -51,7 +51,7 @@ pick_ccodes() {
 			printf %s "Country codes (2 letters) or [a] to abort: "
 			read -r REPLY
 		}
-		REPLY="$(toupper "$REPLY")"
+		toupper REPLY
 		trimsp REPLY
 		case "$REPLY" in
 			a|A) exit 0 ;;
@@ -236,12 +236,10 @@ pick_lan_ips() {
 	done
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "${blue}[A]uto-detect LAN subnets when updating ip lists or keep this config [c]onstant?$n_c"
-	pick_opt "a|c"
-	case "$REPLY" in a|A) autodetect="1"; esac
+	printf '\n%s\n' "${blue}A[u]to-detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
+	pick_opt "u|o"
+	case "$REPLY" in u|U) autodetect="1"; esac
 }
-
-
 
 invalid_str() { echolog -err "Invalid string '$1'."; }
 
@@ -279,7 +277,7 @@ parse_ports() {
 # input format: '[tcp|udp]:[allow|block]:[ports]'
 # output format: 'skip|all|<[!]dport:[port-port,port...]>'
 setports() {
-	_lines="$(tolower "$1")"
+	tolower _lines "$1"
 	newifs "$_nl" sp
 	for _line in $_lines; do
 		unset ranges _ports neg mp skip
@@ -321,57 +319,77 @@ setports() {
 	oldifs sp
 }
 
+# assigns default values, unless the var is set
+set_defaults() {
+	[ "$_OWRTFW" ] && { source_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true; } ||
+		{ source_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false; }
+
+	: "${nobackup:="$nobackup_def"}"
+	: "${datadir:="$datadir_def"}"
+	: "${schedule:="15 4 * * *"}"
+	: "${families:="ipv4 ipv6"}"
+	: "${source:="$source_def"}"
+	: "${tcp_ports:=skip}"
+	: "${udp_ports:=skip}"
+	: "${sleeptime:=30}"
+	: "${max_attempts:=30}"
+}
 
 get_prefs() {
-	sleeptime=30 max_attempts=30
+	# nobackup
+	case "$nobackup_arg" in
+		''|true|false) ;;
+		*) die "Invalid value for option '-o': '$nobackup_arg'"
+	esac
+	nobackup="${nobackup_arg:=$nobackup}"
 
-	[ "$in_install" ] && {
-		# OpenWrt defaults
-		[ "$_OWRTFW" ] && {
-			default_schedule="15 4 * * 5" source_default=ipdeny
-		} ||
-		{ default_schedule="15 4 * * *" source_default=ripe; }
-		schedule="${schedule_arg:-$default_schedule}"
-
-		# cron
-		check_cron_compat
-		[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
-			call_script "$p_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
-		}
-
-		# families
-		families_default="ipv4 ipv6"
-		[ "$families_arg" ] && families_arg="$(tolower "$families_arg")"
-		case "$families_arg" in
-			inet|inet6|'inet inet6'|'inet6 inet' ) families="$families_arg" ;;
-			''|'ipv4 ipv6'|'ipv6 ipv4' ) families="$families_default" ;;
-			ipv4 ) families="ipv4" ;;
-			ipv6 ) families="ipv6" ;;
-			* ) echolog -err "invalid family '$families_arg'."; exit 1
-		esac
-		[ ! "$families" ] && die "\$families variable should not be empty!"
+	# datadir
+	[ "$datadir_arg" ] && {
+		datadir_arg="${datadir_arg%/}"
+		[ ! "$datadir_arg" ] && die "Invalid directory '$datadir_arg'."
+		case "$datadir_arg" in */*) ;; *) die "Invalid directory '$datadir_arg'."; esac
+		parent_dir="${datadir_arg%/*}/"
+		[ ! -d "$parent_dir" ] && die "Can not create '$datadir_arg': parent directory '$parent_dir' doesn't exist."
 	}
+	datadir="${datadir_arg:=$datadir}"
+
+	# cron schedule
+	schedule="${schedule_arg:=$schedule}"
+
+	check_cron_compat
+	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
+		call_script "$_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
+	}
+
+	# families
+	[ "$families_arg" ] && tolower families_arg
+	case "$families_arg" in
+		''|ipv4|ipv6) ;;
+		inet) families_arg=ipv4 ;;
+		inet6) families_arg=ipv6 ;;
+		'inet inet6'|'inet6 inet'|'ipv4 ipv6'|'ipv6 ipv4') families_arg="$families_def" ;;
+		*) die "Invalid family '$families_arg'."
+	esac
+	families="${families_arg:=$families}"
 
 	# source
-	source_arg="$(tolower "$source_arg")"
+	tolower source_arg
 	case "$source_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$source_arg'."; esac
-	source="${source_arg:-$source_default}"
+	source="${source_arg:=$source}"
 
 	# process trusted ip's if specified
-	[ "$trusted_arg" ] && {
-		if [ "$trusted_arg" = none ]; then
-			unset trusted_ipv4 trusted_ipv6
-		else
-			validate_arg_ips "$trusted_arg" trusted || die
-		fi
-	}
+	case "$trusted_arg" in
+		none) unset trusted_ipv4 trusted_ipv6 ;;
+		'') ;;
+		*) validate_arg_ips "$trusted_arg" trusted || die
+	esac
 
 	# ports
 	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
 
+	# geoip mode
 	[ "$geomode_arg" ] || [ "$in_install" ] && {
-		# geoip mode
-		geomode_arg="$(tolower "$geomode_arg")"
+		tolower geomode_arg
 		case "$geomode_arg" in
 			whitelist|blacklist) geomode="$geomode_arg" ;;
 			'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
@@ -381,7 +399,7 @@ get_prefs() {
 	}
 
 	[ "$lan_ips_arg" ] && [ "$lan_ips_arg" != none ] && [ "$geomode" = blacklist ] &&
-		die "option '-l' is incompatible with mode 'blacklist'"
+		die "Option '-l' is incompatible with mode 'blacklist'."
 
 	# country codes
 	[ "$in_install" ] || [ "$geomode_change" ] && pick_ccodes
@@ -417,7 +435,66 @@ get_prefs() {
 	fi
 
 	[ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
+
+	# don't copy the detect-lan script on OpenWrt, unless autodetect is enabled
+	[ "$_OWRTFW" ] && [ ! "$autodetect" ] && detect_lan=
 	:
 }
 
-[ "$script_dir"  = "$install_dir" ] && _script="$i_script" || _script="$p_script"
+[ "$script_dir" = "$install_dir" ] && _script="$i_script" || _script="$p_script"
+
+# vars for setup usage() functions
+mode_syn="<whitelist|blacklist>"
+geomode_usage="$mode_syn : Geoip blocking mode: whitelist or blacklist."
+
+if_syn="<\"[ifaces]\"|auto|all>"
+ifaces_usage="$if_syn :
+${sp8}Changes which network interface(s) geoip firewall rules will be applied to.
+${sp8}'all' will apply geoip to all network interfaces
+${sp8}'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
+${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
+${sp8}Only works with the 'apply' action."
+
+lan_syn="<\"[lan_ips]\"|auto|none>"
+lan_ips_usage="$lan_syn :
+${sp8}Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
+${sp8}Has no effect in blacklist mode.
+${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
+${sp8}specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
+${sp8}'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
+${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*"
+
+tr_syn="<\"[trusted_ips]\"|none>"
+trusted_ips_usage="$tr_syn :
+${sp8}Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
+${sp8}This option works independently from the above LAN ip's option.
+${sp8}Works both in whitelist and blacklist mode."
+
+ports_syn="<[tcp|udp]:[allow|block]:ports>"
+ports_usage="$ports_syn :
+${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
+${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
+${sp8}Multiple '-p' options are allowed to specify both tcp and udp in one command.
+${sp8}Only works with the 'apply' action."
+
+sch_syn="<\"[expression]\"|disable>"
+schedule_usage="$sch_syn :
+${sp8}Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
+${sp8}Default schedule is \"15 4 * * *\" (at 4:15 [am] every day)
+${sp8}'disable' will disable automatic updates of the ip lists."
+
+user_ccode_syn="<[user_country_code]|none>"
+user_ccode_usage="$user_ccode_syn :
+${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
+${sp8}'none' disables this feature."
+
+nobackup_usage="<true|false> :
+${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists and firewall rules state after applying changes,
+${sp8}and will automatically re-fetch ip lists after each reboot.
+${sp8}Default is 'true' for OpenWrt, 'false' for all other systems."
+
+datadir_usage="<\"datadir_path\"> :
+${sp8}Set custom path to directory where backups and the status file will be stored.
+${sp8} Default is '/tmp' for OpenWrt, '/var/lib/$p_name' for all other systems."
+
+:
