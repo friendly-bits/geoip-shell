@@ -73,7 +73,7 @@ for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt pe
 	getconfig "${entry% *}" "${entry#* }"
 done
 
-action="$(tolower "$action")"
+tolower action
 
 geotag_aux="${geotag}_aux"
 
