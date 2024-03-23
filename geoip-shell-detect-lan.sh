@@ -22,12 +22,11 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-geocomm="${p_name}-lib-common.sh"
-for comm_path in "$script_dir/lib/$geocomm" "/usr/lib/$geocomm"; do
-	[ -f "$comm_path" ] && break
+geoinit="${p_name}-geoinit.sh"
+for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
+	[ -f "$geoinit_path" ] && break
 done
-
-. "$comm_path" || exit 1
+. "$geoinit_path" || exit 1
 . "$_lib-ip-regex.sh"
 
 ## Simple args parsing
@@ -38,7 +37,7 @@ for arg in "$@"; do
 		* ) case "$families_arg" in check) families_arg="$arg"; esac
 	esac
 done
-case "$families_arg" in check) echo "Specify family with '-f'." >&2; exit 1; esac
+[ "$families_arg" = check ] && die "Specify family with '-f'."
 
 
 setdebug
@@ -303,18 +302,19 @@ get_local_subnets() {
 ## Main
 
 families=
-[ -n "$families_arg" ] && for f in $(tolower "$families_arg"); do
+tolower families_arg
+for f in $families_arg; do
 	case "$f" in
-		inet|ipv4) families="${families}inet " ;;
-		inet6|ipv6) families="${families}inet6 " ;;
-		*) printf '%s\n' "$me: Error: invalid family '$f'." >&2; exit 1
+		inet|ipv4) add2list families inet ;;
+		inet6|ipv6) add2list families inet6 ;;
+		*) die "Invalid family '$f'."
 	esac
 done
 : "${families:="inet inet6"}"
 
-rv_global=0
+rv_gl=0
 for family in $families; do
-	get_local_subnets "$family"; rv_global=$((rv_global + $?))
+	get_local_subnets "$family" || rv_gl=1
 done
 
-exit $rv_global
+exit $rv_gl
