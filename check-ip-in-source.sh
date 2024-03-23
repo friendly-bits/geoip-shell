@@ -93,9 +93,9 @@ default_source="ripe"
 
 #### Variables
 
-source_arg="$(tolower "$source_arg")"
+tolower source_arg
 dl_source="${source_arg:-"$default_source"}"
-ccode="$(toupper "$ccode")"
+toupper ccode
 ip_check_rv=0
 
 
@@ -172,7 +172,8 @@ match="Included"
 nomatch="Not included"
 match_color="$green"
 nomatch_color="$red"
-msg_pt2="in $(toupper "$dl_source")'s ip list for country '$ccode':"
+toupper dl_src_uc "$dl_source"
+msg_pt2="in ${dl_src_uc}'s ip list for country '$ccode':"
 
 printf '\n%s\n' "${purple}Results:${n_c}"
 
