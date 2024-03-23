@@ -37,6 +37,4 @@ report_fw_state() {
 			echo
 		fi
 	done
-
-	echo
 }
