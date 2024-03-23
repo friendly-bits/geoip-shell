@@ -20,7 +20,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
 
-. "$script_dir/$p_name-geoinit.sh" || exit 1
+. "$script_dir/$p_name-geoinit.sh" &&
 . "$_lib-setup.sh" || exit 1
 
 san_args "$@"
@@ -34,9 +34,9 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn]
-${sp8}[-i $if_syn] [-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r <[user_country_code]|none>]
-${sp8}[-e] [-o] [-n] [-k] [-z] [-d] [-h]
+Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn] [-i $if_syn]
+${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"datadir_path">]
+${sp8}[-e] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
 Asks the user about each required option, except those specified in arguments.
@@ -61,13 +61,14 @@ Core Options:
 
   -p $ports_usage
 
-  -r <[user_country_code]|none> :
-        Specify user's country code. Used to prevent accidental lockout of a remote machine.
-        "none" disables this feature.
+  -r $user_ccode_usage
+
+  -o $nobackup_usage
+
+  -a $datadir_usage
 
 Extra Options:
   -e : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
-  -o : No backup. Will not create a backup of previous firewall state after applying changes.
   -n : No persistence. Geoip blocking may not work after reboot.
   -k : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
          (everything will be installed and configured but geoip blocking will not be enabled)
@@ -80,7 +81,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkdhz" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -92,9 +93,10 @@ while getopts ":c:m:s:f:u:i:l:r:p:t:eonkdhz" opt; do
 		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 		r) user_ccode_arg=$OPTARG ;;
+		a) datadir_arg="$OPTARG" ;;
+		o) nobackup_arg=$OPTARG ;;
 
 		e) perf_opt=performance ;;
-		o) nobackup=1 ;;
 		n) no_persist=1 ;;
 		k) noblock=1 ;;
 		z) export nointeract=1 ;;
@@ -106,7 +108,8 @@ done
 shift $((OPTIND-1))
 extra_args "$@"
 
-[ ! "$install_root_gs" ] && check_root
+# inst_root_gs is set by an external packaging script
+[ ! "$inst_root_gs" ] && check_root
 debugentermsg
 
 
@@ -129,10 +132,10 @@ check_files() {
 copyscripts() {
 	[ "$1" = '-n' ] && { _mod=444; shift; } || _mod=555
 	for f in $1; do
-		dest="$install_root_gs$install_dir/${f##*/}"
-		[ "$2" ] && dest="$install_root_gs$2/${f##*/}"
+		dest="$inst_root_gs$install_dir/${f##*/}"
+		[ "$2" ] && dest="$inst_root_gs$2/${f##*/}"
 		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL copy file '$f' to '$dest'."
-		[ ! "$install_root_gs" ] && {
+		[ ! "$inst_root_gs" ] && {
 			chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 		}
 	done
@@ -140,40 +143,44 @@ copyscripts() {
 
 install_failed() {
 	printf '%s\n\n%s\n%s\n' "$*" "Installation failed." "Uninstalling ${p_name}..." >&2
-	[ ! "$install_root_gs" ] && call_script "$p_script-uninstall.sh"
+	[ ! "$inst_root_gs" ] && call_script "$p_script-uninstall.sh"
 	exit 1
 }
 
 pick_shell() {
-	unset sh_msg s_shs_avail f_shs_avail
+	unset sh_msg f_shs_avail s_shs_avail
 	curr_sh_g_b="${curr_sh_g##*"/"}"
-	is_included "$curr_sh_g_b" "${simple_sh}|busybox sh" "|" && return 0
+	is_included "$curr_sh_g_b" "$fast_sh" "|" && return 0
 	newifs "|" psh
-	for ___sh in $simple_sh; do
-		checkutil "$___sh" && add2list s_shs_avail "$___sh"
-	done
-	oldifs psh
-	[ -z "$s_shs_avail" ] && [ -n "$ok_sh" ] && return 0
-	newifs "|" psh
-	for ___sh in $fancy_sh; do
+	for ___sh in $fast_sh; do
 		checkutil "$___sh" && add2list f_shs_avail "$___sh"
 	done
 	oldifs psh
-	[ -z "$f_shs_avail" ] && return 0
-	is_included "$curr_sh_g_b" "$fancy_sh" "|" && sh_msg="Your fancy shell '$curr_sh_g_b' is supported by $p_name" ||
-		sh_msg="I'm running under an unsupported/uknown shell '$curr_sh_g_b'"
-	if [ -n "$s_shs_avail" ]; then
-		recomm_sh="${s_shs_avail%% *}"
-		rec_sh_type="simple"
-	elif [ -n "$f_shs_avail" ]; then
+	[ -z "$f_shs_avail" ] && [ -n "$ok_sh" ] && return 0
+	newifs "|" psh
+	for ___sh in $slow_sh; do
+		checkutil "$___sh" && add2list s_shs_avail "$___sh"
+	done
+	oldifs psh
+	[ -z "$s_shs_avail" ] && return 0
+	is_included "$curr_sh_g_b" "$slow_sh" "|" &&
+		sh_msg="${blue}Your shell '$curr_sh_g_b' is supported by $p_name" msg_nc="$n_c" ||
+		sh_msg="I'm running under an unsupported/unknown shell '$curr_sh_g_b'"
+	if [ -n "$f_shs_avail" ]; then
 		recomm_sh="${f_shs_avail%% *}"
+		rec_sh_type="faster"
+	elif [ -n "$s_shs_avail" ]; then
+		recomm_sh="${s_shs_avail%% *}"
 		rec_sh_type="supported"
 	fi
-	printf '\n%s\n%s\n' "$blue$sh_msg but a $rec_sh_type shell '$recomm_sh' is available in this system, using it instead is recommended.$n_c" "Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
+	[ "$recomm_sh" = busybox ] && recomm_sh="busybox sh"
+	printf '\n%s\n%s\n' \
+		"$sh_msg but a $rec_sh_type shell '$recomm_sh' is available in this system, using it instead is recommended.$msg_nc" \
+		"Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
 	pick_opt "y|n|a"
 	case "$REPLY" in
 		a|A) exit 0 ;;
-		y|Y) curr_sh_g="$(command -v "$recomm_sh")" ;;
+		y|Y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$me\" $*"; exit ;;
 		n|N) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
@@ -230,23 +237,17 @@ detect_init
 
 export conf_dir="/etc/$p_name"
 [ "$_OWRTFW" ] && {
-	datadir="$conf_dir/data"
 	o_script="OpenWrt/${p_name}-owrt"
 	owrt_init="$o_script-init.tpl"
 	owrt_fw_include="$o_script-fw-include.tpl"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
 	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
-	default_schedule="15 4 * * 5"
-	source_default="ipdeny"
 } || {
-	datadir="/var/lib/${p_name}" default_schedule="15 4 * * *" source_default="ripe" check_compat="check-compat"
-	init_check_compat=". \"\${_lib}-check-compat.sh\" || exit 1"
+	check_compat="check-compat"
+	init_check_compat=". \"\${_lib}-check-compat.sh\" &&"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
-# don't copy the detect-lan script on OpenWrt, unless autodetect is enabled
-[ "$_OWRTFW" ] && [ ! "$autodetect" ] && detect_lan=
-
 
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup; do
@@ -269,16 +270,16 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 
 [ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
 
-tcp_ports=skip udp_ports=skip
+set_defaults
 
 # parse command line args and make interactive install if needed
-[ ! "$install_root_gs" ] && { get_prefs || die; }
+[ ! "$inst_root_gs" ] && { get_prefs || die; }
 
 export datadir lib_dir="/usr/lib"
 export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-[ ! "$install_root_gs" ] && { call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."; }
+[ ! "$inst_root_gs" ] && { call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."; }
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
@@ -290,7 +291,7 @@ copyscripts -n "$lib_files" "$lib_dir"
 OK
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
-[ ! "$install_root_gs" ] && {
+[ ! "$inst_root_gs" ] && {
 	rm "$i_script" 2>/dev/null
 	ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
 	# add $install_dir to $PATH
@@ -298,12 +299,11 @@ OK
 }
 
 # Create the directory for config
-mkdir -p "$install_root_gs$conf_dir"
+mkdir -p "$inst_root_gs$conf_dir"
 
 
 # write config
 printf %s "Setting config... "
-
 nodie=1
 setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp_ports=$tcp_ports" "udp_ports=$udp_ports" \
 	"Source=$source" "Families=$families" "CronSchedule=$schedule" \
@@ -314,23 +314,27 @@ setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp_ports=$tcp_po
 OK
 
 # create the -constants file
-cat <<- EOF > "$install_root_gs$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
-	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys" default_schedule="$default_schedule"
-	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh_g"
+cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
+	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys"
+	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh_g" default_schedule="$default_schedule"
 EOF
 
-. "$install_root_gs$conf_dir/${p_name}-constants"
+. "$inst_root_gs$conf_dir/${p_name}-constants"
 
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
 	#!$curr_sh_g
-	export lib_dir="$lib_dir"
-	export _lib="\$lib_dir/\${p_name}-lib"
+
+	export install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
+	export _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
+	'
+	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
+
 	$init_check_compat
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$root_ok" ] || [ "\$(id -u)" != 0 ] && return 0
-	_no_l="\$nolog"
 	. "$conf_dir/\${p_name}-constants" || exit 1
+	_no_l="\$nolog"
 	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
 	} || die "neither nftables nor iptables+ipset found."
@@ -340,9 +344,9 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 EOF
 
 # copy cca2.list
-cp "$script_dir/cca2.list" "$install_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
+cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
-[ ! "$install_root_gs" ] && {
+[ ! "$inst_root_gs" ] && {
 	# only allow root to read the $datadir and $conf_dir and files inside it
 	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
 	install_failed "$FAIL create '$datadir'."
@@ -366,7 +370,7 @@ cp "$script_dir/cca2.list" "$install_root_gs$conf_dir/" || install_failed "$FAIL
 	fw_include="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	echo "export _OWRT_install=1" >> "$install_root_gs$conf_dir/${p_name}-constants"
+	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}-constants"
 	if [ "$no_persist" ]; then
 		printf '%s\n\n' "$WARN_F persistence functionality."
 	else
@@ -374,16 +378,16 @@ cp "$script_dir/cca2.list" "$install_root_gs$conf_dir/" || install_failed "$FAIL
 		{
 			echo "#!/bin/sh /etc/rc.common"
 			eval "printf '%s\n' \"$(cat "$script_dir/$owrt_init")\"" | prep_script -n
-		} > "$install_root_gs$init_script" || install_failed "$FAIL create the init script."
+		} > "$inst_root_gs$init_script" || install_failed "$FAIL create the init script."
 
 		echo "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$install_root_gs$fw_include" &&
+		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$inst_root_gs$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
 			prep_script "$script_dir/$owrt_mk_fw_inc" -n
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
-		[ ! "$install_root_gs" ] && {
+		[ ! "$inst_root_gs" ] && {
 			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
 			printf %s "Enabling and starting the init script... "
@@ -397,5 +401,8 @@ cp "$script_dir/cca2.list" "$install_root_gs$conf_dir/" || install_failed "$FAIL
 	fi
 }
 
-[ ! "$install_root_gs" ] && statustip
+
+. "$_lib-$_fw_backend.sh" || die
+
+[ ! "$inst_root_gs" ] && { report_lists; statustip; }
 echo "Install done."
