@@ -145,7 +145,7 @@ val_cron_exp() {
 
 
 	err=0
-	errstr=''
+	errstr=
 	mn=minute
 	hr=hour
 	dom="day of month"
@@ -221,7 +221,7 @@ create_cron_job() {
 			val_cron_exp "$schedule"; rv=$?
 			case "$rv" in
 				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
-				*) die "Error validating cron schedule '$schedule'."
+				*) die "$FAIL validate cron schedule '$schedule'."
 			esac
 
 			# Remove existing autoupdate cron job before creating new one
@@ -243,7 +243,7 @@ create_cron_job() {
 
 	case $((rv1 & rv2)) in
 		0) debugprint "Ok." ;;
-		*) die "Error creating $job_type cron job!"
+		*) die "$FAIL create $job_type cron job!"
 	esac
 }
 
@@ -264,7 +264,7 @@ rm_cron_job() {
 
 	case $((rv1 & rv2)) in
 		0) debugprint "Ok." ;;
-		*) die "failed to remove $job_type cron job."
+		*) die "$FAIL remove $job_type cron job."
 	esac
 }
 
