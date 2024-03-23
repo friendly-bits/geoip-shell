@@ -20,10 +20,10 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 . "$geoinit_path" || exit 1
-
 san_args "$@"
 newifs "$delim"
 set -- $_args; oldifs
+debugentermsg
 
 #### USAGE
 
@@ -65,10 +65,8 @@ extra_args "$@"
 
 check_root || exit 1
 
-fw_backend_lib="$_lib-$_fw_backend.sh"
-[ -f "$fw_backend_lib" ] && . "$fw_backend_lib" || die "$fw_backend_lib not found."
+. "$_lib-$_fw_backend.sh"
 
-debugentermsg
 
 ### VARIABLES
 old_install_dir="$(command -v "$p_name")"
@@ -100,11 +98,14 @@ rm_lock
 ### Remove geoip firewall rules
 rm_all_georules || die 1
 
-[ -f "$conf_file" ] && setconfig "Lists="
-set +f; rm "$iplist_dir"/* 2>/dev/null
+set +f; rm "${iplist_dir:?}"/* 2>/dev/null
 
 rm -rf "${datadir:?}"/* 2>/dev/null
-[ "$resetonly_lists" ] && exit 0
+
+[ "$resetonly_lists" ] && {
+	[ -f "$conf_file" ] && setconfig "Lists="
+	exit 0
+}
 
 ### Remove geoip cron jobs
 crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
@@ -112,9 +113,13 @@ crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
 [ "$resetonly_lists_cron" ] && exit 0
 
 # Delete the config file
+echo "Deleting config..."
 rm "$conf_file" 2>/dev/null
 
 [ "$resetonly" ] && exit 0
+
+printf '%s\n' "Deleting the data folder $datadir..."
+rm -rf "${datadir:?}" 2>/dev/null
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
@@ -126,9 +131,6 @@ rm "$conf_file" 2>/dev/null
 	echo "Restarting the firewall..."
 	/etc/init.d/firewall restart 1>/dev/null 2>/dev/null
 }
-
-printf '%s\n' "Deleting the data folder $datadir..."
-rm -rf "$datadir"
 
 printf '%s\n' "Deleting scripts from $install_dir..."
 rm "${install_dir}/${p_name}" 2>/dev/null
@@ -142,7 +144,6 @@ for script_name in owrt-common common ipt nft ip-regex arrays apply-ipt apply-nf
 		rm "${lib_dir}/${p_name}-lib-$script_name.sh" 2>/dev/null
 done
 
-echo "Deleting config..."
 rm -rf "$conf_dir" 2>/dev/null
 
 printf '%s\n\n' "Uninstall complete."
