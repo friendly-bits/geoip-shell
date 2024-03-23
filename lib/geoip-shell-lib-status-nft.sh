@@ -54,5 +54,6 @@ report_fw_state() {
 			printf "$fmt_str" "$pkts " "$bytes " "$ipv " "$verd " "$prot " "$dports " "$in " "${line% }"
 		done
 		oldifs rules
+		echo
 	fi
 }
