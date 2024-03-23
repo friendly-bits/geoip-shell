@@ -36,7 +36,7 @@ EOF
 }
 
 val_cron_exp() {
-	sourceline="$(tolower "$1")"
+	tolower sourceline "$1"
 
 	# Functions
 
@@ -232,7 +232,7 @@ create_cron_job() {
 			debugprint "Creating persistence cron job... "
 
 			# using the restore action for the *run script
-			cron_cmd="@reboot sleep $sleeptime && \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
+			cron_cmd="@reboot \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
 		*) die "Unrecognized type of cron job: '$job_type'."
 	esac
 
@@ -271,8 +271,7 @@ rm_cron_job() {
 
 #### Variables
 
-for entry in "CronSchedule schedule_conf" "NoPersistence no_persist" \
-		"RebootSleep sleeptime" "Lists config_lists"; do
+for entry in "CronSchedule schedule_conf" "NoPersistence no_persist" "Lists config_lists"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 
