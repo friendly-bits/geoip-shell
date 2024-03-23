@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2034,SC1090,SC2154
+# shellcheck disable=SC2034,SC1090,SC2154
 
 # check-ip-in-source.sh
 
@@ -63,39 +63,21 @@ setdebug
 #### Functions
 
 die() {
-	rm "$list_file" "$status_file" 2>/dev/null
+	rm -f "$list_file" "$status_file" 2>/dev/null
 	printf '\n%s\n\n' "$*" >&2
 	exit 1
 }
 
-process_grep_results() {
-# takes grep return value $1 and grep output string $2,
-# converts these results into a truth table,
-# then calculates the validation result based on the truth table sum
-# the idea is to cross-reference both values in order to avoid erroneous validation results
-
-	grep_rv="$1"
-	grep_output="$2"
-
-	# convert 'grep return value' and 'grep output value' resulting value into truth table inputs
-	[ "$grep_rv" -ne 0 ] && rv1=1 || rv1=0
-	[ -z "$grep_output" ] && rv2=2 || rv2=0
-
-	# calculate the truth table sum
-	truth_table_result=$((rv1 + rv2))
-	return "$truth_table_result"
-}
-
 validate_ip() {
-	validated_ip=''
-	printf '%s\n' "$1" | grep -E "^$ipv4_regex$" 1>/dev/null 2>/dev/null; rv=$?
-	if [ "$rv" = 0 ]; then families="${families}ipv4 "; validated_ip="$1"; validated_ipv4s="${validated_ipv4s}$1 "; return 0
-	else
-		printf '%s\n' "$1" | grep -Ei "^$ipv6_regex$" 1>/dev/null 2>/dev/null; rv=$?
-		if [ "$rv" = 0 ]; then families="${families}ipv6 "; validated_ip="$1"; validated_ipv6s="${validated_ipv6s}$1 "; return 0
-		else return 1
-		fi
-	fi
+	val_ip=
+	for family in ipv4 ipv6; do
+		eval "regex=\"^\$${family}_regex$\""
+		[ -z "$regex" ] && die "$FAIL load regex's."
+		printf '%s\n' "$1" | grep -Ei "$regex" 1>/dev/null &&
+			{ add2list families "$family "; add2list "val_${family}s" "$1"; val_ip="$1"; return 0; }
+	done
+
+	return 1
 }
 
 
@@ -140,107 +122,68 @@ subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 
 [ ! -f "$fetch_script" ] && die "Can not find '$fetch_script'."
 
-# convert ips to upper case and remove duplicates etc
-san_str -s ips "$(toupper "$ips")"
+# remove duplicates etc
+san_str -s ips
 
 
 #### Main
 
-printf '\n'
-
 for ip in $ips; do
-	# validate the ip address by grepping it with the pre-defined validation regex
-	# also populates variables: $families, $validated_ipv4s, $validated_ipv6s
-	validate_ip "$ip"; rv=$?
-
-	# process grep results
-	process_grep_results "$rv" "$validated_ip"; true_grep_rv=$?
-
-	case "$true_grep_rv" in
-		0) ;;
-		1) die "grep reported an error but returned a non-empty '\$validated_ip'. Something is wrong." ;;
-		2) die "grep didn't report any error but returned an empty '\$validated_ip'. Something is wrong." ;;
-		3) invalid_ips="$invalid_ips$ip " ;;
-		*) die "unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong." ;;
-	esac
+	# populates variables: $families, $val_ipv4s, $val_ipv6s
+	validate_ip "$ip" || add2list invalid_ips "$ip"
 done
 
-# trim extra whitespaces
-invalid_ips="${invalid_ips% }"
-san_str -s families "$families"
-
-if [ -z "$validated_ipv4s$validated_ipv6s" ]; then
-	echo
-	die "all ip addresses failed validation."
-fi
+[ -z "$val_ipv4s$val_ipv6s" ] && die "All ip addresses failed validation."
+[ -z "$families" ] && die "\$families variable is empty."
 
 ### Fetch the ip list file
 
-[ -z "$families" ] && die "\$families variable is empty."
-
 for family in $families; do
-	case "$family" in
-		ipv4 ) validated_ips="${validated_ipv4s% }" ;;
-		ipv6 ) validated_ips="${validated_ipv6s% }" ;;
-		* ) die "unexpected family: '$family'." ;;
-	esac
+	eval "val_ips=\"\$val_${family}s\""
 
 	list_id="${ccode}_${family}"
 	status_file="/tmp/fetched-status-$list_id.tmp"
 
 	list_file="/tmp/iplist-$list_id.tmp"
 
-	sh "$fetch_script" -r -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" ||
-		die "$FAIL fetch ip lists."
+	sh "$fetch_script" -r -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" || die "$FAIL fetch ip lists."
 
 	# read *fetch results from the status file
 	getstatus "$status_file" "FailedLists" failed_lists ||
-		die "Couldn't read value for 'failed_lists' from status file '$status_file'."
+		die "Couldn't read value for 'FailedLists' from status file '$status_file'."
 
 	[ -n "$failed_lists" ] && die "ip list fetch failed."
 
 	### Test the fetched list for specified ip's
 
-	printf '\n%s\n' "Checking ip addresses..."
+	printf '\n%s\n' "Checking the ip addresses..."
 
-	for validated_ip in $validated_ips; do
-		unset match
-		filtered_ip="$(printf '%s\n' "$validated_ip" | grepcidr -f "$list_file")"; rv=$?
+	for val_ip in $val_ips; do
+		unset match no
+		filtered_ip="$(printf '%s\n' "$val_ip" | grepcidr -f "$list_file")"; rv=$?
 		[ "$rv" -gt 1 ] && die "grepcidr returned error code '$grep_rv'."
-
-		# process grep results
-		process_grep_results "$rv" "$filtered_ip"; true_grep_rv=$?
-
-		case "$true_grep_rv" in
-			0) no='' ;;
-			1) die "grepcidr reported an error but returned a non-empty '\$filtered_ip'. Something is wrong." ;;
-			2) die "grepcidr didn't report any error but returned an empty '\$filtered_ip'. Something is wrong." ;;
-			3) no="no" ;;
-			*) die "unexpected \$true_grep_rv: '$true_grep_rv'. Something is wrong."
-		esac
-
-		eval "${no}match_ips=\"\${${no}match_ips}$validated_ip$_nl\""
-
-		# increment the return value if matching didn't succeed
-		[ "$true_grep_rv" != 0 ] && ip_check_rv=$((ip_check_rv+1))
+		[ "$rv" =  1 ] && { no="no"; ip_check_rv=$((ip_check_rv+1)); }
+		add2list "${no}match_ips" "$val_ip" "$_nl"
 	done
-	rm "$list_file" "$status_file" 2>/dev/null
+	rm -f "$list_file" "$status_file" 2>/dev/null
 done
 
-match="${green}*BELONG*${n_c}"
-nomatch="${red}*DO NOT BELONG*${n_c}"
-msg_pt2="to a subnet in $(toupper "$dl_source")'s list for country '$ccode':"
+match="Included"
+nomatch="Not included"
+match_color="$green"
+nomatch_color="$red"
+msg_pt2="in $(toupper "$dl_source")'s ip list for country '$ccode':"
 
-printf '\n%s\n' "${yellow}Results:${n_c}"
+printf '\n%s\n' "${purple}Results:${n_c}"
 
 for m in match nomatch; do
-	eval "if [ -n \"\$${m}_ips\" ]; then printf '\n%s\n%s\n' \"\$$m $msg_pt2\" \"\${${m}_ips%$_nl}\"; fi"
+	eval "[ -n \"\$${m}_ips\" ] && printf '\n%s\n%s\n' \"\$$m $msg_pt2\" \"\$${m}_color\${${m}_ips%$_nl}$n_c\""
 done
 
-if [ -n "$invalid_ips" ]; then
-	printf '\n%s\n%s\n' "${red}Invalid${n_c} ip addresses:" "${invalid_ips% }"
+[ -n "$invalid_ips" ] && {
+	printf '\n%s\n%s\n' "${red}Invalid${n_c} ip addresses:" "$purple${invalid_ips% }$n_c"
 	ip_check_rv=$((ip_check_rv+1))
-fi
+}
 
 echo
 
