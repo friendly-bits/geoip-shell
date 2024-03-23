@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC1090,SC2086,SC2034,SC1091
+# shellcheck disable=SC2154,SC1090,SC2034
 
 # geoip-shell-fetch.sh
 
@@ -153,7 +153,8 @@ get_src_dates_ripe() {
 	server_html_file="/tmp/geoip-shell_server_dl_page.tmp"
 
 	for registry in $registries; do
-		server_url="$ripe_url_stats"/"$(tolower "$registry")"
+		tolower reg_lc "$registry"
+		server_url="$ripe_url_stats/$reg_lc"
 
 		debugprint "getting listing from url '$server_url'..."
 		[ ! "$server_url" ] && { echolog -err "get_src_dates_ripe(): $server_url variable should not be empty!"; return 1; }
@@ -309,7 +310,7 @@ list_failed() {
 
 process_ccode() {
 
-	curr_ccode="$1"; curr_ccode_lc="$(tolower "$curr_ccode")"
+	curr_ccode="$1"; tolower curr_ccode_lc "$curr_ccode"
 	unset prev_list_reg list_path fetched_list
 	set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
 
@@ -512,18 +513,18 @@ default_source="ripe"
 
 #### VARIABLES
 
-lists_arg=$(
-	for list_id in $lists_arg; do
-		case "$list_id" in
-			*_* ) toupper "${list_id%%_*}"; tolower "_${list_id#*_}"; printf '\n' ;;
-			*) die "invalid list id '$list_id'."
-		esac
-	done
-)
+lists=
+for list_id in $lists_arg; do
+	case "$list_id" in
+		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}"; add2list lists "$cc_up$fml_lo" "$_nl" ;;
+		*) die "invalid list id '$list_id'."
+	esac
+done
+lists_arg="$lists"
 
-source_arg="$(tolower "$source_arg")"
+tolower source_arg
 dl_src="${source_arg:-"$default_source"}"
-dl_src_cap="$(toupper "$dl_src")"
+toupper dl_src_cap "$dl_src"
 
 unset failed_lists fetched_lists
 
@@ -550,7 +551,7 @@ esac
 # ... but not both
 [ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
 
-case "$lists_arg" in '') die "Specify country code/s!"; esac
+[ ! "$lists_arg" ] && die "Specify country code/s!"
 fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 
 
@@ -558,8 +559,8 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 [ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
 	die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
-[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] &&
-	die "Directory '$iplist_dir_f' doesn't exist!" || iplist_dir_f="${iplist_dir_f%/}"
+[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] && die "Directory '$iplist_dir_f' doesn't exist!"
+iplist_dir_f="${iplist_dir_f%/}"
 
 # check internet connectivity
 printf '\n%s' "Checking connectivity... "
@@ -574,7 +575,7 @@ nslookup="nslookup -retry=1"
 OK
 
 for f in "$status_file" "$output_file"; do
-	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "failed to create file '$f'."; }
+	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$FAIL create file '$f'."; }
 done
 
 
@@ -584,7 +585,7 @@ done
 # populates $registries, fetch_lists_arr
 group_lists_by_registry
 
-[ ! "$registries" ] && die "Failed to determine relevant regions."
+[ ! "$registries" ] && die "$FAIL determine relevant regions."
 
 # debugprint "registries: '$registries'"
 
