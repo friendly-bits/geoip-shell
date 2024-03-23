@@ -15,7 +15,7 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 
-. "$geoinit_path" || exit 1
+. "$geoinit_path" &&
 . "$_lib-arrays.sh" || exit 1
 . "$_lib-ip-regex.sh"
 
@@ -41,8 +41,8 @@ Options:
   -l $list_ids_usage
   -p <path>        : Path to directory where downloaded and compiled subnet lists will be stored.
   -o <output_file> : Path to output file where fetched list will be stored.
-                         With this option, specify exactly 1 country code.
-                         (use either '-p' or '-o' but not both)
+${sp16}${sp8}With this option, specify exactly 1 country code.
+${sp16}${sp8}(use either '-p' or '-o' but not both)
   -s <status_file> : Path to a status file to register fetch results in.
   -u $sources_usage
  
@@ -101,7 +101,7 @@ reg_server_date() {
 }
 
 # get list time based on the file date on the server
-get_source_list_dates_ipdeny() {
+get_src_dates_ipdeny() {
 	tmp_file_path="/tmp/${p_name}_ipdeny"
 
 	_res=
@@ -145,18 +145,18 @@ get_source_list_dates_ipdeny() {
 		reg_server_date "$server_date" "$list_id" "IPDENY"
 	done
 
-	for family in $families; do rm "${tmp_file_path}_plaintext_${family}.tmp" 2>/dev/null; done
+	for family in $families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp" 2>/dev/null; done
 }
 
 # get list time based on the filename on the server
-get_source_list_dates_ripe() {
+get_src_dates_ripe() {
 	server_html_file="/tmp/geoip-shell_server_dl_page.tmp"
 
 	for registry in $registries; do
 		server_url="$ripe_url_stats"/"$(tolower "$registry")"
 
 		debugprint "getting listing from url '$server_url'..."
-		[ ! "$server_url" ] && { echolog -err "get_source_list_dates_ripe(): $server_url variable should not be empty!"; return 1; }
+		[ ! "$server_url" ] && { echolog -err "get_src_dates_ripe(): $server_url variable should not be empty!"; return 1; }
 
 		# debugprint "timestamp fetch command: '$fetch_cmd_q \"${server_url}\" > \"$server_html_file\""
 		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
@@ -190,23 +190,20 @@ group_lists_by_registry() {
 		for list_id in $lists_arg; do
 			ccode="${list_id%_*}"
 			get_a_arr_val registry_ccodes_arr "$registry" ccodes
-			case "$ccodes" in *" ${ccode} "* )
-				registries="$registries$registry "
-				list_ids="$list_ids$list_id "
-				valid_lists="$valid_lists$list_id$_nl"
+			case "$ccodes" in *" ${ccode} "*)
+				add2list registries "$registry"
+				add2list list_ids "$list_id"
+				add2list valid_lists "$list_id" "$_nl"
 			esac
 		done
-		san_str -s list_ids
-		set_a_arr_el fetch_lists_arr "$registry=${list_ids% }"
+		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
 	done
-	san_str -s registries
 
 	subtract_a_from_b "$valid_lists" "$lists_arg" invalid_lists
 	[ "$invalid_lists" ] && {
 		for invalid_list in $invalid_lists; do
-			invalid_ccodes="$invalid_ccodes${invalid_list%_*} "
+			add2list invalid_ccodes "${invalid_list%_*}"
 		done
-		san_str invalid_ccodes
 		die "Invalid country codes: '$invalid_ccodes'."
 	}
 }
@@ -256,18 +253,18 @@ check_updates() {
 	printf '\n%s\n\n' "Checking for ip list updates on the $dl_src_cap server..."
 
 	case "$dl_src" in
-		ipdeny ) get_source_list_dates_ipdeny ;;
-		ripe ) get_source_list_dates_ripe ;;
-		* ) die "Unknown source: '$dl_src'."
+		ipdeny) get_src_dates_ipdeny ;;
+		ripe) get_src_dates_ripe ;;
+		*) die "Unknown source: '$dl_src'."
 	esac
 
-	unset ccodes families
+	unset ccodes_need_update families
 	for list_id in $valid_lists; do
 		get_a_arr_val server_dates_arr "$list_id" date_src_raw
 		date_raw_to_compat "$date_src_raw" date_src_compat
 
 		if [ ! "$date_src_compat" ]; then
-			echolog -err "$WARN failed to get the timestamp from the server for list '$list_id'. Will try to fetch anyway."
+			echolog -warn "$FAIL get the timestamp from the server for list '$list_id'. Will try to fetch anyway."
 			date_src_raw="$(date +%Y%m%d)"; force_update=1
 			date_raw_to_compat "$date_src_raw" date_src_compat
 		fi
@@ -278,29 +275,25 @@ check_updates() {
 
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
-			msg1="$WARN newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
+			msg1="Newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
 			msg2="Either your clock is incorrect, or '$dl_src_cap' is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
-			echolog -err "$msg1" "$msg2" "$msg3"
+			echolog -warn "$msg1" "$msg2" "$msg3"
 		fi
 
 		# debugprint "checking $list_id"
 		check_prev_list "$list_id"
 
 		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ ! "$manmode" ]; then
-			up_to_date_lists="$up_to_date_lists$list_id "
+			add2list up_to_date_lists "$list_id"
 		else
-			ccode="${list_id%_*}"; case "$ccodes" in *"$ccode"*) ;; *) ccodes="$ccodes$ccode "; esac
-			family="${list_id#*_}"; case "$families" in *"$family"*) ;; *) families="$families$family "; esac
+			add2list ccodes_need_update "${list_id%_*}"
+			add2list families "${list_id##*_}"
 		fi
 	done
 
-	ccodes_need_update="${ccodes% }"
-	families="${families% }"
-
-	if [ "$up_to_date_lists" ]; then
-		echolog "Ip lists '${purple}${up_to_date_lists% }${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
-	fi
+	[ "$up_to_date_lists" ] &&
+		echolog "Ip lists '${purple}$up_to_date_lists${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
 	:
 }
 
@@ -310,7 +303,7 @@ rm_tmp_f() {
 
 list_failed() {
 	rm_tmp_f
-	failed_lists="$failed_lists$list_id "
+	add2list failed_lists "$list_id"
 	[ "$1" ] && echolog -err "$1"
 }
 
@@ -369,7 +362,7 @@ process_ccode() {
 		printf %s "Validating '$purple$list_id$n_c'... "
 		# Validates the parsed list, populates the $valid_s_cnt, failed_s_cnt variables
 		validate_list "$list_id"
-		rm "$parsed_list" 2>/dev/null
+		rm -f "$parsed_list" 2>/dev/null
 
 		[ "$failed_s_cnt" = 0 ] && OK || { FAIL; continue; }
 
@@ -385,14 +378,14 @@ process_ccode() {
 		} > "$list_path" || { list_failed "$FAIL overwrite the file '$list_path'"; continue; }
 
 		touch -d "$date_src_compat" "$list_path"
-		fetched_lists="$fetched_lists$list_id "
+		add2list fetched_lists "$list_id"
 		set_a_arr_el subnets_cnt_arr "$list_id=$valid_s_cnt"
 		set_a_arr_el list_date_arr "$list_id=$date_src_compat"
 
-		rm "$valid_list" 2>/dev/null
+		rm -f "$valid_list" 2>/dev/null
 	done
 
-	rm "$fetched_list" 2>/dev/null
+	rm -f "$fetched_list" 2>/dev/null
 	:
 }
 
@@ -402,7 +395,7 @@ validate_list() {
 	valid_list="/tmp/validated-${list_id}.tmp"
 	family="${list_id#*_}"
 
-	case "$family" in "ipv4" ) subnet_regex="$subnet_regex_ipv4" ;; *) subnet_regex="$subnet_regex_ipv6"; esac
+	case "$family" in ipv4) subnet_regex="$subnet_regex_ipv4" ;; *) subnet_regex="$subnet_regex_ipv6"; esac
 	grep -E "^$subnet_regex$" "$parsed_list" > "$valid_list"
 
 	parsed_s_cnt=$(wc -w < "$parsed_list")
@@ -563,7 +556,7 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 
 # if $output_file is set, make sure that no more than 1 list is specified
 [ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
-		die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
+	die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
 [ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] &&
 	die "Directory '$iplist_dir_f' doesn't exist!" || iplist_dir_f="${iplist_dir_f%/}"
@@ -572,7 +565,8 @@ fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
 printf '\n%s' "Checking connectivity... "
 nslookup="nslookup -retry=1"
 {
-	eval "$nslookup" 127.0.0.1 || eval "$nslookup" ::1 || nslookup="nslookup"
+	# some implementations don't support -retry
+	eval "$nslookup" 127.0.0.1 || eval "$nslookup" ::1 || nslookup=nslookup
 	for ns in "8.8.8.8" "208.68.222.222" "2001:4860:4860::8888" "2620:119:35::35"; do
 		eval "$nslookup" "$dl_srv" "$ns" && break
 	done
@@ -590,7 +584,7 @@ done
 # populates $registries, fetch_lists_arr
 group_lists_by_registry
 
-[ ! "$registries" ] && die "failed to determine relevant regions."
+[ ! "$registries" ] && die "Failed to determine relevant regions."
 
 # debugprint "registries: '$registries'"
 
@@ -625,9 +619,9 @@ if [ "$status_file" ]; then
 		list_dates_str="${list_dates_str}PrevDate_${list_id}=$prevdate$_nl"
 	done
 
-	setstatus "$status_file" "FetchedLists=${fetched_lists% }" "up_to_date_lists=${up_to_date_lists% }" \
-				"FailedLists=${failed_lists% }" "$subnets_cnt_str" "$list_dates_str" ||
-		die "$FAIL write to the status file '$status_file'."
+	setstatus "$status_file" "FetchedLists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
+		"FailedLists=$failed_lists" "$subnets_cnt_str" "$list_dates_str" ||
+			die "$FAIL write to the status file '$status_file'."
 fi
 
 :
