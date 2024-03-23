@@ -31,7 +31,8 @@ debugprint() {
 debugentermsg() {
 	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
 	{
-		printf %s "${yellow}Started *"; toupper "$me_short"; printf %s "* with args: "
+		toupper me_short_cap "$me_short"
+		printf %s "${yellow}Started *$me_short_cap* with args: "
 		newifs "$delim" dbn
 		for arg in $_args; do printf %s "'$arg' "; done
 		printf '%s\n' "${n_c}"
@@ -41,7 +42,8 @@ debugentermsg() {
 
 debugexitmsg() {
 	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
-	{ printf %s "${yellow}Back to *"; toupper "$me_short"; printf '%s\n' "*...${n_c}"; } >&2
+	toupper me_short_cap "$me_short"
+	printf '%s\n' "${yellow}Back to *$me_short_cap*...${n_c}" >&2
 }
 
 # sets some variables for colors, symbols and delimiter
@@ -70,7 +72,7 @@ check_root() {
 }
 
 extra_args() {
-	[ "$*" ] && { usage; echolog -err "Invalid arguments. First unexpected argument: '$1'."; die; }
+	[ "$*" ] && die "Invalid arguments. First unexpected argument: '$1'."
 }
 
 checkutil() {
@@ -104,7 +106,8 @@ unknownact() {
 # $1 - input in the format 'a|b|c'
 # output via the $REPLY var
 pick_opt() {
-	_opts="$1|$(toupper "$1")"
+	toupper U_1 "$1"
+	_opts="$1|$U_1"
 	while true; do
 		printf %s "$1: "
 		read -r REPLY
@@ -148,12 +151,38 @@ fast_el_cnt() {
 	oldifs cnt
 }
 
-tolower() {
-	printf %s "$@" | tr 'A-Z' 'a-z'
+# 1 - var name for output
+# 2 - toupper|tolower
+# 3 - string
+conv_case() {
+	outvar_cc="$1"
+	case "$2" in
+		toupper) tr_1='a-z' tr_2='A-Z' ;;
+		tolower) tr_1='A-Z' tr_2='a-z'
+	esac
+	newifs "$default_IFS" conv
+	case "$3" in
+		*[$tr_1]*) conv_res="$(printf %s "$3" | tr "$tr_1" "$tr_2")" ;;
+		*) conv_res="$3"
+	esac
+	eval "$outvar_cc=\"$conv_res\""
+	oldifs conv
 }
 
+# 1 - var name for output
+# 2 - optional string (otherwise uses prev value)
+tolower() {
+	in_cc="$2"
+	[ $# = 1 ] && eval "in_cc=\"\$$1\""
+	conv_case "$1" tolower "$in_cc"
+}
+
+# 1 - var name for output
+# 2 - optional string (otherwise uses prev value)
 toupper() {
-	printf %s "$@" | tr 'a-z' 'A-Z'
+	in_cc="$2"
+	[ $# = 1 ] && eval "in_cc=\"\$$1\""
+	conv_case "$1" toupper "$in_cc"
 }
 
 # calls another script and resets the config cache on exit
@@ -165,11 +194,11 @@ call_script() {
 	: "${use_shell:=$curr_sh_g}"
 	: "${use_shell:=sh}"
 
-	# call the daughter script, then reset $config_var to force re-read of the config file
+	# call the daughter script, then forget cached config
 	[ ! "$script_to_call" ] && { echolog -err "call_script: received empty string."; return 1 ; }
 
 	[ "$use_lock" ] && rm_lock
-	$use_shell "$script_to_call" "$@"; call_rv=$?; export config_var=
+	$use_shell "$script_to_call" "$@"; call_rv=$?; unset main_config
 	debugexitmsg
 	[ "$use_lock" ] && mk_lock -f
 	use_lock=
@@ -259,41 +288,6 @@ die() {
 	exit "$die_rv"
 }
 
-# 1 - key
-# 2 - var name for output
-# 3 - optional path to config file
-getconfig() {
-	getconfig_failed() {
-		eval "$outvar_gc="
-		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
-	}
-
-	read_conf() {
-		[ ! -s "$target_file" ] && { getconfig_failed; return 1; }
-		conf="$(cat "$target_file")" || { getconfig_failed; return 1; }
-	}
-
-	key_conf="$1"
-	outvar_gc="$2"
-	target_file="${3:-$conf_file}"
-	[ ! "$key_conf" ] || [ ! "$target_file" ] && { getconfig_failed; return 1; }
-
-	# re-use existing $config_var if possible
-	case "$target_file" in
-		"$conf_file" )
-			case "$config_var" in
-				'') read_conf || { getconfig_failed; return 1; }
-					export config_var="$conf" ;;
-				*) conf="$config_var"
-			esac ;;
-		*) read_conf || { getconfig_failed; return 1; }
-	esac
-
-	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || { getconfig_failed; return 2; }
-	eval "$2"='${conf_line#"${key_conf}"=}'
-	:
-}
-
 # converts unsigned integer to either [x|xK|xM|xT|xQ] or [xB|xKiB|xMiB|xTiB|xPiB], depending on $2
 # if result is not an integer, outputs up to 2 digits after decimal point
 # 1 - int
@@ -337,6 +331,85 @@ get_matching_line() {
 	return $_rv
 }
 
+# 1 - key
+# 2 - var name for output
+# 3 - optional path to config file
+getconfig() {
+	key_conf="$1"
+	target_file="${3:-$conf_file}"
+	[ "$1" ] && [ "$2" ] && [ "$target_file" ] &&
+	getallconf conf "$target_file" &&
+	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || {
+		eval "$2="
+		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
+		return 2
+	}
+	eval "$2"='${conf_line#"${key_conf}"=}'
+	:
+}
+
+# 1 - var name for output
+# 2 - conf file path
+getallconf() {
+	[ ! "$1" ] || [ ! -f "$2" ] && return 1
+	# check in cache first
+	conf_gac=
+	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
+	[ -z "$conf_gac" ] && {
+		conf_gac="$(cat "$2")"
+		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
+	}
+	eval "$1=\"$conf_gac\""
+	:
+}
+
+# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
+# if one of the value pairs is "target_file=[file]" then writes to $file instead
+setconfig() {
+	unset args_lines args_target_file keys_test_str newconfig
+	IFS_OLD_sc="$IFS"
+	IFS="$_nl"
+	for argument_conf in "$@"; do
+		# separate by newline and process each line (support for multi-line args)
+		for line in $argument_conf; do
+			case "$line" in *'='*)
+				key_conf="${line%%=*}"
+				value_conf="${line#*=}"
+				case "$key_conf" in
+					'') ;;
+					target_file) args_target_file="$value_conf" ;;
+					*) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
+						keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
+				esac
+			esac
+		done
+	done
+	keys_test_str="${keys_test_str%\|}"
+	target_file="${args_target_file:-$inst_root_gs$conf_file}"
+
+	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
+
+	[ -f "$target_file" ] && {
+		getallconf oldconfig "$target_file" || { sc_failed "$FAIL read '$target_file'."; return 1; }
+	}
+	# join old and new config
+	for config_line in $oldconfig; do
+		eval "case \"$config_line\" in
+				''|$keys_test_str) ;;
+				*) newconfig=\"$newconfig$config_line$_nl\"
+			esac"
+	done
+	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
+	oldifs sc
+	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig$args_lines"
+	:
+}
+
+sc_failed() {
+	echolog -err "setconfig: $1"
+	[ ! "$nodie" ] && die
+}
+
 # utilizes getconfig() but intended for reading status from status files
 # 1 - status file
 # 2 - key
@@ -347,51 +420,6 @@ getstatus() {
 		nodie=1 getconfig "$2" "status_value" "$target_file"; rv_gs=$?
 	eval "$3"='$status_value'
 	return $rv_gs
-}
-
-# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
-# if one of the value pairs is "target_file=[file]" then writes to $file instead
-setconfig() {
-	unset args_lines args_target_file keys_test_str newconfig
-	IFS_OLD_sc="$IFS"
-	for argument_conf in "$@"; do
-		# separate by newline and process each line (support for multi-line args)
-		IFS="$_nl"
-		for line in $argument_conf; do
-			case "$line" in *'='* )
-				key_conf="${line%%=*}"
-				value_conf="${line#*=}"
-				case "$key_conf" in
-					'' ) ;;
-					target_file ) args_target_file="$value_conf" ;;
-					* ) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
-						keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
-				esac
-			esac
-		done
-	done
-	keys_test_str="${keys_test_str%\|}"
-	target_file="${args_target_file:-$install_root_gs$conf_file}"
-
-	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
-
-	[ -f "$target_file" ] && { oldconfig="$(cat "$target_file")" || { sc_failed "$FAIL read '$target_file'."; return 1; }; }
-	# join old and new config
-	for config_line in $oldconfig; do
-		eval "case \"$config_line\" in
-				''|$keys_test_str) ;;
-				*) newconfig=\"$newconfig$config_line$_nl\"
-			esac"
-	done
-	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
-	oldifs sc
-	export config_var=
-	:
-}
-
-sc_failed() {
-	echolog -err "setconfig: $1"
-	[ ! "$nodie" ] && die
 }
 
 # utilizes setconfig() for writing to status files
@@ -636,8 +664,8 @@ check_cron_compat() {
 	fi
 }
 
-OK() { echo "Ok."; }
-FAIL() { echo "Failed."; }
+OK() { printf '%s\n' "${green}Ok${n_c}."; }
+FAIL() { printf '%s\n' "${red}Failed${n_c}."; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
@@ -724,11 +752,6 @@ unisleep() {
 	sleep 0.1 2>/dev/null || sleep 1
 }
 
-export install_dir="/usr/bin" iplist_dir="/tmp" _nl='
-'
-export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
-export lock_file="/tmp/$p_name.lock" p_script="$script_dir/${p_name}" i_script="$install_root_gs$install_dir/${p_name}"
-
 valid_sources="ripe ipdeny"
 valid_families="ipv4 ipv6"
 
@@ -745,46 +768,15 @@ me_short="${me_short%.sh}"
 # trap var
 trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] && rm -f $lock_file 2>/dev/null; exit;'
 
-# vars for usage() functions
+# vars for common usage() functions
 sp8="        "
-mode_syn="<whitelist|blacklist>"
-geomode_usage="$mode_syn : Geoip blocking mode: whitelist or blacklist."
-if_syn="<\"[ifaces]\"|auto|all>"
-ifaces_usage="$if_syn :
-${sp8}Changes which network interface(s) geoip firewall rules will be applied to.
-${sp8}'all' will apply geoip to all network interfaces
-${sp8}'auto' will autodetect WAN interfaces (this will cause problems if the machine has no direct WAN connection)
-${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
-${sp8}Only works with the 'apply' action."
-lan_syn="<\"[lan_ips]\"|auto|none>"
-lan_ips_usage="$lan_syn :
-${sp8}Specifies LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-${sp8}Has no effect in blacklist mode.
-${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-${sp8}specify LAN subnets to avoid blocking them. Otherwise you probably don't need this.
-${sp8}'auto' will autodetect LAN subnets during installation and at every update of the ip lists.
-${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*"
-tr_syn="<\"[trusted_ips]\"|none>"
-trusted_ips_usage="$tr_syn :
-${sp8}Specifies trusted ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6).
-${sp8}This option works independently from the above LAN ip's option.
-${sp8}Works both in whitelist and blacklist mode."
-ports_syn="<[tcp|udp]:[allow|block]:ports>"
-ports_usage="$ports_syn :
-${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
-${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
-${sp8}Multiple '-p' options are allowed to specify both tcp and udp in one command.
-${sp8}Only works with the 'apply' action."
-sch_syn="<\"[expression]\"|disable>"
-schedule_usage="$sch_syn :
-${sp8}Schedule expression for the periodic cron job implementing auto-updates of the ip lists, must be inside double quotes.
-${sp8}Default schedule is \"15 4 * * *\" (at 4:15 [am] every day)
-${sp8}'disable' will disable automatic updates of the ip lists."
+sp16="$sp8$sp8"
 ccodes_usage="<\"country_codes\"> : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
 sources_usage="<ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny."
 fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
 families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
 list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
+
 
 set -f
 
@@ -793,7 +785,8 @@ if [ -z "$geotag" ]; then
 	set_ansi
 	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
-	export geochain="$(toupper "$geotag")"
+	toupper geochain "$geotag"
+	export geochain
 fi
 
 :
