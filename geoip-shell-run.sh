@@ -21,7 +21,7 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me [action] [-l <"list_ids">] [-o] [-d] [-h]
+Usage: $me [action] [-l <"list_ids">] [-o <true|false>] [-d] [-h]
 
 Serves as a proxy to call the -fetch, -apply and -backup scripts with arguments required for each action.
 
@@ -32,7 +32,7 @@ Actions:
 
 Options:
   -l $list_ids_usage
-  -o               : No backup: don't create backup of current firewall state after the action.
+  -o <true|false>  : No backup: don't create backup of ip lists and firewall rules after the action.
 
   -a               : daemon mode (will retry actions \$max_attempts times with growing time intervals)
   -d               : Debug
@@ -46,7 +46,7 @@ EOF
 daemon_mode=
 
 # check for valid action
-action_run="$(tolower "$1")"
+tolower action_run "$1"
 case "$action_run" in
 	add|remove|update|restore) ;;
 	*) action="$action_run"; unknownact
@@ -58,7 +58,7 @@ while getopts ":l:aodh" opt; do
 	case $opt in
 		l) arg_lists=$OPTARG ;;
 		a) export daemon_mode=1 ;;
-		o) nobackup_args=1 ;;
+		o) nobackup_arg=$OPTARG ;;
 		d) debugmode_args=1 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
@@ -78,18 +78,19 @@ debugentermsg
 daemon_prep_next() {
 	echolog "Retrying in $secs seconds"
 	sleep $secs
-	ok_lists="$ok_lists$fetched_lists "
+	add2list ok_lists "$fetched_lists"
 	san_str -s lists_fetch "$failed_lists $missing_lists"
 }
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "Geomode geomode" "MaxAttempts max_attempts"; do
+for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "Geomode geomode" \
+	"MaxAttempts max_attempts" "RebootSleep sleeptime"; do
 	getconfig "${entry% *}" "${entry#* }"
 done
 export config_lists geomode
 
-nobackup="${nobackup_args:-$nobackup_conf}"
+nobackup="${nobackup_arg:-$nobackup_conf}"
 
 use_conf=
 
@@ -126,8 +127,17 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || di
 mk_lock
 trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unlock"' INT TERM HUP QUIT
 
-
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
+
+# wait $sleeptime seconds after boot
+[ "$daemon_mode" ] && {
+	uptime="$(cat /proc/uptime)"; uptime="${uptime%%.*}"
+	sl_time=$((sleeptime-uptime))
+	[ $sl_time -gt 0 ] && {
+		echolog "Sleeping for ${sl_time}s..."
+		sleep $sl_time
+	}
+}
 
 # check for valid action and translate *run action to *apply action
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
@@ -138,7 +148,7 @@ case "$action_run" in
 	remove) action_apply=remove; rm_lists="$lists" ;;
 	restore)
 		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
-		if [ "$nobackup" ]; then
+		if [ "$nobackup" = true ]; then
 			echolog "$p_name was installed with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
 			action_run=update action_apply=add force="-f"
@@ -146,7 +156,7 @@ case "$action_run" in
 			call_script -l "$i_script-backup.sh" "restore"; rv_cs=$?
 			getconfig Lists lists
 			if [ "$rv_cs" = 0 ]; then
-				nobackup=1
+				nobackup=true
 			else
 				echolog -err "Restore from backup failed. Changing action to 'update'."
 				# if restore failed, force re-fetch
@@ -163,17 +173,17 @@ unset echolists ok_lists missing_lists lists_fetch fetched_lists
 [ ! "$daemon_mode" ] && max_attempts=1
 case "$action_run" in add|update) lists_fetch="$lists" ;; *) max_attempts=1; esac
 
-attempt=0 secs=4
+attempt=0 secs=5
 while true; do
 	attempt=$((attempt+1))
-	secs=$((secs+1))
+	secs=$((secs+5))
 	[ "$daemon_mode" ] && [ $attempt -gt $max_attempts ] && die "Giving up."
 
 	### Fetch ip lists
 
 	if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
-		setstatus "$status_file" "FailedLists=$lists_fetch"
+		setstatus "$status_file" "FailedLists=$lists_fetch" "FetchedLists="
 
 		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
 
@@ -205,9 +215,7 @@ while true; do
 	san_str -s apply_lists "$ok_lists $rm_lists"
 	apply_rv=0
 	case "$action_run" in update|add|remove)
-		[ ! "$apply_lists" ] && {
-			echolog "Firewall reconfiguration isn't required."; die 0
-		}
+		[ ! "$apply_lists" ] && { echolog "Firewall reconfiguration isn't required."; die 0; }
 
 		call_script "$i_script-apply.sh" "$action_apply" -l "$apply_lists"; apply_rv=$?
 		set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
@@ -215,8 +223,8 @@ while true; do
 		case "$apply_rv" in
 			0) ;;
 			254) [ "$in_install" ] && die
-				echolog -err "*apply exited with code '254'. $FAIL execute action '$action_apply'." ;;
-			*) debugprint "NOTE: *apply exited with error code '$apply_rv'."; die "$apply_rv"
+				echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
+			*) debugprint "NOTE: apply exited with code '$apply_rv'."; die "$apply_rv"
 		esac
 		echolists=" for lists '$ok_lists$rm_lists'"
 	esac
@@ -234,7 +242,7 @@ while true; do
 	fi
 done
 
-if [ "$apply_rv" = 0 ] && [ ! "$nobackup" ]; then
+if [ "$apply_rv" = 0 ] && [ "$nobackup" = false ]; then
 	call_script -l "$i_script-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
@@ -242,8 +250,7 @@ fi
 
 case "$failed_lists_cnt" in
 	0) rv=0;;
-	*) 	debugprint "failed_lists_cnt: $failed_lists_cnt"
-		rv=254
+	*) rv=254
 esac
 
 die "$rv"
