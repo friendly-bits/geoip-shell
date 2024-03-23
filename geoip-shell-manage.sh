@@ -11,7 +11,7 @@ p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export geomode nolog=1 manmode=1
 
-. "/usr/bin/${p_name}-geoinit.sh" || exit 1
+. "/usr/bin/${p_name}-geoinit.sh" &&
 . "$_lib-setup.sh" || exit 1
 
 san_args "$@"
@@ -148,7 +148,7 @@ report_status() {
 
 	ipsets="$(get_ipsets)"
 
-	printf '\n%s\n\n%s\n' "${purple}Geoip blocking status report:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
+	printf '\n%s\n\n%s\n' "${purple}$p_name status:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
 
 	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${source}${n_c}"
 
@@ -207,7 +207,7 @@ report_status() {
 	report_fw_state
 
 	[ "$verb_status" ] && {
-		printf '\n%s' "Ip ranges count in active geoip sets: "
+		printf %s "Ip ranges count in active geoip sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
 			*) echo
@@ -396,11 +396,11 @@ done
 
 case "$geomode" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$geomode'!"; esac
 
-san_str -s ccodes_arg "$(toupper "$ccodes_arg")"
-
+toupper ccodes_arg
+san_str -s ccodes_arg
 sp2nl config_lists "$config_lists_str"
 
-action="$(tolower "$action")"
+tolower action
 
 run_command="$i_script-run.sh"
 
@@ -571,7 +571,7 @@ call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 
 # positive return code means apply failure or another permanent error, except for 254
 case "$rv" in 0|254) ;; *)
-	printf '%s\n' "Error performing action '$action' for lists '$lists_to_change_str'." >&2
+	echolog -err "$FAIL perform action '$action' for lists '$lists_to_change_str'."
 	[ ! "$config_lists" ] && die "Can not restore previous ip lists because they are not found in the config file."
 	# write previous config lists
 	setconfig "Lists=$config_lists_str"
@@ -583,14 +583,13 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	nl2sp failed_lists_str "$failed_lists"
 	debugprint "planned_lists: '$planned_lists_str', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists_str'."
-	echolog -warn "failed to apply new $geomode rules for ip lists: $failed_lists_str."
+	echolog -warn "$FAIL apply new $geomode rules for ip lists: $failed_lists_str."
 	# if the error encountered during installation, exit with error to fail the installation
 	[ "$in_install" ] && die
 	get_difference "$lists_to_change" "$failed_lists" ok_lists
 	[ ! "$ok_lists" ] && die "All actions failed."
 fi
 
-report_lists
-[ ! "$in_install" ] && statustip
+[ ! "$in_install" ] && { report_lists; statustip; }
 
 die 0
