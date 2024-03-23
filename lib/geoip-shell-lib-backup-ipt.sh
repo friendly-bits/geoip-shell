@@ -15,7 +15,7 @@ restorebackup() {
 		sed -n -e /"\[${p_name}_IPTABLES_$family\]"/\{:1 -e n\;/\\["${p_name}_IP"/q\;p\;b1 -e \} < "$tmp_file"
 	}
 	# outputs the ipset portion of the backup file
-	get_ipset_bk() { sed -n "/create ${p_name}/,\$p" < "$tmp_file"; }
+	get_ipset_bk() { sed -n "/create .*${p_name}/,\$p" < "$tmp_file"; }
 
 	printf '%s\n' "Restoring firewall state from backup... "
 
@@ -41,15 +41,11 @@ restorebackup() {
 
 	printf %s "Checking the ipset portion of the backup file... "
 	# count lines in the ipset portion of the backup file
-	line_cnt=$(get_ipset_bk | grep -c "add ${p_name}")
-	debugprint "ipset lines number in backup: $line_cnt"
-	[ "$line_cnt" = 0 ] && rstr_failed "ipset backup appears to be empty or non-existing."
-	OK; echo
+	get_ipset_bk | grep "add .*$p_name" 1>/dev/null || rstr_failed "ipset backup appears to be empty or non-existing."
+	OK
 
 	### Remove geoip iptables rules and ipsets
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
-
-	echo
 
 	# ipset needs to be restored before iptables
 	for restoretgt in ipset iptables; do
