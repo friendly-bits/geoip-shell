@@ -168,7 +168,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 `geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
 
-**geoip-shell-geoinit.sh**: This script is sourced from most other scripts. It checks for compatible shell and other essential dependencies, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
+**geoip-shell-geoinit.sh**: This script is sourced from most other scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
 
 
 ## **Optional script in detail**
