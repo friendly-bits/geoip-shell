@@ -212,36 +212,24 @@ group_lists_by_registry() {
 # checks the status faile
 # and populates variables $prev_list_reg, $prev_date_raw, $prev_date_compat, $prev_s_cnt
 check_prev_list() {
-	unset_prev_vars() { unset prev_list_reg prev_date_raw prev_date_compat prev_s_cnt; }
-
 	list_id="$1"
-	unset_prev_vars
+	unset prev_list_reg prev_date_raw prev_date_compat prev_s_cnt
 
-	# if $status_file is set and physically exists, get LastFailedSubnetsCnt_${list_id} from the status file
-	if [ "$status_file" ] && [ -s "$status_file" ]; then
-		getstatus "$status_file" "PrevSubnetsCnt_${list_id}" prev_s_cnt
-		case "$prev_s_cnt" in
-			''|0)
-				debugprint "Previous subnets count for '$list_id' is 0."
-				unset_prev_vars ;;
-			*)
+	eval "prev_s_cnt=\"\$prev_ips_cnt_${list_id}\""
+	case "$prev_s_cnt" in
+		''|0) debugprint "Previous subnets count for '$list_id' is 0."; prev_s_cnt='' ;;
+		*)
+			eval "prev_date_compat=\"\$prev_date_${list_id}\""
+			if [ "$prev_date_compat" ]; then
 				prev_list_reg="true"
-				getstatus "$status_file" "PrevDate_${list_id}" "prev_date_compat"; rv=$?
-				case "$rv" in
-					1) die "$FAIL read the status file." ;;
-					2) debugprint "Note: status file '$status_file' has no information for list '$purple$list_id$n_c'."
-						unset_prev_vars
-				esac
-				[ "$prev_date_compat" ] && {
-					p="$prev_date_compat"
-					mon_temp="${p#?????}"
-					prev_date_raw="${p%??????}${mon_temp%???}${p#????????}"
-				}
-		esac
-	else
-		debugprint "Status file '$status_file' either doesn't exist or is empty."
-		unset_prev_vars
-	fi
+				p="$prev_date_compat"
+				mon_temp="${p#?????}"
+				prev_date_raw="${p%??????}${mon_temp%???}${p#????????}"
+			else
+				debugprint "Note: status file '$status_file' has no information for list '$purple$list_id$n_c'."
+				prev_s_cnt=
+			fi
+	esac
 }
 
 # checks whether any of the ip lists need update
@@ -282,7 +270,6 @@ check_updates() {
 			echolog -warn "$msg1" "$msg2" "$msg3"
 		fi
 
-		# debugprint "checking $list_id"
 		check_prev_list "$list_id"
 
 		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ ! "$manmode" ]; then
@@ -461,7 +448,7 @@ oldifs cca
 ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 
-[ "$script_dir" = "$install_dir" ] && getconfig HTTP http
+[ "$script_dir" = "$install_dir" ] && getconfig http
 unset secure_util fetch_cmd
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
@@ -503,7 +490,7 @@ if [ -z "$secure_util" ] && [ -z "$http" ]; then
 	fi
 	case "$REPLY" in
 		n|N) die "No fetch utility available." ;;
-		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig "HTTP=http"
+		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
 	esac
 fi
 : "${http:=https}"
@@ -525,8 +512,6 @@ lists_arg="$lists"
 tolower source_arg
 dl_src="${source_arg:-"$default_source"}"
 toupper dl_src_cap "$dl_src"
-
-unset failed_lists fetched_lists
 
 
 #### Checks
@@ -587,13 +572,22 @@ group_lists_by_registry
 
 [ ! "$registries" ] && die "$FAIL determine relevant regions."
 
-# debugprint "registries: '$registries'"
+for list_id in $valid_lists; do
+	unset "prev_ips_cnt_${list_id}"
+done
+
+# read info about previous fetch from the status file
+if [ "$status_file" ] && [ -s "$status_file" ]; then
+	getstatus "$status_file"
+else
+	debugprint "Status file '$status_file' either doesn't exist or is empty."
+fi
+unset failed_lists fetched_lists
 
 trap 'rm_tmp_f; rm -f "$server_html_file" 2>/dev/null
 	for family in $families; do
 		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp" 2>/dev/null
 	done; exit' INT TERM HUP QUIT
-
 
 check_updates
 
@@ -605,23 +599,23 @@ done
 
 ### Report fetch results via status file
 if [ "$status_file" ]; then
-	subnets_cnt_str=
+	ips_cnt_str=
 	# convert array contents to formatted multi-line string for writing to the status file
 	get_a_arr_keys subnets_cnt_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val subnets_cnt_arr "$list_id" subnets_cnt
-		subnets_cnt_str="${subnets_cnt_str}PrevSubnetsCnt_${list_id}=$subnets_cnt$_nl"
+		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}=$subnets_cnt$_nl"
 	done
 
 	list_dates_str=
 	get_a_arr_keys list_date_arr list_ids
 	for list_id in $list_ids; do
-		get_a_arr_val list_date_arr "$list_id" prevdate
-		list_dates_str="${list_dates_str}PrevDate_${list_id}=$prevdate$_nl"
+		get_a_arr_val list_date_arr "$list_id" prev_date
+		list_dates_str="${list_dates_str}prev_date_${list_id}=$prev_date$_nl"
 	done
 
-	setstatus "$status_file" "FetchedLists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
-		"FailedLists=$failed_lists" "$subnets_cnt_str" "$list_dates_str" ||
+	setstatus "$status_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
+		"failed_lists=$failed_lists" "$ips_cnt_str" "$list_dates_str" ||
 			die "$FAIL write to the status file '$status_file'."
 fi
 
