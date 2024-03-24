@@ -29,7 +29,7 @@ case "$geomode" in
 	*) die "Unknown firewall mode '$geomode'."
 esac
 
-: "${perf_opt:=memory}"
+: "${nft_perf:=memory}"
 
 #### MAIN
 
@@ -68,12 +68,15 @@ esac
 # generate lists of $new_ipsets and $old_ipsets
 unset old_ipsets new_ipsets
 curr_ipsets="$(nft -t list sets inet | grep "$geotag")"
+
+getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
+
 for list_id in $list_ids; do
 	case "$list_id" in *_*) ;; *) die "Invalid iplist id '$list_id'."; esac
 	family="${list_id#*_}"
 	iplist_file="${iplist_dir}/${list_id}.iplist"
-	getstatus "$status_file" "PrevDate_${list_id}" list_date ||
-		die "$FAIL read value for '$PrevDate_${list_id}' from file '$status_file'."
+	eval "list_date=\"\$prev_date_${list_id}\""
+	[ ! "$list_date" ] && die "$FAIL read value for 'prev_date_${list_id}' from file '$status_file'."
 	ipset="${list_id}_${list_date}_${geotag}"
 	case "$curr_ipsets" in
 		*"$ipset"* ) [ "$action" = add ] && { echo "Ip set for '$list_id' is already up-to-date."; continue; }
@@ -104,13 +107,13 @@ for new_ipset in $new_ipsets; do
 
 	# read $iplist_file into new set
 	{
-		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $perf_opt; "
+		printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $nft_perf; "
 		cat "$iplist_file"
 		printf '%s\n' "; }"
 	} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$new_ipset'."
 	OK
 
-	[ "$debugmode" ] && debugprint "elements in $new_ipset: $(nft_cnt_elements "$new_ipset")"
+	[ "$debugmode" ] && debugprint "elements in $new_ipset: $(cnt_ipset_elements "$new_ipset")"
 done
 
 #### Assemble commands for nft
@@ -140,7 +143,7 @@ nft_cmd_chain="$(
 	## Auxiliary rules
 
 	# apply geoip to ifaces
-	[ "$_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $_ifaces) }"
+	[ "$conf_ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $conf_ifaces) }"
 
 	# trusted subnets/ips
 	for family in $families; do
@@ -172,8 +175,8 @@ nft_cmd_chain="$(
 				a_d_failed=
 				lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 				[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
-				lan_ips="net:$lan_ips"
-				setconfig "lanips_$family" "$lan_ips"
+				nl2sp lan_ips "net:$lan_ips"
+				setconfig "lan_ips_$family=$lan_ips"
 			fi
 
 			nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
@@ -210,7 +213,7 @@ nft_cmd_chain="$(
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
-	[ "$geomode" = "whitelist" ] && [ ! "$_ifaces" ] &&
+	[ "$geomode" = "whitelist" ] && [ ! "$conf_ifaces" ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
 	## add iplist-specific rules
