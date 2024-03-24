@@ -56,7 +56,7 @@ esac
 shift 1
 while getopts ":l:aodh" opt; do
 	case $opt in
-		l) arg_lists=$OPTARG ;;
+		l) lists_arg=$OPTARG ;;
 		a) export daemon_mode=1 ;;
 		o) nobackup_arg=$OPTARG ;;
 		d) debugmode_args=1 ;;
@@ -84,23 +84,15 @@ daemon_prep_next() {
 
 #### VARIABLES
 
-for entry in "Lists config_lists" "NoBackup nobackup_conf" "Source dl_source" "Geomode geomode" \
-	"MaxAttempts max_attempts" "RebootSleep sleeptime"; do
-	getconfig "${entry% *}" "${entry#* }"
+for entry in config_lists nobackup_conf geosource geomode max_attempts reboot_sleep; do
+	getconfig "$entry"
 done
 export config_lists geomode
 
 nobackup="${nobackup_arg:-$nobackup_conf}"
 
-use_conf=
-
-case "$action_run" in update|restore) use_conf=1; esac
-
-if [ ! "$arg_lists" ] && [ "$use_conf" ]; then
-	lists="$config_lists"
-else
-	lists="$arg_lists"
-fi
+lists="$lists_arg"
+[ ! "$lists" ] && case "$action_run" in update|restore) lists="$config_lists"; esac
 
 trimsp lists
 fast_el_cnt "$lists" " " lists_cnt
@@ -129,10 +121,10 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unloc
 
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
-# wait $sleeptime seconds after boot
+# wait $reboot_sleep seconds after boot
 [ "$daemon_mode" ] && {
 	uptime="$(cat /proc/uptime)"; uptime="${uptime%%.*}"
-	sl_time=$((sleeptime-uptime))
+	sl_time=$((reboot_sleep-uptime))
 	[ $sl_time -gt 0 ] && {
 		echolog "Sleeping for ${sl_time}s..."
 		sleep $sl_time
@@ -154,7 +146,7 @@ case "$action_run" in
 			action_run=update action_apply=add force="-f"
 		else
 			call_script -l "$i_script-backup.sh" "restore"; rv_cs=$?
-			getconfig Lists lists
+			getconfig lists config_lists
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=true
 			else
@@ -183,13 +175,12 @@ while true; do
 
 	if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
-		setstatus "$status_file" "FailedLists=$lists_fetch" "FetchedLists="
+		setstatus "$status_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
 
-		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$dl_source" "$force" "$raw_mode"
+		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$geosource" "$force" "$raw_mode"
 
 		# read *fetch results from the status file
-		getstatus "$status_file" FailedLists failed_lists &&
-		getstatus "$status_file" FetchedLists fetched_lists || die
+		getstatus "$status_file" || die "$FAIL read the status file '$status_file'"
 
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
@@ -231,7 +222,7 @@ while true; do
 
 	if check_lists_coherence; then
 		[ "$failed_lists" ] && [ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		echolog "Successfully executed action '$action_run'$echolists."; break
+		echolog "Successfully executed action '$action_run'$echolists."; echo; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
 		echolog -warn "actual $geomode firewall config differs from the config file!"
