@@ -160,7 +160,7 @@ val_cron_exp() {
 	set -- $sourceline
 	for field in mn_val hr_val dom_val mon_val dow_val; do
 		case "$1" in
-			'') printf '\n\n%s\n' "$me: $ERR Not enough fields in schedule expression." >&2
+			'') echo; echolog -err "Not enough fields in schedule expression."
 				print_tip; die ;;
 			*) eval "$field"='$1'; shift
 		esac
@@ -168,7 +168,7 @@ val_cron_exp() {
 
 	# check for extra args
 	[ -n "$*" ] && {
-		printf '\n\n%s\n' "$me: $ERR Too many fields in schedule expression." >&2
+		echo; echolog -err "Too many fields in schedule expression."
 		print_tip
 		die
 	}
@@ -271,8 +271,8 @@ rm_cron_job() {
 
 #### Variables
 
-for entry in "CronSchedule schedule_conf" "NoPersistence no_persist" "Lists config_lists"; do
-	getconfig "${entry% *}" "${entry#* }"
+for entry in schedule_conf no_persist config_lists; do
+	getconfig "$entry"
 done
 
 run_cmd="$i_script-run.sh"
