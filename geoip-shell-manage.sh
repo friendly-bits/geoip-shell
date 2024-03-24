@@ -8,10 +8,10 @@
 
 #### Initial setup
 p_name="geoip-shell"
-script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export geomode nolog=1 manmode=1
 
 . "/usr/bin/${p_name}-geoinit.sh" &&
+script_dir="$install_dir" &&
 . "$_lib-setup.sh" || exit 1
 
 san_args "$@"
@@ -91,9 +91,9 @@ while getopts ":c:m:s:i:l:t:p:u:vfdh" opt; do
 		l) lan_ips_arg=$OPTARG ;;
 		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
-		u) source_arg=$OPTARG ;;
+		u) geosource_arg=$OPTARG ;;
 
-		v) verb_status=1 ;;
+		v) verb_status="-v" ;;
 		f) force_action=1 ;;
 		d) debugmode_args=1 ;;
 		h) usage; exit 0 ;;
@@ -106,7 +106,6 @@ extra_args "$@"
 
 check_root
 . "$_lib-$_fw_backend.sh" || die
-. "$_lib-status-$_fw_backend.sh" || die
 [ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
 
 setdebug
@@ -115,181 +114,7 @@ debugentermsg
 
 #### FUNCTIONS
 
-# Report protocols and ports
-report_proto() {
-	printf '\n%s\n' "Protocols:"
-	for proto in tcp udp; do
-		unset ports ports_act p_sel
-		eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
-
-		case "$ports_exp" in
-			all) ports_act="${red}*Geoip inactive*"; ports='' ;;
-			skip) ports="to ${green}all ports" ;;
-			*"!dport"*) p_sel="${yellow}only to ports " ;;
-			*) p_sel="to ${yellow}all ports except "
-		esac
-
-		[ "$p_sel" ] && [ ! "$ports" ] &&
-			die "$FAIL get ports from the config, or the config is invalid. \$ports_exp: '$ports_exp', \$ports_act: '$ports_act', \$ports: '$ports'$n_c, \$p_sel: '$p_sel'."
-		[ ! "$ports_act" ] && ports_act="Geoip is applied "
-		printf '%s\n' "${blue}$proto${n_c}: $ports_act$p_sel$ports${n_c}"
-	done
-}
-
-report_status() {
-	warn_persist() {
-		echolog -warn "$_nl$1 Geoip${cr_p# and} $wont_work."
-	}
-
-	incr_issues() { issues=$((issues+1)); }
-
-	_Q="${red}?${n_c}"
-	issues=0
-
-	ipsets="$(get_ipsets)"
-
-	printf '\n%s\n\n%s\n' "${purple}$p_name status:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
-
-	printf '\n%s\n%s\n' "Geoip blocking mode: ${blue}${geomode}${n_c}" "Ip lists source: ${blue}${source}${n_c}"
-
-	check_lists_coherence && lists_coherent=" $_V" || { report_incoherence; incr_issues; lists_coherent=" $_Q"; }
-
-	# check ipsets and firewall rules for active ccodes
-	for list_id in $active_lists; do
-		active_ccodes="$active_ccodes${list_id%_*} "
-		active_families="$active_families${list_id#*_} "
-	done
-	san_str -s active_ccodes
-	san_str -s active_families
-	printf %s "Country codes in the $geomode: "
-	case "$active_ccodes" in
-		'') printf '%s\n' "${red}None $_X"; incr_issues ;;
-		*) printf '%s\n' "${blue}${active_ccodes}${n_c}${lists_coherent}"
-	esac
-	printf %s "IP families in firewall rules: "
-	case "$active_families" in
-		'') printf '%s\n' "${red}None${n_c} $_X"; incr_issues ;;
-		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
-	esac
-
-	unset _ifaces_r _ifaces_all
-	[ "$conf_ifaces" ] && _ifaces_r=": ${blue}$_ifaces$n_c" || _ifaces_all="${blue}all$n_c "
-	printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
-
-	trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
-	trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
-	[ "$trusted_ipv4$trusted_ipv6" ] && {
-		printf '\n%s\n' "Allowed trusted ip's:"
-		for f in $families; do
-			eval "trusted=\"\$trusted_$f\""
-			[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
-		done
-	}
-
-	[ "$geomode" = "whitelist" ] && {
-		lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
-		lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
-		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$conf_ifaces" ] && {
-			printf '\n%s\n' "Allowed LAN ip's:"
-			for f in $families; do
-				eval "lan_ips=\"\$lan_ips_$f\""
-				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
-				[ "$lan_ips" ] || [ ! "$conf_ifaces" ] && printf '%s\n' "$f: $lan_ips"
-			done
-			autodetect_hr=Off
-			[ "$autodetect" ] && autodetect_hr=On
-			printf '%s\n' "LAN subnets automatic detection: $blue$autodetect_hr$n_c"
-		}
-	}
-
-	report_proto
-	echo
-	report_fw_state
-
-	[ "$verb_status" ] && {
-		printf %s "Ip ranges count in active geoip sets: "
-		case "$active_ccodes" in
-			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
-			*) echo
-				for ccode in $active_ccodes; do
-					el_summary=''
-					printf %s "${blue}${ccode}${n_c}: "
-					for family in $active_families; do
-						el_cnt="$(cnt_ipset_elements "${ccode}_${family}")"
-						[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $_X"; incr_issues; }
-						el_summary="$el_summary$family - $el_cnt$list_empty, "
-						total_el_cnt=$((total_el_cnt+el_cnt))
-					done
-					printf '%s\n' "${el_summary%, }"
-				done
-		esac
-		printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
-	}
-
-	unset cr_p
-	[ ! "$_OWRTFW" ] && cr_p=" and persistence across reboots"
-	wont_work="will likely not work" a_disabled="appears to be disabled"
-
-	# check if cron service is enabled
-	if check_cron; then
-		printf '\n%s\n' "Cron system service: $_V"
-
-		# check cron jobs
-
-		cron_jobs="$(crontab -u root -l 2>/dev/null)"
-
-		# check for autoupdate cron job
-		get_matching_line "$cron_jobs" "*" "${p_name}-autoupdate" "" update_job
-		case "$update_job" in
-			'') upd_job_status="$_X"; upd_schedule=''; incr_issues ;;
-			*) upd_job_status="$_V"; upd_schedule="${update_job%%\"*}"
-		esac
-		printf '%s\n' "Autoupdate cron job: $upd_job_status"
-		[ "$upd_schedule" ] && printf '%s\n' "Autoupdate schedule: '${blue}${upd_schedule% }${n_c}'"
-
-		[ ! "$_OWRTFW" ] && {
-			# check for persistence cron job
-			get_matching_line "$cron_jobs" "*" "${p_name}-persistence" "" persist_job
-			case "$persist_job" in
-				'') persist_status="$_X"; incr_issues ;;
-				*) persist_status="$_V"
-			esac
-			printf '%s\n' "Persistence cron job: $persist_status"
-		}
-	else
-		printf '\n%s\n' "$WARN cron service $a_disabled. Autoupdates$cr_p $wont_work." >&2
-		incr_issues
-	fi
-
-	[ "$_OWRTFW" ] && {
-		rv=0
-		printf %s "Persistence: "
-		check_owrt_init ||
-			{ rv=1; printf '%s\n' "$_X"; warn_persist "procd init script for $p_name $a_disabled."; incr_issues; }
-
-		check_owrt_include ||
-			{ [ $rv = 0 ] && printf '%s\n' "$_X"; rv=1; warn_persist "Firewall include is not found."; incr_issues; }
-		[ $rv = 0 ] && printf '%s\n' "$_V"
-	}
-
-	case $issues in
-		0) printf '\n%s\n\n' "${green}No problems detected.${n_c}" ;;
-		*) printf '\n%s\n\n' "${red}Problems detected: $issues.${n_c}"
-	esac
-}
-
-report_incoherence() {
-	discr="Discrepancy detected between"
-	printf '\n%s\n' "$WARN $discr the firewall state and the config file." >&2
-	for opt in unexpected missing; do
-		eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt ip lists in the firewall: '\$${opt}_lists'\"" >&2
-	done
-	[ "$iplists_incoherent" ] && printf '%s\n' "$WARN $discr geoip ipsets and geoip firewall rules!" >&2
-}
-
 incoherence_detected() {
-	report_incoherence
-
 	printf '%s\n\n%s\n' "Re-apply the rules from the config file to fix this?" \
 		"'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
 
@@ -299,7 +124,7 @@ incoherence_detected() {
 		case "$REPLY" in
 			[Yy] ) echo; restore_from_config; break ;;
 			[Nn] ) die ;;
-			[Ss] ) printf '\n\n\n%s\n' "$geomode ip lists in the config file: '$config_lists_str'" ;;
+			[Ss] ) printf '\n\n\n%s\n' "$geomode ip lists in the config file: '$config_lists'" ;;
 			* ) printf '\n%s\n' "Enter 'y/n/s'."
 		esac
 	done
@@ -322,11 +147,11 @@ restore_from_config() {
 		restore_ok_msg="Successfully applied new config."
 	}
 	echolog "$restore_msg"
-	case "$config_lists_str" in
-		'') echolog -err "no ip lists registered in the config file." ;;
+	case "$config_lists" in
+		'') echolog -err "No ip lists registered in the config file." ;;
 		*) call_script "$i_script-uninstall.sh" -l || return 1
-			setconfig "Lists=$config_lists_str"
-			call_script -l "$run_command" add -l "$config_lists_str"
+			setconfig config_lists
+			call_script -l "$run_command" add -l "$config_lists"
 			check_reapply && return 0
 	esac
 
@@ -369,9 +194,10 @@ check_for_lockout() {
 			y|Y) printf '\n%s\n' "Proceeding..." ;;
 			n|N)
 				[ "$geomode_change" ] && geomode="$geomode_prev"
+				[ "$lists_change" ] && config_lists="$config_lists_prev"
 				[ ! "$in_install" ] && report_lists
 				echo
-				die 0 "Aborted action '$action' for ip lists '$lists_to_change_str'."
+				die 0 "Aborted action '$action'."
 		esac
 	}
 	:
@@ -387,18 +213,13 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
-for entry in "Geomode geomode" "Families families" "Lists config_lists_str" "UserCcode user_ccode"\
-		"tcp_ports tcp_ports" "udp_ports udp_ports" "LanIps_ipv4 c_lan_ips_ipv4" \
-		"LanIps_ipv6 c_lan_ips_ipv6" "Autodetect autodetect" "Trusted_ipv4 trusted_ipv4" \
-		"Trusted_ipv6 trusted_ipv6" "Ifaces conf_ifaces" "Source source" ; do
-	getconfig "${entry% *}" "${entry#* }"
-done
+get_config_vars
 
 case "$geomode" in whitelist|blacklist) ;; *) die "Unexpected geoip mode '$geomode'!"; esac
 
 toupper ccodes_arg
 san_str -s ccodes_arg
-sp2nl config_lists "$config_lists_str"
+sp2nl config_lists_nl "$config_lists"
 
 tolower action
 
@@ -440,7 +261,7 @@ esac
 	[ "$ports_arg" ] && die "$incompat '-p'."
 	[ "$lan_ips_arg" ] && die "$incompat '-l'."
 	[ "$ifaces_arg" ] && die "$incompat '-i'."
-	[ "$source_arg" ] && die "$incompat '-u'."
+	[ "$geosource_arg" ] && die "$incompat '-u'."
 }
 [ "$action" != schedule ] && [ "$cron_schedule" ] && die "$incompat '-s'."
 
@@ -449,11 +270,11 @@ esac
 #### MAIN
 
 case "$action" in
-	status) report_status; die 0 ;;
+	status) . "$_lib-status.sh"; die $? ;;
 	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0 ;;
 	schedule) [ ! "$cron_schedule" ] && die "Specify cron schedule for autoupdate or 'disable'."
 		# communicate schedule to *cronsetup via config
-		setconfig "CronSchedule=$cron_schedule"
+		setconfig cron_schedule
 		call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		die 0
 esac
@@ -465,9 +286,9 @@ trap 'eval "$trap_args_unlock"' INT TERM HUP QUIT
 case "$action" in
 	on|off)
 		case "$action" in
-			on) [ ! "$config_lists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
-				setconfig "NoBlock=" ;;
-			off) setconfig "NoBlock=1"
+			on) [ ! "$config_lists_nl" ] && die "No ip lists registered. Refusing to enable geoip blocking."
+				setconfig "noblock=" ;;
+			off) setconfig "noblock=1"
 		esac
 		call_script "$i_script-apply.sh" $action || die
 		die 0 ;;
@@ -484,24 +305,40 @@ for ccode in $ccodes_arg; do
 done
 
 case "$action" in
-	apply) unset restore_req geomode_change geomode_prev ifaces_change planned_lists_str
-		[ "$geomode_arg" ] && [ "$geomode_arg" != "$geomode" ] && { geomode_change=1; geomode_prev="$geomode"; }
-		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$conf_ifaces" ] && ifaces_change=1
-		: "${source_arg:="$source"}"
-		: "${lists_arg:="$config_lists"}"
-		nl2sp lists_arg_str "$lists_arg"
-		[ "$geomode_change" ] || [ "$source_arg" != "$source" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
-			! get_difference "$config_lists" "$lists_arg" && restore_req=1
-		get_prefs || die
-		planned_lists_str="$lists_arg_str"
-		lists_to_change_str="$planned_lists_str"
-		config_lists_str="$planned_lists_str"
-		sp2nl planned_lists "$planned_lists_str"
-		[ "$geomode_change" ] && check_for_lockout
+	apply) unset restore_req geomode_prev config_lists_prev planned_lists_str \
+			geomode_change geosource_change ifaces_change lists_change
 
-		setconfig "tcp_ports=$tcp_ports" "udp_ports=$udp_ports" "Source=$source" "LanIps_ipv4=$c_lan_ips_ipv4" \
-			"LanIps_ipv6=$c_lan_ips_ipv6" "Autodetect=$autodetect" "Trusted_ipv4=$trusted_ipv4" \
-			"Trusted_ipv6=$trusted_ipv6" "Ifaces=$conf_ifaces" "Geomode=$geomode" "Lists=$planned_lists_str"
+		config_lists_prev="$config_lists"
+		geomode_prev="$geomode"
+
+		[ "$geomode_arg" ] && [ "$geomode_arg" != "$geomode" ] && geomode_change=1
+		[ "$geosource_arg" ] && [ "$geosource_arg" != "$geosource" ] && geosource_change=1
+		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$conf_ifaces" ] && ifaces_change=1
+		: "${geosource_arg:="$geosource"}"
+
+		get_prefs || die
+
+		[ ! "$lists_arg" ] && for ccode in $ccodes; do
+			for f in $families; do
+				add2list lists_arg "${ccode}_$f" "$_nl"
+			done
+		done
+		: "${lists_arg:="$config_lists_nl"}"
+		! get_difference "$config_lists_nl" "$lists_arg" && lists_change=1
+
+		nl2sp lists_arg_str "$lists_arg"
+		planned_lists="$lists_arg"
+		planned_lists_str="$lists_arg_str"
+		lists_to_change_str="$lists_arg_str"
+		config_lists="$lists_arg_str"
+
+		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
+			[ "$lists_change" ] && restore_req=1
+
+		[ "$geomode_change" ] || [ "$lists_change" ] && check_for_lockout
+
+		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+			conf_ifaces geomode config_lists
 
 		if [ ! "$restore_req" ]; then
 			call_script "$i_script-apply.sh" "update"; rv_apply=$?
@@ -511,12 +348,12 @@ case "$action" in
 		fi
 		die $rv_apply ;;
 	add)
-		san_str requested_lists "$config_lists$_nl$lists_arg"
+		san_str requested_lists "$config_lists_nl$_nl$lists_arg"
 #		debugprint "requested resulting lists: '$requested_lists'"
 
 		if [ ! "$force_action" ]; then
-			get_difference "$config_lists" "$requested_lists" lists_to_change
-			get_intersection "$lists_arg" "$config_lists" wrong_lists
+			get_difference "$config_lists_nl" "$requested_lists" lists_to_change
+			get_intersection "$lists_arg" "$config_lists_nl" wrong_lists
 
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
@@ -525,15 +362,15 @@ case "$action" in
 		else
 			lists_to_change="$lists_arg"
 		fi
-		san_str planned_lists "$config_lists$_nl$lists_to_change"
+		san_str planned_lists "$config_lists_nl$_nl$lists_to_change"
 #		debugprint "action: add, lists_to_change: '$lists_to_change'"
 		;;
 
 	remove)
 #		debugprint "requested lists to remove: '$lists_arg'"
 		if [ ! "$force_action" ]; then
-			get_intersection "$config_lists" "$lists_arg" lists_to_change
-			subtract_a_from_b "$config_lists" "$lists_arg" wrong_lists
+			get_intersection "$config_lists_nl" "$lists_arg" lists_to_change
+			subtract_a_from_b "$config_lists_nl" "$lists_arg" wrong_lists
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
 				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove." >&2
@@ -541,8 +378,8 @@ case "$action" in
 		else
 			lists_to_change="$lists_arg"
 		fi
-		# remove any entries found in lists_to_change from config_lists and assign to planned_lists
-		subtract_a_from_b "$lists_to_change" "$config_lists" planned_lists
+		# remove any entries found in lists_to_change from config_lists_nl and assign to planned_lists
+		subtract_a_from_b "$lists_to_change" "$config_lists_nl" planned_lists
 esac
 
 if [ ! "$lists_to_change" ] && [ ! "$force_action" ]; then
@@ -564,17 +401,17 @@ check_for_lockout
 ### Call the *run script
 
 nl2sp planned_lists_str "$planned_lists"
-debugprint "Writing new config to file: 'Lists=$planned_lists_str'"
-setconfig "Lists=$planned_lists_str"
+debugprint "Writing new config to file: 'config_lists=$planned_lists_str'"
+setconfig "config_lists=$planned_lists_str"
 
 call_script -l "$run_command" "$action" -l "$lists_to_change_str"; rv=$?
 
 # positive return code means apply failure or another permanent error, except for 254
 case "$rv" in 0|254) ;; *)
 	echolog -err "$FAIL perform action '$action' for lists '$lists_to_change_str'."
-	[ ! "$config_lists" ] && die "Can not restore previous ip lists because they are not found in the config file."
+	[ ! "$config_lists_nl" ] && die "Can not restore previous ip lists because they are not found in the config file."
 	# write previous config lists
-	setconfig "Lists=$config_lists_str"
+	setconfig config_lists
 	restore_from_config
 esac
 
