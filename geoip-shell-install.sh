@@ -15,7 +15,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.3.2"
+curr_ver="0.3.3"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
@@ -87,7 +87,7 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkdhz" opt; do
 		m) geomode_arg=$OPTARG ;;
 		s) schedule_arg=$OPTARG ;;
 		f) families_arg=$OPTARG ;;
-		u) source_arg=$OPTARG ;;
+		u) geosource_arg=$OPTARG ;;
 		i) ifaces_arg=$OPTARG ;;
 		l) lan_ips_arg=$OPTARG ;;
 		t) trusted_arg=$OPTARG ;;
@@ -96,7 +96,7 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkdhz" opt; do
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
 
-		e) perf_opt=performance ;;
+		e) nft_perf=performance ;;
 		n) no_persist=1 ;;
 		k) noblock=1 ;;
 		z) export nointeract=1 ;;
@@ -256,7 +256,7 @@ done
 
 unset lib_files ipt_libs
 [ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt status-ipt"
-for f in common arrays nft apply-nft backup-nft status-nft setup ip-regex $check_compat $ipt_libs; do
+for f in common arrays nft apply-nft backup-nft status status-nft setup ip-regex $check_compat $ipt_libs; do
 	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -305,12 +305,9 @@ mkdir -p "$inst_root_gs$conf_dir"
 # write config
 printf %s "Setting config... "
 nodie=1
-setconfig "UserCcode=$user_ccode" "Lists=" "Geomode=$geomode" "tcp_ports=$tcp_ports" "udp_ports=$udp_ports" \
-	"Source=$source" "Families=$families" "CronSchedule=$schedule" \
-	"MaxAttempts=$max_attempts" "Ifaces=$conf_ifaces" "Autodetect=$autodetect" "PerfOpt=$perf_opt" \
-	"LanIps_ipv4=$c_lan_ips_ipv4" "LanIps_ipv6=$c_lan_ips_ipv6" \
-	"Trusted_ipv4=$trusted_ipv4" "Trusted_ipv6=$trusted_ipv6" \
-	"RebootSleep=$sleeptime" "NoBackup=$nobackup" "NoPersistence=$no_persist" "NoBlock=$noblock" "HTTP=" || install_failed
+setconfig user_ccode "config_lists=" geomode tcp_ports udp_ports geosource families schedule_conf \
+	max_attempts conf_ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
+	reboot_sleep nobackup_conf no_persist noblock "http=" || install_failed
 OK
 
 # create the -constants file
