@@ -13,7 +13,7 @@
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
 restorebackup() {
 	printf %s "Restoring files from backup... "
-	for list_id in $lists; do
+	for list_id in $config_lists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
 
@@ -35,7 +35,7 @@ restorebackup() {
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
-	call_script "${i_script}-apply.sh" add -l "$lists"; apply_rv=$?
+	call_script "${i_script}-apply.sh" add -l "$config_lists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
 	:
@@ -66,14 +66,14 @@ bk_failed() {
 
 # Saves current firewall state to a backup file
 create_backup() {
-	getconfig Lists lists "$conf_file" || bk_failed
-
 	# back up current ip sets
 	printf %s "Creating backup of $p_name ip sets... "
-	for list_id in $lists; do
+	getstatus "$status_file" || bk_failed
+	for list_id in $config_lists; do
 		bk_file="${bk_dir}/${list_id}.${bk_ext:-bak}"
 		iplist_file="$iplist_dir/${list_id}.iplist"
-		getstatus "$status_file" "PrevDate_${list_id}" list_date || bk_failed
+		eval "list_date=\"\$prev_date_${list_id}\""
+		[ -z "$list_date" ] && bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
 
 		rm "$tmp_file" 2>/dev/null
