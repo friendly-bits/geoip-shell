@@ -129,7 +129,7 @@ get_active_iplists() {
 	iprules_lists="$(nft_get_geotable "$force_read" |
 		sed -n "/saddr[[:space:]]*@.*${geotag}.*$nft_verdict/{s/.*@//;s/_.........._${geotag}.*//p}")"
 
-	debugprint "ipset_lists: '$ipset_lists', iprules_lists: '$iprules_lists'"
+	# debugprint "ipset_lists: '$ipset_lists', iprules_lists: '$iprules_lists'"
 
 	get_difference "$ipset_lists" "$iprules_lists" lists_difference
 	get_intersection "$ipset_lists" "$iprules_lists" "$1"
