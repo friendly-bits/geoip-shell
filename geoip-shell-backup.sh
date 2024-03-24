@@ -94,8 +94,8 @@ set_archive_type() {
 
 #### VARIABLES
 
-getconfig Families families
-getconfig Lists config_lists
+getconfig families
+getconfig config_lists
 
 conf_file_bak="$datadir/${p_name}.conf.bak"
 status_file_bak="$datadir/status.bak"
@@ -120,19 +120,19 @@ case "$action" in
 		create_backup
 		rm "$tmp_file" 2>/dev/null
 		cp "$status_file" "$status_file_bak" &&
-		setconfig "BackupExt=${bk_ext:-bak}" &&
+		setconfig "bk_ext=${bk_ext:-bak}" &&
 		cp "$conf_file" "$conf_file_bak" || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
 		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
 		[ ! -s "$conf_file_bak" ] && rstr_failed "'$conf_file_bak' is empty or doesn't exist."
-		getconfig Lists lists "$conf_file_bak" &&
-		getconfig BackupExt bk_ext "$conf_file_bak" || rstr_failed
+		getconfig config_lists config_lists "$conf_file_bak" &&
+		getconfig bk_ext bk_ext "$conf_file_bak" || rstr_failed
 		set_extract_cmd "$bk_ext"
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
-		statustip ;;
+		statustip
 esac
 
 die 0
