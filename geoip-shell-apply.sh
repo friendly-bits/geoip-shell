@@ -66,12 +66,7 @@ debugentermsg
 
 ## VARIABLES
 
-for entry in "Families families" "NoBlock noblock" "Geomode geomode" "PerfOpt perf_opt" \
-		"Autodetect autodetect_opt" "Ifaces _ifaces" "tcp_ports tcp_ports" "udp_ports udp_ports" \
-		"LanIps_ipv4 lan_ips_ipv4" "LanIps_ipv6 lan_ips_ipv6" \
-		"Trusted_ipv4 trusted_ipv4" "Trusted_ipv6 trusted_ipv6"; do
-	getconfig "${entry% *}" "${entry#* }"
-done
+get_config_vars
 
 tolower action
 
@@ -79,14 +74,13 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 [ ! "$datadir" ] && die "the \$datadir variable is empty."
 [ ! "$geomode" ] && die "the \$geomode variable is empty."
 
-[ "$_ifaces" ] && {
+[ "$conf_ifaces" ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
 	nl2sp all_ifaces
-	subtract_a_from_b "$all_ifaces" "$_ifaces" bad_ifaces ' '
+	subtract_a_from_b "$all_ifaces" "$conf_ifaces" bad_ifaces ' '
 	[ "$bad_ifaces" ] && die "Network interfaces '$bad_ifaces' do not exist in this system."
 }
 
