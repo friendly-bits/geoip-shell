@@ -24,8 +24,7 @@ debugprint() {
 		__nl="$_nl"
 		dbg_args="${dbg_args#"\n"}"
 	esac
-
-	printf '%s\n' "${__nl}Debug: ${me_short}: $dbg_args" >&2
+	printf '%s\n' "${__nl}${yellow}Debug: $blue${me_short}$n_c: $dbg_args" >&2
 }
 
 debugentermsg() {
@@ -331,20 +330,21 @@ get_matching_line() {
 	return $_rv
 }
 
-# 1 - key
-# 2 - var name for output
+# 1 - var name for output
+# 2 - optional key (otherwise uses var name as key)
 # 3 - optional path to config file
 getconfig() {
 	key_conf="$1"
+	[ $# -gt 1 ] && key_conf="$2"
 	target_file="${3:-$conf_file}"
-	[ "$1" ] && [ "$2" ] && [ "$target_file" ] &&
+	[ "$1" ] && [ "$target_file" ] &&
 	getallconf conf "$target_file" &&
 	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || {
-		eval "$2="
+		eval "$1="
 		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
 		return 2
 	}
-	eval "$2"='${conf_line#"${key_conf}"=}'
+	eval "$1"='${conf_line#"${key_conf}"=}'
 	:
 }
 
@@ -352,6 +352,8 @@ getconfig() {
 # 2 - conf file path
 getallconf() {
 	[ ! "$1" ] || [ ! -f "$2" ] && return 1
+	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; return 1; }
+
 	# check in cache first
 	conf_gac=
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
@@ -363,7 +365,39 @@ getallconf() {
 	:
 }
 
+# gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
+get_config_vars() {
+	inval_e() {
+		echolog -err "Invalid entry '$entry' in config."
+		[ ! "$nodie" ] && die
+	}
+
+	target_f_gcv="${1:-"$conf_file"}"
+
+	getallconf all_config "$target_f_gcv" || {
+		echolog -err "$FAIL get config from '$target_f_gcv'."
+		[ ! "$nodie" ] && die
+		return 1
+	}
+
+	newifs "$_nl" gcv
+	for entry in $all_config; do
+		case "$entry" in
+			'') continue ;;
+			*=*=*) { inval_e; return 1; } ;;
+			*=*) ;;
+			*) { inval_e; return 1; } ;;
+		esac
+		key_conf="${entry%=*}"
+		is_alphanum "$key_conf" || { inval_e; return 1; }
+		eval "$key_conf"='${entry#${key_conf}=}'
+	done
+	oldifs gcv
+	:
+}
+
 # Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
+# if no '=' included, gets value of var with named the same as the key
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
 	unset args_lines args_target_file keys_test_str newconfig
@@ -372,19 +406,23 @@ setconfig() {
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
 		for line in $argument_conf; do
-			case "$line" in *'='*)
-				key_conf="${line%%=*}"
-				value_conf="${line#*=}"
-				case "$key_conf" in
-					'') ;;
-					target_file) args_target_file="$value_conf" ;;
-					*) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
-						keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
-				esac
+			[ ! "$line" ] && continue
+			case "$line" in
+				'') continue ;;
+				*=*=*|*' '*=*) sc_failed "bad config line '$line'." ;;
+				*=*) key_conf="${line%%=*}"; value_conf="${line#*=}" ;;
+				*) key_conf="$line"; eval "value_conf=\"\$$line\"" || sc_failed "bad key '$line'."
+			esac
+			case "$key_conf" in
+				'') ;;
+				target_file) args_target_file="$value_conf" ;;
+				*) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
+					keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
 			esac
 		done
 	done
 	keys_test_str="${keys_test_str%\|}"
+	[ ! "$keys_test_str" ] && { sc_failed "no valid args passed."; return 1; }
 	target_file="${args_target_file:-$inst_root_gs$conf_file}"
 
 	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
@@ -412,14 +450,13 @@ sc_failed() {
 
 # utilizes getconfig() but intended for reading status from status files
 # 1 - status file
-# 2 - key
-# 3 - var name for output
 getstatus() {
-	target_file="$1"
-	[ ! "$target_file" ] && die "getstatus: target file not specified!" ||
-		nodie=1 getconfig "$2" "status_value" "$target_file"; rv_gs=$?
-	eval "$3"='$status_value'
-	return $rv_gs
+	[ ! "$1" ] && {
+		echolog -err "getstatus: target file not specified!"
+		[ ! "$nodie" ] && die
+		return 1
+	}
+	nodie=1 get_config_vars "$1"
 }
 
 # utilizes setconfig() for writing to status files
@@ -431,7 +468,7 @@ setstatus() {
 	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file"
-	setconfig "target_file=$target_file" "$@"
+	setconfig target_file "$@"
 }
 
 # trims leading, trailing and extra in-between spaces
@@ -589,13 +626,14 @@ check_lists_coherence() {
 	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; die "Unexpected geoip mode '$geomode'!"; esac
 
 	unset unexp_lists missing_lists
-	getconfig Lists conf_lists
+	getconfig conf_lists config_lists
 
 	sp2nl conf_lists
 	get_active_iplists -f active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
 		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		r_no_l
+		report_incoherence
 		return 1
 	}
 
@@ -607,8 +645,19 @@ check_lists_coherence() {
 			subtract_a_from_b "$conf_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
 			subtract_a_from_b "$active_lists" "$conf_lists" missing_lists; nl2sp missing_lists
 			r_no_l
+			report_incoherence
 			return 1
 	esac
+}
+
+report_incoherence() {
+	echo
+	[ "$iplists_incoherent" ] && echolog -warn "$discr geoip ipsets and geoip firewall rules!"
+	discr="Discrepancy detected between"
+	echolog -warn "$discr the firewall state and the config file."
+	for opt_ri in unexpected missing; do
+		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri ip lists in the firewall: '\$${opt_ri}_lists'\""
+	done
 }
 
 # validates country code in $1 against cca2.list
@@ -681,7 +730,7 @@ rm_lock() {
 check_lock() {
 	[ ! -f $lock_file ] && return 0
 	used_pid="$(cat ${lock_file})"
-	[ "$used_pid" ] && kill -0 "$used_pid" &&
+	[ "$used_pid" ] && kill -0 "$used_pid" 2>/dev/null &&
 	die 254 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
