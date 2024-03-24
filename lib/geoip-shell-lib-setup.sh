@@ -32,7 +32,7 @@ pick_user_ccode() {
 					0)  user_ccode="$REPLY"; break ;;
 					1)  die "Internal error while trying to validate country codes." ;;
 					2)  printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
-						[ "$nointeract" ] && exit 1
+						[ "$nointeract" ] && die 1
 						printf '%s\n\n' "Try again or press Enter to skip this check."
 						REPLY=
 				esac
@@ -54,7 +54,7 @@ pick_ccodes() {
 		toupper REPLY
 		trimsp REPLY
 		case "$REPLY" in
-			a|A) exit 0 ;;
+			a|A) die 0 ;;
 			*)
 				newifs ' ;,' pcc
 				for ccode in $REPLY; do
@@ -66,13 +66,13 @@ pick_ccodes() {
 				oldifs pcc
 				[ "$bad_ccodes" ] && {
 					printf '%s\n' "Invalid 2-letter country codes: '${bad_ccodes% }'."
-					[ "$nointeract" ] && exit 1
+					[ "$nointeract" ] && die 1
 					REPLY=
 					continue
 				}
 				[ ! "$ok_ccodes" ] && {
 					printf '%s\n' "No country codes detected in '$REPLY'."
-					[ "$nointeract" ] && exit 1
+					[ "$nointeract" ] && die 1
 					REPLY=
 					continue
 				}
@@ -87,7 +87,7 @@ pick_geomode() {
 	case "$REPLY" in
 		w|W) geomode=whitelist ;;
 		b|B) geomode=blacklist ;;
-		a|A) exit 0
+		a|A) die 0
 	esac
 }
 
@@ -117,7 +117,7 @@ pick_ifaces() {
 		pick_opt "c|h|a"
 		case "$REPLY" in
 			c|C) conf_ifaces="$auto_ifaces"; return ;;
-			a|A) exit 0
+			a|A) die 0
 		esac
 	}
 
@@ -128,7 +128,7 @@ pick_ifaces() {
 		[ ! "$REPLY" ] && {
 			printf '%s\n' "Type in WAN network interface names, or [a] to abort."
 			read -r REPLY
-			case "$REPLY" in a|A) exit 0; esac
+			case "$REPLY" in a|A) die 0; esac
 		}
 		san_str -s u_ifaces "$REPLY"
 		[ -z "$u_ifaces" ] && {
@@ -179,7 +179,7 @@ pick_lan_ips() {
 	confirm_ips() { eval "c_lan_ips_$family=\"$ipset_type:$u_ips\""; }
 
 	lan_picked=1
-	unset autodetect ipset_type u_ips c_lan_ips_ipv4 c_lan_ips_ipv6
+	unset autodetect ipset_type u_ips lan_ips_ipv4 lan_ips_ipv6
 	case "$lan_ips_arg" in
 		none) return 0 ;;
 		auto) lan_ips_arg=''; autodetect=1
@@ -199,7 +199,6 @@ pick_lan_ips() {
 			echolog -err "$FAIL detect $family LAN subnets."
 			[ "$nointeract" ] && die
 		}
-		nl2sp s
 
 		[ -n "$u_ips" ] && {
 			nl2sp u_ips
@@ -213,7 +212,7 @@ pick_lan_ips() {
 				c|C) confirm_ips; continue ;;
 				s|S) continue ;;
 				h|H) autodetect_off=1 ;;
-				a|A) exit 0
+				a|A) die 0
 			esac
 		}
 
@@ -225,7 +224,7 @@ pick_lan_ips() {
 				read -r REPLY
 				case "$REPLY" in
 					s|S) break ;;
-					a|A) exit 0
+					a|A) die 0
 				esac
 			}
 			san_str -s u_ips "$REPLY"
@@ -321,17 +320,17 @@ setports() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	[ "$_OWRTFW" ] && { source_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true; } ||
-		{ source_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false; }
+	[ "$_OWRTFW" ] && { geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true; } ||
+		{ geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false; }
 
-	: "${nobackup:="$nobackup_def"}"
+	: "${nobackup_conf:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
-	: "${schedule:="15 4 * * *"}"
+	: "${schedule_conf:="15 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
-	: "${source:="$source_def"}"
+	: "${geosource:="$geosource_def"}"
 	: "${tcp_ports:=skip}"
 	: "${udp_ports:=skip}"
-	: "${sleeptime:=30}"
+	: "${reboot_sleep:=30}"
 	: "${max_attempts:=30}"
 }
 
@@ -341,7 +340,7 @@ get_prefs() {
 		''|true|false) ;;
 		*) die "Invalid value for option '-o': '$nobackup_arg'"
 	esac
-	nobackup="${nobackup_arg:=$nobackup}"
+	nobackup_conf="${nobackup_arg:=$nobackup_conf}"
 
 	# datadir
 	[ "$datadir_arg" ] && {
@@ -354,7 +353,7 @@ get_prefs() {
 	datadir="${datadir_arg:=$datadir}"
 
 	# cron schedule
-	schedule="${schedule_arg:=$schedule}"
+	schedule_conf="${schedule_arg:=$schedule_conf}"
 
 	check_cron_compat
 	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
@@ -373,9 +372,9 @@ get_prefs() {
 	families="${families_arg:=$families}"
 
 	# source
-	tolower source_arg
-	case "$source_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$source_arg'."; esac
-	source="${source_arg:=$source}"
+	tolower geosource_arg
+	case "$geosource_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$geosource_arg'."; esac
+	geosource="${geosource_arg:=$geosource}"
 
 	# process trusted ip's if specified
 	case "$trusted_arg" in
@@ -395,7 +394,7 @@ get_prefs() {
 			'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
 			*) [ "$nointeract" ] && die "Unrecognized mode '$geomode_arg'! Use either 'whitelist' or 'blacklist'!"; pick_geomode
 		esac
-		[ "$geomode" = blacklist ] && unset c_lan_ips_ipv4 c_lan_ips_ipv6
+		[ "$geomode" = blacklist ] && unset lan_ips_ipv4 lan_ips_ipv6
 	}
 
 	[ "$lan_ips_arg" ] && [ "$lan_ips_arg" != none ] && [ "$geomode" = blacklist ] &&
@@ -417,7 +416,7 @@ get_prefs() {
 			"It is important to answer this question correctly."
 		pick_opt "y|n|a"
 		case "$REPLY" in
-			a|A) exit 0 ;;
+			a|A) die 0 ;;
 			y|Y) pick_ifaces ;;
 			n|N) [ "$geomode" = whitelist ] && { printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; }
 		esac
