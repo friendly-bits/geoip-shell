@@ -103,7 +103,7 @@ set +f; rm "${iplist_dir:?}"/* 2>/dev/null
 rm -rf "${datadir:?}"/* 2>/dev/null
 
 [ "$resetonly_lists" ] && {
-	[ -f "$conf_file" ] && setconfig "Lists="
+	[ -f "$conf_file" ] && setconfig "config_lists="
 	exit 0
 }
 
@@ -140,7 +140,7 @@ done
 
 printf '%s\n' "Deleting library scripts from $lib_dir..."
 for script_name in owrt-common common ipt nft ip-regex arrays apply-ipt apply-nft backup-ipt \
-	backup-nft status-ipt status-nft check-compat setup; do
+	backup-nft status status-ipt status-nft check-compat setup; do
 		rm "${lib_dir}/${p_name}-lib-$script_name.sh" 2>/dev/null
 done
 
