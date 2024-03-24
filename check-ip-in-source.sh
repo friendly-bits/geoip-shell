@@ -149,8 +149,7 @@ for family in $families; do
 	sh "$fetch_script" -r -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" || die "$FAIL fetch ip lists."
 
 	# read *fetch results from the status file
-	getstatus "$status_file" "FailedLists" failed_lists ||
-		die "Couldn't read value for 'FailedLists' from status file '$status_file'."
+	getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
 
 	[ -n "$failed_lists" ] && die "ip list fetch failed."
 
