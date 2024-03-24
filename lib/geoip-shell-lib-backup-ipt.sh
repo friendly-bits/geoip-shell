@@ -71,10 +71,6 @@ restorebackup() {
 
 	cp "$status_file_bak" "$status_file" || rstr_failed "$FAIL restore the status file."
 	cp "$conf_file_bak" "$conf_file" || rstr_failed "$FAIL restore the config file."
-
-	# save backup file full path to the config file
-	setconfig "BackupFile=$bk_file" || rstr_failed
-
 	:
 }
 
@@ -135,5 +131,7 @@ create_backup() {
 		bk_failed "$FAIL compress firewall backup to file '${bk_file}.new'."
 
 	mv "${bk_file}.new" "$bk_file" || bk_failed "$FAIL overwrite file '$bk_file'."
+	OK
+
 	:
 }
