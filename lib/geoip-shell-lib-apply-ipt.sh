@@ -35,7 +35,7 @@ destroy_tmp_ipsets() {
 }
 
 enable_geoip() {
-	[ -n "$_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
+	[ -n "$conf_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
 	for family in $families; do
 		set_ipt_cmds || die_a
 		enable_rule="$(eval "$ipt_save_cmd" | grep "${geotag}_enable")"
@@ -209,20 +209,20 @@ for family in $families; do
 	### LAN subnets/ip's
 	[ "$geomode" = whitelist ] && {
 		if [ ! "$autodetect" ]; then
-			eval "lan_ips=\"\$lan_ips_$family\""
+			sp2nl lan_ips "lan_ips_$family"
 		else
 			a_d_failed=
 			lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 			[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
 			lan_ips="net:$lan_ips"
-			setconfig "LanSubnets_$family" "$lan_ips"
+			nl2sp lan_ips_str "$lan_ips"
+			setconfig "lan_ips_$family=$lan_ips_str"
 		fi
 
 		ipset_type="${lan_ips%%":"*}"
 		lan_ips="${lan_ips#*":"}"
 		[ -n "$lan_ips" ] && {
 			iplist_file="$iplist_dir/$lan_ipset.iplist"
-			sp2nl lan_ips
 			printf '%s\n' "$lan_ips" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
 			mk_perm_ipset "$lan_ipset" "$ipset_type"
 			ipsets_to_add="$ipsets_to_add$ipset_type:$lan_ipset $iplist_file$_nl"
@@ -258,9 +258,9 @@ for family in $families; do
 		### Create new rules
 
 		# interfaces
-		if [ -n "$_ifaces" ]; then
+		if [ -n "$conf_ifaces" ]; then
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
-			for _iface in $_ifaces; do
+			for _iface in $conf_ifaces; do
 				printf '%s\n' "-i $_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
 			done
 		fi
@@ -294,7 +294,7 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$geomode" = whitelist ] && [ ! "$_ifaces" ] && \
+		[ "$geomode" = whitelist ] && [ ! "$conf_ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
@@ -342,6 +342,7 @@ done
 		rm_ipset "$ipset"
 	done
 	[ "$retval" = 0 ] && OK
+	echo
 }
 
 
