@@ -92,16 +92,36 @@ set_archive_type() {
 	done
 }
 
+# checks for diff in new and old config and status files and makes a backup or restores if necessary
+# 1 - restore|backup
+cp_conf() {
+	unset src_f dest_f
+	case "$1" in
+		restore) src_f=_bak; cp_act=Restoring ;;
+		backup) dest_f=_bak; cp_act="Creating backup of" ;;
+		*) echolog -err "cp_conf: bad argument '$1'"; return 1
+	esac
+
+	for bak_f in status config; do
+		eval "cp_src=\"\$${bak_f}_file$src_f\" cp_dest=\"\$${bak_f}_file$dest_f\""
+		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
+		[ -f "$cp_src" ] || continue
+		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && continue
+		printf %s "$cp_act the $bak_f file... "
+		cp "$cp_src" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
+		OK
+	done
+}
+
 #### VARIABLES
 
 getconfig families
 getconfig config_lists
 
-conf_file_bak="$datadir/${p_name}.conf.bak"
-status_file_bak="$datadir/status.bak"
 bk_dir="$datadir/backup"
-
-[ "$_fw_backend" = ipt ] && bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
+config_file="$conf_file"
+config_file_bak="$bk_dir/${p_name}.conf.bak"
+status_file_bak="$bk_dir/status.bak"
 
 #### CHECKS
 
@@ -119,16 +139,15 @@ case "$action" in
 		mkdir "$bk_dir" 2>/dev/null
 		create_backup
 		rm "$tmp_file" 2>/dev/null
-		cp "$status_file" "$status_file_bak" &&
 		setconfig "bk_ext=${bk_ext:-bak}" &&
-		cp "$conf_file" "$conf_file_bak" || bk_failed
+		cp_conf backup || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
 		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
-		[ ! -s "$conf_file_bak" ] && rstr_failed "'$conf_file_bak' is empty or doesn't exist."
-		getconfig config_lists config_lists "$conf_file_bak" &&
-		getconfig bk_ext bk_ext "$conf_file_bak" || rstr_failed
+		[ ! -s "$config_file_bak" ] && rstr_failed "'$config_file_bak' is empty or doesn't exist."
+		getconfig config_lists config_lists "$config_file_bak" &&
+		getconfig bk_ext bk_ext "$config_file_bak" || rstr_failed
 		set_extract_cmd "$bk_ext"
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
