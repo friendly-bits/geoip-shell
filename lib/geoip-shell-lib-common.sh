@@ -351,7 +351,7 @@ getconfig() {
 # 1 - var name for output
 # 2 - conf file path
 getallconf() {
-	[ ! "$1" ] || [ ! -f "$2" ] && return 1
+	[ ! "$1" ] && return 1
 	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; return 1; }
 
 	# check in cache first
@@ -409,7 +409,7 @@ setconfig() {
 			[ ! "$line" ] && continue
 			case "$line" in
 				'') continue ;;
-				*=*=*|*' '*=*) sc_failed "bad config line '$line'." ;;
+				*[!A-Za-z0-9_]*=*) sc_failed "bad config line '$line'." ;;
 				*=*) key_conf="${line%%=*}"; value_conf="${line#*=}" ;;
 				*) key_conf="$line"; eval "value_conf=\"\$$line\"" || sc_failed "bad key '$line'."
 			esac
@@ -437,11 +437,12 @@ setconfig() {
 				*) newconfig=\"$newconfig$config_line$_nl\"
 			esac"
 	done
-	[ "$newconfig" ] && {
-		printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
-	}
 	oldifs sc
-	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig$args_lines"
+
+	newconfig="$newconfig$args_lines"
+	[ -f "$target_file" ] && compare_file2str "$target_file" "$newconfig" && return 0
+	printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
+	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig"
 	:
 }
 
@@ -472,6 +473,34 @@ setstatus() {
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file"
 	setconfig target_file "$@"
+}
+
+# compares lines in files $1 and $2, regardless of order
+# discards empty lines
+# returns 0 for no diff, 1 for diff, 2 for error
+compare_files() {
+	[ -f "$1" ] && [ -f "$2" ] || { echolog -err "compare_conf: file '$1' or '$2' does not exist."; return 2; }
+	{
+		grep -m1 . "$1" "$2" || return 0
+		grep -m1 . "$1" || return 1
+		grep -m1 . "$2" || return 1
+	} 1>/dev/null
+
+	awk 'NR==FNR {A[$0]=1;next} !A[$0]{r=1;exit} END{exit r}' r=0 "$1" "$2"
+}
+
+# compares lines in file $1 and string $2, regardless of order
+# discards empty lines
+# returns 0 for no diff, 1 for diff, 2 for error
+compare_file2str() {
+	[ -f "$1" ] || { echolog -err "compare_file2str: file '$1' does not exist."; return 2; }
+	{
+		grep -m1 . "$1" || [ "$2" ] || return 0
+		[ "$2" ] || return 1
+		grep -m1 . "$1" || return 1
+	} 1>/dev/null
+
+	printf '%s\n' "$2" | awk 'NR==FNR {A[$0]=1;next} !A[$0]{r=1;exit} END{exit r}' r=0 - "$1"
 }
 
 # trims leading, trailing and extra in-between spaces
@@ -654,9 +683,8 @@ check_lists_coherence() {
 }
 
 report_incoherence() {
-	echo
-	[ "$iplists_incoherent" ] && echolog -warn "$discr geoip ipsets and geoip firewall rules!"
 	discr="Discrepancy detected between"
+	[ "$iplists_incoherent" ] && echolog -warn "$discr geoip ipsets and geoip firewall rules!"
 	echolog -warn "$discr the firewall state and the config file."
 	for opt_ri in unexpected missing; do
 		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri ip lists in the firewall: '\$${opt_ri}_lists'\""
@@ -717,7 +745,7 @@ check_cron_compat() {
 }
 
 OK() { printf '%s\n' "${green}Ok${n_c}."; }
-FAIL() { printf '%s\n' "${red}Failed${n_c}."; }
+FAIL() { printf '%s\n' "${red}Failed${n_c}." >&2; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
