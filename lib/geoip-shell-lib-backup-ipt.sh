@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2015,SC2317,SC2034,SC2154,SC2086,SC1090
+# shellcheck disable=SC2015,SC2034,SC2154,SC2086,SC1090
 
 # geoip-shell-backup-ipt.sh
 
@@ -19,6 +19,7 @@ restorebackup() {
 
 	printf '%s\n' "Restoring firewall state from backup... "
 
+	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
 	[ -z "$bk_file" ] && die "Can not restore the firewall state: no backup found."
 	[ ! -f "$bk_file" ] && die "Can not find the backup file '$bk_file'."
 
@@ -62,15 +63,13 @@ restorebackup() {
 
 		case "$rv" in
 			0) OK ;;
-			*) FAIL >&2
-			rstr_failed "$FAIL restore $restoretgt state from backup." "reset"
+			*) FAIL; rstr_failed "$FAIL restore $restoretgt state from backup." "reset"
 		esac
 	done
 
-	rm "$tmp_file" 2>/dev/null
+	rm_rstr_tmp
 
-	cp "$status_file_bak" "$status_file" || rstr_failed "$FAIL restore the status file."
-	cp "$conf_file_bak" "$conf_file" || rstr_failed "$FAIL restore the config file."
+	cp_conf restore || rstr_failed
 	:
 }
 
@@ -80,6 +79,7 @@ rm_rstr_tmp() {
 
 rstr_failed() {
 	rm_rstr_tmp
+	main_config=
 	[ "$1" ] && echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules. ***"
@@ -127,6 +127,7 @@ create_backup() {
 	done
 
 	printf %s "Compressing backup... "
+	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
 	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] ||
 		bk_failed "$FAIL compress firewall backup to file '${bk_file}.new'."
 
