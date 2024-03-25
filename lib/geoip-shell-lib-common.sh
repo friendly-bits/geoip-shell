@@ -632,8 +632,8 @@ check_lists_coherence() {
 	get_active_iplists -f active_lists || {
 		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
 		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
-		r_no_l
 		report_incoherence
+		r_no_l
 		return 1
 	}
 
@@ -644,8 +644,8 @@ check_lists_coherence() {
 			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
 			subtract_a_from_b "$conf_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
 			subtract_a_from_b "$active_lists" "$conf_lists" missing_lists; nl2sp missing_lists
-			r_no_l
 			report_incoherence
+			r_no_l
 			return 1
 	esac
 }
