@@ -35,7 +35,7 @@ cat <<EOF
 v$curr_ver
 
 Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn] [-i $if_syn]
-${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"datadir_path">]
+${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
 ${sp8}[-e] [-n] [-k] [-z] [-d] [-h]
 
 Installer for $p_name.
