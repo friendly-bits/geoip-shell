@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034,SC2059
+# shellcheck disable=SC2154,SC1090,SC2034
 
 # geoip-shell-lib-status.sh
 
@@ -74,7 +74,7 @@ case "$active_families" in
 esac
 
 unset _ifaces_r _ifaces_all
-[ "$conf_ifaces" ] && _ifaces_r=": ${blue}$conf_ifaces$n_c" || _ifaces_all="${blue}all$n_c "
+[ "$ifaces" ] && _ifaces_r=": ${blue}$ifaces$n_c" || _ifaces_all="${blue}all$n_c "
 printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
 
 trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
@@ -90,12 +90,12 @@ trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
 [ "$geomode" = "whitelist" ] && {
 	lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
 	lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
-	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$conf_ifaces" ] && {
+	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$ifaces" ] && {
 		printf '\n%s\n' "Allowed LAN ip's:"
 		for f in $families; do
 			eval "lan_ips=\"\$lan_ips_$f\""
 			[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
-			[ "$lan_ips" ] || [ ! "$conf_ifaces" ] && printf '%s\n' "$f: $lan_ips"
+			[ "$lan_ips" ] || [ ! "$ifaces" ] && printf '%s\n' "$f: $lan_ips"
 		done
 		autodetect_hr=Off
 		[ "$autodetect" ] && autodetect_hr=On
@@ -145,8 +145,8 @@ if check_cron; then
 		'') upd_job_status="$_X"; upd_schedule=''; incr_issues ;;
 		*) upd_job_status="$_V"; upd_schedule="${update_job%%\"*}"
 	esac
-	printf '%s\n' "Autoupdate cron job: $upd_job_status"
-	[ "$upd_schedule" ] && printf '%s\n' "Autoupdate schedule: '${blue}${upd_schedule% }${n_c}'"
+	printf '%s\n' "Update cron job: $upd_job_status"
+	[ "$upd_schedule" ] && printf '%s\n' "Update schedule: '${blue}${upd_schedule% }${n_c}'"
 
 	[ ! "$_OWRTFW" ] && {
 		# check for persistence cron job
@@ -158,7 +158,7 @@ if check_cron; then
 		printf '%s\n' "Persistence cron job: $persist_status"
 	}
 else
-	printf '\n%s\n' "$WARN cron service $a_disabled. Autoupdates$cr_p $wont_work." >&2
+	printf '\n%s\n' "$WARN cron service $a_disabled. Automatic updates$cr_p $wont_work." >&2
 	incr_issues
 fi
 
@@ -172,6 +172,11 @@ fi
 		{ [ $rv = 0 ] && printf '%s\n' "$_X"; rv=1; warn_persist "Firewall include is not found."; incr_issues; }
 	[ $rv = 0 ] && printf '%s\n' "$_V"
 }
+
+# check automatic backup
+[ "$nobackup" = true ] && backup_st="${red}Off" || backup_st="${green}On"
+
+printf '%s\n' "Automatic backup of ip lists: $backup_st$n_c"
 
 case $issues in
 	0) printf '\n%s\n\n' "${green}No problems detected.${n_c}" ;;
