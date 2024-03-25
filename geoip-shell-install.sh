@@ -276,7 +276,7 @@ set_defaults
 [ ! "$inst_root_gs" ] && { get_prefs || die; }
 
 export datadir lib_dir="/usr/lib"
-export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g"
+export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g" status_file="$datadir/status"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
 [ ! "$inst_root_gs" ] && { call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."; }
@@ -305,15 +305,15 @@ mkdir -p "$inst_root_gs$conf_dir"
 # write config
 printf %s "Setting config... "
 nodie=1
-setconfig user_ccode "config_lists=" geomode tcp_ports udp_ports geosource families schedule_conf \
+setconfig datadir user_ccode "config_lists=" geomode tcp_ports udp_ports geosource families schedule_conf \
 	max_attempts conf_ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
 	reboot_sleep nobackup_conf no_persist noblock "http=" || install_failed
 OK
 
 # create the -constants file
 cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
-	export conf_dir="$conf_dir" datadir="$datadir" PATH="$PATH" initsys="$initsys"
-	export conf_file="$conf_file" status_file="$datadir/status" use_shell="$curr_sh_g" default_schedule="$default_schedule"
+	export PATH="$PATH" initsys="$initsys"
+	export use_shell="$curr_sh_g" default_schedule="$default_schedule"
 EOF
 
 . "$inst_root_gs$conf_dir/${p_name}-constants"
@@ -322,8 +322,8 @@ EOF
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
 	#!$curr_sh_g
 
-	export install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
-	export _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
+	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
+	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
 
