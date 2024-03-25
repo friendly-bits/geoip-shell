@@ -100,6 +100,8 @@ rm_all_georules || die 1
 
 set +f; rm "${iplist_dir:?}"/* 2>/dev/null
 
+[ -f "$conf_file" ] && getconfig datadir
+
 rm -rf "${datadir:?}"/* 2>/dev/null
 
 [ "$resetonly_lists" ] && {
