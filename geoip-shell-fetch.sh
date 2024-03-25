@@ -221,7 +221,7 @@ check_prev_list() {
 		*)
 			eval "prev_date_compat=\"\$prev_date_${list_id}\""
 			if [ "$prev_date_compat" ]; then
-				prev_list_reg="true"
+				prev_list_reg=true
 				p="$prev_date_compat"
 				mon_temp="${p#?????}"
 				prev_date_raw="${p%??????}${mon_temp%???}${p#????????}"
