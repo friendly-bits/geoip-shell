@@ -112,11 +112,11 @@ pick_ifaces() {
 	[ ! "$ifaces_arg" ] && [ "$auto_ifaces" ] && {
 		printf '%s\n%s\n' "All found network interfaces: $all_ifaces" \
 			"Autodetected WAN interfaces: $blue$auto_ifaces$n_c"
-		[ "$1" = "-a" ] && { conf_ifaces="$auto_ifaces"; return; }
+		[ "$1" = "-a" ] && { ifaces="$auto_ifaces"; return; }
 		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort?"
 		pick_opt "c|h|a"
 		case "$REPLY" in
-			c|C) conf_ifaces="$auto_ifaces"; return ;;
+			c|C) ifaces="$auto_ifaces"; return ;;
 			a|A) die 0
 		esac
 	}
@@ -144,8 +144,8 @@ pick_ifaces() {
 		[ "$nointeract" ] && die
 		REPLY=
 	done
-	conf_ifaces="$u_ifaces"
-	printf '%s\n' "Selected interfaces: '$conf_ifaces'."
+	ifaces="$u_ifaces"
+	printf '%s\n' "Selected interfaces: '$ifaces'."
 }
 
 # 1 - input ip's/subnets
@@ -323,7 +323,7 @@ set_defaults() {
 	[ "$_OWRTFW" ] && { geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true; } ||
 		{ geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false; }
 
-	: "${nobackup_conf:="$nobackup_def"}"
+	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${schedule_conf:="15 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
@@ -340,7 +340,7 @@ get_prefs() {
 		''|true|false) ;;
 		*) die "Invalid value for option '-o': '$nobackup_arg'"
 	esac
-	nobackup_conf="${nobackup_arg:=$nobackup_conf}"
+	nobackup="${nobackup_arg:=$nobackup}"
 
 	# datadir
 	[ "$datadir_arg" ] && {
@@ -421,7 +421,7 @@ get_prefs() {
 			n|N) [ "$geomode" = whitelist ] && { printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; }
 		esac
 	elif [ "$ifaces_arg" ]; then
-		conf_ifaces=
+		ifaces=
 		case "$ifaces_arg" in
 			all) ifaces_arg=
 				[ "$geomode" = whitelist ] && { [ "$in_install" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
@@ -429,7 +429,7 @@ get_prefs() {
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
 		esac
-	elif [ "$geomode_change" ] && [ "$geomode" = whitelist ] && [ ! "$conf_ifaces" ]; then
+	elif [ "$geomode_change" ] && [ "$geomode" = whitelist ] && [ ! "$ifaces" ]; then
 		printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips
 	fi
 
@@ -492,8 +492,8 @@ ${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists 
 ${sp8}and will automatically re-fetch ip lists after each reboot.
 ${sp8}Default is 'true' for OpenWrt, 'false' for all other systems."
 
-datadir_usage="<\"datadir_path\"> :
+datadir_usage="<\"path\"> :
 ${sp8}Set custom path to directory where backups and the status file will be stored.
-${sp8} Default is '/tmp' for OpenWrt, '/var/lib/$p_name' for all other systems."
+${sp8}Default is '/tmp' for OpenWrt, '/var/lib/$p_name' for all other systems."
 
 :
