@@ -209,7 +209,8 @@ for family in $families; do
 	### LAN subnets/ip's
 	[ "$geomode" = whitelist ] && {
 		if [ ! "$autodetect" ]; then
-			sp2nl lan_ips "lan_ips_$family"
+			eval "lan_ips=\"\$lan_ips_$family\""
+			sp2nl lan_ips
 		else
 			a_d_failed=
 			lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
