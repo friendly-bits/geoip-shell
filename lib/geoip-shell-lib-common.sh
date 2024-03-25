@@ -437,13 +437,16 @@ setconfig() {
 				*) newconfig=\"$newconfig$config_line$_nl\"
 			esac"
 	done
-	printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
+	[ "$newconfig" ] && {
+		printf %s "$newconfig$args_lines" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
+	}
 	oldifs sc
 	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig$args_lines"
 	:
 }
 
 sc_failed() {
+	oldifs sc
 	echolog -err "setconfig: $1"
 	[ ! "$nodie" ] && die
 }
@@ -826,16 +829,19 @@ fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
 families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
 list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
 
-
 set -f
 
 if [ -z "$geotag" ]; then
 	# export some vars
 	set_ansi
-	export geotag="$p_name"
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
+	[ ! "$in_install" ] && [ "$conf_file" ] && {
+		getconfig datadir
+		export datadir status_file="$datadir/status"
+	}
+	geotag="$p_name"
 	toupper geochain "$geotag"
-	export geochain
+	export geotag geochain
 fi
 
 :
