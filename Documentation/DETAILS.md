@@ -25,7 +25,8 @@ This script is only used under specific conditions:
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
 - The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
-- The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from the main scripts which need to interact with the firewall utility directly.
+- The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
+- The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
 - When nftables is present during installation, the iptables libraries are not installed.
 - When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
 - The -lib-check-compat script checks for some essential dependencies
@@ -39,11 +40,12 @@ This script is only used under specific conditions:
 6. lib/geoip-shell-lib-apply-nft.sh
 7. lib/geoip-shell-lib-backup-ipt.sh
 8. lib/geoip-shell-lib-backup-nft.sh
-9. lib/geoip-shell-lib-status-ipt.sh
-10. lib/geoip-shell-lib-status-nft.sh
-11. lib/geoip-shell-lib-check-compat.sh
-12. lib/geoip-shell-lib-arrays.sh
-13. lib/geoip-shell-lib-ip-regex.sh
+9. lib/geoip-shell-lib-status.sh
+10. lib/geoip-shell-lib-status-ipt.sh
+11. lib/geoip-shell-lib-status-nft.sh
+12. lib/geoip-shell-lib-check-compat.sh
+13. lib/geoip-shell-lib-arrays.sh
+14. lib/geoip-shell-lib-ip-regex.sh
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
@@ -97,7 +99,7 @@ Advanced options:
 - `-c`: cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
 - `-r`: prepares the system for re-installation of the suite: cleans up previous firewall geoip rules, removes the cron jobs (and the OpenWrt-specific scripts) and removes the config.
 
-**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it really implements a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status-ipt or lib-status-nft when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
+**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it really implements a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
 `geoip-shell <on|off> [-c <"country_codes">]` : Enable or disable the geoip blocking chain (via a rule in the base geoip chain)
 
