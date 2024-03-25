@@ -84,12 +84,12 @@ daemon_prep_next() {
 
 #### VARIABLES
 
-for entry in config_lists nobackup_conf geosource geomode max_attempts reboot_sleep; do
+for entry in config_lists nobackup geosource geomode max_attempts reboot_sleep; do
 	getconfig "$entry"
 done
 export config_lists geomode
 
-nobackup="${nobackup_arg:-$nobackup_conf}"
+nobackup="${nobackup_arg:-$nobackup}"
 
 lists="$lists_arg"
 [ ! "$lists" ] && case "$action_run" in update|restore) lists="$config_lists"; esac
