@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC1090
+# shellcheck disable=SC2154,SC1090,SC2034
 
 # geoip-shell-backup-nft.sh
 
@@ -12,7 +12,7 @@
 
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
 restorebackup() {
-	printf %s "Restoring files from backup... "
+	printf %s "Restoring ip lists from backup... "
 	for list_id in $config_lists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
@@ -26,11 +26,10 @@ restorebackup() {
 		line_cnt=$(wc -l < "$iplist_file")
 		debugprint "\nLines count in $list_id backup: $line_cnt"
 	done
-
-	cp "$status_file_bak" "$status_file" || rstr_failed "$FAIL restore the status file."
-	cp "$conf_file_bak" "$conf_file" || rstr_failed "$FAIL restore the config file."
-
 	OK
+
+	cp_conf restore || rstr_failed
+	main_config=
 
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
@@ -47,6 +46,7 @@ rm_rstr_tmp() {
 
 rstr_failed() {
 	rm_rstr_tmp
+	main_config=
 	[ "$1" ] && echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoip blocking is not working. Removing geoip firewall rules. ***"
