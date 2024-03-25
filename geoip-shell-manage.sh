@@ -24,8 +24,8 @@ usage() {
 cat <<EOF
 v$curr_ver
 
-Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn]
-${sp8}[-u <ripe|ipdeny>] [-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn]
+Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u <ripe|ipdeny>]
+${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-o <true|false>] [-a <"path">]
 ${sp8}[-v] [-f] [-d] [-h]
 
 Provides interface to configure geoip blocking.
@@ -33,7 +33,7 @@ Provides interface to configure geoip blocking.
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  apply       : change geoip blocking config. May be used with options: '-c', '-u', '-m', '-i', '-l', '-t', '-p'
+  apply       : change $p_name config. May be used with options: '-c', '-u', '-m', '-i', '-l', '-t', '-p', '-o', '-a'
   schedule    : change the cron schedule
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
@@ -62,6 +62,10 @@ Options for the 'apply' action:
 
   -p $ports_usage
 
+  -o $nobackup_usage
+
+  -a $datadir_usage
+
   -v  : Verbose status output
   -f  : Force the action
   -d  : Debug
@@ -82,7 +86,7 @@ esac
 
 # process the rest of the args
 shift 1
-while getopts ":c:m:s:i:l:t:p:u:vfdh" opt; do
+while getopts ":c:m:s:i:l:t:p:u:a:o:vfdh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -92,6 +96,8 @@ while getopts ":c:m:s:i:l:t:p:u:vfdh" opt; do
 		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
 		u) geosource_arg=$OPTARG ;;
+		a) datadir_arg="$OPTARG" ;;
+		o) nobackup_arg=$OPTARG ;;
 
 		v) verb_status="-v" ;;
 		f) force_action=1 ;;
@@ -170,7 +176,7 @@ check_for_lockout() {
 	inlist="in the planned $geomode"
 	trying="You are trying to"
 
-	if [ "$in_install" ] || [ "$geomode_change" ]; then
+	if [ "$in_install" ] || [ "$geomode_change" ] || [ "$lists_change" ]; then
 		get_matching_line "$planned_lists" "" "$user_ccode" "_*" filtered_ccode
 		case "$geomode" in
 			whitelist) [ ! "$filtered_ccode" ] && lo_msg="Your $u_ccode is not included $inlist. $tip_msg" ;;
@@ -194,7 +200,6 @@ check_for_lockout() {
 			y|Y) printf '\n%s\n' "Proceeding..." ;;
 			n|N)
 				[ "$geomode_change" ] && geomode="$geomode_prev"
-				[ "$lists_change" ] && config_lists="$config_lists_prev"
 				[ ! "$in_install" ] && report_lists
 				echo
 				die 0 "Aborted action '$action'."
@@ -256,12 +261,9 @@ case "$action" in
 esac
 
 [ "$action" != apply ] && {
-	[ "$geomode_arg" ] && die "$incompat '-m'."
-	[ "$trusted_arg" ] && die "$incompat '-t'."
-	[ "$ports_arg" ] && die "$incompat '-p'."
-	[ "$lan_ips_arg" ] && die "$incompat '-l'."
-	[ "$ifaces_arg" ] && die "$incompat '-i'."
-	[ "$geosource_arg" ] && die "$incompat '-u'."
+	for i_opt in "geomode m" "trusted t" "ports p" "lan_ips l" "ifaces i" "geosource u" "datadir a" "nobackup o"; do
+		eval "[ \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
+	done
 }
 [ "$action" != schedule ] && [ "$cron_schedule" ] && die "$incompat '-s'."
 
@@ -306,14 +308,17 @@ done
 
 case "$action" in
 	apply) unset restore_req geomode_prev config_lists_prev planned_lists_str \
-			geomode_change geosource_change ifaces_change lists_change
+			datadir_change nobackup_change geomode_change geosource_change ifaces_change lists_change
 
-		config_lists_prev="$config_lists"
 		geomode_prev="$geomode"
+		datadir_prev="$datadir"
+		bk_dir="$datadir/backup"
 
-		[ "$geomode_arg" ] && [ "$geomode_arg" != "$geomode" ] && geomode_change=1
-		[ "$geosource_arg" ] && [ "$geosource_arg" != "$geosource" ] && geosource_change=1
-		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$conf_ifaces" ] && ifaces_change=1
+		for opt_ch in datadir nobackup geomode geosource; do
+			eval "[ \"\$${opt_ch}_arg\" ] && [ \"\$${opt_ch}_arg\" != \"\$${opt_ch}\" ] && ${opt_ch}_change=1"
+		done
+
+		[ "$ifaces_arg" ] && [ "${ifaces_arg%all}" != "$ifaces" ] && ifaces_change=1
 		: "${geosource_arg:="$geosource"}"
 
 		get_prefs || die
@@ -330,15 +335,41 @@ case "$action" in
 		planned_lists="$lists_arg"
 		planned_lists_str="$lists_arg_str"
 		lists_to_change_str="$lists_arg_str"
-		config_lists="$lists_arg_str"
 
 		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
 			[ "$lists_change" ] && restore_req=1
 
 		[ "$geomode_change" ] || [ "$lists_change" ] && check_for_lockout
+		config_lists="$lists_arg_str"
+
+		[ "$nobackup_change" ] && {
+			[ -d "$bk_dir" ] && {
+				printf %s "Removing old backup... "
+				rm -rf "${bk_dir:-?}" || die "$FAIL remove the backup."
+				OK
+			}
+			[ "$nobackup" = false ] && restore_req=1
+		}
+
+		[ "$datadir_change" ] && {
+			printf %s "Creating the new data dir '$datadir'... "
+			mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
+			OK
+			[ -d "$datadir_prev" ] && {
+				printf %s "Moving data to the new path... "
+				set +f
+				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL move the data."; }
+				set -f
+				OK
+				printf %s "Removing the old data dir '$datadir_prev'..."
+				rm -rf "${datadir_prev:-?}" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL remove the old data dir."; }
+				OK
+			}
+			export datadir status_file="$datadir/status"
+		}
 
 		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-			conf_ifaces geomode config_lists
+			ifaces geomode config_lists datadir nobackup
 
 		if [ ! "$restore_req" ]; then
 			call_script "$i_script-apply.sh" "update"; rv_apply=$?
@@ -357,7 +388,7 @@ case "$action" in
 
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
-				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have already been added to the $geomode." >&2
+				echolog "NOTE: country codes '$wrong_ccodes' have already been added to the $geomode."
 			}
 		else
 			lists_to_change="$lists_arg"
@@ -373,7 +404,7 @@ case "$action" in
 			subtract_a_from_b "$config_lists_nl" "$lists_arg" wrong_lists
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
-				printf '%s\n' "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove." >&2
+				echolog "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove."
 			}
 		else
 			lists_to_change="$lists_arg"
@@ -384,12 +415,12 @@ esac
 
 if [ ! "$lists_to_change" ] && [ ! "$force_action" ]; then
 	report_lists
-	die 254 "Nothing to do, exiting."
+	die 0 "Nothing to do, exiting."
 fi
 
 debugprint "planned lists after '$action': '$planned_lists'"
 
-if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$geomode" = "whitelist" ]; then
+if [ ! "$planned_lists" ] && [ ! "$force_action" ] && [ "$geomode" = whitelist ]; then
 	die "Planned whitelist is empty! Disallowing this to prevent accidental lockout of a remote server."
 fi
 
