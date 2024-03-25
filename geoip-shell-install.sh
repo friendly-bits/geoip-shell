@@ -15,7 +15,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.3.3"
+curr_ver="0.3.4"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
@@ -306,8 +306,8 @@ mkdir -p "$inst_root_gs$conf_dir"
 printf %s "Setting config... "
 nodie=1
 setconfig datadir user_ccode "config_lists=" geomode tcp_ports udp_ports geosource families schedule_conf \
-	max_attempts conf_ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
-	reboot_sleep nobackup_conf no_persist noblock "http=" || install_failed
+	max_attempts ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
+	reboot_sleep nobackup no_persist noblock "http=" || install_failed
 OK
 
 # create the -constants file
