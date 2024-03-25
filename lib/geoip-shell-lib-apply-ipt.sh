@@ -35,7 +35,7 @@ destroy_tmp_ipsets() {
 }
 
 enable_geoip() {
-	[ -n "$conf_ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
+	[ -n "$ifaces" ] && first_chain="$iface_chain" || first_chain="$geochain"
 	for family in $families; do
 		set_ipt_cmds || die_a
 		enable_rule="$(eval "$ipt_save_cmd" | grep "${geotag}_enable")"
@@ -259,9 +259,9 @@ for family in $families; do
 		### Create new rules
 
 		# interfaces
-		if [ -n "$conf_ifaces" ]; then
+		if [ -n "$ifaces" ]; then
 			case "$curr_ipt" in *":$iface_chain "*) ;; *) printf '%s\n' ":$iface_chain -"; esac
-			for _iface in $conf_ifaces; do
+			for _iface in $ifaces; do
 				printf '%s\n' "-i $_iface -I $iface_chain -j $geochain $ipt_comm ${geotag}_iface_filter"
 			done
 		fi
@@ -295,7 +295,7 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$geomode" = whitelist ] && [ ! "$conf_ifaces" ] && \
+		[ "$geomode" = whitelist ] && [ ! "$ifaces" ] && \
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 		## iplist-specific rules
