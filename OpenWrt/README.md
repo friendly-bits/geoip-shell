@@ -1,6 +1,6 @@
 ## geoip-shell on OpenWrt
 
-Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing the same user interface and features as on any other Linux system. So usage is the same way as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
+Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing the same user interface and features as on any other Linux system. So usage is the same as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
 
 Installation is possible either via the -install script (as described in the main README), or via an ipk package. ipk packages are a new feature and are not yet included in the OpenWrt repository but you can get them from the Releases. They come in 2 flavors: geoip-shell-[...].ipk and geoip-shell-iptables[...].ipk. The -iptables package is for firewall3+iptables OpenWrt systems, while the non-iptables package is for firewall4+nftables OpenWrt systems.
 
@@ -28,14 +28,17 @@ Persistence of geoip firewall rules and ip sets works differenetly on OpenWrt th
 
 ## Defaults for OpenWrt
 Generally the defaults are the same as for other systems, except:
-- the data folder which geoip-shell uses to store the status file and the backups is by default in `/tmp/geoip-shell-data`, rather than in `/var/lib/geoip-shell` as on other Linux systems. This is to avoid flash wear. You can change this by running the install script with the `-a <path>` option, or after installation via the command `geoip-shell configure -a <path>`.
-- the 'nobackup' option is set to 'true', which configures geoip-shell to not create backups of the ip lists. With this option, geoip-shell will work as usual, except after reboot (and for iptables-based systems, after firewall restart) it will re-fetch the ip lists, rather than loading them from backup. You can change this by running the -install script with the `-o false` option. To have persistent backups, you will also need to change the data folder path as explained above.
+- the data directory which geoip-shell uses to store the status file and the backups is by default in `/tmp/geoip-shell-data`, rather than in `/var/lib/geoip-shell` as on other Linux systems. This is to avoid flash wear. You can change this by running the install script with the `-a <path>` option, or after installation via the command `geoip-shell configure -a <path>`.
+- the 'nobackup' option is set to 'true', which configures geoip-shell to not create backups of the ip lists. With this option, geoip-shell will work as usual, except after reboot (and for iptables-based systems, after firewall restart) it will re-fetch the ip lists, rather than loading them from backup. You can change this by running the -install script with the `-o false` option, or after installation via the command `geoip-shell configure -o false`. To have persistent ip list backups, you will also need to change the data directory path as explained above.
+- if using geoip-shell on a router with just a few MB of embedded flash storage, consider either leaving the default as is, or connecting an external storage device to your router (preferably formatted to ext4) and configuring a directory on it as your data directory, then enabling automatic backups. For example, if your external storage device is mounted on _/mnt/somedivice_, you can do all this via this command: `geoip-shell -a /mnt/somedevice/geoip-shell-data -o false`.
 - the default ip lists source for OpenWrt is ipdeny (rather than ripe). While ipdeny is a 3rd party, they provide aggregated lists which consume less memory (on nftables-based systems the ip lists are automatically optimized after loading into memory, so there the source does not matter, but a smaller initial ip lists size will cause a smaller memory consumption spike while loading the ip list).
 
 ## Building an OpenWrt package
-The repository includes the _mk-owrt-package.sh_ script which automates creation of geoip-shell ipk packages. If for some reason you want to create your own geoip-shell package, read the comments inside that script for instructions.
+The repository includes the _mk-owrt-package.sh_ script which automates creation of geoip-shell ipk packages. It uses _makefile.tpl_ as the base template for the Makefile. If for you want to build geoip-shell ipk package, read the comments inside that script for instructions.
 
-This is about it for this document. Much more information is available in the main [README.md](/README.md). If you have any questions, go ahead and use the Discussions tab, or contact me in this thread:
+This is about it for this document. Much more information is available in the main [README.md](/README.md) and in the extra _.md_ files inside the Documentation directory. If you have any questions, go ahead and use the Discussions tab, or contact me in this thread:
 https://forum.openwrt.org/t/geoip-shell-flexible-geoip-blocker-for-linux-now-supports-openwrt/189611
 
-If you use this project, I will be happy to hear about your experience in the above thread. Also, please consider giving this repository a star on Github - this helps other people to find it.
+If you use this project, I will be happy to hear about your experience in the above thread or via the Discussions tab on Github. If for some reason geoip-shell is not working for you, I will want to know that as well so I can improve it.
+
+Also, please consider giving this repository a star on Github - this helps other people to find it.
