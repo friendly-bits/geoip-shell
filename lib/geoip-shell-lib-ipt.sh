@@ -69,27 +69,14 @@ rm_all_georules() {
 	return "$rm_ipsets_rv"
 }
 
+get_fwrules_iplists() {
+	p="$p_name" t="$ipt_target"
+	{ iptables-save -t "$ipt_table"; ip6tables-save -t "$ipt_table"; } |
+		sed -n "/match-set .*$p.* -j $t/{s/.*match-set //;s/_$p.*//;p}" | grep -vE "(lan_ips_|trusted_)"
+}
 
-# checks current ipsets and iptables rules for geoip-shell
-# returns a list of active ip lists
-# (optional: 1 - '-f', irrelevant for iptables)
-# 1 - var name for output
-get_active_iplists() {
-	[ "$1" = "-f" ] && shift
-	case "$geomode" in
-		whitelist) ipt_target="ACCEPT" ;;
-		blacklist) ipt_target="DROP" ;;
-		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
-	esac
-	ipset_lists="$(ipset list -n | grep "$p_name" | sed -n /"$geotag"/s/_"$geotag"//p | grep -vE "(lan_ips_|trusted_)")"
-	p="_${p_name}"; t="$ipt_target"
-	iprules_lists="$( { iptables-save -t "$ipt_table"; ip6tables-save -t "$ipt_table"; } |
-		sed -n "/match-set .*$p.* -j $t/{s/.*match-set //;s/$p.*//;p}" | grep -vE "(lan_ips_|trusted_)")"
-
-	get_difference "$ipset_lists" "$iprules_lists" lists_difference
-	get_intersection "$ipset_lists" "$iprules_lists" "$1"
-
-	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent=1; return 1; esac
+get_ipset_iplists() {
+	get_ipsets | sed -n /"$geotag"/{s/_"$geotag"//\;s/^Name:\ //\;p} | grep -vE "(lan_ips_|trusted_)"
 }
 
 ipt_table=mangle
