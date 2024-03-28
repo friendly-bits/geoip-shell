@@ -22,16 +22,6 @@ This script is only used under specific conditions:
 1. geoip-shell-detect-lan.sh
 
 ### Library Scripts
-- The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
-- The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
-- The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
-- The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
-- The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
-- When nftables is present during installation, the iptables libraries are not installed.
-- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
-- The -lib-check-compat script checks for some essential dependencies
-- The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
-- The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
 1. lib/geoip-shell-lib-common.sh
 2. lib/geoip-shell-lib-setup.sh
 3. lib/geoip-shell-lib-ipt.sh
@@ -46,13 +36,27 @@ This script is only used under specific conditions:
 12. lib/geoip-shell-lib-check-compat.sh
 13. lib/geoip-shell-lib-arrays.sh
 14. lib/geoip-shell-lib-ip-regex.sh
+15. lib/geoip-shell-lib-uninstall.sh
+
+- The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
+- The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
+- The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
+- The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
+- The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
+- When nftables is present during installation, the iptables libraries are not installed.
+- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
+- The -lib-check-compat script checks for some essential dependencies
+- The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
+- The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
+- The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
 1. geoip-shell-lib-owrt-common.sh
 2. geoip-shell-owrt-init.tpl
 3. geoip-shell-owrt-mk-fw-include.tpl
-2. geoip-shell-owrt-fw-include.tpl
+4. geoip-shell-owrt-fw-include.tpl
+5. mk-owrt-package.sh
 
 ### Optional script
 This script is intended for checks before installation. It does not get installed.
@@ -99,7 +103,7 @@ Advanced options:
 - `-c`: cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
 - `-r`: prepares the system for re-installation of the suite: cleans up previous firewall geoip rules, removes the cron jobs (and the OpenWrt-specific scripts) and removes the config.
 
-**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it really implements a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
+**geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it contains a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
 `geoip-shell <on|off> [-c <"country_codes">]` : Enable or disable the geoip blocking chain (via a rule in the base geoip chain)
 
@@ -111,25 +115,27 @@ Advanced options:
 * Displays information on the current state of geoip blocking
 * For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
 
-`geoip-shell schedule -s <"schedule_expression">` : enables automatic ip lists update and configures the schedule for the periodic cron job which implements this feature.
-
-`geoip-shell schedule -s disable` : disables ip lists autoupdate.
-
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
 
-`geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
+`geoip-shell configure -u [ripe|ipdeny]`: change ip lists source.
 
-`geoip-shell apply -u [ripe|ipdeny]`: change ip lists source.
+`geoip-shell configure -m [whitelist|blacklist]`: change geoip blocking mode.
 
-`geoip-shell apply -m [whitelist|blacklist]`: change geoip blocking mode.
+`geoip-shell configure -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
 
-`geoip-shell apply -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
+`geoip-shell configure -c <"country codes">`: change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
 
-`geoip-shell apply -c <"country codes">`: change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
+`geoip-shell configure -l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled.
 
-`geoip-shell apply -l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled.
+`geoip-shell configure -t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
-`geoip-shell apply -t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+`geoip-shell configure -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both tcp and udp, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
+
+`geoip-shell configure -s <"schedule_expression"|disable>` : enables automatic ip lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic ip lists updates.
+
+`geoip-shell configure -o <true|false>` : No backup. If set to 'true', geoip-shell will not create a backup of ip lists and firewall rules after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
+
+`geoip-shell configure -a <path>` : Set custom path to directory where backups and the status file will be stored. Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
@@ -143,7 +149,7 @@ A list id has the format of `<country_code>_<family>`. For example, ****US_ipv4*
 
 `geoip-shell-run update` : Updates the ip sets for list id's that had been previously configured. Intended for triggering from periodic cron jobs.
 
-`geoip-shell-run restore` : Restore previously downloaded lists from backup (skip fetching). Used by the reboot cron job to implement persistence.
+`geoip-shell-run restore` : Restore previously downloaded lists from backup (skip fetching). Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence.
 
 **geoip-shell-fetch.sh**
 - Fetches ip lists for given list id's from RIPE or from ipdeny. The source is selected during installation. If you want to change the default which is RIPE, install with the `-u ipdeny` option.
@@ -173,7 +179,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 **geoip-shell-geoinit.sh**: This script is sourced from most other scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
 
 
-## **Optional script in detail**
+## **Optional script**
 **check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
 
 `sh check-ip-in-source.sh -c <country_code> -i <"ip [ip] [ip] ... [ip]"> [-u <source>]`

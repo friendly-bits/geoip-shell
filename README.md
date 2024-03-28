@@ -16,6 +16,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - [Pre-requisites](#pre-requisites)
 - [Notes](#notes)
 - [In detail](#in-detail)
+- [OpenWrt](#openwrt)
 - [Privacy](#privacy)
 - [P.s.](#ps)
 
@@ -137,6 +138,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
 Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking current geoip blocking status.
+A partial selection of options given here, for additional options run `geoip-shell -h` or read [DETAILS.md](/Documentation/DETAILS.md).
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
@@ -149,40 +151,38 @@ _<details><summary>Examples:</summary>_
 
 **To enable or disable geoip blocking:** `geoip-shell <on|off>`
 
-**To change ip lists source:** `geoip-shell apply -u [ripe|ipdeny]`
+**To change ip lists source:** `geoip-shell configure -u [ripe|ipdeny]`
 
-**To change geoip blocking mode:** `geoip-shell apply -m [whitelist|blacklist]`
+**To change geoip blocking mode:** `geoip-shell configure -m [whitelist|blacklist]`
 
-**To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -t <["ip_addresses"]|none>`. `none` removes previously set trusted ip addresses.
+**To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -t <["ip_addresses"]|none>`. `none` removes previously set trusted ip addresses.
 
-**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell apply -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
+**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
 
-**To change protocols and ports geoblocking applies to:** `geoip-shell apply -p [tcp|udp]:[allow|block]:[all|<ports>]`
+**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p [tcp|udp]:[allow|block]:[all|<ports>]`
 
 _(for details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10)_
 
 **To enable or change the autoupdate schedule**, use the `-s` option followed by the cron schedule expression in doulbe quotes:
 
-`geoip-shell schedule -s <"schdedule_expression">`
+`geoip-shell configure -s <"schdedule_expression">`
 
 _<details><summary>Example</summary>_
 
-`geoip-shell schedule -s "1 4 * * *"`
+`geoip-shell configure -s "1 4 * * *"`
 
 </details>
 
-**To disable ip lists autoupdates:** `geoip-shell schedule -s disable`
+**To disable automatic updates of ip lists:** `geoip-shell configure -s disable`
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
 
 **To uninstall:** `geoip-shell-uninstall.sh`
 
-**For info about some additional actions:** `geoip-shell -h`
-
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
 - **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
-- **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
+- **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Likely works on **mksh** and **lksh**. Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
 
     **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh` The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
@@ -199,6 +199,9 @@ For some helpful notes about using this suite, read [NOTES.md](/Documentation/NO
 
 ## **In detail**
 For specifics about each script, read [DETAILS.md](/Documentation/DETAILS.md).
+
+## **OpenWrt**
+For information about OpenWrt support, read the [OpenWrt README](/OpenWrt/README.md).
 
 ## **Privacy**
 These scripts do not share your data with anyone, as long as you downloaded them from the official source, which is
