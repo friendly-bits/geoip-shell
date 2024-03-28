@@ -5,6 +5,7 @@
 
 # the -install.sh script prepends the shebang and values for required variables
 
+me="${0##*/}"
 . "${_lib}-owrt-common.sh" || exit 1
 
 die() {
@@ -18,15 +19,16 @@ mk_fw_include() {
 	check_owrt_include && return 0
 	rel=
 	[ "$_OWRTFW" = 3 ] && rel=".reload=1" # fw3
-	delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
+	uci delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	uci_cmds="$(
 		for o in "=include" ".enabled=1" ".type=script" ".path=$fw_include_path" "$rel"; do
 			[ "$o" ] && printf '%s\n' "set firewall.$p_name_c$o"
 		done
 	)"
-	errors="$(printf '%s\n' "$uci_cmds" | uci batch && uci commit firewall)" ||
-		die "Failed to add firewall include. Errors: $(printf %s "$errors" | tr '\n' ' ')."
+	errors="$(printf '%s\n' "$uci_cmds" | uci batch && uci commit firewall 2>&1)"
+	[ "$errors" ] && die "Failed to add firewall include. Errors: $(printf %s "$errors" | tr '\n' ' ')."
 	/etc/init.d/firewall restart
 }
 
+[ ! -f "$conf_dir/setupdone" ] && [ ! -f "/tmp/$p_name-setupdone" ] && die "$p_name has not been configured. Refusing to create firewall include. Run '$p_name configure' to fix this."
 mk_fw_include
