@@ -143,7 +143,7 @@ nft_cmd_chain="$(
 	## Auxiliary rules
 
 	# apply geoip to ifaces
-	[ "$ifaces" ] && opt_ifaces="iifname { $(printf '%s, ' $ifaces) }"
+	[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '%s, ' $ifaces) }"
 
 	# trusted subnets/ips
 	for family in $families; do
@@ -213,7 +213,7 @@ nft_cmd_chain="$(
 	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
-	[ "$geomode" = "whitelist" ] && [ ! "$ifaces" ] &&
+	[ "$geomode" = "whitelist" ] && [ "$ifaces" = all ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
 	## add iplist-specific rules
