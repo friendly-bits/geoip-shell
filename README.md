@@ -175,7 +175,11 @@ _<details><summary>Example</summary>_
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
 
-**To uninstall:** `geoip-shell-uninstall.sh`
+**To uninstall:**
+
+`geoip-shell-uninstall.sh`
+
+On OpenWrt, if installed via an ipk package: `opkg uninstall <geoip-shell|geoip-shell-iptables>`
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)

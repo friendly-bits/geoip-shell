@@ -1,7 +1,7 @@
 ## **Prelude**
+- geoip-shell supports a numer of different use cases, many different platforms, and 2 backend firewall utilities (nftables and iptables). For this reason I designed it to be modular rather than monolithic. In this design, the functionality is split between few main scripts. Each main script performs specific tasks and utilizes library scripts which are required for the task with the given platform and firewall utility.
 - This document intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
-- geoip-shell supports many different platforms and 2 backend firewall utilities (nftables and iptables). For this reason, I designed it to be modular rather than monolithic. In this design, each main script performs specific tasks and utilizes library scripts which are required for the platform and the firewall utility on a given system.
 
 ## **Overview**
 
@@ -18,9 +18,10 @@
 
 ### Helper Script
 1. geoip-shell-detect-lan.sh
+
 This script is only used under specific conditions:
 - During installation, if installing in whitelist mode, and only if wan interfaces were set to 'all', and lan subnets were not specified via command line args. The suite then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
-- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection was enabled during installation. The suite then re-detects and refreshes the LAN subnets in the whitelist automatically. Otherwise the script does not get installed.
+- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection was enabled during installation or later via the `geoip-shell configure -l auto` command. The suite then re-detects and refreshes the LAN subnets in the whitelist automatically.
 
 ### Library Scripts
 1. lib/geoip-shell-lib-common.sh
@@ -45,7 +46,7 @@ This script is only used under specific conditions:
 - The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
 - When nftables is present during installation, the iptables libraries are not installed.
-- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break.
+- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break. Installing on OpenWrt via an ipk package will only install libraries for iptables - if you need to upgrade your system later, install the package for nftalbes at that time.
 - The -lib-check-compat script checks for some essential dependencies
 - The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 - The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
