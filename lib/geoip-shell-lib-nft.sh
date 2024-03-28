@@ -71,6 +71,11 @@ get_nft_list() {
 	esac
 }
 
+get_fwrules_iplists() {
+	nft_get_geotable "$force_read" |
+		sed -n "/saddr[[:space:]]*@.*${geotag}.*$nft_verdict/{s/.*@//;s/_.........._${geotag}.*//p}"
+}
+
 ### (ip)sets
 
 get_ipset_id() {
@@ -87,6 +92,10 @@ get_ipset_id() {
 
 get_ipsets() {
 	nft -t list sets inet | grep -o "[a-zA-Z0-9_-]*_$geotag"
+}
+
+get_ipset_iplists() {
+	nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}"
 }
 
 # 1 - ipset tag
@@ -109,35 +118,6 @@ print_ipset_elements() {
 	get_ipset_elements "$1" | awk '{gsub(",", "");$1=$1};1' ORS=' '
 }
 
-
-#### High-level functions
-
-# checks current ipsets and firewall rules for geoip-shell
-# returns a list of active ip lists
-# (optional: 1 - '-f' to force re-read of the table)
-# 1 - var name for output
-get_active_iplists() {
-	force_read=
-	[ "$1" = "-f" ] && { force_read="-f"; shift; }
-	case "$geomode" in
-		whitelist) nft_verdict=accept ;;
-		blacklist) nft_verdict=drop ;;
-		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
-	esac
-
-	ipset_lists="$(nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}")"
-	iprules_lists="$(nft_get_geotable "$force_read" |
-		sed -n "/saddr[[:space:]]*@.*${geotag}.*$nft_verdict/{s/.*@//;s/_.........._${geotag}.*//p}")"
-
-	# debugprint "ipset_lists: '$ipset_lists', iprules_lists: '$iprules_lists'"
-
-	get_difference "$ipset_lists" "$iprules_lists" lists_difference
-	get_intersection "$ipset_lists" "$iprules_lists" "$1"
-
-	case "$lists_difference" in '') iplists_incoherent=''; return 0 ;; *) iplists_incoherent=1; return 1; esac
-}
-
-# checks whether current ipsets and firewall rules match the config
 
 geotable="$geotag"
 base_geochain="GEOIP-BASE"
