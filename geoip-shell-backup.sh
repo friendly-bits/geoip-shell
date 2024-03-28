@@ -116,7 +116,7 @@ cp_conf() {
 #### VARIABLES
 
 getconfig families
-getconfig config_lists
+getconfig iplists
 
 bk_dir="$datadir/backup"
 config_file="$conf_file"
@@ -146,7 +146,7 @@ case "$action" in
 		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
 		[ ! -s "$config_file_bak" ] && rstr_failed "'$config_file_bak' is empty or doesn't exist."
-		getconfig config_lists config_lists "$config_file_bak" &&
+		getconfig iplists iplists "$config_file_bak" &&
 		getconfig bk_ext bk_ext "$config_file_bak" || rstr_failed
 		set_extract_cmd "$bk_ext"
 		restorebackup
