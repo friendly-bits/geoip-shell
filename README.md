@@ -137,8 +137,8 @@ _(Note that some commands require root privileges, so you will likely need to ru
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-Generally, once the installation completes, you don't have to do anything else for geoip blocking to work. But I implemented some tools which provide functionality for changing geoip config and checking current geoip blocking status.
-A partial selection of options given here, for additional options run `geoip-shell -h` or read [DETAILS.md](/Documentation/DETAILS.md).
+Generally, once the installation completes, you don't have to do anything else for geoip blocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)). If you want to change geoip blocking config or check geoip blocking status, you can do that via the provided utilities.
+A selection of options is given here, for additional options run `geoip-shell -h` or read [DETAILS.md](/Documentation/DETAILS.md).
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
