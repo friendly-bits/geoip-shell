@@ -151,21 +151,19 @@ _<details><summary>Examples:</summary>_
 
 **To enable or disable geoip blocking:** `geoip-shell <on|off>`
 
-**To change ip lists source:** `geoip-shell configure -u [ripe|ipdeny]`
+**To change ip lists source:** `geoip-shell configure -u <ripe|ipdeny>`
 
-**To change geoip blocking mode:** `geoip-shell configure -m [whitelist|blacklist]`
+**To change geoip blocking mode:** `geoip-shell configure -m <whitelist|blacklist>`
 
 **To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -t <["ip_addresses"]|none>`. `none` removes previously set trusted ip addresses.
 
 **To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
 
-**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p [tcp|udp]:[allow|block]:[all|<ports>]`
+**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p <tcp|udp>:<allow|block>:<all|[ports]>`
 
 _(for details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10)_
 
-**To enable or change the autoupdate schedule**, use the `-s` option followed by the cron schedule expression in doulbe quotes:
-
-`geoip-shell configure -s <"schdedule_expression">`
+**To enable or change the automatic update schedule:** `geoip-shell configure -s <"schdedule_expression">`
 
 _<details><summary>Example</summary>_
 

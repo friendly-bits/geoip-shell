@@ -1,6 +1,7 @@
 ## **Prelude**
-- This document mainly intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
+- This document intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
+- geoip-shell supports many different platforms and 2 backend firewall utilities (nftables and iptables). For this reason, I designed it to be modular rather than monolithic. In this design, each main script performs specific tasks and utilizes library scripts which are required for the platform and the firewall utility on a given system.
 
 ## **Overview**
 
@@ -16,10 +17,10 @@
 9. geoip-shell-geoinit.sh
 
 ### Helper Script
+1. geoip-shell-detect-lan.sh
 This script is only used under specific conditions:
 - During installation, if installing in whitelist mode, and only if wan interfaces were set to 'all', and lan subnets were not specified via command line args. The suite then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
 - At the time of creating/updating firewall rules, and only if LAN subnets automatic detection was enabled during installation. The suite then re-detects and refreshes the LAN subnets in the whitelist automatically. Otherwise the script does not get installed.
-1. geoip-shell-detect-lan.sh
 
 ### Library Scripts
 1. lib/geoip-shell-lib-common.sh
@@ -51,7 +52,7 @@ This script is only used under specific conditions:
 - The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
 
 ### OpenWrt-specific scripts
-These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation.
+These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation (when using the install script). If installing via an ipk package, the final scripts get installed rather than templates.
 1. geoip-shell-lib-owrt-common.sh
 2. geoip-shell-owrt-init.tpl
 3. geoip-shell-owrt-mk-fw-include.tpl
@@ -59,8 +60,8 @@ These are only installed on OpenWrt systems. The .tpl files are "templates" whic
 5. mk-owrt-package.sh
 
 ### Optional script
-This script is intended for checks before installation. It does not get installed.
 1. check-ip-in-source.sh
+This script is intended for checks before installation. It does not get installed.
 
 ### User interface
 The scripts intended as user interface are **geoip-shell-install.sh**, **geoip-shell-uninstall.sh**, **geoip-shell-manage.sh** and **check-ip-in-source.sh**. All the other scripts are intended as a back-end. If you just want to install and move on, you only need to run the -install script.
