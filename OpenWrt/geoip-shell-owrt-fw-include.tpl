@@ -2,6 +2,9 @@
 # calls the -run script with the 'restore' argument
 # used for owrt firewall include
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 # the -install.sh script replaces variables with values
 
 lock_file=\"$lock_file\"
