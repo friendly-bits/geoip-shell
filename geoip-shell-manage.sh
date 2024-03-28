@@ -151,8 +151,8 @@ restore_from_config() {
 	restore_msg="Restoring $p_name from config... "
 	restore_ok_msg="Successfully restored $p_name from config."
 	[ "$restore_req" ] && {
-		restore_msg="Applying new config... "
-		restore_ok_msg="Successfully applied new config."
+		restore_msg="Applying config... "
+		restore_ok_msg="Successfully applied config."
 	}
 	echolog "$restore_msg"
 	case "$iplists" in
@@ -283,8 +283,8 @@ case "$action" in
 				setconfig "noblock=" ;;
 			off) setconfig "noblock=1"
 		esac
-		call_script "$i_script-apply.sh" $action || die
-		die 0 ;;
+		call_script "$i_script-apply.sh" $action
+		die $? ;;
 	reset) rm_iplists_rules; die $? ;;
 	restore) restore_from_config; die $?
 esac
