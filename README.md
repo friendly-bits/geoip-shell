@@ -95,7 +95,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
 **1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. Systems which only have `iptables` also require the `ipset` utility.
 
-**2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases
+**2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download the source code zip. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
   _<details><summary>Or download using the command line:</summary>_
   - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
   - or to download the latest release:
