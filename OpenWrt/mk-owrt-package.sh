@@ -59,7 +59,7 @@ build_dir="$script_dir/owrt-build"
 
 # *** Versions
 curr_ver="$(grep -o -m 1 'curr_ver=.*$' "$src_dir/${p_name}-install.sh" | cut -d\" -f2)"
-pkg_ver=23
+pkg_ver=25
 
 # More variables
 
@@ -105,9 +105,12 @@ echo
 # mkdir -p "$inst_root_gs$datadir"
 
 
-rm "$files_dir/usr/bin/$p_name-uninstall.sh"
+rm -f "$files_dir/usr/bin/$p_name-uninstall.sh"
 cp "$script_dir/$p_name-owrt-uninstall.sh" "$files_dir/usr/bin" ||
 	die "Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '$files_dir/usr/bin'."
+
+[ "$_OWRTFW" = 3 ] && rm -f "$files_dir/usr/lib/$p_name-"*nft.sh
+
 cd "$files_dir" || die "Failed to cd into '$files_dir'"
 
 echo "creating the '$build_dir/Makefile'"
