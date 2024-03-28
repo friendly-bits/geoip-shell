@@ -6,22 +6,24 @@
 # Creates an openwrt package (ipk) for geoip-shell.
 
 # *** BEFORE USING THIS SCRIPT ***
-# 'cd ~''
-# clone openwrt git repo:
+# 1) install dependencies for the OpenWrt build system:
+# https://openwrt.org/docs/guide-developer/toolchain/install-buildsystem
+# 2) cd into your home directory: 'cd ~'
+# 3) clone openwrt git repo:
 # 'git clone https://git.openwrt.org/openwrt/openwrt.git'
-# 'cd openwrt'
-# 'git checkout v23.05.3' (or later version if exists)
-# updated feeds:
-# './scripts/feeds update -a'
-# './scripts/feeds install -a'
-# 'make menuconfig'
-# select Target system --> [X] x86 (maybe this doesn't matter)
-# select Subtarget --> Generic or maybe X86-64 (not sure if this matters)
-# Don't change target or subtarget latter or you may have issues compiling
-# Exit and save
+# 4) 'cd openwrt'
+# NOTE: this script expects the openwrt build directory in the above path. It won't work if you have it in a different path.
 
-# run 'make -j4 tools/install'
-# run 'make -j4 toolchain/install'
+# 5) 'git checkout v23.05.3' (or later version if exists)
+# 6) update feeds:
+# './scripts/feeds update -a'; ./scripts/feeds install -a'
+# 7) 'make menuconfig'
+# 8) select Target system --> [X] x86 (probably this doesn't matter but it may? build faster if you select the same architecture as your CPU)
+# 9) select Subtarget --> X86-64 (same comment as above)
+# 10) Exit and save
+
+# 11) 'make -j4 tools/install'
+# 12) 'make -j4 toolchain/install'
 # if this is the first time you are installing tools and toolchain, this may take a long while
 
 # if you previously tried to compile geoip-shell, run './scripts/feeds uninstall geoip-shell'
@@ -81,7 +83,7 @@ files_dir="$build_dir/files"
 _lib="$/usr/lib"
 _nl='
 '
-
+export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH"
 
 ### Checks
 [ ! -d "$owrt_dist_dir" ] && die "openwrt distribution dir '$owrt_dist_dir' doesn't exist."
@@ -181,8 +183,8 @@ grep "$p_name$ipt=m" .config 1>/dev/null || {
 printf '\n%s\n' "Making new ipk..."
 echo "running: make -j4 package/$p_name$ipt/clean"
 make -j4 "package/$p_name$ipt/clean"
-echo "running: make -j4 -ik package/$p_name$ipt/compile"
-make -j4 -ik "package/$p_name$ipt/compile"
+echo "running: make -j1 V=sc package/$p_name$ipt/compile"
+make -j1 V=sc "package/$p_name$ipt/compile"
 
 ipk_path="$(find . -name "${p_name}${ipt}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
 [ ! "$ipk_path" ] || [ ! -f "$ipk_path" ] && die "Can not find file '$ipk_path'"
