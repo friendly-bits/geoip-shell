@@ -1,5 +1,8 @@
 #!/bin/sh /etc/rc.common
 
+# Copyright: friendly bits
+# github.com/friendly-bits
+
 # the -install.sh script replaces variables with values
 
 START=99
