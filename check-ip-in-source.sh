@@ -87,7 +87,7 @@ export nolog=1
 
 fetch_script="$p_script-fetch.sh"
 
-valid_sources="ripe${_nl}ipdeny"
+valid_sources="ripe ipdeny"
 default_source="ripe"
 
 
@@ -123,7 +123,7 @@ subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ ! -f "$fetch_script" ] && die "Can not find '$fetch_script'."
 
 # remove duplicates etc
-san_str -s ips
+san_str ips
 
 
 #### Main
