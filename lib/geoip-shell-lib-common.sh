@@ -110,6 +110,7 @@ pick_opt() {
 	while true; do
 		printf %s "$1: "
 		read -r REPLY
+		is_alphanum "$REPLY" || { printf '\n%s\n\n' "Please enter $1"; continue; }
 		eval "case \"$REPLY\" in
 				$_opts) return ;;
 				*) printf '\n%s\n\n' \"Please enter $1\"
@@ -536,14 +537,14 @@ add2list() {
 }
 
 # removes duplicate words, removes leading and trailing delimiter, trims in-between extra delimiter characters
-# by default expects a newline-delimited list
-# (1) - optional -s to delimit both input and output by whitespace
+# by default expects a whitespace-delimited list
+# (1) - optional -n to delimit both input and output by newline
 # 1 - var name for output
 # 2 - optional input string (otherwise uses prev value)
 # 3 - optional input delimiter
 # 4 - optional output delimiter
 san_str() {
-	[ "$1" = '-s' ] && { _del=' '; shift; } || _del="$_nl"
+	[ "$1" = '-n' ] && { _del="$_nl"; shift; } || _del=' '
 	[ "$2" ] && inp_str="$2" || eval "inp_str=\"\$$1\""
 
 	_sid="${3:-"$_del"}"
@@ -557,12 +558,12 @@ san_str() {
 	oldifs san
 }
 
-# get intersection of lists $1 and $2, with optional field separator $4 (otherwise uses newline)
+# get intersection of lists $1 and $2, with optional field separator $4 (otherwise uses whitespace)
 # output via variable with name $3
 get_intersection() {
 	gi_out="${3:-___dummy}"
 	[ ! "$1" ] || [ ! "$2" ] && { unset "$gi_out"; return 1; }
-	_fs_gi="${4:-"$_nl"}"
+	_fs_gi="${4:-" "}"
 	_isect=
 	newifs "$_fs_gi" _fs_gi
 	for e in $2; do
@@ -572,7 +573,7 @@ get_intersection() {
 	oldifs _fs_gi
 }
 
-# get difference between lists $1 and $2, with optional field separator $4 (otherwise uses newline)
+# get difference between lists $1 and $2, with optional field separator $4 (otherwise uses whitespace)
 # output via optional variable with name $3
 # returns status 0 if lists match, 1 if not
 get_difference() {
@@ -581,7 +582,7 @@ get_difference() {
 		'') case "$2" in '') unset "$gd_out"; return 0 ;; *) eval "$gd_out"='$2'; return 1; esac ;;
 		*) case "$2" in '') eval "$gd_out"='$1'; return 1; esac
 	esac
-	_fs_gd="${4:-"$_nl"}"
+	_fs_gd="${4:-" "}"
 	subtract_a_from_b "$1" "$2" "_diff1" "$_fs_gd"
 	subtract_a_from_b "$2" "$1" "_diff2" "$_fs_gd"
 	_diff="$_diff1$_fs_gd$_diff2"
@@ -590,14 +591,14 @@ get_difference() {
 	[ "$_diff1$_diff2" ] && return 1 || return 0
 }
 
-# subtract list $1 from list $2, with optional field separator $4 (otherwise uses newline)
+# subtract list $1 from list $2, with optional field separator $4 (otherwise uses whitespace)
 # output via optional variable with name $3
 # returns status 0 if the result is null, 1 if not
 subtract_a_from_b() {
 	sab_out="${3:-___dummy}"
 	case "$2" in '') unset "$sab_out"; return 0; esac
 	case "$1" in '') eval "$sab_out"='$2'; [ ! "$2" ]; return; esac
-	_fs_su="${4:-"$_nl"}"
+	_fs_su="${4:-" "}"
 	rv_su=0 _subt=
 	newifs "$_fs_su" _fs_su
 	for e in $2; do
@@ -648,6 +649,34 @@ san_args() {
 # restores the nolog var prev value
 r_no_l() { nolog="$_no_l"; }
 
+# checks current ipsets and firewall rules for geoip-shell
+# returns a whitespace-delimited list of active ip lists
+# (optional: 1 - '-f' to force re-read of the table - nft-specific)
+# 1 - var name for output
+get_active_iplists() {
+	unset force_read iplists_incoherent
+	[ "$1" = "-f" ] && { force_read="-f"; shift; }
+	case "$geomode" in
+		whitelist) ipt_target=ACCEPT nft_verdict=accept ;;
+		blacklist) ipt_target=DROP nft_verdict=drop ;;
+		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
+	esac
+
+	ipset_iplists="$(get_ipset_iplists)"
+	fwrules_iplists="$(get_fwrules_iplists)"
+
+	# debugprint "ipset_iplists: '$ipset_iplists', fwrules_iplists: '$fwrules_iplists'"
+
+	get_difference "$ipset_iplists" "$fwrules_iplists" lists_difference "$_nl"
+	get_intersection "$ipset_iplists" "$fwrules_iplists" "active_iplists_nl" "$_nl"
+	nl2sp "$1" "$active_iplists_nl"
+
+	case "$lists_difference" in
+		'') return 0 ;;
+		*) iplists_incoherent=1; return 1
+	esac
+}
+
 # checks whether current ipsets and iptables rules match ones in the config file
 check_lists_coherence() {
 	_no_l="$nolog"
@@ -655,31 +684,31 @@ check_lists_coherence() {
 	debugprint "Verifying ip lists coherence..."
 
 	# check for a valid list type
-	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; die "Unexpected geoip mode '$geomode'!"; esac
+	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; echolog -err "Unexpected geoip mode '$geomode'!"; return 1; esac
 
 	unset unexp_lists missing_lists
-	getconfig conf_lists config_lists
+	getconfig iplists
 
-	sp2nl conf_lists
 	get_active_iplists -f active_lists || {
-		nl2sp ips_l_str "$ipset_lists"; nl2sp ipr_l_str "$iprules_lists"
+		nl2sp ips_l_str "$ipset_iplists"; nl2sp ipr_l_str "$fwrules_iplists"
 		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
 		report_incoherence
 		r_no_l
 		return 1
 	}
 
-	get_difference "$active_lists" "$conf_lists" lists_difference
+	get_difference "$active_lists" "$iplists" lists_difference
 	case "$lists_difference" in
-		'') debugprint "Successfully verified ip lists coherence."; r_no_l; return 0 ;;
-		*) nl2sp active_l_str "$active_lists"; nl2sp config_l_str "$conf_lists"
-			echolog -err "$_nl$FAIL verify ip lists coherence." "firewall ip lists: '$active_l_str'" "config ip lists: '$config_l_str'"
-			subtract_a_from_b "$conf_lists" "$active_lists" unexp_lists; nl2sp unexpected_lists "$unexp_lists"
-			subtract_a_from_b "$active_lists" "$conf_lists" missing_lists; nl2sp missing_lists
+		'') debugprint "Successfully verified ip lists coherence."; rv_clc=0 ;;
+		*)
+			echolog -err "$_nl$FAIL verify ip lists coherence." "Firewall ip lists: '$active_lists'" "Config ip lists: '$iplists'"
+			subtract_a_from_b "$iplists" "$active_lists" unexpected_lists
+			subtract_a_from_b "$active_lists" "$iplists" missing_lists
 			report_incoherence
-			r_no_l
-			return 1
+			rv_clc=1
 	esac
+	r_no_l
+	return $rv_clc
 }
 
 report_incoherence() {
@@ -773,7 +802,6 @@ kill_geo_pids() {
 	while true; do
 		i_kgp=$((i_kgp+1)); _killed=
 		_geo_ps="$(pgrep -fa "(${p_name}\-|$ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | grep -v pgrep)"
-		_fetch_ps="$(pgrep -fa "${p_name}[^[:space:]]*")"
 		newifs "$_nl" kgp
 		for _p in $_geo_ps; do
 			pid="${_p% *}"
@@ -795,6 +823,10 @@ kill_geo_pids() {
 	unisleep
 }
 
+# 1 - input ip's/subnets
+# 2 - output via return code (0: all valid; 1: 1 or more invalid)
+# if a subnet detected in ips of a particular family, sets ipset_type to 'net:', otherwise to 'ip:'
+# expects the $family var to be set
 validate_ip() {
 	[ ! "$1" ] && { echolog -err "validate_ip: received an empty string."; return 1; }
 	ipset_type=ip; family="$2"; o_ips=
