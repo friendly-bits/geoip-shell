@@ -106,9 +106,9 @@ get_src_dates_ipdeny() {
 
 	_res=
 	for list_id in $valid_lists; do
-		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f$_nl"; esac
+		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f "; esac
 	done
-	families="${_res%$_nl}"
+	families="${_res% }"
 
 	for family in $families; do
 		case "$family" in
@@ -194,7 +194,7 @@ group_lists_by_registry() {
 			case "$ccodes" in *" ${ccode} "*)
 				add2list registries "$registry"
 				add2list list_ids "$list_id"
-				add2list valid_lists "$list_id" "$_nl"
+				add2list valid_lists "$list_id"
 			esac
 		done
 		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
@@ -495,7 +495,7 @@ if [ -z "$secure_util" ] && [ -z "$http" ]; then
 fi
 : "${http:=https}"
 
-valid_sources="ripe${_nl}ipdeny"
+valid_sources="ripe ipdeny"
 default_source="ripe"
 
 #### VARIABLES
@@ -503,7 +503,7 @@ default_source="ripe"
 lists=
 for list_id in $lists_arg; do
 	case "$list_id" in
-		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}"; add2list lists "$cc_up$fml_lo" "$_nl" ;;
+		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}"; add2list lists "$cc_up$fml_lo" ;;
 		*) die "invalid list id '$list_id'."
 	esac
 done
@@ -537,7 +537,7 @@ esac
 [ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
 
 [ ! "$lists_arg" ] && die "Specify country code/s!"
-fast_el_cnt "$lists_arg" "$_nl" lists_arg_cnt
+fast_el_cnt "$lists_arg" " " lists_arg_cnt
 
 
 # if $output_file is set, make sure that no more than 1 list is specified
