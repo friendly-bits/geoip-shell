@@ -211,7 +211,7 @@ create_cron_job() {
 
 	job_type="$1"
 
-	[ -z "$config_lists" ] && die "Countries list in the config file is empty! No point in creating autoupdate job."
+	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating autoupdate job."
 
 	case "$job_type" in
 		autoupdate)
@@ -271,13 +271,13 @@ rm_cron_job() {
 
 #### Variables
 
-for entry in schedule_conf no_persist config_lists; do
+for entry in schedule no_persist iplists; do
 	getconfig "$entry"
 done
 
 run_cmd="$i_script-run.sh"
 
-schedule="${schedule_conf:-$default_schedule}"
+schedule="${schedule:-$default_schedule}"
 
 
 #### Checks
