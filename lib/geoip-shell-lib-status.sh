@@ -60,8 +60,8 @@ for list_id in $active_lists; do
 	active_ccodes="$active_ccodes${list_id%_*} "
 	active_families="$active_families${list_id#*_} "
 done
-san_str -s active_ccodes
-san_str -s active_families
+san_str active_ccodes
+san_str active_families
 printf %s "Country codes in the $geomode: "
 case "$active_ccodes" in
 	'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -73,8 +73,8 @@ case "$active_families" in
 	*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 esac
 
-unset _ifaces_r _ifaces_all
-[ "$ifaces" ] && _ifaces_r=": ${blue}$ifaces$n_c" || _ifaces_all="${blue}all$n_c "
+unset _ifaces_r
+[ "$ifaces" ] && _ifaces_r=": ${blue}$ifaces$n_c"
 printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
 
 trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
@@ -90,12 +90,12 @@ trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
 [ "$geomode" = "whitelist" ] && {
 	lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
 	lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
-	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ ! "$ifaces" ] && {
+	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ "$ifaces" = all ] && {
 		printf '\n%s\n' "Allowed LAN ip's:"
 		for f in $families; do
 			eval "lan_ips=\"\$lan_ips_$f\""
 			[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
-			[ "$lan_ips" ] || [ ! "$ifaces" ] && printf '%s\n' "$f: $lan_ips"
+			[ "$lan_ips" ] || [ "$ifaces" = all ] && printf '%s\n' "$f: $lan_ips"
 		done
 		autodetect_hr=Off
 		[ "$autodetect" ] && autodetect_hr=On
@@ -174,7 +174,7 @@ fi
 }
 
 # check automatic backup
-[ "$nobackup" = true ] && backup_st="${red}Off" || backup_st="${green}On"
+[ "$nobackup" = true ] && backup_st="${yellow}Off" || backup_st="${green}On"
 
 printf '%s\n' "Automatic backup of ip lists: $backup_st$n_c"
 
@@ -182,3 +182,5 @@ case $issues in
 	0) printf '\n%s\n\n' "${green}No problems detected.${n_c}" ;;
 	*) printf '\n%s\n\n' "${red}Problems detected: $issues.${n_c}"
 esac
+
+[ "$issues" ] && [ -f "$lock_file" ] && echo "NOTE: $lock_file lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
