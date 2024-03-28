@@ -79,23 +79,23 @@ daemon_prep_next() {
 	echolog "Retrying in $secs seconds"
 	sleep $secs
 	add2list ok_lists "$fetched_lists"
-	san_str -s lists_fetch "$failed_lists $missing_lists"
+	san_str lists_fetch "$failed_lists $missing_lists"
 }
 
 #### VARIABLES
 
-for entry in config_lists nobackup geosource geomode max_attempts reboot_sleep; do
+for entry in iplists nobackup geosource geomode max_attempts reboot_sleep; do
 	getconfig "$entry"
 done
-export config_lists geomode
+export iplists geomode
 
 nobackup="${nobackup_arg:-$nobackup}"
 
-lists="$lists_arg"
-[ ! "$lists" ] && case "$action_run" in update|restore) lists="$config_lists"; esac
+apply_lists="$lists_arg"
+[ ! "$apply_lists" ] && case "$action_run" in update|restore) apply_lists="$iplists"; esac
 
-trimsp lists
-fast_el_cnt "$lists" " " lists_cnt
+trimsp apply_lists
+fast_el_cnt "$apply_lists" " " lists_cnt
 
 failed_lists_cnt=0
 
@@ -134,10 +134,10 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unloc
 # check for valid action and translate *run action to *apply action
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
 case "$action_run" in
-	add) action_apply=add; [ ! "$lists" ] && die "no list id's were specified!" ;;
+	add) action_apply=add; [ ! "$apply_lists" ] && die "no list id's were specified!" ;;
 	# if firewall is in incoherent state, force re-fetch
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
-	remove) action_apply=remove; rm_lists="$lists" ;;
+	remove) action_apply=remove; rm_lists="$apply_lists" ;;
 	restore)
 		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" = true ]; then
@@ -146,7 +146,7 @@ case "$action_run" in
 			action_run=update action_apply=add force="-f"
 		else
 			call_script -l "$i_script-backup.sh" "restore"; rv_cs=$?
-			getconfig lists config_lists
+			getconfig apply_lists iplists
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=true
 			else
@@ -163,7 +163,7 @@ esac
 unset echolists ok_lists missing_lists lists_fetch fetched_lists
 
 [ ! "$daemon_mode" ] && max_attempts=1
-case "$action_run" in add|update) lists_fetch="$lists" ;; *) max_attempts=1; esac
+case "$action_run" in add|update) lists_fetch="$apply_lists" ;; *) max_attempts=1; esac
 
 attempt=0 secs=5
 while true; do
@@ -202,8 +202,8 @@ while true; do
 	### Apply ip lists
 
 	lists_fetch=
-	san_str -s ok_lists "$fetched_lists $ok_lists"
-	san_str -s apply_lists "$ok_lists $rm_lists"
+	san_str ok_lists "$fetched_lists $ok_lists"
+	san_str apply_lists "$ok_lists $rm_lists"
 	apply_rv=0
 	case "$action_run" in update|add|remove)
 		[ ! "$apply_lists" ] && { echolog "Firewall reconfiguration isn't required."; die 0; }
