@@ -77,10 +77,10 @@ geotag_aux="${geotag}_aux"
 [ ! "$datadir" ] && die "the \$datadir variable is empty."
 [ ! "$geomode" ] && die "the \$geomode variable is empty."
 
-[ "$ifaces" ] && {
+[ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
 	nl2sp all_ifaces
-	subtract_a_from_b "$all_ifaces" "$ifaces" bad_ifaces ' '
+	subtract_a_from_b "$all_ifaces" "$ifaces" bad_ifaces
 	[ "$bad_ifaces" ] && die "Network interfaces '$bad_ifaces' do not exist in this system."
 }
 
