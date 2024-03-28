@@ -15,13 +15,14 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.3.4"
+curr_ver="0.4"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" &&
-. "$_lib-setup.sh" || exit 1
+. "$_lib-setup.sh" &&
+. "$_lib-uninstall.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -256,7 +257,7 @@ done
 
 unset lib_files ipt_libs
 [ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt status-ipt"
-for f in common arrays nft apply-nft backup-nft status status-nft setup ip-regex $check_compat $ipt_libs; do
+for f in uninstall common arrays nft apply-nft backup-nft status status-nft setup ip-regex $check_compat $ipt_libs; do
 	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -272,7 +273,7 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 
 set_defaults
 
-# parse command line args and make interactive install if needed
+# parse command line args and make interactive setup if needed
 [ ! "$inst_root_gs" ] && { get_prefs || die; }
 
 export datadir lib_dir="/usr/lib"
@@ -305,7 +306,7 @@ mkdir -p "$inst_root_gs$conf_dir"
 # write config
 printf %s "Setting config... "
 nodie=1
-setconfig datadir user_ccode "config_lists=" geomode tcp_ports udp_ports geosource families schedule_conf \
+setconfig datadir user_ccode "iplists=" geomode tcp_ports udp_ports geosource families "schedule=" \
 	max_attempts ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
 	reboot_sleep nobackup no_persist noblock "http=" || install_failed
 OK
@@ -346,19 +347,10 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 [ ! "$inst_root_gs" ] && {
 	# only allow root to read the $datadir and $conf_dir and files inside it
 	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
-	install_failed "$FAIL create '$datadir'."
+		install_failed "$FAIL create '$datadir'."
 
 	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-	call_script "$i_script-manage.sh" add -f -c "$ccodes" || install_failed "$FAIL create and apply the iplist."
-
-	WARN_F="$WARN Installed without"
-
-	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ]; then
-		### Set up cron jobs
-		call_script "$i_script-cronsetup.sh" || install_failed "$FAIL set up cron jobs."
-	else
-		printf '%s\n\n' "$WARN_F ${cr_p2}autoupdate functionality."
-	fi
+	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" || install_failed "$FAIL create and apply the iplist."
 }
 
 # OpenWrt-specific stuff
@@ -368,8 +360,9 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
 	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}-constants"
+
 	if [ "$no_persist" ]; then
-		printf '%s\n\n' "$WARN_F persistence functionality."
+		echolog -warn "Installed without persistence functionality."
 	else
 		echo "Adding the init script... "
 		{
@@ -381,25 +374,22 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$inst_root_gs$fw_include" &&
 		{
 			printf '%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
-				"install_dir=\"$install_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
+				"install_dir=\"$install_dir\"" "conf_dir=\"$conf_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
 			prep_script "$script_dir/$owrt_mk_fw_inc" -n
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
-		[ ! "$inst_root_gs" ] && {
-			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" || install_failed "$FAIL set permissions."
 
-			printf %s "Enabling and starting the init script... "
-			$init_script enable
-			$init_script start
-			sleep 1
-			check_owrt_init || install_failed "$FAIL enable '$init_script'."
-			check_owrt_include || install_failed "$FAIL add firewall include."
-			OK
+		[ ! "$inst_root_gs" ] && {
+			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" ||
+				install_failed "$FAIL set permissions."
+			touch "$conf_dir/setupdone"
+			enable_owrt_init || install_failed
 		}
 	fi
 }
 
 
-. "$_lib-$_fw_backend.sh" || die
-
-[ ! "$inst_root_gs" ] && { report_lists; statustip; }
+[ ! "$inst_root_gs" ] && {
+	. "$_lib-$_fw_backend.sh" || die
+	report_lists; statustip
+}
 echo "Install done."
