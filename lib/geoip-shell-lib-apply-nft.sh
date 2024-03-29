@@ -176,7 +176,7 @@ nft_cmd_chain="$(
 				lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 				[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
 				nl2sp lan_ips "net:$lan_ips"
-				setconfig "lan_ips_$family=$lan_ips"
+				eval "lan_ips_$family=$lan_ips"
 			fi
 
 			nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
