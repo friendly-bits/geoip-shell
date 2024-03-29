@@ -33,9 +33,7 @@ debugentermsg
 
 usage() {
 cat <<EOF
-v$curr_ver
-
-Usage: $me [-h]
+Usage: $me [-V] [-h]
 
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
@@ -44,6 +42,7 @@ Usage: $me [-h]
 5) Deletes the config folder /etc/geoip-shell
 
 Options:
+  -V  : Version
   -h  : This help
 
 EOF
@@ -51,11 +50,12 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":rlch" opt; do
+while getopts ":rlcVh" opt; do
 	case $opt in
 		l) resetonly_lists="-l" ;;
 		c) reset_only_lists_cron="-c" ;;
 		r) resetonly="-r" ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0;;
 		*) unknownopt
 	esac
