@@ -143,8 +143,11 @@ copyscripts() {
 }
 
 install_failed() {
-	printf '%s\n\n%s\n%s\n' "$*" "Installation failed." "Uninstalling ${p_name}..." >&2
-	[ ! "$inst_root_gs" ] && call_script "$p_script-uninstall.sh"
+	printf '%s\n\n%s\n' "$*" "Installation failed." >&2
+	[ ! "$inst_root_gs" ] && {
+		echo "Uninstalling ${p_name}..." >&2
+		call_script "$p_script-uninstall.sh"
+	}
 	exit 1
 }
 
