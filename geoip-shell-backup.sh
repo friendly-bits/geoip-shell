@@ -19,9 +19,8 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
-v$curr_ver
 
-Usage: $me <action> [-d] [-h]
+Usage: $me <action> [-d] [-V] [-h]
 
 Creates a backup of the current firewall state and current ip sets or restores them from backup.
 
@@ -29,8 +28,9 @@ Actions:
   create-backup|restore  : create a backup of, or restore config, geoip ip sets and firewall rules
 
 Options:
-  -d    : Debug
-  -h    : This help
+  -d  : Debug
+  -V  : Version
+  -h  : This help
 
 EOF
 }
@@ -40,15 +40,15 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	create-backup|restore) ;;
+	create-backup|restore) shift ;;
 	* ) unknownact
 esac
 
 # process the rest of the args
-shift 1
-while getopts ":dh" opt; do
+while getopts ":dVh" opt; do
 	case $opt in
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
