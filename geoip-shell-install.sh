@@ -15,7 +15,6 @@
 
 #### Initial setup
 p_name="geoip-shell"
-curr_ver="0.4"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 export manmode=1 in_install=1 nolog=1
@@ -33,11 +32,10 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
-v$curr_ver
 
 Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn] [-i $if_syn]
 ${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
-${sp8}[-e] [-n] [-k] [-z] [-d] [-h]
+${sp8}[-e] [-n] [-k] [-z] [-d] [-V] [-h]
 
 Installer for $p_name.
 Asks the user about each required option, except those specified in arguments.
@@ -75,6 +73,7 @@ Extra Options:
          (everything will be installed and configured but geoip blocking will not be enabled)
   -z : Non-interactive installation. Will not ask any questions. Will fail if required options are not specified or invalid.
   -d : Debug
+  -V : Version
   -h : This help
 
 EOF
@@ -82,7 +81,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkdhz" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkzdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -102,6 +101,7 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkdhz" opt; do
 		k) noblock=1 ;;
 		z) export nointeract=1 ;;
 		d) export debugmode=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
@@ -135,7 +135,7 @@ copyscripts() {
 	for f in $1; do
 		dest="$inst_root_gs$install_dir/${f##*/}"
 		[ "$2" ] && dest="$inst_root_gs$2/${f##*/}"
-		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL copy file '$f' to '$dest'."
+		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL install file '$f' in '$dest'."
 		[ ! "$inst_root_gs" ] && {
 			chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
 		}
@@ -350,7 +350,8 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 		install_failed "$FAIL create '$datadir'."
 
 	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" || install_failed "$FAIL create and apply the iplist."
+	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" ||
+		install_failed "$FAIL create and apply the iplist."
 }
 
 # OpenWrt-specific stuff
@@ -373,7 +374,7 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 		echo "Preparing the firewall include... "
 		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$inst_root_gs$fw_include" &&
 		{
-			printf '%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
+			printf '%s\n%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
 				"install_dir=\"$install_dir\"" "conf_dir=\"$conf_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
 			prep_script "$script_dir/$owrt_mk_fw_inc" -n
 		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
@@ -390,6 +391,7 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 
 [ ! "$inst_root_gs" ] && {
 	. "$_lib-$_fw_backend.sh" || die
-	report_lists; statustip
+	report_lists
+	statustip
 }
 echo "Install done."
