@@ -18,7 +18,7 @@ rm_iplists_rules() {
 	rm_lock
 
 	### Remove geoip firewall rules
-	rm_all_georules || rerturn 1
+	rm_all_georules || return 1
 
 	set +f
 	rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
