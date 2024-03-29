@@ -285,7 +285,7 @@ case "$action" in
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
-	reset) rm_iplists_rules; die $? ;;
+	reset) rm_iplists_rules; setconfig "iplists="; die $? ;;
 	restore) restore_from_config; die $?
 esac
 
