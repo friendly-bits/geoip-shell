@@ -19,20 +19,20 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
-v$curr_ver
 
-Usage: $me <action> [-l <"list_ids">] [-d] [-h]
+Usage: $me <action> [-l <"list_ids">] [-d] [-V] [-h]
 Switches geoip blocking on/off, or loads/removes ip sets and firewall rules for specified lists.
 
 Actions:
-  on|off           : enable or disable the geoip blocking chain (via a rule in the base chain)
-  add|remove       : Add or remove ip sets and firewall rules for lists specified with the '-l' option
+  on|off      : enable or disable the geoip blocking chain (via a rule in the base chain)
+  add|remove  : Add or remove ip sets and firewall rules for lists specified with the '-l' option
 
 Options:
   -l $list_ids_usage
 
-  -d               : Debug
-  -h               : This help
+  -d  : Debug
+  -V  : Version
+  -h  : This help
 
 EOF
 }
@@ -42,16 +42,16 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|on|off|update) ;;
-	* ) unknownact
+	add|remove|on|off|update) shift ;;
+	*) unknownact
 esac
 
 # process the rest of the args
-shift 1
-while getopts ":l:dh" opt; do
+while getopts ":l:dVh" opt; do
 	case $opt in
 		l) list_ids=$OPTARG ;;
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
