@@ -12,7 +12,6 @@ define Package/$p_name$ipt
 	CATEGORY:=Network
 	TITLE:=$p_name$ipt
 	DEPENDS:=$depends +ca-bundle
-	$variant
 	PKGARCH:=all
 endef
 
