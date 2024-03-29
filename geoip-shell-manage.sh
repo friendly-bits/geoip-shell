@@ -22,12 +22,11 @@ set -- $_args; oldifs
 #### USAGE
 
 usage() {
-cat <<EOF
-v$curr_ver
 
+cat <<EOF
 Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u <ripe|ipdeny>]
 ${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-o <true|false>] [-a <"path">]
-${sp8}[-v] [-f] [-d] [-h]
+${sp8}[-v] [-f] [-d] [-V] [-h]
 
 Provides interface to configure geoip blocking.
 
@@ -71,6 +70,7 @@ Other options:
   -v  : Verbose status output
   -f  : Force the action
   -d  : Debug
+  -V  : Version
   -h  : This help
 
 EOF
@@ -82,13 +82,12 @@ EOF
 # check for valid action
 action="$1"
 case "$action" in
-	add|remove|configure|status|restore|reset|on|off|showconfig) ;;
+	add|remove|configure|status|restore|reset|on|off|showconfig) shift ;;
 	*) unknownact
 esac
 
 # process the rest of the args
-shift 1
-while getopts ":c:m:s:i:l:t:p:u:a:o:vfdh" opt; do
+while getopts ":c:m:s:i:l:t:p:u:a:o:vfdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -103,7 +102,8 @@ while getopts ":c:m:s:i:l:t:p:u:a:o:vfdh" opt; do
 
 		v) verb_status="-v" ;;
 		f) force_action=1 ;;
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
