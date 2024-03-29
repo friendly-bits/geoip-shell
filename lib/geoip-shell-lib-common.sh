@@ -62,12 +62,10 @@ oldifs() {
 	eval "IFS=\"\$IFS_OLD_$1\""
 }
 
-check_root() {
+is_root_ok() {
 	[ "$root_ok" ] && return 0
-	case "$(id -u)" in 0) export root_ok="1" ;; *)
-		[ "$in_install" ] && tip=" For usage, run '$me -h'."
-		die 0 "$me needs to be run as root.$tip"
-	esac
+	[ "$manualmode" ] && { rv=0; tip=" For usage, run '$me -h'."; } || rv=1
+	die $rv "$me needs to be run as root.$tip"
 }
 
 extra_args() {
