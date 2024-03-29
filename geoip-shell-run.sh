@@ -68,7 +68,7 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-check_root
+is_root_ok
 . "$_lib-$_fw_backend.sh" || die
 
 setdebug
@@ -217,7 +217,7 @@ while true; do
 				echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
 			*) debugprint "NOTE: apply exited with code '$apply_rv'."; die "$apply_rv"
 		esac
-		echolists=" for lists '$ok_lists$rm_lists'"
+		echolists=" for ip lists '$ok_lists$rm_lists'"
 	esac
 
 	if check_lists_coherence; then
