@@ -112,7 +112,7 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-check_root
+is_root_ok
 . "$_lib-$_fw_backend.sh" || die
 [ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
 
@@ -380,6 +380,7 @@ case "$action" in
 		}
 
 		[ "$rv_apply" = 0 ] && [ "$_OWRTFW" ] && {
+			.  "$_lib-owrt-common.sh" || exit 1
 			[ ! -f "$conf_dir/setupdone" ] && touch "$conf_dir/setupdone" "/tmp/$p_name-setupdone"
 			rm_lock
 			enable_owrt_init; rv_apply=$?
