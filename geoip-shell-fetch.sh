@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC1090,SC2034
+# shellcheck disable=SC2154,SC1090,SC2034,SC2086,SC2015
 
 # geoip-shell-fetch.sh
 
