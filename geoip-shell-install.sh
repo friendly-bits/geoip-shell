@@ -332,7 +332,7 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
 
 	$init_check_compat
-	[ "\$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok="1"; }
+	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 	. "$conf_dir/\${p_name}-constants" || exit 1
