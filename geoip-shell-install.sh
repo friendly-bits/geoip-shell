@@ -110,7 +110,7 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 # inst_root_gs is set by an external packaging script
-[ ! "$inst_root_gs" ] && check_root
+[ ! "$inst_root_gs" ] && is_root_ok
 debugentermsg
 
 
@@ -245,7 +245,7 @@ export conf_dir="/etc/$p_name"
 	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
 } || {
 	check_compat="check-compat"
-	init_check_compat=". \"\${_lib}-check-compat.sh\" &&"
+	init_check_compat=". \"\${_lib}-check-compat.sh\" || exit 1"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
@@ -329,14 +329,15 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
 
 	$init_check_compat
+	[ "\$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
-	[ "\$root_ok" ] || [ "\$(id -u)" != 0 ] && return 0
+	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 	. "$conf_dir/\${p_name}-constants" || exit 1
 	_no_l="\$nolog"
 	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
 	} || die "neither nftables nor iptables+ipset found."
-	export root_ok=1
+	export fwbe_ok=1
 	r_no_l
 	:
 EOF
