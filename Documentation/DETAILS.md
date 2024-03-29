@@ -14,10 +14,13 @@
 6. geoip-shell-apply.sh
 7. geoip-shell-backup.sh
 8. geoip-shell-cronsetup.sh
-9. geoip-shell-geoinit.sh
 
-### Helper Script
-1. geoip-shell-detect-lan.sh
+### Helper Scripts
+1. geoip-shell-geoinit.sh
+
+This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
+
+2. geoip-shell-detect-lan.sh
 
 This script is only used under specific conditions:
 - During installation, if installing in whitelist mode, and only if wan interfaces were set to 'all', and lan subnets were not specified via command line args. The suite then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
@@ -177,9 +180,6 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 `geoip-shell-backup create-backup` : Creates a backup of the current firewall state and geoip blocking config.
 
 `geoip-shell-backup restore` : Restores the firewall state and the config from backup. Used by the *run script to implement persistence. Can be manually used for recovery from fault conditions.
-
-**geoip-shell-geoinit.sh**: This script is sourced from most other scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
-
 
 ## **Optional script**
 **check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
