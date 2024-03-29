@@ -474,18 +474,16 @@ setstatus() {
 	setconfig target_file "$@"
 }
 
+awk_cmp() {
+	awk 'NF==0{next} NR==FNR {A[$0]=1;a++;next} {b++} !A[$0]{r=1;exit} END{if(!a&&!b){exit 0};if(!a||!b){exit 1};exit r}' r=0 "$1" "$2"
+}
+
 # compares lines in files $1 and $2, regardless of order
 # discards empty lines
 # returns 0 for no diff, 1 for diff, 2 for error
 compare_files() {
 	[ -f "$1" ] && [ -f "$2" ] || { echolog -err "compare_conf: file '$1' or '$2' does not exist."; return 2; }
-	{
-		grep -m1 . "$1" "$2" || return 0
-		grep -m1 . "$1" || return 1
-		grep -m1 . "$2" || return 1
-	} 1>/dev/null
-
-	awk 'NR==FNR {A[$0]=1;next} !A[$0]{r=1;exit} END{exit r}' r=0 "$1" "$2"
+	awk_cmp "$1" "$2" && awk_cmp "$2" "$1"
 }
 
 # compares lines in file $1 and string $2, regardless of order
@@ -493,13 +491,7 @@ compare_files() {
 # returns 0 for no diff, 1 for diff, 2 for error
 compare_file2str() {
 	[ -f "$1" ] || { echolog -err "compare_file2str: file '$1' does not exist."; return 2; }
-	{
-		grep -m1 . "$1" || [ "$2" ] || return 0
-		[ "$2" ] || return 1
-		grep -m1 . "$1" || return 1
-	} 1>/dev/null
-
-	printf '%s\n' "$2" | awk 'NR==FNR {A[$0]=1;next} !A[$0]{r=1;exit} END{exit r}' r=0 - "$1"
+	printf '%s\n' "$2" | awk_cmp - "$1" && printf '%s\n' "$2" | awk_cmp "$1" -
 }
 
 # trims leading, trailing and extra in-between spaces
