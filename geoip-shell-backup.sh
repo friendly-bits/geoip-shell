@@ -57,7 +57,7 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-check_root
+is_root_ok
 
 . "$_lib-backup-$_fw_backend.sh" || die
 
