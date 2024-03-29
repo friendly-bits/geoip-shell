@@ -28,9 +28,8 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
-v$curr_ver
 
-Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-h]
+Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-V] [-h]
 
 1) Fetches ip lists for given country codes from RIPE API or from ipdeny
 	(supports any combination of ipv4 and ipv6 lists)
@@ -47,8 +46,9 @@ ${sp16}${sp8}(use either '-p' or '-o' but not both)
   -u $sources_usage
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
-  -f : force using fetched lists even if list timestamp didn't change compared to existing list
+  -f : Force using fetched lists even if list timestamp didn't change compared to existing list
   -d : Debug
+  -V : Version
   -h : This help
 
 EOF
@@ -57,7 +57,7 @@ EOF
 
 #### Parse args
 
-while getopts ":l:p:o:s:u:rfdh" opt; do
+while getopts ":l:p:o:s:u:rfdVh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir_f=$OPTARG ;;
@@ -67,7 +67,8 @@ while getopts ":l:p:o:s:u:rfdh" opt; do
 
 		r) raw_mode=1 ;;
 		f) force_update=1 ;;
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
