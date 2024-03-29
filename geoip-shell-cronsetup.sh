@@ -22,14 +22,15 @@ nolog=1
 
 usage() {
 cat <<EOF
-v$curr_ver
 
-Usage: $me [-x <"expression">] [-d] [-h]
+Usage: $me [-x <"expression">] [-d] [-V] [-h]
 Validates a cron expression, or loads cron-related config from the config file and sets up cron jobs for geoip blocking accordingly.
 
 Options:
   -x <"expr"> : validate cron expression
+
   -d          : Debug
+  -V          : Version
   -h          : This help
 
 EOF
@@ -188,10 +189,11 @@ val_cron_exp() {
 
 
 #### PARSE ARGUMENTS
-while getopts ":x:dh" opt; do
+while getopts ":x:dVh" opt; do
 	case $opt in
 		x) val_cron_exp "$OPTARG"; exit $? ;;
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
