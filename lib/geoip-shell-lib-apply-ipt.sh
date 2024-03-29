@@ -216,8 +216,7 @@ for family in $families; do
 			lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 			[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
 			lan_ips="net:$lan_ips"
-			nl2sp lan_ips_str "$lan_ips"
-			setconfig "lan_ips_$family=$lan_ips_str"
+			nl2sp "lan_ips_$family" "$lan_ips"
 		fi
 
 		ipset_type="${lan_ips%%":"*}"
@@ -248,7 +247,7 @@ for family in $families; do
 		## Remove rules for $list_ids
 		for list_id in $list_ids; do
 			[ "$family" != "${list_id#*_}" ] && continue
-			list_tag="${p_name}_${list_id}"
+			list_tag="${list_id}_${geotag}"
 			mk_ipt_rm_cmd "$list_tag" || rv=1
 		done
 
