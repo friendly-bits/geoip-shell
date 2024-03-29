@@ -19,9 +19,8 @@ set -- $_args; oldifs
 
 usage() {
 cat <<EOF
-v$curr_ver
 
-Usage: $me [action] [-l <"list_ids">] [-o <true|false>] [-d] [-h]
+Usage: $me [action] [-l <"list_ids">] [-o <true|false>] [-d] [-V] [-h]
 
 Serves as a proxy to call the -fetch, -apply and -backup scripts with arguments required for each action.
 
@@ -36,6 +35,7 @@ Options:
 
   -a               : daemon mode (will retry actions \$max_attempts times with growing time intervals)
   -d               : Debug
+  -V               : Version
   -h               : This help
 
 EOF
@@ -48,18 +48,18 @@ daemon_mode=
 # check for valid action
 tolower action_run "$1"
 case "$action_run" in
-	add|remove|update|restore) ;;
+	add|remove|update|restore) shift ;;
 	*) action="$action_run"; unknownact
 esac
 
 # process the rest of the args
-shift 1
-while getopts ":l:aodh" opt; do
+while getopts ":l:aodVh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
 		a) export daemon_mode=1 ;;
 		o) nobackup_arg=$OPTARG ;;
-		d) debugmode_args=1 ;;
+		d) debugmode_arg=1 ;;
+		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
 	esac
