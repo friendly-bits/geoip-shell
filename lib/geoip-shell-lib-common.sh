@@ -12,7 +12,7 @@
 ### Functions
 
 setdebug() {
-	export debugmode="${debugmode_args:-$debugmode}"
+	export debugmode="${debugmode_arg:-$debugmode}"
 }
 
 # prints a debug message
@@ -95,7 +95,7 @@ report_lists() {
 unknownact() {
 	specifyact="Specify action in the 1st argument!"
 	case "$action" in
-		"-h") usage; exit 0 ;;
+		-V|-h) ;;
 		'') usage; die "$specifyact" ;;
 		*) usage; die "Unknown action: '$action'." "$specifyact"
 	esac
@@ -895,7 +895,7 @@ if [ -z "$geotag" ]; then
 	# export some vars
 	set_ansi
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
-	[ ! "$in_install" ] && [ "$conf_file" ] && {
+	[ ! "$in_install" ] && [ "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
 		export datadir status_file="$datadir/status"
 	}
