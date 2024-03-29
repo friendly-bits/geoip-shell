@@ -87,3 +87,5 @@ geotag_aux="${geotag}_aux"
 ## MAIN
 
 . "$_lib-apply-$_fw_backend.sh"
+
+setconfig lan_ips_ipv4 lan_ips_ipv6
