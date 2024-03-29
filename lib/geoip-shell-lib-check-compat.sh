@@ -5,7 +5,7 @@ if [ -n "$curr_sh_g" ]; then return 0; fi
 
 # check for common deps
 for dep in grep tr cut sort wc awk sed logger pgrep; do
-	! command -v "$dep" 1>/dev/null && { echo "Error: missing dependency: '$dep'"; exit 1; }
+	if ! command -v "$dep" 1>/dev/null; then echo "Error: missing dependency: '$dep'"; exit 1; fi
 done
 
 fast_sh="dash|ash|yash|ksh93|busybox sh|busybox"
