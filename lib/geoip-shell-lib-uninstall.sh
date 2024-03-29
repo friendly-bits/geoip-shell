@@ -20,8 +20,6 @@ rm_iplists_rules() {
 	### Remove geoip firewall rules
 	rm_all_georules || rerturn 1
 
-	[ -f "$conf_file" ] && setconfig "iplists="
-
 	set +f
 	rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
 	rm -rf "${datadir:?}"/* 2>/dev/null
