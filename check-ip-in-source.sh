@@ -20,7 +20,7 @@ export manmode=1
 usage() {
 cat <<EOF
 
-Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u ripe|ipdeny] [-d] [-h]
+Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u <ripe|ipdeny>] [-d] [-h]
 
 For each of the specified ip addresses, checks whether it belongs to one of the subnets
     in the list fetched from a source (either RIPE or ipdeny) for a given country code.
@@ -48,7 +48,7 @@ while getopts ":c:i:u:dh" opt; do
 	c) ccode=$OPTARG ;;
 	i) ips=$OPTARG ;;
 	u) source_arg=$OPTARG ;;
-	d) debugmode_args=1 ;;
+	d) debugmode_arg=1 ;;
 	h) usage; exit 0 ;;
 	*) unknownopt
 	esac
