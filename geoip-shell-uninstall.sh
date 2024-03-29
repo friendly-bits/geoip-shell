@@ -64,7 +64,7 @@ shift $((OPTIND-1))
 
 extra_args "$@"
 
-check_root || exit 1
+is_root_ok || exit 1
 
 lib_dir="/usr/lib"
 _lib="$lib_dir/$p_name-lib"
