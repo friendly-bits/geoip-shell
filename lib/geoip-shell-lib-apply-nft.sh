@@ -117,8 +117,11 @@ for new_ipset in $new_ipsets; do
 done
 
 #### Assemble commands for nft
-printf %s "Assembling nftables commands... "
+opt_ifaces=
+[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '%s, ' $ifaces) }"
+georule="rule inet $geotable $geochain $opt_ifaces"
 
+printf %s "Assembling nftables commands... "
 nft_cmd_chain="$(
 	rv=0
 
@@ -142,9 +145,6 @@ nft_cmd_chain="$(
 
 	## Auxiliary rules
 
-	# apply geoip to ifaces
-	[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '%s, ' $ifaces) }"
-
 	# trusted subnets/ips
 	for family in $families; do
 		nft_get_geotable | grep "trusted_${family}_${geotag}" >/dev/null &&
@@ -162,7 +162,7 @@ nft_cmd_chain="$(
 				{ type ${family}_addr; $interval elements={ "
 			printf '%s,' $trusted
 			printf '%s\n' " }; }"
-			printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
+			printf '%s\n' "insert $georule $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
 		}
 	done
 
@@ -190,7 +190,7 @@ nft_cmd_chain="$(
 					{ type ${family}_addr; $interval elements={ "
 				printf '%s,' $lan_ips
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
+				printf '%s\n' "insert $georule $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
 			}
 		done
 	fi
@@ -206,25 +206,34 @@ nft_cmd_chain="$(
 		else
 			ports_exp="$proto $(printf %s "$ports_exp" | sed "s/multiport //;s/!dport/dport !=/") { $ports }"
 		fi
-		printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces $ports_exp counter accept comment ${geotag_aux}_ports"
+		printf '%s\n' "insert $georule $ports_exp counter accept comment ${geotag_aux}_ports"
 	done
 
 	# established/related
-	printf '%s\n' "insert rule inet $geotable $geochain $opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
+	printf '%s\n' "insert $georule ct state established,related accept comment ${geotag_aux}_est-rel"
 
 	# lo interface
 	[ "$geomode" = "whitelist" ] && [ "$ifaces" = all ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
 
+	# Allow link-local, DHCPv6
+	[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
+		printf '%s\n' "add $georule ip6 saddr fe80::/8 counter accept comment ${geotag_aux}_link-local"
+		printf '%s\n' "add $georule ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546 counter accept comment ${geotag_aux}_DHCPv6"
+
+		# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
+		# printf '%s\n' "add $georule meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
+	}
+
 	## add iplist-specific rules
 	for new_ipset in $new_ipsets; do
 		get_ipset_id "$new_ipset" || exit 1
 		get_nft_family
-		printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces $nft_family saddr @$new_ipset counter $iplist_verdict"
+		printf '%s\n' "add $georule $nft_family saddr @$new_ipset counter $iplist_verdict"
 	done
 
 	## whitelist blocking rule
-	[ "$geomode" = whitelist ] && printf '%s\n' "add rule inet $geotable $geochain $opt_ifaces counter drop comment ${geotag}_whitelist_block"
+	[ "$geomode" = whitelist ] && printf '%s\n' "add $georule counter drop comment ${geotag}_whitelist_block"
 
 	## geoip enable rule
 	[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
