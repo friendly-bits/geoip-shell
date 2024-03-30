@@ -3,7 +3,7 @@
 
 # geoip-shell-detect-lan.sh
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 # Detects local area ipv4 and ipv6 subnets

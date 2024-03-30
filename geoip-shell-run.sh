@@ -3,7 +3,7 @@
 
 # geoip-shell-run
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 #### Initial setup

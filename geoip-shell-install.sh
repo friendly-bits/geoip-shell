@@ -3,7 +3,7 @@
 
 # geoip-shell-install.sh
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 # Installer for geoip blocking suite of shell scripts
