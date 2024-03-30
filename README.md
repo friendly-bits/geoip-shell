@@ -98,11 +98,11 @@ _(Note that some commands require root privileges, so you will likely need to ru
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
   _<details><summary>Or download using the command line:</summary>_
   - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
-  - or to download the latest release:
+  - or to download the latest release (requires curl):
 
-    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep tarball_url | head -n 1 | cut -d '"' -f 4)" > geoip-shell.tar`
+    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://.*/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz`
   
-  - to extract, run: `tar -xvf geoip-shell.tar`
+  - to extract, run: `tar -xvf geoip-shell.tar.gz`
   </details>
 
 
