@@ -1,17 +1,23 @@
+# Copyright 2024 friendly-bits, antonk (antonk.d3v@gmail.com)
+# This is free software, licensed under the GNU General Public License v3.
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=$p_name$ipt
 PKG_VERSION:=$curr_ver
 PKG_RELEASE:=$pkg_ver
 PKG_LICENSE:=GPL-3.0-or-later
+PKG_MAINTAINER:=antonk <antonk.d3v@gmail.com>
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/$p_name$ipt
-	SECTION:=net
 	CATEGORY:=Network
 	TITLE:=$p_name$ipt
+	URL:=https://github.com/friendly-bits/$p_name
+	MAINTAINER:=antonk <antonk.d3v@gmail.com>
 	DEPENDS:=$depends +ca-bundle
+	$conflicts
 	PKGARCH:=all
 endef
 
