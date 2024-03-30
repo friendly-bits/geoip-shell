@@ -3,10 +3,11 @@
 
 # geoip-shell-lib-setup.sh
 
-# Copyright: friendly bits
+# implements CLI interactive/noninteractive setup and args parsing for the -manage and -install scripts
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# implements CLI interactive/noninteractive setup and args parsing
 
 . "$_lib-ip-regex.sh"
 

@@ -1,9 +1,12 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC1090,SC2034
 
-# geoip-shell-backup-nft.sh
+# geoip-shell-lib-backup-nft.sh
 
 # nftables-specific library for the -backup script
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
 
 . "$_lib-nft.sh" || die
 

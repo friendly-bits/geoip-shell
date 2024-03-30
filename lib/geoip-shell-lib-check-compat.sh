@@ -1,6 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2006,SC2154,SC2010
 
+# geoip-shell-lib-check-compat.sh
+
+# checks for supported shell and presence of some other required utilities
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 if [ -n "$curr_sh_g" ]; then return 0; fi
 
 # check for common deps

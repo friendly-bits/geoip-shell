@@ -1,11 +1,11 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2086,SC1090
 
-# geoip-shell-apply-nft.sh
+# geoip-shell-lib-apply-nft.sh
 
 # nftables-specific library for the -apply script
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 . "$_lib-nft.sh" || exit 1

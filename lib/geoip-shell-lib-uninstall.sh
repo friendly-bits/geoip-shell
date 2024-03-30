@@ -1,12 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2317,SC2154,SC2086,SC2034,SC1090
 
-# geoip-shell-lib-uninstall
-
-# Copyright: friendly bits
-# github.com/friendly-bits
+# geoip-shell-lib-uninstall.sh
 
 # library used to uninstall or reset geoip-shell
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 
 rm_iplists_rules() {
 	echo "Removing $p_name ip lists and firewall rules..."

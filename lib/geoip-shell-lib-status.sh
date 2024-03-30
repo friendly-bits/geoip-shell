@@ -3,9 +3,9 @@
 
 # geoip-shell-lib-status.sh
 
-# reports current geoip-shell status. should be sourced from other scripts.
+# reports current geoip-shell status
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 . "$_lib-$_fw_backend.sh" &&

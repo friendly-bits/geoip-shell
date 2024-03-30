@@ -1,11 +1,11 @@
 #!/bin/sh
 # shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
 
-# geoip-shell-apply-ipt.sh
+# geoip-shell-lib-apply-ipt.sh
 
 # iptables-specific library for the -apply script
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 . "$_lib-ipt.sh" || exit 1

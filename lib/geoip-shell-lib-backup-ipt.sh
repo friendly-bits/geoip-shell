@@ -1,7 +1,12 @@
 #!/bin/sh
 # shellcheck disable=SC2015,SC2034,SC2154,SC2086,SC1090
 
-# geoip-shell-backup-ipt.sh
+# geoip-shell-lib-backup-ipt.sh
+
+# iptables-specific library for the -backup script
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
 
 . "$_lib-ipt.sh" || die
 

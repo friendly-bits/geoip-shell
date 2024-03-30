@@ -1,12 +1,12 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2086
 
-# Copyright: friendly bits
-# github.com/friendly-bits
-
-# $p_name-lib-arrays.sh
+# geoip-shell-lib-arrays.sh
 
 # emulates associative arrays in POSIX shell
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
 
 # NOTE: this is a stripped down to a minimum and optimized for very small arrays version,
 # which includes a minimal subset of functions from the main project:

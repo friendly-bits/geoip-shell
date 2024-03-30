@@ -1,9 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC1090,SC2086,SC2059
 
-# geoip-shell-status-nft.sh
+# geoip-shell-lib-status-nft.sh
 
-# nftables-specific library for report_status() in the -manage script
+# nftables-specific component for lib-status
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 
 report_fw_state() {
 	curr_geotable="$(nft_get_geotable)" ||

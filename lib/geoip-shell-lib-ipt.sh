@@ -1,7 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2034
 
-# library for interacting with iptables
+# geoip-shell-lib-ipt.sh
+
+# geoip-shell library for interacting with iptables
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 
 # $family needs to be set
 set_ipt_cmds() {

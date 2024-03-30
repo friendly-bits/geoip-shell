@@ -1,9 +1,13 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC1090
 
-# geoip-shell-status-ipt.sh
+# geoip-shell-lib-status-ipt.sh
 
-# iptables-specific library for report_status() in the -manage script
+# iptables-specific component for lib-status
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 
 echo
 

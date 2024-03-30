@@ -1,12 +1,12 @@
 #!/bin/sh
 # shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2181,SC3040,SC2016
 
-# geoip-shell-common.sh
+# geoip-shell-lib-common.sh
 
-# Copyright: friendly bits
+# Library of common functions and variables for geoip-shell
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
-
-# Common functions and variables for geoip-shell suite
 
 
 ### Functions

@@ -1,9 +1,11 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2155,SC2034
 
-# library for interacting with nftables
+# geoip-shell-lib-ipt.sh
 
-# Copyright: friendly bits
+# geoip-shell library for interacting with nftables
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 ### General
