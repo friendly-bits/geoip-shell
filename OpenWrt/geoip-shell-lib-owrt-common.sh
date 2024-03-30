@@ -1,9 +1,10 @@
 #!/bin/sh
 
-# Copyright: friendly bits
+# common functions and variables for OpenWrt-related geoip-shell scripts
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# common functions and variables for OpenWrt-related scripts
 
 checkutil () { command -v "$1" 1>/dev/null; }
 
