@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright: friendly bits
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 # Creates an openwrt package (ipk) for geoip-shell.
@@ -96,10 +96,10 @@ esac
 
 unset build_dirs ipk_paths
 for _OWRTFW in $FW_ver; do
-	unset ipt
+	unset ipt depends conflicts
 	case "$_OWRTFW" in
-		3) export _fw_backend=ipt; ipt="-iptables"; depends="+ipset +iptables +kmod-ipt-ipset" ;;
-		4) export _fw_backend=nft; depends="+firewall4" ;;
+		3) export _fw_backend=ipt; ipt="-iptables"; depends="+ipset +iptables +kmod-ipt-ipset"; conflicts=firewall4 ;;
+		4) export _fw_backend=nft; depends="+firewall4 +nftables" ;;
 		*) echo "Specify OpenWrt firewall version!"; exit 1
 	esac
 	owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name$ipt"
@@ -137,10 +137,10 @@ for _OWRTFW in $FW_ver; do
 	printf '%s\n' "Creating '$build_dir/Makefile'..."
 	{
 		awk '{gsub(/\$p_name_c/,P); gsub(/\$p_name/,p); gsub(/\$install_dir/,i); sub(/\$curr_ver/,v); sub(/\$_OWRTFW/,o); \
-			sub(/\$pkg_ver/,r); sub(/\$depends/,d); gsub(/\$_fw_backend/,f); \
+			sub(/\$pkg_ver/,r); sub(/\$depends/,d); sub(/\$conflicts/,c); gsub(/\$_fw_backend/,f); \
 			gsub(/\$ipt/,I); gsub(/\$_lib/,l)}1' \
 			p="$p_name" P="$p_name_c" v="$curr_ver" r="$pkg_ver" o="$_OWRTFW" i="$install_dir" l="$lib_dir/$p_name-lib" \
-				f="$_fw_backend" I="$ipt" d="$depends" "$script_dir/makefile.tpl"
+				f="$_fw_backend" I="$ipt" d="$depends" c="$conflicts" "$script_dir/makefile.tpl"
 
 		printf '\n%s\n' "define Package/$p_name$ipt/install"
 
