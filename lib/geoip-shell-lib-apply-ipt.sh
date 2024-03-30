@@ -117,7 +117,6 @@ rm_ipset() {
 	esac
 }
 
-
 #### VARIABLES
 
 case "$geomode" in
@@ -294,8 +293,19 @@ for family in $families; do
 		printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
 
 		# lo interface
-		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && \
+		[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
+
+		# Allow link-local, DHCPv6
+		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
+			if [ "$family" = ipv6 ]; then
+				printf '%s\n' "-A $geochain -s fe80::/8 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
+				printf '%s\n' "-A $geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
+			# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
+			# else
+			# 	printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
+			fi
+		}
 
 		## iplist-specific rules
 		if [ "$action" = add ]; then
