@@ -1,11 +1,12 @@
 #!/bin/sh
-# calls the -run script with the 'restore' argument
-# used for owrt firewall include
 
-# Copyright: friendly bits
+# checks the lock file and calls the -run script with the 'restore' argument
+# used for OpenWrt firewall include
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# the -install.sh script replaces variables with values
+# the -install script replaces variables with values
 
 lock_file=\"$lock_file\"
 [ -f \"\$lock_file\" ] && {

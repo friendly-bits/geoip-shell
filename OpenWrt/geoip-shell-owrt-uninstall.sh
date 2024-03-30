@@ -1,8 +1,10 @@
 #!/bin/sh
 
-# trimmed down uninstaller specifically for OpenWrt package
+# geoip-shell-owrt-uninstall.sh
 
-# Copyright: friendly bits
+# trimmed down uninstaller specifically for the OpenWrt geoip-shell package
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
 p_name="geoip-shell"

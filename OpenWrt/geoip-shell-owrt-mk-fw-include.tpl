@@ -1,9 +1,14 @@
 #!/bin/sh
 
+# geoip-shell-owrt-mk-fw-include.sh
+
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
+
 # intended to be run from procd init script
 # makes sure that OpenWrt firewall include exists. if not then adds it.
 
-# the -install.sh script prepends the shebang and values for required variables
+# the -install script adds values for the required variables
 
 me="${0##*/}"
 . "${_lib}-owrt-common.sh" || exit 1
@@ -18,7 +23,7 @@ mk_fw_include() {
 	[ "$p_name_c" ] && [ "$_OWRTFW" ] && [ "$fw_include_path" ] || die "Error: essential variables are unset."
 	check_owrt_include && return 0
 	rel=
-	[ "$_OWRTFW" = 3 ] && rel=".reload=1" # fw3
+	[ "$_OWRTFW" = 3 ] && rel=".reload=1"
 	uci delete firewall."$p_name_c" 1>/dev/null 2>/dev/null
 	uci_cmds="$(
 		for o in "=include" ".enabled=1" ".type=script" ".path=$fw_include_path" "$rel"; do

@@ -1,9 +1,11 @@
 #!/bin/sh /etc/rc.common
 
-# Copyright: friendly bits
+# OpenWrt init script for geoip-shell
+
+# Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# the -install.sh script replaces variables with values
+# the -install script replaces variables with values
 
 START=99
 STOP=01
