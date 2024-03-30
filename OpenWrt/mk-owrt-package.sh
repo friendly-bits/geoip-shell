@@ -1,9 +1,11 @@
 #!/bin/sh
 
+# mk-owrt-package.sh
+
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# Creates an openwrt package (ipk) for geoip-shell.
+# Creates Openwrt-specific packages for geoip-shell and compiles the ipk's.
 
 # *** BEFORE USING THIS SCRIPT ***
 # NOTE: I've had all sorts of unresolvable problems when not doing things exactly in this order, so better to stick to it.
@@ -32,12 +34,10 @@
 #     (assuming your machine has 8 physical or logical cores)
 # If this is the first time you are running these commands, this may take a long while.
 
-# if you previously tried to compile geoip-shell, run: ./scripts/feeds uninstall geoip-shell
-
-# now you are ready to run this script
-# cross your fingers
-# cd into geoip-shell/OpenWrt
-# run: sh mk_owrt_package.sh
+# 12) now you are ready to run this script
+# 13) cross your fingers
+# 14) cd into geoip-shell/OpenWrt
+# 15) run: sh mk_owrt_package.sh
 #  - to build only for firewall3+iptables or firewall4+nftables, add '3' or '4' as an argument
 
 # if you want to make an updated package later, make sure that the '$curr_ver' value changed in the -install script
