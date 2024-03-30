@@ -44,7 +44,7 @@
 # or change the '$pkg_ver' value in this script
 # then run the script again (no need for the above preparation anymore)
 
-pkg_ver=7
+pkg_ver=1
 
 die() {
 	# if first arg is a number, assume it's the exit code
