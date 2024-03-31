@@ -176,7 +176,7 @@ nft_cmd_chain="$(
 				lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
 				[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
 				nl2sp lan_ips "net:$lan_ips"
-				eval "lan_ips_$family=$lan_ips"
+				eval "lan_ips_$family=\"$lan_ips\""
 			fi
 
 			nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
@@ -193,6 +193,7 @@ nft_cmd_chain="$(
 				printf '%s\n' "insert $georule $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
 			}
 		done
+		[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
 	fi
 
 	# ports
