@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2046,SC2034
 
 # mk-owrt-package.sh
 
@@ -82,13 +83,13 @@ export _OWRTFW initsys=procd curr_sh_g="/bin/sh"
 PATH_orig="$PATH"
 
 ### Checks
-[ ! -d "$owrt_dist_dir" ] && die "openwrt distribution dir '$owrt_dist_dir' doesn't exist."
-[ ! -f "$owrt_dist_dir/feeds.conf.default" ] && die "feeds.conf.default not found in '$owrt_dist_dir'."
+[ ! -d "$owrt_dist_dir" ] && die "*** Openwrt distribution dir '$owrt_dist_dir' doesn't exist. ***"
+[ ! -f "$owrt_dist_dir/feeds.conf.default" ] && die "*** feeds.conf.default not found in '$owrt_dist_dir'. ***"
 
 case "$1" in
 	3|4) FW_ver="$1"; buildsavail="build is available"; ipksavail="ipk is available" ;;
 	''|"3 4"|"4 3") FW_ver="3 4"; buildsavail="builds are available"; ipksavail="ipk's are available" ;;
-	*) printf '%s\n' "Invalid OpenWrt firewall version '$1'. Use '3' or '4' or no argument to build both."; exit 1
+	*) printf '%s\n' "*** Invalid OpenWrt firewall version '$1'. Use '3' or '4' or no argument to build both. ***"; exit 1
 esac
 
 
@@ -96,15 +97,15 @@ esac
 
 unset build_dirs ipk_paths
 for _OWRTFW in $FW_ver; do
-	unset ipt depends conflicts
+	unset ipt nft depends conflicts
 	case "$_OWRTFW" in
-		3) export _fw_backend=ipt; ipt="-iptables"; depends="+ipset +iptables +kmod-ipt-ipset"; conflicts=firewall4 ;;
-		4) export _fw_backend=nft; depends="+firewall4 +nftables" ;;
-		*) echo "Specify OpenWrt firewall version!"; exit 1
+		3) export _fw_backend=ipt; ipt="-iptables"; depends="+ipset +iptables +kmod-ipt-ipset"; conflicts='CONFLICTS:=firewall4' ;;
+		4) export _fw_backend=nft; nft="-nftables"; depends="+firewall4 +nftables" ;;
+		*) echo "*** Specify OpenWrt firewall version! ***"; exit 1
 	esac
 	owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name$ipt"
 
-	build_dir="$script_dir/owrt-build$ipt"
+	build_dir="$script_dir/owrt-build$ipt$nft"
 	files_dir="$build_dir/files"
 
 	# Prepare geoip-shell for OpenWrt
@@ -115,32 +116,37 @@ for _OWRTFW in $FW_ver; do
 
 	mkdir -p "$files_dir$install_dir" &&
 	mkdir -p "$files_dir$lib_dir" &&
-	mkdir -p "$files_dir/etc/init.d" || die "Failed to create directories for $p_name build."
+	mkdir -p "$files_dir/etc/init.d" || die "*** Failed to create directories for $p_name build. ***"
 
 
 	export PATH="/usr/sbin:/usr/bin:/sbin:/bin" inst_root_gs="$build_dir/files"
-	printf '%s\n' "running '$src_dir/$p_name-install.sh'"
-	sh "$src_dir/$p_name-install.sh" || die "Failed to run the -install script or it reported an error."
+	printf '%s\n' "*** Running '$src_dir/$p_name-install.sh'... ***"
+	sh "$src_dir/$p_name-install.sh" || die "*** Failed to run the -install script or it reported an error. ***"
 	echo
 	export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH_orig"
 	build_dirs="$build_dirs$build_dir$_nl"
 
+	cp "$script_dir/$p_name-owrt-uninstall.sh" "${files_dir}${lib_dir}" ||
+		die "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${lib_dir}'. ***"
 
-	rm -f "$files_dir/usr/bin/$p_name-uninstall.sh"
-	cp "$script_dir/$p_name-owrt-uninstall.sh" "$files_dir/usr/bin" ||
-		die "Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '$files_dir/usr/bin'."
-
+	echo "*** Sanitizing the build... ***"
+	rm -f "${files_dir}${install_dir}/${p_name}-uninstall.sh"
 	[ "$_OWRTFW" = 3 ] && rm -f "$files_dir/usr/lib/$p_name-"*nft.sh
 
-	cd "$files_dir" || die "Failed to cd into '$files_dir'"
+	# remove debug stuff
+	sed -Ei 's/(\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&[[:blank:]]*)*debugprint.*"(;){0,1}//g;s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;s/ debugmode_arg=1//g' \
+		$(find -- "$build_dir"/* -print | grep '.sh$')
+	sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${lib_dir}/$p_name-lib-common.sh" || exit 1
 
-	printf '%s\n' "Creating '$build_dir/Makefile'..."
+	cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
+
+	printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 	{
 		awk '{gsub(/\$p_name_c/,P); gsub(/\$p_name/,p); gsub(/\$install_dir/,i); sub(/\$curr_ver/,v); sub(/\$_OWRTFW/,o); \
 			sub(/\$pkg_ver/,r); sub(/\$depends/,d); sub(/\$conflicts/,c); gsub(/\$_fw_backend/,f); \
-			gsub(/\$ipt/,I); gsub(/\$_lib/,l)}1' \
+			gsub(/\$ipt/,I); gsub(/\$_lib/,l); gsub(/\$lib_dir/,L)}1' \
 			p="$p_name" P="$p_name_c" v="$curr_ver" r="$pkg_ver" o="$_OWRTFW" i="$install_dir" l="$lib_dir/$p_name-lib" \
-				f="$_fw_backend" I="$ipt" d="$depends" c="$conflicts" "$script_dir/makefile.tpl"
+				L="$lib_dir" f="$_fw_backend" I="$ipt" d="$depends" c="$conflicts" "$script_dir/makefile.tpl"
 
 		printf '\n%s\n' "define Package/$p_name$ipt/install"
 
@@ -151,37 +157,37 @@ for _OWRTFW in $FW_ver; do
 			$0~t {print "\t$(INSTALL_BIN) ./files/" $0 " $(1)" s n} \
 			$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
 				c="${conf_dir#"/"}" i="${install_dir#"/"}" n="${init_dir#"/"}" l="${lib_dir#"/"}" s="/" \
-				f="${conf_dir#"/"}/" a="${install_dir#"/"}/" t="${init_dir#"/"}/" b="${lib_dir#"/"}/" s="/"
+				f="${conf_dir#"/"}/" a="${install_dir#"/"}/" t="${init_dir#"/"}/" b="${lib_dir#"/"}/"
 
 		printf '\n%s\n\n%s\n\n' "endef" "\$(eval \$(call BuildPackage,$p_name$ipt))"
 	} > "$build_dir/Makefile"
 	echo
 
 	### Configure owrt feeds
-	printf '\n%s\n' "Preparing owrt feeds..."
-	cd "$owrt_dist_dir" || die "failed to cd into '$owrt_dist_dir'"
+	printf '\n%s\n' "*** Preparing owrt feeds... ***"
+	cd "$owrt_dist_dir" || die "*** Failed to cd into '$owrt_dist_dir' ***"
 
-	mkdir -p "$owrt_dist_src_dir" || die "failed to make dir '$owrt_dist_src_dir'"
+	mkdir -p "$owrt_dist_src_dir" || die "*** Failed to make dir '$owrt_dist_src_dir' ***"
 
-	printf '%s\n' "copying $p_name$ipt build into '$owrt_dist_src_dir'..."
-	cp -r "$build_dir"/* "$owrt_dist_src_dir" || die "copy failed"
+	printf '%s\n' "*** Copying $p_name$ipt build into '$owrt_dist_src_dir'... ***"
+	cp -r "$build_dir"/* "$owrt_dist_src_dir" || die "*** Copy failed ***"
 	echo
 
-	curr_feeds="$(grep -v "my_packages" "$owrt_dist_dir/feeds.conf.default")" || die "failed to cat '$owrt_dist_dir/feeds.conf.default'"
-	echo "Prepending entry 'src-link local $owrt_dist_dir/my_packages' to '$owrt_dist_dir/feeds.conf.default'..."
+	curr_feeds="$(grep -v "my_packages" "$owrt_dist_dir/feeds.conf.default")" ||
+		die "*** Failed to cat '$owrt_dist_dir/feeds.conf.default' ***"
+	echo "*** Prepending entry 'src-link local $owrt_dist_dir/my_packages' to '$owrt_dist_dir/feeds.conf.default'... ***"
 	printf '%s\n%s\n' "src-link local $owrt_dist_dir/my_packages" "$curr_feeds" > "$owrt_dist_dir/feeds.conf.default" ||
-		die "failed to add 'my_packages' src dir to '$owrt_dist_dir/feeds.conf.default"
+		die "*** Failed to add 'my_packages' src dir to '$owrt_dist_dir/feeds.conf.default ***"
 
-	printf '\n%s\n' "Updating Openwrt feeds..."
-	./scripts/feeds update -a || die "Failed to update owrt feeds."
-	echo "Installing feed '$p_name$ipt'..."
-	./scripts/feeds install $p_name$ipt || die "Failed to add $p_name$ipt to the make config."
+	printf '\n%s\n' "*** Updating Openwrt feeds... ***"
+	./scripts/feeds update -a || die "*** Failed to update owrt feeds."
+	echo "*** Installing feed '$p_name$ipt'... ***"
+	./scripts/feeds install $p_name$ipt || die "*** Failed to add $p_name$ipt to the make config."
 
 	grep "$p_name$ipt=m" .config 1>/dev/null || {
-		printf '\n%s\n' "I will now run 'make menuconfig'. Go to Image Configuration ---> Separate feed repositories ---> Check [*] Enable local feeds"
-		echo "Then Go to Network --->, scroll down till you see '$p_name$ipt' and make sure '$p_name$ipt' is checked with <M>."
+		printf '\n%s\n' "*** I will now run 'make menuconfig'. ***"
+		echo "Go to Network --->, scroll down till you see '$p_name$ipt' and make sure '$p_name$ipt' is checked with <M>."
 		echo "Then exit and save."
-
 		echo "Press Enter when ready."
 		read -r dummy
 		make menuconfig
@@ -190,21 +196,21 @@ for _OWRTFW in $FW_ver; do
 
 	### make new ipk
 	printf '\n%s\n\n' "*** Making ipk for OpenWrt with firewall$_OWRTFW... ***"
-	echo "running: make -j4 package/$p_name$ipt/clean"
+	echo "*** Running: make -j4 package/$p_name$ipt/clean ***"
 	make -j4 "package/$p_name$ipt/clean"
-	echo "running: make -j4 package/$p_name$ipt/compile"
+	echo "*** Running: make -j4 package/$p_name$ipt/compile ***"
 	make -j4 "package/$p_name$ipt/compile"
 
 	ipk_path="$(find . -name "${p_name}${ipt}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
-	[ ! "$ipk_path" ] || [ ! -f "$ipk_path" ] && die "Can not find file '$ipk_path'"
+	[ ! "$ipk_path" ] || [ ! -f "$ipk_path" ] && die "*** Can not find file '$ipk_path' ***"
 
 	new_ipk_path="$build_dir/$p_name${ipt}_$curr_ver-$pkg_ver.ipk"
 	mv "$ipk_path" "$new_ipk_path" && ipk_paths="$ipk_paths$new_ipk_path$_nl" ||
-		printf '%s\n' "Failed to move '$ipk_path' to '$new_ipk_path'" >&2
+		printf '%s\n' "*** Failed to move '$ipk_path' to '$new_ipk_path' ***" >&2
 done
 
 [ "${build_dirs%"$_nl"}" ] && {
-	printf '\n%s\n%s\n' "New $buildsavail here:" "${build_dirs%"$_nl"}"
+	printf '\n%s\n%s\n' "*** New $buildsavail here:" "${build_dirs%"$_nl"}"
 	echo
-	[ "${ipk_paths%"$_nl"}" ] && printf '%s\n%s\n' "New $ipksavail here:" "${ipk_paths%"$_nl"}"
+	[ "${ipk_paths%"$_nl"}" ] && printf '%s\n%s\n' "*** New $ipksavail here:" "${ipk_paths%"$_nl"}"
 }
