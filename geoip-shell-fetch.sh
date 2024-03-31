@@ -582,6 +582,7 @@ if [ "$status_file" ] && [ -s "$status_file" ]; then
 	getstatus "$status_file"
 else
 	debugprint "Status file '$status_file' either doesn't exist or is empty."
+	:
 fi
 unset failed_lists fetched_lists
 
