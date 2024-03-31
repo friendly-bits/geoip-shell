@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
+# shellcheck disable=SC2154,SC2086,SC1090,SC2034
 
 # geoip-shell-run
 
@@ -237,10 +237,11 @@ if [ "$apply_rv" = 0 ] && [ "$nobackup" = false ]; then
 	call_script -l "$i_script-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
+	:
 fi
 
 case "$failed_lists_cnt" in
-	0) rv=0;;
+	0) rv=0 ;;
 	*) rv=254
 esac
 
