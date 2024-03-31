@@ -472,7 +472,8 @@ get_prefs() {
 		ifaces=
 		case "$ifaces_arg" in
 			all) ifaces=all
-				[ "$geomode" = whitelist ] && { [ "$in_install" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+				[ "$geomode" = whitelist ] && { [ "$in_install" ] || [ "$first_setup" ] || [ "$geomode_change" ] ||
+						[ "$ifaces_change" ]; } &&
 					{ warn_lockout; pick_lan_ips; } ;;
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
