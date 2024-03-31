@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2086,SC1090,SC2018,SC2019
+# shellcheck disable=SC2154,SC2086,SC1090
 
 # geoip-shell-detect-lan.sh
 
@@ -63,7 +63,7 @@ generate_mask() {
 		bytes_done="${bytes_done}1"
 	done
 
-	case "${#bytes_done}" in "$ip_len_bytes") ;; *)
+	[ ${#bytes_done} != $ip_len_bytes ] && {
 		while true; do
 			case ${#i} in "$frac") break; esac
 			sum=$((sum + cur))
@@ -80,7 +80,7 @@ generate_mask() {
 			printf %s "00"
 			bytes_done="${bytes_done}1"
 		done
-	esac
+	}
 }
 
 # 1 - ip
@@ -144,12 +144,13 @@ hex_to_ip() {
 # 1- family
 get_local_subnets() {
 
-	family="$1"; res_subnets=''; res_ips=''
+	family="$1"
+	unset res_subnets res_ips
 
 	case "$family" in
-		inet ) ip_len_bits=32; chunk_len_bits=8; _fmt_id='d'; _fmt_delim='.' ;;
-		inet6 ) ip_len_bits=128; chunk_len_bits=16; _fmt_id='x'; _fmt_delim=':' ;;
-		* ) printf '%s\n' "get_local_subnets: invalid family '$family'." >&2; return 1
+		inet) ip_len_bits=32; chunk_len_bits=8; _fmt_id='d'; _fmt_delim='.' ;;
+		inet6) ip_len_bits=128; chunk_len_bits=16; _fmt_id='x'; _fmt_delim=':' ;;
+		*) printf '%s\n' "get_local_subnets: invalid family '$family'." >&2; return 1
 	esac
 
 	ip_len_bytes=$((ip_len_bits/8))
@@ -219,7 +220,7 @@ get_local_subnets() {
 				chunks_done="${chunks_done}1"
 			done
 			# calculate the next chunk if needed
-			[ "$bits_done" != "$maskbits" ] && {
+			[ $bits_done != $maskbits ] && {
 				set -- $mask
 				chunks_done="${chunks_done}1"
 				eval "mask_chunk=\"\${${#chunks_done}}\""
@@ -229,7 +230,7 @@ get_local_subnets() {
 			}
 
 			# repeat 00 for every missing byte
-			while [ "$bits_done" != "$ip_len_bits" ]; do
+			while [ $bits_done != $ip_len_bits ]; do
 				[ $((bits_done%chunk_len_bits)) = 0 ] && printf ' 0x'
 				printf %s "00"
 				bits_done=$((bits_done + 8))
@@ -250,7 +251,7 @@ get_local_subnets() {
 			# chop off mask bits
 			ip2_hex="${subnet2_hex#*/}"
 
-			bytes_diff=0; bits_done=0; chunks_done=''
+			bytes_diff=0; bits_done=0; chunks_done=
 
 			# compare ~ $maskbits bits of ip1 and ip2
 			IFS=' '
