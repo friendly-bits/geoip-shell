@@ -88,7 +88,7 @@ export nolog=1
 fetch_script="$p_script-fetch.sh"
 
 valid_sources="ripe ipdeny"
-default_source="ripe"
+default_source=ripe
 
 
 #### Variables
