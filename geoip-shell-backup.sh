@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2015,SC2317,SC2034,SC2154,SC2086,SC1090
+# shellcheck disable=SC2015,SC2034,SC2154,SC2086,SC1090
 
 # geoip-shell-backup.sh
 
@@ -12,7 +12,8 @@ p_name="geoip-shell"
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
 
 
 #### USAGE
