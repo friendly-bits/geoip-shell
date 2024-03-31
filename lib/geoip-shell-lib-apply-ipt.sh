@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
+# shellcheck disable=SC2154,SC2086,SC1090
 
 # geoip-shell-lib-apply-ipt.sh
 
@@ -359,8 +359,10 @@ done
 # insert the main blocking rule
 case "$noblock" in
 	'') enable_geoip ;;
-	*) echolog -warn "Geoip blocking is disabled via config." >&2
+	*) echolog -warn "Geoip blocking is disabled via config."
 esac
+
+[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
 
 echo
 
