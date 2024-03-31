@@ -220,17 +220,30 @@ prep_script() {
 		[ "$i" = '-n' ] && noshebang=1 || prep_args="$prep_args$i "
 	done
 	set -- $prep_args
-	# print new shebang and version
-	[ ! "$noshebang" ] && printf '%s\n%s\n' "#!${curr_sh_g:-/bin/sh}" "curr_ver=$curr_ver"
 
+	# print new shebang, version and copyright
+	[ ! "$noshebang" ] &&
+	cat <<- EOF
+		#!${curr_sh_g:-/bin/sh}
+
+		curr_ver=$curr_ver
+
+		# Copyright: antonk (antonk.d3v@gmail.com)
+		# github.com/friendly-bits
+
+	EOF
+
+	# filter pattern
 	if [ "$_OWRTFW" ]; then
-		# remove the shebang and comments
-		p="^[[:space:]]*#.*$"
+		# remove the shebang and comments, leave debug markers
+		p="^[[:space:]]*#[^@].*$"
 	else
-		# remove the shebang and shellcheck directives
-		p="^[[:space:]]*#(!/|[[:space:]]*shellcheck).*$"
+		# remove the shebang, copyright and shellcheck directives
+		p="^[[:space:]]*#(!/|[[:space:]]*(shellcheck|Copyright|github)).*$"
 	fi
-	if [ "$1" ]; then grep -vxE "$p" "$1"; else grep -vxE "$p"; fi
+
+	# apply the filter, condense empty lines
+	if [ "$1" ]; then grep -vxE "$p" "$1"; else grep -vxE "$p"; fi | grep -vA1 '^[[:blank:]]*$' | grep -v '^--$'
 }
 
 
@@ -325,6 +338,9 @@ EOF
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
 	#!$curr_sh_g
+
+	# Copyright: antonk (antonk.d3v@gmail.com)
+	# github.com/friendly-bits
 
 	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
 	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
