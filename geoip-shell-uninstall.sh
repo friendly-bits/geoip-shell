@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC2034,SC1090
+# shellcheck disable=SC2154,SC2086,SC2034,SC1090
 
 # geoip-shell-uninstall
 
@@ -78,7 +78,8 @@ install_dir="${old_install_dir:-"$install_dir"}"
 [ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually"
 
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
-	export norecur=1 # prevents infinite loop
+	# prevents infinite loop
+	export norecur=1
 	call_script "$install_dir/${p_name}-uninstall.sh" && exit 0
 }
 
