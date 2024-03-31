@@ -123,8 +123,8 @@ report_fw_state
 				done
 				printf '%s\n' "${el_summary%, }"
 			done
+			printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
 	esac
-	printf '\n%s\n' "Total number of ip ranges: $total_el_cnt"
 }
 
 unset cr_p
@@ -147,6 +147,10 @@ if check_cron; then
 	esac
 	printf '%s\n' "Update cron job: $upd_job_status"
 	[ "$upd_schedule" ] && printf '%s\n' "Update schedule: '${blue}${upd_schedule% }${n_c}'"
+
+	getstatus "$status_file" last_update
+	[ "$last_update" ] && last_update="$blue$last_update$n_c" || { last_update="${red}Unknown $_X"; incr_issues; }
+	printf '%s\n' "Last successful update: $last_update"
 
 	[ ! "$_OWRTFW" ] && {
 		# check for persistence cron job
