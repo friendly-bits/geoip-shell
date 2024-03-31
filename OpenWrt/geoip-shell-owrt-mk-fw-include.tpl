@@ -33,7 +33,7 @@ mk_fw_include() {
 	)"
 	errors="$(printf '%s\n' "$uci_cmds" | uci batch && uci commit firewall 2>&1)"
 	[ "$errors" ] && die "Failed to add firewall include. Errors: $(printf %s "$errors" | tr '\n' ' ')."
-	/etc/init.d/firewall restart
+	/etc/init.d/firewall reload
 }
 
 [ ! -f "$conf_dir/setupdone" ] && [ ! -f "/tmp/$p_name-setupdone" ] &&
