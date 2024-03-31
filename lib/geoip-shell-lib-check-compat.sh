@@ -22,7 +22,7 @@ incompat_sh="zsh|csh|posh"
 
 
 # not assuming a compatible shell at this point
-_g_test=`echo 0112 | grep -oE '1{2}'`
+_g_test=`echo 0112 | grep -oE '1{2}'` # backticks on purpose
 if [ "$_g_test" != 11 ]; then echo "Error: grep doesn't support the required options." >&2; exit 1; fi
 
 # check for proc
