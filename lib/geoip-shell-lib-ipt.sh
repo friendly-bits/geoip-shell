@@ -82,7 +82,7 @@ get_fwrules_iplists() {
 }
 
 get_ipset_iplists() {
-	get_ipsets | sed -n /"$geotag"/{s/_"$geotag"//\;s/^Name:\ //\;p} | grep -vE "(lan_ips_|trusted_)"
+	get_ipsets | sed -n /"$geotag"/\{s/_"$geotag"//\;s/^Name:\ //\;p\} | grep -vE "(lan_ips_|trusted_)"
 }
 
 ipt_table=mangle
