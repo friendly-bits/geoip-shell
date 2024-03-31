@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2155,SC2018,SC2019,SC2012,SC2254,SC2086,SC2015,SC2046,SC1090,SC2181,SC3040,SC2016
+# shellcheck disable=SC2034,SC2154,SC2254,SC2086,SC2015,SC2046,SC2016
 
 # geoip-shell-lib-common.sh
 
@@ -11,6 +11,7 @@
 
 ### Functions
 
+#@
 setdebug() {
 	export debugmode="${debugmode_arg:-$debugmode}"
 }
@@ -44,6 +45,7 @@ debugexitmsg() {
 	toupper me_short_cap "$me_short"
 	printf '%s\n' "${yellow}Back to *$me_short_cap*...${n_c}" >&2
 }
+#@
 
 # sets some variables for colors, symbols and delimiter
 set_ansi() {
@@ -573,8 +575,8 @@ get_difference() {
 		*) case "$2" in '') eval "$gd_out"='$1'; return 1; esac
 	esac
 	_fs_gd="${4:-" "}"
-	subtract_a_from_b "$1" "$2" "_diff1" "$_fs_gd"
-	subtract_a_from_b "$2" "$1" "_diff2" "$_fs_gd"
+	subtract_a_from_b "$1" "$2" _diff1 "$_fs_gd"
+	subtract_a_from_b "$2" "$1" _diff2 "$_fs_gd"
 	_diff="$_diff1$_fs_gd$_diff2"
 	_diff="${_diff#"$_fs_gd"}"
 	eval "$gd_out"='${_diff%$_fs_gd}'
@@ -737,8 +739,8 @@ check_cron() {
 	# check for cron or crond in running processes
 	[ "$cron_rv" != 0 ] && {
 		for cron_cmd in cron crond; do
-			pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" && ls -l "$cron_path" 1>/dev/null 2>/dev/null &&
-				{ cron_rv=0; break; }
+			pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" &&
+				ls -l "$cron_path" 1>/dev/null 2>/dev/null && { cron_rv=0; break; }
 		done
 	}
 
@@ -756,7 +758,7 @@ check_cron_compat() {
 	if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ] ; then
 		# check cron service
 		check_cron || die "cron is not running." "Enable and start the cron service before using this script." \
-				"Or install $p_name with option$cr_p1 '-s disable' which will disable ${cr_p2}autoupdates."
+			"Or install $p_name with option$cr_p1 '-s disable' which will disable ${cr_p2}automatic updates."
 		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] &&
 			die "cron-based persistence doesn't work with Busybox cron." \
 			"If you want to install without persistence support, install with option '-n'"
