@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC1090,SC2154
 
 # geoip-shell-owrt-mk-fw-include.sh
 
@@ -35,5 +36,6 @@ mk_fw_include() {
 	/etc/init.d/firewall restart
 }
 
-[ ! -f "$conf_dir/setupdone" ] && [ ! -f "/tmp/$p_name-setupdone" ] && die "$p_name has not been configured. Refusing to create firewall include. Run '$p_name configure' to fix this."
+[ ! -f "$conf_dir/setupdone" ] && [ ! -f "/tmp/$p_name-setupdone" ] &&
+	die "$p_name has not been configured. Refusing to create firewall include. Run '$p_name configure' to fix this."
 mk_fw_include
