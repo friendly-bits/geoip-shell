@@ -24,6 +24,7 @@ set -- $_args; oldifs
 usage() {
 
 cat <<EOF
+
 Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u <ripe|ipdeny>]
 ${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-o <true|false>] [-a <"path">]
 ${sp8}[-v] [-f] [-d] [-V] [-h]
