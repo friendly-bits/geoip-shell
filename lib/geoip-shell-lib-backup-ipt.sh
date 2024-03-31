@@ -68,7 +68,7 @@ restorebackup() {
 
 		case "$rv" in
 			0) OK ;;
-			*) FAIL; rstr_failed "$FAIL restore $restoretgt state from backup." "reset"
+			*) FAIL; rstr_failed "$FAIL restore $restoretgt state from backup." reset
 		esac
 	done
 
