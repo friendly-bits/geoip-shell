@@ -391,15 +391,15 @@ case "$action" in
 				rm_lock
 				enable_owrt_init; rv_apply=$?
 				rm -f "/tmp/$p_name-setupdone"
+				[ -f "$lock_file" ] && {
+					echo "Waiting for background process to complete..."
+					for i in $(seq 1 60); do
+						[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; break; }
+						[ ! -f "$lock_file" ] && break
+						sleep 1
+					done
+				}
 			}
-		}
-		[ -f "$lock_file" ] && {
-			echo "Waiting for background process to complete..."
-			for i in $(seq 1 60); do
-				[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; break; }
-				[ ! -f "$lock_file" ] && break
-				sleep 1
-			done
 		}
 		report_lists; statustip
 		die $rv_apply ;;
