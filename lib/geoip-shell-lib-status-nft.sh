@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC1090,SC2086,SC2059
+# shellcheck disable=SC2154,SC2086,SC2059
 
 # geoip-shell-lib-status-nft.sh
 
