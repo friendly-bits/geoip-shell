@@ -38,7 +38,7 @@ endef
 
 define Package/$p_name$ipt/prerm
 	#!/bin/sh
-	sh $install_dir/$p_name-owrt-uninstall.sh
+	sh $lib_dir/$p_name-owrt-uninstall.sh
 	exit 0
 endef
 
