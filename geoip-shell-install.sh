@@ -408,10 +408,4 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 	fi
 }
 
-
-[ ! "$inst_root_gs" ] && {
-	. "$_lib-$_fw_backend.sh" || die
-	report_lists
-	statustip
-}
 echo "Install done."
