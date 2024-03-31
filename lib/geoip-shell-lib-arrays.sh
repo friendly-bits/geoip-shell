@@ -38,8 +38,7 @@ set_a_arr_el() {
 	___new_val="${___pair#*=}"
 	_check_vars "$_arr_name" "$___key" || return 1
 
-	eval "___keys=\"\${_a_${_arr_name}___keys}\"
-			_a_${_arr_name}_${___key}"='${___new_val}'
+	eval "___keys=\"\${_a_${_arr_name}___keys}\" _a_${_arr_name}_${___key}"='${___new_val}'
 
 	case "$___keys" in
 		*"$_nl$___key"|*"$_nl$___key$_nl"* ) ;;
@@ -79,4 +78,3 @@ check_pair() {
 wrongargs() {
 	echolog -err "$___me: '$*': wrong number of arguments '$#'."
 }
-
