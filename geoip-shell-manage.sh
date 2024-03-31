@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034,SC2059
+# shellcheck disable=SC2154,SC2086,SC1090,SC2034
 
 # geoip-shell-manage.sh
 
@@ -302,7 +302,6 @@ if [ "$action" = configure ]; then
 
 	check_lists_coherence 2>/dev/null || restore_req=1
 
-	in_setup=1
 	get_prefs || die
 	ccodes_arg="$ccodes"
 
