@@ -33,6 +33,7 @@ define Package/$p_name$ipt/postinst
 	#!/bin/sh
 	rm "$install_dir/$p_name" 2>/dev/null
 	ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name"
+	echo "Please run '$p_name configure' to complete the setup."
 	exit 0
 endef
 
