@@ -23,7 +23,7 @@ enable_owrt_init() {
 		OK
 		! check_owrt_include && {
 			$init_script start
-			restart_owrt_fw
+			reload_owrt_fw
 			sleep 1
 		}
 		printf %s "Checking the firewall include... "
@@ -69,8 +69,14 @@ rm_owrt_init() {
 }
 
 restart_owrt_fw() {
-	echo "Restarting the firewall..."
+	echo "Restarting firewall$_OWRTFW..."
 	fw$_OWRTFW -q restart
+	:
+}
+
+reload_owrt_fw() {
+	echo "Reloading firewall$_OWRTFW..."
+	fw$_OWRTFW -q reload
 	:
 }
 
