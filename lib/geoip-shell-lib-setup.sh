@@ -542,6 +542,6 @@ ${sp8}Default is 'true' for OpenWrt, 'false' for all other systems."
 
 datadir_usage="<\"path\"> :
 ${sp8}Set custom path to directory where backups and the status file will be stored.
-${sp8}Default is '/tmp' for OpenWrt, '/var/lib/$p_name' for all other systems."
+${sp8}Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/$p_name' for all other systems."
 
 :
