@@ -41,7 +41,7 @@ Actions:
 
 Options for the add|remove actions:
 
-  -c 2-letter country codes to add or remove. If passing multiple country codes, use double quotes."
+  -c <"country_codes"> : 2-letter country codes to add or remove. If passing multiple country codes, use double quotes.
 
 Options for the 'configure' action:
 
