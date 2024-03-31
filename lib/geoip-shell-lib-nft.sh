@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2155,SC2034
+# shellcheck disable=SC2154,SC2155
 
 # geoip-shell-lib-ipt.sh
 
@@ -59,6 +59,7 @@ mk_nft_rm_cmd() {
 }
 
 # parses an nft array/list and outputs it in human-readable format
+# sets $n to number of elements
 get_nft_list() {
 	n=0; _res=
 	[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
