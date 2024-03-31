@@ -213,10 +213,10 @@ create_cron_job() {
 
 	job_type="$1"
 
-	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating autoupdate job."
+	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating update job."
 
 	case "$job_type" in
-		autoupdate)
+		update)
 			[ -z "$schedule" ] && die "cron schedule in the config file is empty!"
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
@@ -226,10 +226,10 @@ create_cron_job() {
 				*) die "$FAIL validate cron schedule '$schedule'."
 			esac
 
-			# Remove existing autoupdate cron job before creating new one
-			rm_cron_job "autoupdate"
-			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-autoupdate"
-			debugprint "Creating autoupdate cron job with schedule '$schedule'... " ;;
+			# Remove existing update cron job before creating new one
+			rm_cron_job "update"
+			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
+			debugprint "Creating update cron job with schedule '$schedule'... " ;;
 		persistence)
 			debugprint "Creating persistence cron job... "
 
@@ -240,13 +240,9 @@ create_cron_job() {
 
 	#### Create new cron job
 
-	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
-	printf '%s\n%s\n' "$curr_cron" "$cron_cmd" | crontab -u root -; rv2=$?
-
-	case $((rv1 & rv2)) in
-		0) debugprint "Ok." ;;
-		*) die "$FAIL create $job_type cron job!"
-	esac
+	curr_cron="$(crontab -u root -l 2>/dev/null)" &&
+		printf '%s\n%s\n' "$curr_cron" "$cron_cmd" | crontab -u root - ||
+		die "$FAIL create $job_type cron job."
 }
 
 
@@ -256,7 +252,7 @@ rm_cron_job() {
 	job_type="$1"
 
 	case "$job_type" in
-		autoupdate|persistence) ;;
+		update|persistence) ;;
 		*) die "rm_cron_job: unknown cron job type '$job_type'."
 	esac
 
@@ -290,10 +286,10 @@ check_cron_compat
 
 printf %s "Processing cron jobs..."
 
-# autoupdate job
+# update job
 case "$schedule" in
-	disable) rm_cron_job autoupdate ;;
-	*) create_cron_job autoupdate
+	disable) rm_cron_job update ;;
+	*) create_cron_job update
 esac
 
 # persistence job
