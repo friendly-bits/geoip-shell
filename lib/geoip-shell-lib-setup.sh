@@ -208,7 +208,7 @@ validate_arg_ips() {
 }
 
 pick_lan_ips() {
-	confirm_ips() { eval "c_lan_ips_$family=\"$ipset_type:$u_ips\""; }
+	confirm_ips() { eval "lan_ips_$family=\"$ipset_type:$u_ips\""; }
 
 	lan_picked=1
 	unset autodetect ipset_type u_ips lan_ips_ipv4 lan_ips_ipv6
@@ -217,7 +217,7 @@ pick_lan_ips() {
 		auto) lan_ips_arg=''; autodetect=1
 	esac
 
-	[ "$lan_ips_arg" ] && validate_arg_ips "$lan_ips_arg" c_lan_ips && return 0
+	[ "$lan_ips_arg" ] && validate_arg_ips "$lan_ips_arg" lan_ips && return 0
 
 	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan ip's with '-l <\"lan_ips\"|auto|none>'."
 
@@ -304,8 +304,8 @@ parse_ports() {
 		_ports="${_ports%"$p_delim"},"
 		case "$_range" in *-*) [ "${_range%-*}" -ge "${_range##*-}" ] && { invalid_str "$_range"; return 1; }; esac
 	done
-	[ "$ranges_cnt" = 0 ] && { echolog -err "no ports specified for protocol $_proto."; return 1; }
-	_ports="${_ports%,}"
+	[ "$ranges_cnt" = 0 ] && { echolog -err "No ports specified for protocol $_proto."; return 1; }
+	_ports=":${_ports%,}"
 
 	[ "$_fw_backend" = ipt ] && [ "$ranges_cnt" -gt 1 ] && mp="multiport"
 	:
@@ -333,11 +333,11 @@ setports() {
 		case "$proto_act" in
 			allow) neg='' ;;
 			block) neg='!' ;;
-			*) { echolog -err "expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
+			*) { echolog -err "Expected 'allow' or 'block' instead of '$proto_act'"; return 1; }
 		esac
 		# check for valid protocol
 		case $_proto in
-			udp|tcp) case "$reg_proto" in *"$_proto"*) echolog -err "can't add protocol '$_proto' twice"; return 1; esac
+			udp|tcp) case "$reg_proto" in *"$_proto"*) echolog -err "Can't add protocol '$_proto' twice"; return 1; esac
 				reg_proto="$reg_proto$_proto " ;;
 			*) echolog -err "Unsupported protocol '$_proto'."; return 1
 		esac
@@ -350,10 +350,15 @@ setports() {
 			ports_exp="$mp ${neg}dport"
 		fi
 		trimsp ports_exp
-		eval "${_proto}_ports=\"$ports_exp:$_ports\""
-		debugprint "$_proto: ports: '$ports_exp:$_ports'"
+		eval "${_proto}_ports=\"$ports_exp$_ports\""
+		debugprint "$_proto: ports: '$ports_exp$_ports'"
 	done
 	oldifs sp
+}
+
+warn_lockout() {
+	printf '\n\n%s\n' \
+	"${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
 }
 
 # assigns default values, unless the var is set
@@ -374,8 +379,6 @@ set_defaults() {
 
 get_prefs() {
 	set_defaults
-
-	[ "$in_install" ] && in_setup=1
 
 	# nobackup
 	case "$nobackup_arg" in
@@ -433,12 +436,12 @@ get_prefs() {
 	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
 
 	# geoip mode
-	[ "$geomode_arg" ] || { [ ! "$geomode" ] && [ "$in_setup" ]; } && {
+	[ "$geomode_arg" ] || [ ! "$geomode" ] && {
 		tolower geomode_arg
 		case "$geomode_arg" in
 			whitelist|blacklist) geomode="$geomode_arg" ;;
 			'') [ "$nointeract" ] && die "Specify geoip blocking mode with -m <whitelist|blacklist>"; pick_geomode ;;
-			*) [ "$nointeract" ] && die "Unrecognized mode '$geomode_arg'! Use either 'whitelist' or 'blacklist'!"; pick_geomode
+			*) [ "$nointeract" ] && die "Unrecognized geoip mode '$geomode_arg'!"; pick_geomode
 		esac
 		[ "$geomode" = blacklist ] && unset lan_ips_ipv4 lan_ips_ipv6
 	}
@@ -452,7 +455,6 @@ get_prefs() {
 
 	# ifaces and lan subnets
 	lan_picked=
-	warn_lockout="${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
 
 	if [ ! "$ifaces" ] && [ -z "$ifaces_arg" ]; then
 		[ "$nointeract" ] && die "Specify interfaces with -i <\"ifaces\"|auto|all>."
@@ -464,19 +466,19 @@ get_prefs() {
 		case "$REPLY" in
 			a|A) die 0 ;;
 			y|Y) pick_ifaces ;;
-			n|N) ifaces=all; [ "$geomode" = whitelist ] && { printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; }
+			n|N) ifaces=all; [ "$geomode" = whitelist ] && { warn_lockout; pick_lan_ips; }
 		esac
 	elif [ "$ifaces_arg" ]; then
 		ifaces=
 		case "$ifaces_arg" in
 			all) ifaces=all
-				[ "$geomode" = whitelist ] && { [ "$in_setup" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
-					{ printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips; } ;;
+				[ "$geomode" = whitelist ] && { [ "$in_install" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+					{ warn_lockout; pick_lan_ips; } ;;
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
 		esac
 	elif [ "$geomode_change" ] && [ "$geomode" = whitelist ] && [ ! "$ifaces" ]; then
-		printf '\n\n%s\n' "$warn_lockout"; pick_lan_ips
+		warn_lockout; pick_lan_ips
 	fi
 
 	[ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
