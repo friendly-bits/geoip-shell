@@ -396,7 +396,7 @@ case "$action" in
 		[ -f "$lock_file" ] && {
 			echo "Waiting for background process to complete..."
 			for i in $(seq 1 60); do
-				[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Something is not working as expected."; break; }
+				[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; break; }
 				[ ! -f "$lock_file" ] && break
 				sleep 1
 			done
