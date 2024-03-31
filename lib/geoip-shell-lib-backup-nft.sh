@@ -79,7 +79,7 @@ create_backup() {
 		[ -z "$list_date" ] && bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
 
-		rm "$tmp_file" 2>/dev/null
+		rm -f "$tmp_file" 2>/dev/null
 		# extract elements and write to $tmp_file
 		nft list set inet "$geotable" "$ipset" |
 			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
