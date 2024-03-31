@@ -87,7 +87,7 @@ trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
 	done
 }
 
-[ "$geomode" = "whitelist" ] && {
+[ "$geomode" = whitelist ] && {
 	lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
 	lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
 	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ "$ifaces" = all ] && {
@@ -139,8 +139,8 @@ if check_cron; then
 
 	cron_jobs="$(crontab -u root -l 2>/dev/null)"
 
-	# check for autoupdate cron job
-	get_matching_line "$cron_jobs" "*" "${p_name}-autoupdate" "" update_job
+	# check for update cron job
+	get_matching_line "$cron_jobs" "*" "${p_name}-update" "" update_job
 	case "$update_job" in
 		'') upd_job_status="$_X"; upd_schedule=''; incr_issues ;;
 		*) upd_job_status="$_V"; upd_schedule="${update_job%%\"*}"
@@ -183,4 +183,5 @@ case $issues in
 	*) printf '\n%s\n\n' "${red}Problems detected: $issues.${n_c}"
 esac
 
-[ "$issues" ] && [ -f "$lock_file" ] && echo "NOTE: $lock_file lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
+[ "$issues" ] && [ -f "$lock_file" ] &&
+	echo "NOTE: $lock_file lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
