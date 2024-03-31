@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC2034,SC1090
+# shellcheck disable=SC2154
 
 # geoip-shell-lib-uninstall.sh
 
