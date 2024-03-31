@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2034,SC1090,SC2154
 
 # geoip-shell-owrt-uninstall.sh
 
@@ -31,8 +32,5 @@ rm_iplists_rules
 rm_cron_jobs
 rm_data
 rm_owrt_fw_include
-restart_owrt_fw
 rm_config
 rm_symlink
-
-printf '%s\n\n' "Uninstall done."
