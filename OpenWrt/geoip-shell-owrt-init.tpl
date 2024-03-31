@@ -1,4 +1,5 @@
 #!/bin/sh /etc/rc.common
+# shellcheck disable=SC2034,SC2154,SC2086
 
 # OpenWrt init script for geoip-shell
 
