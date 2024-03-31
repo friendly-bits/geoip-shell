@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2154,SC2034,SC2086
 
 # common functions and variables for OpenWrt-related geoip-shell scripts
 
