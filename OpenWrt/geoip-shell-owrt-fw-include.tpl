@@ -1,4 +1,5 @@
 #!/bin/sh
+# shellcheck disable=SC2154,SC2086
 
 # checks the lock file and calls the -run script with the 'restore' argument
 # used for OpenWrt firewall include
