@@ -274,6 +274,17 @@ for family in $families; do
 		[ "$geomode" = whitelist ] && [ "$lan_ips" ] &&
 			printf '%s\n' "-I $geochain -m set --match-set lan_ips_${family}_${geotag} src $ipt_comm lan_ips_${family}_${geotag_aux} -j ACCEPT"
 
+		# Allow link-local, DHCPv6
+		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
+			if [ "$family" = ipv6 ]; then
+				printf '%s\n' "-I $geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
+				printf '%s\n' "-I $geochain -s fe80::/8 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
+			# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
+			# else
+			# 	printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
+			fi
+		}
+
 		# ports
 		for proto in tcp udp; do
 			eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
@@ -295,17 +306,6 @@ for family in $families; do
 		# lo interface
 		[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
 			printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
-
-		# Allow link-local, DHCPv6
-		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
-			if [ "$family" = ipv6 ]; then
-				printf '%s\n' "-A $geochain -s fe80::/8 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
-				printf '%s\n' "-A $geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
-			# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
-			# else
-			# 	printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
-			fi
-		}
 
 		## iplist-specific rules
 		if [ "$action" = add ]; then
