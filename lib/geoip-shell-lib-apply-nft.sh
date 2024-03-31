@@ -196,6 +196,15 @@ nft_cmd_chain="$(
 		[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
 	fi
 
+	# Allow link-local, DHCPv6
+	[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
+		printf '%s\n' "insert $georule ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546 counter accept comment ${geotag_aux}_DHCPv6"
+		printf '%s\n' "insert $georule ip6 saddr fe80::/8 counter accept comment ${geotag_aux}_link-local"
+
+		# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
+		# printf '%s\n' "add $georule meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
+	}
+
 	# ports
 	for proto in tcp udp; do
 		eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
@@ -216,15 +225,6 @@ nft_cmd_chain="$(
 	# lo interface
 	[ "$geomode" = "whitelist" ] && [ "$ifaces" = all ] &&
 		printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
-
-	# Allow link-local, DHCPv6
-	[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
-		printf '%s\n' "add $georule ip6 saddr fe80::/8 counter accept comment ${geotag_aux}_link-local"
-		printf '%s\n' "add $georule ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546 counter accept comment ${geotag_aux}_DHCPv6"
-
-		# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
-		# printf '%s\n' "add $georule meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
-	}
 
 	## add iplist-specific rules
 	for new_ipset in $new_ipsets; do
