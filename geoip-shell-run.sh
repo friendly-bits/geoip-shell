@@ -222,6 +222,8 @@ while true; do
 
 	if check_lists_coherence; then
 		[ "$failed_lists" ] && [ "$daemon_mode" ] && { daemon_prep_next; continue; }
+		[ "$action_run" = update ] && [ ! "$failed_lists" ] &&
+			{ setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die; }
 		echolog "Successfully executed action '$action_run'$echolists."; echo; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
