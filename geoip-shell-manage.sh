@@ -158,11 +158,13 @@ restore_from_config() {
 	echolog "$restore_msg"
 	case "$iplists" in
 		'') echolog -err "No ip lists registered in the config file." ;;
-		*) rm_iplists_rules || return 1
+		*) [ ! "$in_install" ] && [ ! "$first_setup" ] && { rm_iplists_rules || return 1; }
 			setconfig iplists
 			call_script -l "$run_command" add -l "$iplists"
-			check_reapply && return 0
+			check_reapply && { setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die; return 0; }
 	esac
+
+	[ "$in_install" ] || [ "$first_setup" ] && die
 
 	# call the *backup script to initiate recovery from fault
 	call_script -l "$i_script-backup.sh" restore && check_reapply && return 0
@@ -206,7 +208,7 @@ check_for_lockout() {
 			y|Y) printf '\n%s\n' "Proceeding..." ;;
 			n|N)
 				[ "$geomode_change" ] && geomode="$geomode_prev"
-				[ ! "$in_install" ] && report_lists
+				[ ! "$in_install" ] && [ ! "$first_setup" ] && report_lists
 				echo
 				die 0 "Aborted action '$action'."
 		esac
@@ -303,6 +305,9 @@ if [ "$action" = configure ]; then
 
 	check_lists_coherence 2>/dev/null || restore_req=1
 
+	first_setup=
+	[ "$_OWRTFW" ] && [ ! -f "$conf_dir/setupdone" ] && export first_setup=1
+
 	get_prefs || die
 	ccodes_arg="$ccodes"
 
@@ -380,13 +385,23 @@ case "$action" in
 		}
 
 		[ "$rv_apply" = 0 ] && [ "$_OWRTFW" ] && {
-			.  "$_lib-owrt-common.sh" || exit 1
-			[ ! -f "$conf_dir/setupdone" ] && touch "$conf_dir/setupdone" "/tmp/$p_name-setupdone"
-			rm_lock
-			enable_owrt_init; rv_apply=$?
-			rm -f "/tmp/$p_name-setupdone"
+			.  "$_lib-owrt-common.sh" || die 1
+			[ "$first_setup" ] && {
+				touch "$conf_dir/setupdone" "/tmp/$p_name-setupdone"
+				rm_lock
+				enable_owrt_init; rv_apply=$?
+				rm -f "/tmp/$p_name-setupdone"
+			}
 		}
-		[ ! "$in_install" ] && statustip
+		[ -f "$lock_file" ] && {
+			echo "Waiting for background process to complete..."
+			for i in $(seq 1 60); do
+				[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Something is not working as expected."; break; }
+				[ ! -f "$lock_file" ] && break
+				sleep 1
+			done
+		}
+		report_lists; statustip
 		die $rv_apply ;;
 	add)
 		san_str requested_lists "$iplists $lists_arg"
