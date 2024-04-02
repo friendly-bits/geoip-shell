@@ -124,7 +124,12 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 is_root_ok
-. "$_lib-$_fw_backend.sh" || die
+[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
+	echolog "Firewall backend is not set."
+	[ "$action" != configure ] && echolog "Changing action to 'configure'."
+	action=configure restore_req=1
+}
+
 [ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
 
 setdebug
@@ -170,8 +175,12 @@ restore_from_config() {
 		'') echolog -err "No ip lists registered in the config file." ;;
 		*) [ ! "$in_install" ] && [ ! "$first_setup" ] && { rm_iplists_rules || return 1; }
 			setconfig iplists
-			call_script -l "$run_command" add -l "$iplists"
-			check_reapply && { setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die; return 0; }
+			call_script -l "$run_command" add -l "$iplists" -o
+			check_reapply && {
+				setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die
+				[ "$nobackup" = false ] && call_script -l "$i_script-backup.sh" create-backup
+				return 0
+			}
 	esac
 
 	[ "$in_install" ] || [ "$first_setup" ] && die
@@ -236,11 +245,15 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
-get_config_vars
+[ -s "$conf_file" ] && {
+	nodie=1 get_config_vars 2>/dev/null || echolog "Config file not found or failed to get config."
+}
 
 case "$geomode" in
 	whitelist|blacklist) ;;
-	'') echolog "geoip mode is not set."; [ "$action" != configure ] && echolog "Changing action to 'configure'"; action=configure ;;
+	'') [ "$action" != configure ] && echolog "Geoip mode is not set. Changing action to 'configure'."
+		rm -f "$conf_dir/setupdone" 2>/dev/null
+		action=configure restore_req=1 ;;
 	*) die "Unexpected geoip mode '$geomode'!"
 esac
 
@@ -250,12 +263,6 @@ san_str ccodes_arg
 tolower action
 
 run_command="$i_script-run.sh"
-
-
-#### CHECKS
-
-# check that the config file exists
-[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
 
 
 ## Check args for sanity
@@ -304,6 +311,11 @@ case "$action" in
 esac
 
 if [ "$action" = configure ]; then
+	[ ! -s "$conf_file" ] && {
+		rm -f "$conf_dir/setupdone" 2>/dev/null
+		touch "$conf_file" || die "$FAIL create the config file."
+		[ "$_fw_backend" ] && rm_iplists_rules
+	}
 	unset restore_req planned_lists lists_change
 	for var_name in datadir nobackup geomode geosource ifaces schedule iplists _fw_backend; do
 		eval "${var_name}_prev=\"\$$var_name\""
@@ -389,13 +401,16 @@ case "$action" in
 		}
 
 		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-			ifaces geomode iplists datadir nobackup user_ccode schedule families _fw_backend max_attempts reboot_sleep
+			nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
+			_fw_backend max_attempts reboot_sleep
 
 		[ "$_fw_backend_change" ] && {
 			_fw_be_new="$_fw_backend"
 			export _fw_backend="$_fw_backend_prev"
-			. "$_lib-$_fw_backend.sh" || die
-			rm_iplists_rules
+			[ "$_fw_backend" ] && {
+				. "$_lib-$_fw_backend.sh" || die
+				rm_iplists_rules
+			}
 			export _fw_backend="$_fw_be_new"
 			. "$_lib-$_fw_backend.sh" || die
 		}
@@ -407,24 +422,23 @@ case "$action" in
 			restore_from_config; rv_apply=$?
 		fi
 
-		[ "$schedule_change" ] && {
+		[ "$schedule_change" ] || [ "$restore_req" ] && {
 			call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		}
 
 		[ "$rv_apply" = 0 ] && [ "$_OWRTFW" ] && {
 			.  "$_lib-owrt-common.sh" || die 1
 			[ "$first_setup" ] && {
-				touch "$conf_dir/setupdone" "/tmp/$p_name-setupdone"
+				touch "$conf_dir/setupdone"
 				rm_lock
 				enable_owrt_init; rv_apply=$?
-				rm -f "/tmp/$p_name-setupdone"
 				[ -f "$lock_file" ] && {
 					echo "Waiting for background processes to complete..."
 					for i in $(seq 1 60); do
-						[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; break; }
 						[ ! -f "$lock_file" ] && break
 						sleep 1
 					done
+					[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; }
 				}
 			}
 		}
