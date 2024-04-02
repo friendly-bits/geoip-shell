@@ -374,16 +374,6 @@ EOF
 # copy cca2.list
 cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
-[ ! "$inst_root_gs" ] && {
-	# only allow root to read the $datadir and $conf_dir and files inside it
-	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
-		install_failed "$FAIL create '$datadir'."
-
-	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" ||
-		install_failed "$FAIL create and apply the iplist."
-}
-
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
 	init_script="/etc/init.d/${p_name}-init"
@@ -412,10 +402,19 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 		[ ! "$inst_root_gs" ] && {
 			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" ||
 				install_failed "$FAIL set permissions."
-			touch "$conf_dir/setupdone"
-			enable_owrt_init || install_failed
 		}
 	fi
+}
+
+
+[ ! "$inst_root_gs" ] && {
+	# only allow root to read the $datadir and $conf_dir and files inside it
+	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
+		install_failed "$FAIL create '$datadir'."
+
+	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
+	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" ||
+		install_failed "$FAIL create and apply the iplist."
 }
 
 echo "Install done."
