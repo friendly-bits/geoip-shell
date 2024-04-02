@@ -363,14 +363,30 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	[ "$_OWRTFW" ] && { geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true; } ||
-		{ geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false; }
+	if [ "$_OWRTFW" ]; then
+		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
+		case "$_OWRTFW" in
+			3) _fw_backend=ipt ;;
+			4) _fw_backend=nft
+		esac
+	else
+		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
+		. "$_lib-check-compat.sh" || exit 1
+		[ ! "$_fw_backend_arg" ] && {
+			if check_fw_backend nft; then
+				_fw_backend_def=nft
+			elif check_fw_backend ipt; then
+				_fw_backend_def=ipt
+			fi
+		} 2>/dev/null
+	fi
 
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${schedule:="15 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
+	: "${_fw_backend:="$_fw_backend_def"}"
 	: "${tcp_ports:=skip}"
 	: "${udp_ports:=skip}"
 	: "${reboot_sleep:=30}"
@@ -379,6 +395,14 @@ set_defaults() {
 
 get_prefs() {
 	set_defaults
+
+	# firewall backend
+	[ "$_fw_backend_arg" ] && [ "$_OWRTFW" ] && die "Changing the firewall backend is unsupported on OpenWrt."
+	[ ! "$_OWRTFW" ] && {
+		_fw_backend="${_fw_backend_arg:-$_fw_backend}"
+		[ ! "$_fw_backend" ] && die "Neither nftables nor iptables+ipset found."
+		check_fw_backend "$_fw_backend" || die
+	}
 
 	# nobackup
 	case "$nobackup_arg" in
@@ -535,6 +559,11 @@ user_ccode_syn="<[user_country_code]|none>"
 user_ccode_usage="$user_ccode_syn :
 ${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
 ${sp8}'none' disables this feature."
+
+fw_be_syn="<ipt|nft>"
+fw_be_usage="$fw_be_syn :
+${sp8}Specify firewall backend to use with $p_name. 'ipt' for iptables, 'nft' for nftables.
+${sp8}Default is nftables if it is found in the system."
 
 nobackup_usage="<true|false> :
 ${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists and firewall rules state after applying changes,
