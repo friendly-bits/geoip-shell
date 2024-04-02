@@ -33,8 +33,9 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn] [-s $sch_syn] [-i $if_syn]
-${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
+Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn]
+${sp8}[-s $sch_syn] [-i $if_syn] [-l $lan_syn] [-t $tr_syn]
+${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
 ${sp8}[-e] [-n] [-k] [-z] [-d] [-V] [-h]
 
 Installer for $p_name.
@@ -66,6 +67,8 @@ Core Options:
 
   -a $datadir_usage
 
+  -w $fw_be_usage
+
 Extra Options:
   -e : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
   -n : No persistence. Geoip blocking may not work after reboot.
@@ -81,7 +84,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkzdVh" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:enkzdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -95,6 +98,7 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:enkzdVh" opt; do
 		r) user_ccode_arg=$OPTARG ;;
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
+		w) _fw_backend_arg=$OPTARG ;;
 
 		e) nft_perf=performance ;;
 		n) no_persist=1 ;;
@@ -253,15 +257,27 @@ detect_init
 #### Variables
 
 export conf_dir="/etc/$p_name"
+
+unset fw_libs ipt_libs nft_libs
+ipt_libs="ipt apply-ipt backup-ipt status-ipt"
+nft_libs="nft apply-nft backup-nft status-nft"
+
 [ "$_OWRTFW" ] && {
 	o_script="OpenWrt/${p_name}-owrt"
 	owrt_init="$o_script-init.tpl"
 	owrt_fw_include="$o_script-fw-include.tpl"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
 	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
+	case "$_OWRTFW" in
+		3) _fw_backend=ipt ;;
+		4) _fw_backend=nft
+	esac
+	eval "fw_libs=\"\$${_fw_backend}_libs\""
 } || {
 	check_compat="check-compat"
-	init_check_compat=". \"\${_lib}-check-compat.sh\" || exit 1"
+	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
+	init_check_compat_pt2="getconfig _fw_backend${_nl}check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
+	fw_libs="$ipt_libs $nft_libs"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
@@ -271,9 +287,8 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 	script_files="$script_files${p_name}-$f.sh "
 done
 
-unset lib_files ipt_libs
-[ "$_fw_backend" = ipt ] && ipt_libs="ipt apply-ipt backup-ipt status-ipt"
-for f in uninstall common arrays nft apply-nft backup-nft status status-nft setup ip-regex $check_compat $ipt_libs; do
+lib_files=
+for f in uninstall common arrays status setup ip-regex $check_compat $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -286,8 +301,6 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 #### MAIN
 
 [ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
-
-set_defaults
 
 # parse command line args and make interactive setup if needed
 [ ! "$inst_root_gs" ] && { get_prefs || die; }
@@ -325,7 +338,7 @@ printf %s "Setting config... "
 nodie=1
 setconfig datadir user_ccode "iplists=" geomode tcp_ports udp_ports geosource families "schedule=" \
 	max_attempts ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
-	reboot_sleep nobackup no_persist noblock "http=" || install_failed
+	reboot_sleep nobackup no_persist noblock "http=" _fw_backend || install_failed
 OK
 
 # create the .const file
@@ -347,17 +360,14 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	'
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
 
-	$init_check_compat
+	$init_check_compat_pt1
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 	. "$conf_dir/\${p_name}.const" || exit 1
-	_no_l="\$nolog"
-	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
-	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
-	} || die "neither nftables nor iptables+ipset found."
-	export fwbe_ok=1
-	r_no_l
+	getconfig _fw_backend
+	$init_check_compat_pt2
+	export fwbe_ok=1 _fw_backend
 	:
 EOF
 
