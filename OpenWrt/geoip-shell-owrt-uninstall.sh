@@ -28,6 +28,7 @@ geoinit_path="/usr/bin/$geoinit"
 [ -f "$conf_file" ] && getconfig datadir
 : "${datadir:=/tmp/$p_name-data}"
 
+rm -f "$conf_dir/setupdone" 2>/dev/null
 rm_iplists_rules
 rm_cron_jobs
 rm_data
