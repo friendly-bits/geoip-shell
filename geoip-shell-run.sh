@@ -145,7 +145,7 @@ case "$action_run" in
 			# if backup file doesn't exist, force re-fetch
 			action_run=update action_apply=add force="-f"
 		else
-			call_script -l "$i_script-backup.sh" "restore"; rv_cs=$?
+			call_script -l "$i_script-backup.sh" restore; rv_cs=$?
 			getconfig apply_lists iplists
 			if [ "$rv_cs" = 0 ]; then
 				nobackup=true
