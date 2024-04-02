@@ -80,7 +80,11 @@
 
 16) Note that cron jobs will be run as root.
 
-17) To test before deployment:
+17) If you have nftables installed but for some reason you are using iptables rules (via the nft_compat kernel module), you can and probably should install geoip-shell with the option `-w ipt` which will force it to use iptables+ipset. For example: `geoip-shell install -w ipt`.
+
+18) If you upgrade your system from iptables to nftables, you can either re-install geoip-shell and it will then automatically use nftables, or you can use this command without reinstalling: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets, and re-create nftables rules and sets based on your existing config. If you are on OpenWrt, this does not apply: instead, you will need to install the geoip-shell package for nftables-based OpenWrt.
+
+19) To test before deployment:
     <details> <summary>Read more:</summary>
 
     - You can run the install script with the "-k" (noblock) option to apply all actions and create all firewall rules except the geoip-shell "enable" rule. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the command `geoip-shell on`.
@@ -88,7 +92,7 @@
 
     </details>
 
-18) How to get yourself locked out of your remote server and how to prevent this:
+20) How to get yourself locked out of your remote server and how to prevent this:
     <details> <summary>Read more:</summary>
 
     There are 4 scenarios where you can lock yourself out of your remote server with this suite:
