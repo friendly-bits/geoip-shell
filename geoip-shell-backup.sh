@@ -152,7 +152,6 @@ case "$action" in
 		set_extract_cmd "$bk_ext"
 		restorebackup
 		printf '%s\n\n' "Successfully restored $p_name state from backup."
-		statustip
 esac
 
 die 0
