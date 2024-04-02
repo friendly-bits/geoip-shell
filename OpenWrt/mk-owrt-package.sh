@@ -143,10 +143,10 @@ for _OWRTFW in $FW_ver; do
 	printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 	{
 		awk '{gsub(/\$p_name_c/,P); gsub(/\$p_name/,p); gsub(/\$install_dir/,i); sub(/\$curr_ver/,v); sub(/\$_OWRTFW/,o); \
-			sub(/\$pkg_ver/,r); sub(/\$depends/,d); sub(/\$conflicts/,c); gsub(/\$_fw_backend/,f); \
+			sub(/\$pkg_ver/,r); sub(/\$depends/,d); sub(/\$conflicts/,c); gsub(/\$conf_dir/,C); gsub(/\$_fw_backend/,f); \
 			gsub(/\$ipt/,I); gsub(/\$_lib/,l); gsub(/\$lib_dir/,L)}1' \
 			p="$p_name" P="$p_name_c" v="$curr_ver" r="$pkg_ver" o="$_OWRTFW" i="$install_dir" l="$lib_dir/$p_name-lib" \
-				L="$lib_dir" f="$_fw_backend" I="$ipt" d="$depends" c="$conflicts" "$script_dir/makefile.tpl"
+				L="$lib_dir" C="$conf_dir" f="$_fw_backend" I="$ipt" d="$depends" c="$conflicts" "$script_dir/makefile.tpl"
 
 		printf '\n%s\n' "define Package/$p_name$ipt/install"
 
