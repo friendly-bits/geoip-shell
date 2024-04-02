@@ -25,16 +25,16 @@ usage() {
 
 cat <<EOF
 
-Usage: $me <action> [-c <"country_codes">] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u <ripe|ipdeny>]
-${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-o <true|false>] [-a <"path">]
-${sp8}[-v] [-f] [-d] [-V] [-h]
+Usage: $me <action> [-c $ccodes_syn] [-f $fam_syn] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u $srcs_syn ]
+${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
+${sp8}[-v] [-F] [-d] [-V] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
   on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  configure   : change $p_name config. May be used with options: '-c', '-u', '-m', '-i', '-l', '-t', '-p', '-o', '-a', '-s'
+  configure   : change $p_name config.
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
   restore     : re-apply geoip blocking rules from the config
@@ -46,11 +46,13 @@ Options for the add|remove actions:
 
 Options for the 'configure' action:
 
+  -m $geomode_usage
+
   -c $ccodes_usage
 
-  -u $sources_usage
+  -f $families_usage
 
-  -m $geomode_usage
+  -u $sources_usage
 
   -i $ifaces_usage
 
@@ -59,6 +61,8 @@ Options for the 'configure' action:
   -t $trusted_ips_usage
 
   -p $ports_usage
+
+  -r $user_ccode_usage
 
   -o $nobackup_usage
 
@@ -69,7 +73,7 @@ Options for the 'configure' action:
 Other options:
 
   -v  : Verbose status output
-  -f  : Force the action
+  -F  : Force the action
   -d  : Debug
   -V  : Version
   -h  : This help
@@ -88,21 +92,23 @@ case "$action" in
 esac
 
 # process the rest of the args
-while getopts ":c:m:s:i:l:t:p:u:a:o:vfdVh" opt; do
+while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:vFdVh" opt; do
 	case $opt in
-		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
+		c) ccodes_arg=$OPTARG ;;
+		f) families_arg=$OPTARG ;;
 		s) schedule_arg=$OPTARG ;;
 		i) ifaces_arg=$OPTARG ;;
 		l) lan_ips_arg=$OPTARG ;;
 		t) trusted_arg=$OPTARG ;;
 		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
+		r) user_ccode_arg=$OPTARG ;;
 		u) geosource_arg=$OPTARG ;;
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
 
 		v) verb_status="-v" ;;
-		f) force_action=1 ;;
+		F) force_action=1 ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
@@ -128,13 +134,13 @@ incoherence_detected() {
 		"'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
 
 	while true; do
-		printf %s "(Y/N/S) "
+		printf %s "[Y|N|S] "
 		read -r REPLY
 		case "$REPLY" in
 			[Yy] ) echo; restore_from_config; break ;;
 			[Nn] ) die ;;
 			[Ss] ) printf '\n\n\n%s\n' "$geomode ip lists in the config file: '$iplists'" ;;
-			* ) printf '\n%s\n' "Enter 'y/n/s'."
+			* ) printf '\n%s\n' "Enter 'y|n|s'."
 		esac
 	done
 }
@@ -184,7 +190,7 @@ check_for_lockout() {
 	sp2nl planned_lists_nl "$planned_lists"
 	sp2nl lists_to_change_nl "$lists_to_change"
 
-	if [ "$in_install" ] || [ "$geomode_change" ] || [ "$lists_change" ]; then
+	if [ "$in_install" ] || [ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_arg" ]; then
 		get_matching_line "$planned_lists_nl" "" "$user_ccode" "_*" filtered_ccode
 		case "$geomode" in
 			whitelist) [ ! "$filtered_ccode" ] && lo_msg="Your $u_ccode is not included $inlist. $tip_msg" ;;
@@ -262,7 +268,8 @@ esac
 
 [ "$action" != configure ] && {
 	for i_opt in \
-			"geomode m" "trusted t" "ports p" "lan_ips l" "ifaces i" "geosource u" "datadir a" "nobackup o" "schedule s"; do
+			"geomode m" "trusted t" "ports p" "lan_ips l" "ifaces i" "geosource u" "datadir a" "nobackup o" "schedule s" \
+				"families f" "user_ccode r"; do
 		eval "[ \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
 }
@@ -293,13 +300,13 @@ case "$action" in
 esac
 
 if [ "$action" = configure ]; then
-	unset restore_req planned_lists \
-		datadir_change nobackup_change geomode_change geosource_change ifaces_change lists_change schedule_change
+	unset restore_req planned_lists lists_change
 	for var_name in datadir nobackup geomode geosource ifaces schedule iplists; do
 		eval "${var_name}_prev=\"\$$var_name\""
 	done
 
-	for opt_ch in datadir nobackup geomode geosource ifaces schedule; do
+	for opt_ch in datadir nobackup geomode geosource ifaces schedule families; do
+		unset "${opt_ch}_change"
 		eval "[ \"\$${opt_ch}_arg\" ] && [ \"\$${opt_ch}_arg\" != \"\$${opt_ch}\" ] && ${opt_ch}_change=1"
 	done
 
@@ -310,6 +317,13 @@ if [ "$action" = configure ]; then
 
 	get_prefs || die
 	ccodes_arg="$ccodes"
+
+	[ "$families_change" ] && [ ! "$ccodes_arg" ] && {
+		lists_arg=
+		for list_id in $iplists; do
+			add2list ccodes_arg "${list_id%_*}"
+		done
+	}
 
 	for opt_ch in datadir nobackup geomode geosource ifaces schedule; do
 		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
@@ -339,14 +353,14 @@ case "$action" in
 		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
 			[ "$lists_change" ] && restore_req=1
 
-		[ "$geomode_change" ] || [ "$lists_change" ] && check_for_lockout
+		[ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_arg" ] && check_for_lockout
 		iplists="$lists_arg"
 
 		bk_dir="$datadir/backup"
 		[ "$nobackup_change" ] && {
 			[ -d "$bk_dir" ] && {
 				printf %s "Removing old backup... "
-				rm -rf "${bk_dir:?}" || die "$FAIL remove the backup."
+				rm -rf "$bk_dir" || die "$FAIL remove the backup."
 				OK
 			}
 			[ "$nobackup" = false ] && restore_req=1
@@ -360,18 +374,18 @@ case "$action" in
 			[ -d "$datadir_prev" ] && {
 				printf %s "Moving data to the new path... "
 				set +f
-				mv "$datadir_prev"/* "$datadir" || { rm -rf "${datadir:?}" 2>/dev/null; die "$FAIL move the data."; }
+				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL move the data."; }
 				set -f
 				OK
 				printf %s "Removing the old data dir '$datadir_prev'..."
-				rm -rf "${datadir_prev:?}" || { rm -rf "${datadir:?}" 2>/dev/null; die "$FAIL remove the old data dir."; }
+				rm -rf "$datadir_prev" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL remove the old data dir."; }
 				OK
 			}
 			export datadir status_file="$datadir/status"
 		}
 
 		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-			ifaces geomode iplists datadir nobackup user_ccode schedule
+			ifaces geomode iplists datadir nobackup user_ccode schedule families
 
 		if [ ! "$restore_req" ]; then
 			call_script "$i_script-apply.sh" update; rv_apply=$?
@@ -392,7 +406,7 @@ case "$action" in
 				enable_owrt_init; rv_apply=$?
 				rm -f "/tmp/$p_name-setupdone"
 				[ -f "$lock_file" ] && {
-					echo "Waiting for background process to complete..."
+					echo "Waiting for background processes to complete..."
 					for i in $(seq 1 60); do
 						[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; break; }
 						[ ! -f "$lock_file" ] && break
