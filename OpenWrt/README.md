@@ -22,9 +22,9 @@ After installing the ipk package, geoip-shell will be inactive until you configu
 
 ## Resources management on OpenWrt
 Because OpenWrt typically runs on embedded devices with limited memory and very small flash storage, geoip-shell implements some techniques to conserve these resources as much as possible:
-- during installation on OpenWrt, comments are stripped from the scripts to reduce their size.
-- the install script selectively copies only the required scripts and libraries, depending on the system and the installation options.
-- I've researched the most memory-efficient way for loading ip lists into nftables sets. Currently, nftables has some bugs related to this process which may cause unnecessarily high memory consumption. geoip-shell works around these bugs.
+- During installation on OpenWrt, comments and the debug code are stripped from the scripts to reduce their size.
+- Only the required modules are installed, depending on the system (iptables- or nftables- based).
+- I've researched the most memory-efficient way for loading ip lists into nftables sets. Currently, nftables has some bugs related to this process which may cause unnecessarily high memory consumption. geoip-shell works around these bugs as much as possible.
 - To avoid unnecessary flash storage wear, all filesystem-related tasks geoip-shell does which do not require permanent storage are done in the /tmp directory which in the typical OpenWrt installation is mounted on the ramdisk.
 - Some defaults on OpenWrt are different to further minimize flash storage wear (read below).
 
