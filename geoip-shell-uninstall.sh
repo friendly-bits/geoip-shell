@@ -66,7 +66,7 @@ extra_args "$@"
 
 is_root_ok || exit 1
 
-lib_dir="/usr/lib"
+lib_dir="/usr/lib/$p_name"
 _lib="$lib_dir/$p_name-lib"
 
 
