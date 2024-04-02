@@ -36,6 +36,6 @@ mk_fw_include() {
 	/etc/init.d/firewall reload
 }
 
-[ ! -f "$conf_dir/setupdone" ] && [ ! -f "/tmp/$p_name-setupdone" ] &&
-	die "$p_name has not been configured. Refusing to create firewall include. Run '$p_name configure' to fix this."
+[ ! -f "$conf_dir/setupdone" ] &&
+	die "$p_name has not been configured. Refusing to create firewall include. Please run '$p_name configure'."
 mk_fw_include
