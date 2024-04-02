@@ -209,15 +209,29 @@ debugentermsg
 
 #### Functions
 
+# 1 - job type (update|reboot)
+# 2 - <[schedule]|@reboot>
+check_cron_job() {
+	get_matching_line "$curr_cron" "*" "${p_name}-$1" "" curr_job
+	case "$curr_job" in "$2 \"$run_cmd\""*) return 0; esac
+	return 1
+}
+
+get_curr_cron() {
+	crontab -u root -l 2>/dev/null || die "$FAIL read crontab."
+}
+
 create_cron_job() {
 
-	job_type="$1"
+	job_type="$1" w_sch=
 
-	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating update job."
+	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating cron jobs."
 
+	curr_cron="$(get_curr_cron)"
 	case "$job_type" in
 		update)
-			[ -z "$schedule" ] && die "cron schedule in the config file is empty!"
+			[ -z "$schedule" ] && die "Cron schedule in the config file is empty!"
+			check_cron_job update "$schedule" && return 0
 			# Validate cron schedule
 			debugprint "\nValidating cron schedule: '$schedule'."
 			val_cron_exp "$schedule"; rv=$?
@@ -227,11 +241,11 @@ create_cron_job() {
 			esac
 
 			# Remove existing update cron job before creating new one
-			rm_cron_job "update"
+			rm_cron_job update
 			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
-			debugprint "Creating update cron job with schedule '$schedule'... " ;;
+			w_sch=" with schedule '$schedule'" ;;
 		persistence)
-			debugprint "Creating persistence cron job... "
+			check_cron_job persistence "@reboot" && return 0
 
 			# using the restore action for the *run script
 			cron_cmd="@reboot \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
@@ -240,11 +254,10 @@ create_cron_job() {
 
 	#### Create new cron job
 
-	curr_cron="$(crontab -u root -l 2>/dev/null)" &&
-		printf '%s\n%s\n' "$curr_cron" "$cron_cmd" | crontab -u root - ||
+	debugprint "Creating $job_type cron job$w_sch... "
+	printf '%s\n' "${curr_cron#"$_nl"}$_nl$cron_cmd" | crontab -u root - ||
 		die "$FAIL create $job_type cron job."
 }
-
 
 # remove existing cron job
 # cron jobs are identified by the comment at the end of each job in crontab
@@ -257,13 +270,9 @@ rm_cron_job() {
 	esac
 
 	debugprint "Removing $job_type cron job for $p_name... "
-	curr_cron="$(crontab -u root -l 2>/dev/null)"; rv1=$?
-	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root -; rv2=$?
-
-	case $((rv1 & rv2)) in
-		0) debugprint "Ok." ;;
-		*) die "$FAIL remove $job_type cron job."
-	esac
+	curr_cron="$(get_curr_cron)"
+	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root - ||
+		die "$FAIL remove $job_type cron job."
 }
 
 
@@ -294,11 +303,11 @@ esac
 
 # persistence job
 [ ! "$_OWRTFW" ] && {
-	rm_cron_job persistence
 	case "$no_persist" in
 		'') create_cron_job persistence ;;
-		*) printf '%s\n%s\n' "Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
-			"To enable persistence, install $p_name again without the '-n' option." >&2
+		*) rm_cron_job persistence
+			echolog "${_nl}Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
+			"To enable persistence, install $p_name again without the '-n' option."
 	esac
 }
 
