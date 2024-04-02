@@ -25,8 +25,9 @@ usage() {
 
 cat <<EOF
 
-Usage: $me <action> [-c $ccodes_syn] [-f $fam_syn] [-s $sch_syn] [-i $if_syn] [-m $mode_syn] [-u $srcs_syn ]
-${sp8}[-l $lan_syn] [-t $tr_syn] [-i $if_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
+Usage: $me <action> [-c $ccodes_syn] [-f $fam_syn] [-s $sch_syn] [-i $if_syn]
+${sp8}[-m $mode_syn] [-u $srcs_syn ] [-l $lan_syn] [-t $tr_syn] [-i $if_syn]
+${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
 ${sp8}[-v] [-F] [-d] [-V] [-h]
 
 Provides interface to configure geoip blocking.
@@ -70,6 +71,8 @@ Options for the 'configure' action:
 
   -s $schedule_usage
 
+  -w $fw_be_usage
+
 Other options:
 
   -v  : Verbose status output
@@ -92,7 +95,7 @@ case "$action" in
 esac
 
 # process the rest of the args
-while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:vFdVh" opt; do
+while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:w:vFdVh" opt; do
 	case $opt in
 		m) geomode_arg=$OPTARG ;;
 		c) ccodes_arg=$OPTARG ;;
@@ -106,6 +109,7 @@ while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:vFdVh" opt; do
 		u) geosource_arg=$OPTARG ;;
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
+		w) _fw_backend_arg=$OPTARG ;;
 
 		v) verb_status="-v" ;;
 		F) force_action=1 ;;
@@ -301,11 +305,11 @@ esac
 
 if [ "$action" = configure ]; then
 	unset restore_req planned_lists lists_change
-	for var_name in datadir nobackup geomode geosource ifaces schedule iplists; do
+	for var_name in datadir nobackup geomode geosource ifaces schedule iplists _fw_backend; do
 		eval "${var_name}_prev=\"\$$var_name\""
 	done
 
-	for opt_ch in datadir nobackup geomode geosource ifaces schedule families; do
+	for opt_ch in datadir nobackup geomode geosource ifaces schedule families _fw_backend; do
 		unset "${opt_ch}_change"
 		eval "[ \"\$${opt_ch}_arg\" ] && [ \"\$${opt_ch}_arg\" != \"\$${opt_ch}\" ] && ${opt_ch}_change=1"
 	done
@@ -325,7 +329,7 @@ if [ "$action" = configure ]; then
 		done
 	}
 
-	for opt_ch in datadir nobackup geomode geosource ifaces schedule; do
+	for opt_ch in datadir nobackup geomode geosource ifaces schedule _fw_backend; do
 		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
 	done
 
@@ -351,7 +355,7 @@ case "$action" in
 		lists_to_change="$lists_arg"
 
 		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
-			[ "$lists_change" ] && restore_req=1
+			[ "$lists_change" ] || [ "$_fw_backend_change" ] && restore_req=1
 
 		[ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_arg" ] && check_for_lockout
 		iplists="$lists_arg"
@@ -385,7 +389,16 @@ case "$action" in
 		}
 
 		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-			ifaces geomode iplists datadir nobackup user_ccode schedule families
+			ifaces geomode iplists datadir nobackup user_ccode schedule families _fw_backend max_attempts reboot_sleep
+
+		[ "$_fw_backend_change" ] && {
+			_fw_be_new="$_fw_backend"
+			export _fw_backend="$_fw_backend_prev"
+			. "$_lib-$_fw_backend.sh" || die
+			rm_iplists_rules
+			export _fw_backend="$_fw_be_new"
+			. "$_lib-$_fw_backend.sh" || die
+		}
 
 		if [ ! "$restore_req" ]; then
 			call_script "$i_script-apply.sh" update; rv_apply=$?
