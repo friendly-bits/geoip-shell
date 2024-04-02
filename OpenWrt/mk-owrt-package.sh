@@ -69,7 +69,7 @@ p_name_c="${p_name%%-*}_${p_name#*-}"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 src_dir="${script_dir%/*}"
 install_dir="/usr/bin"
-lib_dir="/usr/lib"
+lib_dir="/usr/lib/$p_name"
 conf_dir="/etc/${p_name}"
 init_dir="/etc/init.d"
 _lib="$/usr/lib"
