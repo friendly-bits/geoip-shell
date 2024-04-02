@@ -32,5 +32,4 @@ rm_iplists_rules
 rm_cron_jobs
 rm_data
 rm_owrt_fw_include
-rm_config
 rm_symlink
