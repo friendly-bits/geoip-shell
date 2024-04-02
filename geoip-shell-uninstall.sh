@@ -94,7 +94,9 @@ rm_cron_jobs
 rm_data
 
 # For OpenWrt
-[ "$_OWRT_install" ] && {
+[ "$_OWRT_install" ] && [ -f "$_lib-owrt-common.sh" ] && {
+	. "$_lib-owrt-common.sh"
+	rm -f "$conf_dir/setupdone" 2>/dev/null
 	rm_owrt_init
 	rm_owrt_fw_include
 	restart_owrt_fw
