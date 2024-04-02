@@ -46,7 +46,7 @@ pick_user_ccode() {
 					continue
 				}
 				toupper REPLY
-				validate_ccode "$REPLY" "$script_dir/cca2.list"; rv=$?
+				validate_ccode "$REPLY"; rv=$?
 				case "$rv" in
 					0)  user_ccode="$REPLY"; break ;;
 					1)  die "Internal error while trying to validate country codes." ;;
@@ -84,7 +84,7 @@ pick_ccodes() {
 				newifs ' ;,' pcc
 				for ccode in $REPLY; do
 					[ "$ccode" ] && {
-						validate_ccode "$ccode" "$script_dir/cca2.list" && ok_ccodes="$ok_ccodes$ccode " ||
+						validate_ccode "$ccode" && ok_ccodes="$ok_ccodes$ccode " ||
 							bad_ccodes="$bad_ccodes$ccode "
 					}
 				done
@@ -399,10 +399,10 @@ get_prefs() {
 		parent_dir="${datadir_new%/*}/"
 		[ ! -d "$parent_dir" ] && die "Can not create '$datadir_arg': parent directory '$parent_dir' doesn't exist."
 	}
-	datadir="${datadir_new:=$datadir}"
+	datadir="${datadir_new:-"$datadir"}"
 
 	# cron schedule
-	schedule="${schedule_arg:=$schedule}"
+	schedule="${schedule_arg:-"$schedule"}"
 
 	check_cron_compat
 	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
@@ -412,18 +412,18 @@ get_prefs() {
 	# families
 	[ "$families_arg" ] && tolower families_arg
 	case "$families_arg" in
-		''|ipv4|ipv6) ;;
-		inet) families_arg=ipv4 ;;
-		inet6) families_arg=ipv6 ;;
-		'inet inet6'|'inet6 inet'|'ipv4 ipv6'|'ipv6 ipv4') families_arg="$families_def" ;;
+		'') ;;
+		inet|ipv4) families_arg=ipv4 ;;
+		inet6|ipv6) families_arg=ipv6 ;;
+		'inet inet6'|'inet6 inet'|'ipv4 ipv6'|'ipv6 ipv4') families_arg="ipv4 ipv6" ;;
 		*) die "Invalid family '$families_arg'."
 	esac
-	families="${families_arg:=$families}"
+	families="${families_arg:-"$families"}"
 
 	# source
 	tolower geosource_arg
 	case "$geosource_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$geosource_arg'."; esac
-	geosource="${geosource_arg:=$geosource}"
+	geosource="${geosource_arg:-$geosource}"
 
 	# process trusted ip's if specified
 	case "$trusted_arg" in
@@ -451,7 +451,7 @@ get_prefs() {
 
 	# country codes
 	{ [ ! "$ccodes" ] && [ ! "$iplists" ]; } || [ "$geomode_change" ] || [ "$ccodes_arg" ] && pick_ccodes
-	[ ! "$user_ccode" ] && pick_user_ccode
+	[ ! "$user_ccode" ] || [ "$user_ccode_arg" ] && pick_user_ccode
 
 	# ifaces and lan subnets
 	lan_picked=
