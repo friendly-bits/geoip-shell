@@ -198,8 +198,8 @@ for _OWRTFW in $FW_ver; do
 	printf '\n%s\n\n' "*** Making ipk for OpenWrt with firewall$_OWRTFW... ***"
 	echo "*** Running: make -j4 package/$p_name$ipt/clean ***"
 	make -j4 "package/$p_name$ipt/clean"
-	echo "*** Running: make -j4 package/$p_name$ipt/compile ***"
-	make -j4 "package/$p_name$ipt/compile"
+	echo "*** Running: make -j8 package/$p_name$ipt/compile ***"
+	make -j8 "package/$p_name$ipt/compile"
 
 	ipk_path="$(find . -name "${p_name}${ipt}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
 	[ ! "$ipk_path" ] || [ ! -f "$ipk_path" ] && die "*** Can not find file '$ipk_path' ***"
