@@ -248,6 +248,7 @@ echolog() {
 				info) printf '%s\n' "$_msg" ;;
 				err|warn) printf '%s\n' "$_msg" >&2
 			esac
+			__nl=
 		}
 		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
 			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
@@ -784,7 +785,7 @@ check_lock() {
 	[ ! -f $lock_file ] && return 0
 	used_pid="$(cat ${lock_file})"
 	[ "$used_pid" ] && kill -0 "$used_pid" 2>/dev/null &&
-	die 254 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
+	die 0 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
 	return 0
@@ -890,7 +891,7 @@ if [ -z "$geotag" ]; then
 	# export some vars
 	set_ansi
 	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
-	[ ! "$in_install" ] && [ "$conf_file" ] && [ "$root_ok" ] && {
+	[ ! "$in_install" ] && [ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
 		export datadir status_file="$datadir/status"
 	}
