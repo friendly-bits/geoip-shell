@@ -717,10 +717,11 @@ report_incoherence() {
 # optional $2 may contain path to cca2.list
 # returns 0 if validation successful, 2 if not, 1 if cca2 list is empty
 validate_ccode() {
-	[ "$conf_dir" ] && [ -d "$conf_dir" ] && cca2_path="$conf_dir/cca2.list" || cca2_path="$script_dir/cca2.list"
+	cca2_path="$conf_dir/cca2.list"
+	[ ! -s "$cca2_path" ] && cca2_path="$script_dir/cca2.list"
 	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
 	case "$ccode_list" in
-		'') echolog -err "\$ccode_list variable is empty. Perhaps cca2.list is missing?"; return 1 ;;
+		'') die "\$ccode_list variable is empty. Perhaps cca2.list is missing?" ;;
 		*" $1 "*) return 0 ;;
 		*) return 2
 	esac
