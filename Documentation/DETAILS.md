@@ -48,8 +48,6 @@ This script is only used under specific conditions:
 - The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
 - The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
-- When nftables is present during installation, the iptables libraries are not installed.
-- When nftables is not present (and iptables is), both -ipt and -nft libraries are installed, so if you ever upgrade your system to nftables, the suite shouldn't break. Installing on OpenWrt via an ipk package will only install libraries for iptables - if you need to upgrade your system later, install the package for nftalbes at that time.
 - The -lib-check-compat script checks for some essential dependencies
 - The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 - The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
@@ -97,6 +95,7 @@ Options:
 - `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in).
 - `-o <true|false>`: Nobackup: `true` disables automatic backups of the ip sets and geoip config, `false` enables them. Backups are used both as a backup, and for persistence since ip lists are loaded from the backup at reboot. Installation with this option will avoid using permanent storage for the ip lists but will trigger ip lists re-fetch at reboot. This option is only useful for devices with very small storage size (backup of a dozen large ip lists takes around 0.5MB). Default is `true` for OpenWrt systems, `false` for all other systems.
 - `a <path>`: Data directory path. The data directory stores the backup and the status file. Defaults to `/tmp/geoip-shell-data` for OpenWrt, `/var/lib/geoip-shell` for other systems.
+- `-w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system
 - `-k`: skip adding the geoip 'enable' rule. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the *manage script.
 - `-e`: create nftables sets with the 'performance' optimization policy (defaults to 'memory' policy to optimize for low memory consumption)
 
@@ -122,13 +121,15 @@ Advanced options:
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
 
-`geoip-shell configure -u [ripe|ipdeny]`: change ip lists source.
-
 `geoip-shell configure -m [whitelist|blacklist]`: change geoip blocking mode.
 
-`geoip-shell configure -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
-
 `geoip-shell configure -c <"country codes">`: change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
+
+`geoip-shell configure -f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+
+`geoip-shell configure -u [ripe|ipdeny]`: change ip lists source.
+
+`geoip-shell configure -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
 
 `geoip-shell configure -l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled.
 
@@ -136,11 +137,15 @@ Advanced options:
 
 `geoip-shell configure -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both tcp and udp, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
 
+`geoip-shell configure -r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
+
 `geoip-shell configure -s <"schedule_expression"|disable>` : enables automatic ip lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic ip lists updates.
 
 `geoip-shell configure -o <true|false>` : No backup. If set to 'true', geoip-shell will not create a backup of ip lists and firewall rules after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
 
 `geoip-shell configure -a <path>` : Set custom path to directory where backups and the status file will be stored. Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
+
+`geoip-shell configure -w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
