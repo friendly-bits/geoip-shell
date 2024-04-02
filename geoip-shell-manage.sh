@@ -323,7 +323,7 @@ if [ "$action" = configure ]; then
 	ccodes_arg="$ccodes"
 
 	[ "$families_change" ] && [ ! "$ccodes_arg" ] && {
-		lists_arg=
+		lists_req=
 		for list_id in $iplists; do
 			add2list ccodes_arg "${list_id%_*}"
 		done
@@ -339,26 +339,26 @@ fi
 
 [ "$ccodes_arg" ] && validate_arg_ccodes
 
-lists_arg=
+lists_req=
 for ccode in $ccodes_arg; do
 	for f in $families; do
-		add2list lists_arg "${ccode}_$f"
+		add2list lists_req "${ccode}_$f"
 	done
 done
 
 case "$action" in
 	configure)
-		: "${lists_arg:="$iplists"}"
-		! get_difference "$iplists" "$lists_arg" && lists_change=1
+		: "${lists_req:="$iplists"}"
+		! get_difference "$iplists" "$lists_req" && lists_change=1
 
-		planned_lists="$lists_arg"
-		lists_to_change="$lists_arg"
+		planned_lists="$lists_req"
+		lists_to_change="$lists_req"
 
 		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
 			[ "$lists_change" ] || [ "$_fw_backend_change" ] && restore_req=1
 
 		[ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_arg" ] && check_for_lockout
-		iplists="$lists_arg"
+		iplists="$lists_req"
 
 		bk_dir="$datadir/backup"
 		[ "$nobackup_change" ] && {
@@ -431,35 +431,35 @@ case "$action" in
 		report_lists; statustip
 		die $rv_apply ;;
 	add)
-		san_str requested_lists "$iplists $lists_arg"
+		san_str requested_lists "$iplists $lists_req"
 #		debugprint "requested resulting lists: '$requested_lists'"
 
 		if [ ! "$force_action" ]; then
 			get_difference "$iplists" "$requested_lists" lists_to_change
-			get_intersection "$lists_arg" "$iplists" wrong_lists
+			get_intersection "$lists_req" "$iplists" wrong_lists
 
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
 				echolog "NOTE: country codes '$wrong_ccodes' have already been added to the $geomode."
 			}
 		else
-			lists_to_change="$lists_arg"
+			lists_to_change="$lists_req"
 		fi
 		san_str planned_lists "$iplists $lists_to_change"
 #		debugprint "action: add, lists_to_change: '$lists_to_change'"
 		;;
 
 	remove)
-#		debugprint "requested lists to remove: '$lists_arg'"
+#		debugprint "requested lists to remove: '$lists_req'"
 		if [ ! "$force_action" ]; then
-			get_intersection "$iplists" "$lists_arg" lists_to_change
-			subtract_a_from_b "$iplists" "$lists_arg" wrong_lists
+			get_intersection "$iplists" "$lists_req" lists_to_change
+			subtract_a_from_b "$iplists" "$lists_req" wrong_lists
 			[ "$wrong_lists" ] && {
 				get_wrong_ccodes
 				echolog "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove."
 			}
 		else
-			lists_to_change="$lists_arg"
+			lists_to_change="$lists_req"
 		fi
 		# remove any entries found in lists_to_change from iplists and assign to planned_lists
 		subtract_a_from_b "$lists_to_change" "$iplists" planned_lists
