@@ -51,6 +51,10 @@ define Package/$p_name$ipt/postrm
 	exit 0
 endef
 
+define Package/conffiles
+$conf_dir/$p_name.conf
+endef
+
 define Build/Prepare
 endef
 
