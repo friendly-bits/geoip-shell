@@ -717,7 +717,7 @@ report_incoherence() {
 # optional $2 may contain path to cca2.list
 # returns 0 if validation successful, 2 if not, 1 if cca2 list is empty
 validate_ccode() {
-	cca2_path="${2:-"$conf_dir/cca2.list"}"
+	[ "$conf_dir" ] && [ -d "$conf_dir" ] && cca2_path="$conf_dir/cca2.list" || cca2_path="$script_dir/cca2.list"
 	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
 	case "$ccode_list" in
 		'') echolog -err "\$ccode_list variable is empty. Perhaps cca2.list is missing?"; return 1 ;;
@@ -875,8 +875,10 @@ trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] &&
 # vars for common usage() functions
 sp8="        "
 sp16="$sp8$sp8"
-ccodes_usage="<\"country_codes\"> : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
-sources_usage="<ripe|ipdeny> : Use this ip list source for download. Supported sources: ripe, ipdeny."
+ccodes_syn="<\"country_codes\">"
+ccodes_usage="$ccodes_syn : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
+srcs_syn="<ripe|ipdeny>"
+sources_usage="$srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny."
 fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
 families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
 list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
