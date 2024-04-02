@@ -57,7 +57,7 @@ rm_owrt_fw_include() {
 	echo "Removing the firewall include..."
 	uci delete firewall."${p_name%%-*}_${p_name#*-}" 1>/dev/null 2>/dev/null
 
-	echo "Commiting fw$_OWRTFW changes..."
+	echo "Committing fw$_OWRTFW changes..."
 	uci commit firewall
 	:
 }
