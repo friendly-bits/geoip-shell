@@ -34,11 +34,17 @@ rm_cron_jobs() {
 	:
 }
 
-rm_data() {
-	[ "$datadir" ] && {
-		printf '%s\n' "Deleting the data folder $datadir..."
-		rm -rf "${datadir:?}" 2>/dev/null
+# 1 - dir path
+# 2 - dir description
+rm_geodir() {
+	[ "$1" ] && [ -d "$1" ] && {
+		printf '%s\n' "Deleting the $2 directory '$1'..."
+		rm -rf "$1"
 	}
+}
+
+rm_data() {
+	rm_geodir "$datadir" data
 	:
 }
 
@@ -47,21 +53,16 @@ rm_symlink() {
 }
 
 rm_scripts() {
-	printf '%s\n' "Deleting scripts from $install_dir..."
+	printf '%s\n' "Deleting the main $p_name scripts from $install_dir..."
 	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall geoinit; do
 		rm -f "${install_dir}/${p_name}-$script_name.sh" 2>/dev/null
 	done
 
-	printf '%s\n' "Deleting library scripts from $lib_dir..."
-	for script_name in uninstall owrt-common common ipt nft ip-regex arrays apply-ipt apply-nft backup-ipt \
-		backup-nft status status-ipt status-nft check-compat setup; do
-			rm -f "$_lib-$script_name.sh" 2>/dev/null
-	done
+	rm_geodir "$lib_dir" "library scripts"
 	:
 }
 
 rm_config() {
-	echo "Removing config..."
-	rm -rf "$conf_dir" 2>/dev/null
+	rm_geodir "$conf_dir" config
 	:
 }
