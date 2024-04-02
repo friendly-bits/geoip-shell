@@ -45,7 +45,7 @@
 # or change the '$pkg_ver' value in this script
 # then run the script again (no need for the above preparation anymore)
 
-pkg_ver=1
+pkg_ver=r1
 
 die() {
 	# if first arg is a number, assume it's the exit code
@@ -88,7 +88,7 @@ PATH_orig="$PATH"
 
 case "$1" in
 	3|4) FW_ver="$1"; buildsavail="build is available"; ipksavail="ipk is available" ;;
-	''|"3 4"|"4 3") FW_ver="3 4"; buildsavail="builds are available"; ipksavail="ipk's are available" ;;
+	''|"3 4"|"4 3") FW_ver="4 3"; buildsavail="builds are available"; ipksavail="ipk's are available" ;;
 	*) printf '%s\n' "*** Invalid OpenWrt firewall version '$1'. Use '3' or '4' or no argument to build both. ***"; exit 1
 esac
 
@@ -99,8 +99,12 @@ unset build_dirs ipk_paths
 for _OWRTFW in $FW_ver; do
 	unset ipt nft depends conflicts
 	case "$_OWRTFW" in
-		3) export _fw_backend=ipt; ipt="-iptables"; depends="+ipset +iptables +kmod-ipt-ipset"; conflicts='CONFLICTS:=firewall4' ;;
-		4) export _fw_backend=nft; nft="-nftables"; depends="+firewall4 +nftables" ;;
+		3) export _fw_backend=ipt; ipt="-iptables"
+			depends="+kmod-ipt-ipset +iptables +ipset"
+			conflicts='CONFLICTS:=firewall4' ;;
+		4) export _fw_backend=nft
+			nft="-nftables"
+			depends="+kmod-nft-core +nftables +firewall4" ;;
 		*) echo "*** Specify OpenWrt firewall version! ***"; exit 1
 	esac
 	owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name$ipt"
@@ -131,6 +135,7 @@ for _OWRTFW in $FW_ver; do
 
 	echo "*** Sanitizing the build... ***"
 	rm -f "${files_dir}${install_dir}/${p_name}-uninstall.sh"
+	rm -f "${files_dir}${conf_dir}/${p_name}.conf"
 	[ "$_OWRTFW" = 3 ] && rm -f "$files_dir/usr/lib/$p_name-"*nft.sh
 
 	# remove debug stuff
@@ -196,8 +201,8 @@ for _OWRTFW in $FW_ver; do
 
 	### make new ipk
 	printf '\n%s\n\n' "*** Making ipk for OpenWrt with firewall$_OWRTFW... ***"
-	echo "*** Running: make -j4 package/$p_name$ipt/clean ***"
-	make -j4 "package/$p_name$ipt/clean"
+	# echo "*** Running: make -j4 package/$p_name$ipt/clean ***"
+	# make -j4 "package/$p_name$ipt/clean"
 	echo "*** Running: make -j8 package/$p_name$ipt/compile ***"
 	make -j8 "package/$p_name$ipt/compile"
 
