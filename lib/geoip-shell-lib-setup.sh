@@ -563,7 +563,7 @@ ${sp8}'none' disables this feature."
 fw_be_syn="<ipt|nft>"
 fw_be_usage="$fw_be_syn :
 ${sp8}Specify firewall backend to use with $p_name. 'ipt' for iptables, 'nft' for nftables.
-${sp8}Default is nftables if it is found in the system."
+${sp8}Default is nftables if present in the system."
 
 nobackup_usage="<true|false> :
 ${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists and firewall rules state after applying changes,
