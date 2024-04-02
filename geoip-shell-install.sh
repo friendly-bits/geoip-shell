@@ -276,7 +276,7 @@ nft_libs="nft apply-nft backup-nft status-nft"
 } || {
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	init_check_compat_pt2="getconfig _fw_backend${_nl}check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
+	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
 	fw_libs="$ipt_libs $nft_libs"
 }
 
@@ -358,13 +358,14 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
 	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
-	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
+	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 \$_nl"
 
 	$init_check_compat_pt1
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
-	. "$conf_dir/\${p_name}.const" || exit 1
+	. "\$conf_dir/\${p_name}.const" || exit 1
+	[ ! -s "\$conf_file" ] && return 0
 	getconfig _fw_backend
 	$init_check_compat_pt2
 	export fwbe_ok=1 _fw_backend
