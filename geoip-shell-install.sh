@@ -33,7 +33,7 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me [-m $mode_syn] [-c <"country_codes">] [-f $fam_syn ] [-u <ripe|ipdeny>] [-s $sch_syn] [-i $if_syn]
+Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn] [-s $sch_syn] [-i $if_syn]
 ${sp8}[-l $lan_syn] [-t $tr_syn] [-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">]
 ${sp8}[-e] [-n] [-k] [-z] [-d] [-V] [-h]
 
@@ -292,7 +292,7 @@ set_defaults
 # parse command line args and make interactive setup if needed
 [ ! "$inst_root_gs" ] && { get_prefs || die; }
 
-export datadir lib_dir="/usr/lib"
+export datadir lib_dir="/usr/lib/$p_name"
 export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g" status_file="$datadir/status"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
@@ -304,6 +304,7 @@ copyscripts "$script_files $detect_lan"
 OK
 
 printf %s "Copying library scripts to $lib_dir... "
+mkdir "$lib_dir" || install_failed "$FAIL create library directory '$lib_dir'."
 copyscripts -n "$lib_files" "$lib_dir"
 OK
 
@@ -327,13 +328,12 @@ setconfig datadir user_ccode "iplists=" geomode tcp_ports udp_ports geosource fa
 	reboot_sleep nobackup no_persist noblock "http=" || install_failed
 OK
 
-# create the -constants file
-cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}-constants" || install_failed "$FAIL set essential variables."
-	export PATH="$PATH" initsys="$initsys"
-	export use_shell="$curr_sh_g" default_schedule="$default_schedule"
+# create the .const file
+cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}.const" || install_failed "$FAIL set essential variables."
+	export PATH="$PATH" initsys="$initsys" use_shell="$curr_sh_g"
 EOF
 
-. "$inst_root_gs$conf_dir/${p_name}-constants"
+. "$inst_root_gs$conf_dir/${p_name}.const"
 
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
@@ -351,7 +351,7 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
-	. "$conf_dir/\${p_name}-constants" || exit 1
+	. "$conf_dir/\${p_name}.const" || exit 1
 	_no_l="\$nolog"
 	{ nolog=1 check_deps nft 2>/dev/null && export _fw_backend=nft; } ||
 	{ check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset && export _fw_backend=ipt
@@ -380,7 +380,7 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 	fw_include="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}-constants"
+	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}.const"
 
 	if [ "$no_persist" ]; then
 		echolog -warn "Installed without persistence functionality."
