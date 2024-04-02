@@ -304,7 +304,7 @@ copyscripts "$script_files $detect_lan"
 OK
 
 printf %s "Copying library scripts to $lib_dir... "
-mkdir "$lib_dir" || install_failed "$FAIL create library directory '$lib_dir'."
+mkdir -p "$inst_root_gs$lib_dir" || install_failed "$FAIL create library directory '$inst_root_gs$lib_dir'."
 copyscripts -n "$lib_files" "$lib_dir"
 OK
 
