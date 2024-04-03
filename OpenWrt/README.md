@@ -8,11 +8,11 @@ Installation is possible either via the -install script (as described in the mai
 
   - For firewall4 + nftables:
 
-   `curl -O "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://.*geoip-shell_.*\.ipk')"`
+   `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell-nftables_.*\.ipk')"`
 
   - For firewall3 + iptables:
 
-   `curl -O "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://.*geoip-shell-iptables_.*\.ipk')"`
+   `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell-iptables_.*\.ipk')"`
 </details>
 
 A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is via a command line (but my goal is to make this an easy experience regardless). If this discourages you from using geoip-shell, please let me know. A few people asking for this feature may motivate me to prioritize it.
