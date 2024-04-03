@@ -45,7 +45,7 @@
 # or change the '$pkg_ver' value in this script
 # then run the script again (no need for the above preparation anymore)
 
-pkg_ver=r1
+pkg_ver=r2
 
 	# [ "$_OWRTFW" = 3 ] && rm -f "$files_dir/usr/lib/$p_name-"*nft.sh
 
@@ -131,8 +131,8 @@ sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files
 printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 {
-	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
-		p="$p_name" v="$curr_ver" r="$pkg_ver" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
+	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$conf_dir/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
+		p="$p_name" c="$conf_dir" v="$curr_ver" r="$pkg_ver" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
 
 	printf '\n%s\n' "define Package/$p_name/install"
 
