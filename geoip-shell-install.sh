@@ -36,10 +36,10 @@ cat <<EOF
 Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn]
 ${sp8}[-s $sch_syn] [-i $if_syn] [-l $lan_syn] [-t $tr_syn]
 ${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
-${sp8}[-e] [-n] [-k] [-z] [-d] [-V] [-h]
+${sp8}[-O $nft_p_syn] [-n] [-N] [-z] [-d] [-V] [-h]
 
 Installer for $p_name.
-Asks the user about each required option, except those specified in arguments.
+Supports interactive setup which doesn't require any options.
 
 Core Options:
 
@@ -69,12 +69,13 @@ Core Options:
 
   -w $fw_be_usage
 
+  -O $nft_perf_usage
+
 Extra Options:
-  -e : Optimize nftables ip sets for performance (by default, optimizes for low memory consumption). Has no effect with iptables.
   -n : No persistence. Geoip blocking may not work after reboot.
-  -k : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
+  -N : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
          (everything will be installed and configured but geoip blocking will not be enabled)
-  -z : Non-interactive installation. Will not ask any questions. Will fail if required options are not specified or invalid.
+  -z : $nointeract_usage
   -d : Debug
   -V : Version
   -h : This help
@@ -84,7 +85,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:enkzdVh" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:nNzdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -99,10 +100,10 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:enkzdVh" opt; do
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
 		w) _fw_backend_arg=$OPTARG ;;
+		O) nft_perf_arg=$OPTARG ;;
 
-		e) nft_perf=performance ;;
 		n) no_persist=1 ;;
-		k) noblock=1 ;;
+		N) noblock=1 ;;
 		z) export nointeract=1 ;;
 		d) export debugmode=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
@@ -261,6 +262,7 @@ export conf_dir="/etc/$p_name"
 unset fw_libs ipt_libs nft_libs
 ipt_libs="ipt apply-ipt backup-ipt status-ipt"
 nft_libs="nft apply-nft backup-nft status-nft"
+all_libs="$ipt_libs $nft_libs"
 
 [ "$_OWRTFW" ] && {
 	o_script="OpenWrt/${p_name}-owrt"
@@ -270,14 +272,15 @@ nft_libs="nft apply-nft backup-nft status-nft"
 	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
 	case "$_OWRTFW" in
 		3) _fw_backend=ipt ;;
-		4) _fw_backend=nft
+		4) _fw_backend=nft ;;
+		all) _fw_backend=all
 	esac
 	eval "fw_libs=\"\$${_fw_backend}_libs\""
 } || {
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
 	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
-	fw_libs="$ipt_libs $nft_libs"
+	fw_libs="$all_libs"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
