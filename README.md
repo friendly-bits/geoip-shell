@@ -123,7 +123,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
   `sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
 
   - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where <source> is `ripe` or `ipdeny`.
-  - to block or allow specific ports, use `<[tcp|udp]:[allow|block]:[ports]>`. This option may be used twice in one command to specify ports for both tcp and udp
+  - to block or allow specific ports or ports ranges, use `<[tcp|udp]:[allow|block]:[ports]>`. This option may be used twice in one command to specify ports for both tcp and udp _(for examples, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_.
   - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
   - if your machine uses nftables and has enough memory, consider installing with the `-O performance` option
   - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
