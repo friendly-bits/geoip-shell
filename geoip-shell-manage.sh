@@ -28,14 +28,14 @@ cat <<EOF
 Usage: $me <action> [-c $ccodes_syn] [-f $fam_syn] [-s $sch_syn] [-i $if_syn]
 ${sp8}[-m $mode_syn] [-u $srcs_syn ] [-l $lan_syn] [-t $tr_syn] [-i $if_syn]
 ${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
-${sp8}[-v] [-F] [-d] [-V] [-h]
+${sp8}[-O $nft_p_syn] [-z] [-v] [-F] [-d] [-V] [-h]
 
 Provides interface to configure geoip blocking.
 
 Actions:
-  on|off      : enable or disable the geoip blocking chain  (via a rule in the base geoip chain)
+  on|off      : enable or disable the geoip blocking chain (via a rule in the base geoip chain)
   add|remove  : add or remove 2-letter country codes to/from geoip blocking rules
-  configure   : change $p_name config.
+  configure   : change $p_name config
   status      : check on the current status of geoip blocking
   reset       : reset geoip config and firewall geoip rules
   restore     : re-apply geoip blocking rules from the config
@@ -73,13 +73,16 @@ Options for the 'configure' action:
 
   -w $fw_be_usage
 
+  -O $nft_perf_usage
+
 Other options:
 
-  -v  : Verbose status output
-  -F  : Force the action
-  -d  : Debug
-  -V  : Version
-  -h  : This help
+  -v : Verbose status output
+  -F : Force the action
+  -z : $nointeract_usage
+  -d : Debug
+  -V : Version
+  -h : This help
 
 EOF
 }
@@ -95,7 +98,7 @@ case "$action" in
 esac
 
 # process the rest of the args
-while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:w:vFdVh" opt; do
+while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:w:O:zvFdVh" opt; do
 	case $opt in
 		m) geomode_arg=$OPTARG ;;
 		c) ccodes_arg=$OPTARG ;;
@@ -110,7 +113,9 @@ while getopts ":m:c:f:s:i:l:t:p:r:u:a:o:w:vFdVh" opt; do
 		a) datadir_arg="$OPTARG" ;;
 		o) nobackup_arg=$OPTARG ;;
 		w) _fw_backend_arg=$OPTARG ;;
+		O) nft_perf_arg=$OPTARG ;;
 
+		z) nointeract_arg=1 ;;
 		v) verb_status="-v" ;;
 		F) force_action=1 ;;
 		d) debugmode_arg=1 ;;
@@ -280,7 +285,7 @@ esac
 [ "$action" != configure ] && {
 	for i_opt in \
 			"geomode m" "trusted t" "ports p" "lan_ips l" "ifaces i" "geosource u" "datadir a" "nobackup o" "schedule s" \
-				"families f" "user_ccode r"; do
+				"families f" "user_ccode r" "nft_perf O" "nointeract z"; do
 		eval "[ \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
 }
@@ -321,15 +326,15 @@ if [ "$action" = configure ]; then
 		eval "${var_name}_prev=\"\$$var_name\""
 	done
 
-	for opt_ch in datadir nobackup geomode geosource ifaces schedule families _fw_backend; do
+	for opt_ch in datadir nobackup geomode geosource ifaces schedule families _fw_backend nft_perf; do
 		unset "${opt_ch}_change"
 		eval "[ \"\$${opt_ch}_arg\" ] && [ \"\$${opt_ch}_arg\" != \"\$${opt_ch}\" ] && ${opt_ch}_change=1"
 	done
 
-	check_lists_coherence 2>/dev/null || restore_req=1
-
 	first_setup=
 	[ "$_OWRTFW" ] && [ ! -f "$conf_dir/setupdone" ] && export first_setup=1
+
+	export nointeract="${nointeract_arg:-$nointeract}"
 
 	get_prefs || die
 	ccodes_arg="$ccodes"
@@ -367,7 +372,7 @@ case "$action" in
 		lists_to_change="$lists_req"
 
 		[ "$geomode_change" ] || [ "$geosource_change" ] || { [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
-			[ "$lists_change" ] || [ "$_fw_backend_change" ] && restore_req=1
+			[ "$lists_change" ] || [ "$_fw_backend_change" ] || [ "$nft_perf_change" ] && restore_req=1
 
 		[ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_arg" ] && check_for_lockout
 		iplists="$lists_req"
@@ -381,6 +386,8 @@ case "$action" in
 			}
 			[ "$nobackup" = false ] && restore_req=1
 		}
+
+		[ ! "$restore_req" ] && { check_lists_coherence 2>/dev/null || restore_req=1; }
 
 		[ "$datadir_change" ] && {
 			[ ! "$datadir" ] && die "Internal error: \$datadir var is unset"
