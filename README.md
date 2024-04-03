@@ -132,7 +132,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
 **5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
 
-**6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `geoip-shell status`: this will report geoip-shell status and time of last successful update (note that this time doesn't change if lists are already up-to-date during an automatic update). Alternatively, run `cat /var/log/syslog | grep geoip-shell` on the next day to check geoip-shell log messages (change syslog path if necessary, according to the location assigned by your distro. on OpenWrt and some other distributions a different command should be used, such as `logread`).
+**6)** That's it! By default, ip lists will be updated daily at 4:15am local time (4:15 at night) - you can verify that automatic updates are working by running `geoip-shell status`: this will report geoip-shell status and time of last successful update (note that this time doesn't change if ip lists are already up-to-date during an automatic update). Alternatively, run `cat /var/log/syslog | grep geoip-shell` on the next day to check geoip-shell log messages (change syslog path if necessary, according to the location assigned by your distro. on OpenWrt and some other distributions a different command should be used, such as `logread`).
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
@@ -159,9 +159,9 @@ _<details><summary>Examples:</summary>_
 
 **To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
 
-**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p <tcp|udp>:<allow|block>:<all|[ports]>`
+**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
-_(for details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10)_
+_(for details, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
 
 **To enable or change the automatic update schedule:** `geoip-shell configure -s <"schdedule_expression">`
 

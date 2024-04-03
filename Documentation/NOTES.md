@@ -40,9 +40,9 @@
 8) Sometimes ip list source servers are temporarily unavailable and if you're unlucky enough to attempt installation during that time frame, the fetch script will fail which will cause the installation to fail as well. Try again after some time or use another source. Once the installation succeeds, an occasional fetch failure during autoupdate won't cause any issues as last successfully fetched ip list will be used until the next autoupdate cycle succeeds.
 
 9) How to geoblock or allow specific ports (applies to the _-install_ and _-manage_ scripts).
-    The general syntax is: `-p <[tcp|udp]:[allow|block]:[all|ports]>`
+    The general syntax is: `-p <[tcp|udp]:[allow|block]:[all|<ports>]>`
     Where `ports` may be any combination of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
-    Multiple `-p` options are allowed, for example: `-p tcp:allow:22,23 -p udp:block:128-256,3`
+    You can use the `-p` option twice to cover both tcp and udp, for example: `-p tcp:allow:22,23 -p udp:block:128-256,3`
 
     Examples with the -install script:
 
@@ -52,43 +52,43 @@
 
     Examples with the -manage script (also called via 'geoip-shell' after installation) :
 
-    `geoip-shell apply -p tcp:block:all` - for tcp, geoblock all ports (default behavior)
+    `geoip-shell configure -p tcp:block:all` - for tcp, geoblock all ports (default behavior)
 
-    `geoip-shell apply -p udp:allow:all` - for udp, don't geoblock any ports (completely disables geoblocking for udp)
+    `geoip-shell configure -p udp:allow:all` - for udp, don't geoblock any ports (completely disables geoblocking for udp)
 
-    `geoip-shell apply -p tcp:block:125-135,7` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports
+    `geoip-shell configure -p tcp:block:125-135,7` - for tcp, only geoblock incoming traffic on ports 125-135 and 7, allow incoming traffic on all other tcp ports
 
 10) How to remove specific ports assignment:
 
     use `-p [tcp|udp]:block:all`.
 
-    Example: `geoip-shell apply -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
+    Example: `geoip-shell configure -p tcp:block:all` will remove prior port-specific rules for the tcp protocol. All tcp packets on all ports will now go through geoip filter.
 
-11) How to make specific protocol packets bypass geoip blocking:
+11) How to make all packets for a specific protocol bypass geoip blocking:
 
     use `p [tcp|udp]:allow:all`
 
-    Example: `geoip-shell apply -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
+    Example: `geoip-shell configure -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
 
-12) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-e` option. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
+12) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-O performance` option, or changed after installation by running `geoip-shell configure -O <performance|memory>`. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
 
 13) Firewall rules persistence, as well as automatic list updates, is implemented via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
 
 14) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
 
-15) If you want to change the autoupdate schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation)
+15) If you want to change the autoumatic update schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation). geoip-shell includes a script which validates cron expressions you request, so don't worry about making a mistake.
 
 16) Note that cron jobs will be run as root.
 
-17) If you have nftables installed but for some reason you are using iptables rules (via the nft_compat kernel module), you can and probably should install geoip-shell with the option `-w ipt` which will force it to use iptables+ipset. For example: `geoip-shell install -w ipt`.
+17) If you have nftables installed but for some reason you are using iptables rules (via the nft_compat kernel module which is provided by packages like nft-iptables etc), you can and probably should install geoip-shell with the option `-w ipt` which will force it to use iptables+ipset. For example: `geoip-shell install -w ipt`.
 
-18) If you upgrade your system from iptables to nftables, you can either re-install geoip-shell and it will then automatically use nftables, or you can use this command without reinstalling: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets, and re-create nftables rules and sets based on your existing config. If you are on OpenWrt, this does not apply: instead, you will need to install the geoip-shell package for nftables-based OpenWrt.
+18) If you upgrade your system from iptables to nftables, you can either re-install geoip-shell and it will then automatically use nftables, or you can use this command without reinstalling: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets and re-create nftables rules and sets based on your existing config. If you are on OpenWrt, this does not apply: instead, you will need to install the geoip-shell package for nftables-based OpenWrt.
 
 19) To test before deployment:
     <details> <summary>Read more:</summary>
 
-    - You can run the install script with the "-k" (noblock) option to apply all actions and create all firewall rules except the geoip-shell "enable" rule. This way you can make sure no errors are encountered and check the resulting firewall config before commiting to actual blocking. To enable blocking later, use the command `geoip-shell on`.
-    - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software that restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
+    - You can run the install script with the "-N" (noblock) option to apply all actions and create all firewall rules except the geoip-shell "enable" rule. This way you can make sure that no errors are encountered and check the resulting firewall rules before committing to actual blocking. To enable blocking later, use the command `geoip-shell on`.
+    - You can run the install script with the "-n" option to skip creating the reboot cron job which implements persistence and with the '-s disable' option to skip creating the autoupdate cron job. This way, a simple machine restart should undo all changes made to the firewall (unless you have some software which restores firewall settings after reboot). For example: `sh geoip-shell-install -c <country_code> -m whitelist -n -s disable`. To enable persistence and autoupdate later, reinstall without both options.
 
     </details>
 

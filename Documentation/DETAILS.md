@@ -121,31 +121,35 @@ Advanced options:
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
 
-`geoip-shell configure -m [whitelist|blacklist]`: change geoip blocking mode.
+**Options for the `geoip-shell configure` command:**
 
-`geoip-shell configure -c <"country codes">`: change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
+`-m [whitelist|blacklist]`: Change geoip blocking mode.
 
-`geoip-shell configure -f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+`-c <"country codes">`: Change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
 
-`geoip-shell configure -u [ripe|ipdeny]`: change ip lists source.
+`-f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-`geoip-shell configure -i <[ifaces]|auto|all>`: change which network interfaces geoip firewall rules are applied to.
+`-u [ripe|ipdeny]`: Change ip lists source.
 
-`geoip-shell configure -l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from geoip blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled.
+`-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no direct connection to WAN. The automatic detection occurs only when manually triggered by the user via this command.
 
-`geoip-shell configure -t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+`-l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
 
-`geoip-shell configure -p [tcp|udp]:[allow|block]:[all|<ports>]`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both tcp and udp, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
+`-t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
-`geoip-shell configure -r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
+`-p <[tcp|udp]:[allow|block]:[all|<ports>]>`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both tcp and udp, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 9-11.
 
-`geoip-shell configure -s <"schedule_expression"|disable>` : enables automatic ip lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic ip lists updates.
+`-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 
-`geoip-shell configure -o <true|false>` : No backup. If set to 'true', geoip-shell will not create a backup of ip lists and firewall rules after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
+`-s <"schedule_expression"|disable>` : enables automatic ip lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic ip lists updates.
 
-`geoip-shell configure -a <path>` : Set custom path to directory where backups and the status file will be stored. Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
+`-o <true|false>` : No backup. If set to 'true', geoip-shell will not create a backup of ip lists and firewall rules after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
 
-`geoip-shell configure -w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system
+`-a <path>` : Set custom path to directory where backups and the status file will be stored. Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
+
+`-w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system.
+
+`-O <memory|performance>`: specify optimization policy for nftables sets. By default optimizes for low memory consumption. Doesn't work with iptables.
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
