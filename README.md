@@ -100,7 +100,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
   - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
   - or to download the latest release (requires curl):
 
-    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://.*/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz`
+    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://api.github.com/repos/friendly-bits/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz`
   
   - to extract, run: `tar -xvf geoip-shell.tar.gz`
   </details>
@@ -116,16 +116,16 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
   - installing on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
 
-  `sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -e`
+  `sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -O performance`
 
   - installing on a router located in the US, blacklist Germany and Netherlands and allow all other countries:
 
   `sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
 
-  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments
-  - to block or allow specific ports, use `-p <tcp|udp>:<block|allow>:<ports>`. This option may be used twice in one command to specify ports for both tcp and udp
+  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where <source> is `ripe` or `ipdeny`.
+  - to block or allow specific ports, use `<[tcp|udp]:[allow|block]:[ports]>`. This option may be used twice in one command to specify ports for both tcp and udp
   - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
-  - if your machine uses nftables and has enough memory, consider installing with the `-e` option (for "performance")
+  - if your machine uses nftables and has enough memory, consider installing with the `-O performance` option
   - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
   - if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
   </details>
