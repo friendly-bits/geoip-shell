@@ -320,7 +320,7 @@ setports() {
 		unset ranges _ports neg mp skip
 		trimsp _line
 		check_edge_chars "$_line" ":" || return 1
-		IFS=":"
+		IFS=':'
 		set -- $_line
 		[ $# != 3 ] && { echolog -err "Invalid syntax '$_line'"; return 1; }
 		_proto="$1"
@@ -389,6 +389,7 @@ set_defaults() {
 	: "${_fw_backend:="$_fw_backend_def"}"
 	: "${tcp_ports:=skip}"
 	: "${udp_ports:=skip}"
+	: "${nft_perf:=memory}"
 	: "${reboot_sleep:=30}"
 	: "${max_attempts:=30}"
 }
@@ -404,10 +405,22 @@ get_prefs() {
 		check_fw_backend "$_fw_backend" || die
 	}
 
+	# nft_perf
+	[ "$nft_perf_arg" ] && {
+		[ "$_fw_backend" = ipt ] && die "Option -O does not work with iptables+ipset."
+		tolower nft_perf_arg
+	}
+	case "$nft_perf_arg" in
+		''|performance|memory) ;;
+		*) die "Invalid value for option '-O': '$nft_perf_arg'."
+	esac
+	nft_perf="${nft_perf_arg:=$nft_perf}"
+
 	# nobackup
+	[ "$nobackup_arg" ] && tolower nobackup_arg
 	case "$nobackup_arg" in
 		''|true|false) ;;
-		*) die "Invalid value for option '-o': '$nobackup_arg'"
+		*) die "Invalid value for option '-o': '$nobackup_arg'."
 	esac
 	nobackup="${nobackup_arg:=$nobackup}"
 
@@ -445,7 +458,7 @@ get_prefs() {
 	families="${families_arg:-"$families"}"
 
 	# source
-	tolower geosource_arg
+	[ "$geosource_arg" ] && tolower geosource_arg
 	case "$geosource_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$geosource_arg'."; esac
 	geosource="${geosource_arg:-$geosource}"
 
@@ -543,7 +556,7 @@ ${sp8}This option is independent from the above LAN ip's option.
 ${sp8}Works both in whitelist and blacklist mode.
 ${sp8}'none' removes previously set trusted ip's"
 
-ports_syn="<[tcp|udp]:[allow|block]:ports>"
+ports_syn="<[tcp|udp]:[allow|block]:[all|<ports>]>"
 ports_usage="$ports_syn :
 ${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
 ${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
@@ -564,6 +577,12 @@ fw_be_syn="<ipt|nft>"
 fw_be_usage="$fw_be_syn :
 ${sp8}Specify firewall backend to use with $p_name. 'ipt' for iptables, 'nft' for nftables.
 ${sp8}Default is nftables if present in the system."
+
+nft_p_syn="<memory|performance>"
+nft_perf_usage="$nft_p_syn :
+${sp8}Optimization policy for nftables sets. By default optimizes for low memory consumption. Doesn't work with iptables."
+
+nointeract_usage="Non-interactive setup. Will not ask any questions. Will fail if required options are not specified or invalid."
 
 nobackup_usage="<true|false> :
 ${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists and firewall rules state after applying changes,
