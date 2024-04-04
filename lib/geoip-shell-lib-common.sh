@@ -21,7 +21,7 @@ debugprint() {
 	[ ! "$debugmode" ] && return
 	__nl=
 	dbg_args="$*"
-	case "$dbg_args" in "\n"* )
+	case "$dbg_args" in "\n"*)
 		__nl="$_nl"
 		dbg_args="${dbg_args#"\n"}"
 	esac
@@ -66,7 +66,8 @@ oldifs() {
 
 is_root_ok() {
 	[ "$root_ok" ] && return 0
-	[ "$manualmode" ] && { rv=0; tip=" For usage, run '$me -h'."; } || rv=1
+	rv=1
+	[ "$manualmode" ] && { rv=0; tip=" For usage, run '$me -h'."; }
 	die $rv "$me needs to be run as root.$tip"
 }
 
@@ -127,7 +128,7 @@ add2config_entry() {
 	setconfig "$1" "$a2c_e"
 }
 
-# checks if $1 is alphanumeric
+# checks if $1 is alphanumeric (underlines allowed)
 # optional '-n' in $2 silences error messages
 is_alphanum() {
 	case "$1" in *[!A-Za-z0-9_]* )
@@ -208,7 +209,7 @@ call_script() {
 check_deps() {
 	missing_deps=
 	for dep; do ! checkutil "$dep" && missing_deps="${missing_deps}'$dep', "; done
-	[ "$missing_deps" ] && { echolog -err "missing dependencies: ${missing_deps%, }"; return 1; }
+	[ "$missing_deps" ] && { echolog -err "Missing dependencies: ${missing_deps%, }"; return 1; }
 	:
 }
 
@@ -248,7 +249,7 @@ echolog() {
 				info) printf '%s\n' "$_msg" ;;
 				err|warn) printf '%s\n' "$_msg" >&2
 			esac
-			__nl=
+			unset __nl msg_prefix
 		}
 		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
 			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
@@ -283,6 +284,7 @@ die() {
 		newifs "$delim" die
 		for arg in $die_args; do
 			echolog "$msg_type" "$arg"
+			msg_type=
 		done
 		oldifs die
 	}
@@ -403,8 +405,7 @@ get_config_vars() {
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
 	unset args_lines args_target_file keys_test_str newconfig
-	IFS_OLD_sc="$IFS"
-	IFS="$_nl"
+	newifs "$_nl" sc
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
 		for line in $argument_conf; do
@@ -442,6 +443,7 @@ setconfig() {
 	oldifs sc
 
 	newconfig="$newconfig$args_lines"
+	# don't write to file if config didn't change
 	[ -f "$target_file" ] && compare_file2str "$target_file" "$newconfig" && return 0
 	printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
 	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig"
@@ -736,31 +738,74 @@ detect_ifaces() {
 
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
-	# check if cron service is enabled
-	cron_rv=1; unset cron_reboot cron_cmd cron_path
+	unset cron_reboot cron_path
+	cron_rv=1
 	# check for cron or crond in running processes
-	[ "$cron_rv" != 0 ] && {
-		for cron_cmd in cron crond; do
-			pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" &&
-				ls -l "$cron_path" 1>/dev/null 2>/dev/null && { cron_rv=0; break; }
-		done
-	}
-
+	for cron_cmd in cron crond; do
+		pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" && {
+			cron_rl_path="$(ls -l "$cron_path")" || continue
+			# check for busybox cron
+			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
+			cron_rv=0
+			[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$no_cr_persist" ] && continue
+			break
+		}
+	done
 	export cron_rv
-	# check for busybox cron
-	[ "$cron_rv" = 0 ] && [ "$cron_path" ] && case "$(ls -l "$cron_path")" in *busybox*) ;; *) export cron_reboot=1; esac
-
 	return "$cron_rv"
 }
 
 check_cron_compat() {
-	unset cr_p1 cr_p2 no_cr_persist
+	unset no_cr_persist cr_p1 cr_p2
 	[ ! "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
 	[ "$no_persist" ] || [ "$_OWRTFW" ] && no_cr_persist=1
-	if [ "$schedule" != "disable" ] || [ ! "$no_cr_persist" ] ; then
-		# check cron service
-		check_cron || die "cron is not running." "Enable and start the cron service before using this script." \
-			"Or install $p_name with option$cr_p1 '-s disable' which will disable ${cr_p2}automatic updates."
+	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ] ; then
+		for i in 1 2; do
+			# check if cron is running
+			cron_rv=
+			check_cron && {
+				[ $i = 2 ] && {
+					OK
+					printf '%s\n%s\n%s' "Please restart the device after setup." \
+						"Then run '$p_name configure' and $p_name will check the cron service again." "Press Enter to continue "
+					read -r dummy
+				}
+				break
+			}
+			[ $i = 2 ] && { FAIL; die; }
+			echolog -err "cron is not running." \
+				"The cron service needs to be enabled and started in order for ${cr_p2}automatic ip list updates to work." \
+				"If you want to use $p_name without ${cr_p2}automatic ip list updates," \
+				"install/configure $p_name with option$cr_p1 '-s disable'."
+			[ "$nointeract" ] && {
+				[ "$_OWRTFW" ] && echolog "Run '$p_name configure' and $p_name will try to enable cron for you."
+				die
+			}
+
+			printf '\n%s\n' "Would you like $p_name to enable and start the cron service on this device? [y|n]."
+			pick_opt "y|n"
+			[ "$REPLY" = n ] && die
+			printf '\n%s' "Attempting to enable and start cron... "
+			for cron_cmd in cron crond; do
+				case "$initsys" in
+					systemd) systemctl status $cron_cmd; [ $? = 4 ] && continue
+							systemctl is-enabled "$cron_cmd" || systemctl enable "$cron_cmd"
+							systemctl start "$cron_cmd" ;;
+					sysvinit) checkutil update-rc.d && {
+								update-rc.d $cron_cmd enable
+								service $cron_cmd start; }
+							checkutil chkconfig && {
+								chkconfig $cron_cmd on
+								service $cron_cmd start; } ;;
+					upstart) rm -f "/etc/init/$cron_cmd.override"
+				esac
+
+				[ -f "/etc/init.d/$cron_cmd" ] && {
+					/etc/init.d/$cron_cmd enable
+					/etc/init.d/$cron_cmd start
+				}
+			done 1>/dev/null 2>/dev/null
+		done
 		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] &&
 			die "cron-based persistence doesn't work with Busybox cron." \
 			"If you want to install without persistence support, install with option '-n'"
@@ -772,7 +817,7 @@ FAIL() { printf '%s\n' "${red}Failed${n_c}." >&2; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
-	echo $$ > "$lock_file" || die "$FAIL set lock '$lock_file'"
+	[ "$lock_file" ] && echo "$$" > "$lock_file" || die "$FAIL set lock '$lock_file'"
 	nodie=1
 	die_unlock=1
 }
@@ -782,39 +827,14 @@ rm_lock() {
 }
 
 check_lock() {
-	[ ! -f $lock_file ] && return 0
-	used_pid="$(cat ${lock_file})"
+	[ ! -f "$lock_file" ] && return 0
+	[ ! "$lock_file" ] && die "The \$lock_file var is unset!"
+	used_pid="$(cat "${lock_file}")"
 	[ "$used_pid" ] && kill -0 "$used_pid" 2>/dev/null &&
 	die 0 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
 	return 0
-}
-
-kill_geo_pids() {
-	i_kgp=0 _parent="$(grep -o "${p_name}[^[:space:]]*" "/proc/$PPID/comm")"
-	while true; do
-		i_kgp=$((i_kgp+1)); _killed=
-		_geo_ps="$(pgrep -fa "(${p_name}\-|$ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | grep -v pgrep)"
-		newifs "$_nl" kgp
-		for _p in $_geo_ps; do
-			pid="${_p% *}"
-			_p="$p_name${_p##*"$p_name"}"
-			_p="${_p%% *}"
-			case "$_pid" in $$|$PPID|*[!0-9]*) continue; esac
-			[ "$_p" = "$_parent" ] && continue
-			IFS=' '
-			for g in run fetch apply cronsetup backup detect-lan; do
-				case "$_p" in *${p_name}-$g*)
-					kill "$_pid" 2>/dev/null
-					_killed=1
-				esac
-			done
-		done
-		oldifs kgp
-		[ ! "$_killed" ] || [ $i_kgp -gt 10 ] && break
-	done
-	unisleep
 }
 
 # 1 - input ip's/subnets
@@ -835,7 +855,7 @@ validate_ip() {
 	newifs "$_nl"
 	for i_ip in $i_ips; do
 		case "$i_ip" in */*)
-			ipset_type="net"
+			ipset_type=net
 			_mb="${i_ip#*/}"
 			case "$_mb" in ''|*[!0-9]*)
 				echolog -err "Invalid mask bits '$_mb' in subnet '$i_ip'."; oldifs; return 1; esac
@@ -890,7 +910,7 @@ set -f
 if [ -z "$geotag" ]; then
 	# export some vars
 	set_ansi
-	export WARN="${red}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
+	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 	[ ! "$in_install" ] && [ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
 		export datadir status_file="$datadir/status"
