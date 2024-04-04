@@ -778,7 +778,7 @@ check_cron_compat() {
 				"If you want to use $p_name without ${cr_p2}automatic ip list updates," \
 				"install/configure $p_name with option$cr_p1 '-s disable'."
 			[ "$nointeract" ] && {
-				[ "$_OWRTFW" ] && echolog "Run '$p_name configure' and $p_name will try to enable cron for you."
+				[ "$_OWRTFW" ] && echolog "Please run '$p_name configure' in order to have $p_name enable the cron service for you."
 				die
 			}
 
