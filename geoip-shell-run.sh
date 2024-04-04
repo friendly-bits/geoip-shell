@@ -141,7 +141,7 @@ case "$action_run" in
 	restore)
 		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" = true ]; then
-			echolog "$p_name was installed with 'nobackup' option, changing action to 'update'."
+			echolog "$p_name was configured with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
 			action_run=update action_apply=add force="-f"
 		else
