@@ -45,10 +45,7 @@
 # or change the '$pkg_ver' value in this script
 # then run the script again (no need for the above preparation anymore)
 
-pkg_ver=r2
-
-	# [ "$_OWRTFW" = 3 ] && rm -f "$files_dir/usr/lib/$p_name-"*nft.sh
-
+pkg_ver=r1
 
 die() {
 	# if first arg is a number, assume it's the exit code
