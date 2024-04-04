@@ -21,7 +21,7 @@ define Package/$p_name/Default
 	PKGARCH:=all
 endef
 
-define Package/$p_name-nftables
+define Package/$p_name
 $(call Package/$p_name/Default)
 	TITLE+= with nftables support
 	DEPENDS+= +kmod-nft-core +nftables +firewall4
@@ -34,18 +34,16 @@ $(call Package/$p_name/Default)
 	TITLE+= with iptables support
 	DEPENDS+= +kmod-ipt-ipset +IPV6:ip6tables +iptables +ipset
 	VARIANT:=iptables
-	CONFLICTS:=$p_name-nftables firewall4
+	CONFLICTS:=$p_name firewall4
 endef
 
 define Package/$p_name/description/Default
 	Flexible geoip blocker with a user-friendly command line interface (currently no LuCi interface).
 	For readme, please see
-	https://github.com/friendly-bits/$p_name/README.md
-	and
-	https://github.com/friendly-bits/$p_name/OpenWrt/README.md
+	https://github.com/openwrt/packages/blob/master/net/$p_name/files/OpenWrt-README.md
 endef
 
-define Package/$p_name-nftables/description
+define Package/$p_name/description
 $(call Package/$p_name/description/Default)
 endef
 
@@ -62,7 +60,7 @@ define Package/$p_name/postinst/Default
 	exit 0
 endef
 
-define Package/$p_name-nftables/postinst
+define Package/$p_name/postinst
 $(call Package/$p_name/postinst/Default)
 endef
 
@@ -76,7 +74,7 @@ define Package/$p_name/prerm/Default
 	exit 0
 endef
 
-define Package/$p_name-nftables/prerm
+define Package/$p_name/prerm
 $(call Package/$p_name/prerm/Default)
 endef
 
@@ -84,7 +82,7 @@ define Package/$p_name-iptables/prerm
 $(call Package/$p_name/prerm/Default)
 endef
 
-define Package/$p_name-nftables/postrm
+define Package/$p_name/postrm
 	#!/bin/sh
 	sleep 1
 	echo "Reloading the firewall..."
