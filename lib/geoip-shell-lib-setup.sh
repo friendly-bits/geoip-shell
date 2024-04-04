@@ -558,7 +558,7 @@ ${sp8}'none' removes previously set trusted ip's"
 
 ports_syn="<[tcp|udp]:[allow|block]:[all|<ports>]>"
 ports_usage="$ports_syn :
-${sp8}For given protocol (tcp/udp), use 'block' to only geoblock incoming traffic on specific ports,
+${sp8}For given protocol (tcp/udp), use 'block' to geoblock incoming traffic on specific ports or on all ports.
 ${sp8}or use 'allow' to geoblock all incoming traffic except on specific ports.
 ${sp8}To specify ports for both tcp and udp in one command, use the '-p' option twice."
 
