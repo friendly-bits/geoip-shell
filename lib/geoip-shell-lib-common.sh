@@ -738,12 +738,14 @@ detect_ifaces() {
 
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
+	# check reading crontab
+	crontab -u root -l 1>/dev/null 2>/dev/null || return 1
 	unset cron_reboot cron_path
 	cron_rv=1
 	# check for cron or crond in running processes
 	for cron_cmd in cron crond; do
 		pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" && {
-			cron_rl_path="$(ls -l "$cron_path")" || continue
+			cron_rl_path="$(ls -l "$cron_path" 2>/dev/null)" || continue
 			# check for busybox cron
 			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
 			cron_rv=0
@@ -786,6 +788,11 @@ check_cron_compat() {
 			pick_opt "y|n"
 			[ "$REPLY" = n ] && die
 			printf '\n%s' "Attempting to enable and start cron... "
+			# try to create an empty crontab
+			crontab -u root -l 1>/dev/null 2>/dev/null || printf '' | crontab -u root -
+			cron_rv=
+			check_cron && continue
+			# try to enable and start cron service
 			for cron_cmd in cron crond; do
 				case "$initsys" in
 					systemd) systemctl status $cron_cmd; [ $? = 4 ] && continue
