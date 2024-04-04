@@ -20,6 +20,10 @@ A LuCi interface has not been implemented (yet). As on any other Linux system, a
 ## Usage after installation via ipk
 After installing the ipk package, geoip-shell will be inactive until you configure it. To do so, run `geoip-shell configure` and follow the interactive setup. You can also run `geoip-shell -h` before that to find out about configuration options and then append certain options after the `configure` action, for example: `geoip-shell configure -c "de nl" -m whitelist` to configure geoip-shell in whitelist mode for countries Germany and Netherlands. The interactive setup will ask you about all the important options but some niche options are only available non-interactively (for example if you want to configure geoblocking for certain selection of ports). You can always change these settings after initial configuration via the same `geoip-shell configure` command.
 
+## Uninstallation of geoip-shell if installed via ipk
+- For nftables-based systems: `opkg remove geoip-shell`
+- For iptables-based systems: `opkg remove geoip-shell-iptables`
+
 ## Resources management on OpenWrt
 Because OpenWrt typically runs on embedded devices with limited memory and very small flash storage, geoip-shell implements some techniques to conserve these resources as much as possible:
 - During installation on OpenWrt, comments and the debug code are stripped from the scripts to reduce their size.
@@ -35,7 +39,15 @@ I have some plans to reduce that size by compressing certain scripts which provi
 To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /usr/bin/geoip-shell-* /usr/lib/geoip-shell/*`.
 
 ## Persistence on OpenWrt
-Persistence of geoip firewall rules and ip sets works differenetly on OpenWrt than on other Linuxes, since geoip-shell has an OpenWrt-specific procd init script and integrates into firewall3 or firewall4 via what's called a "firewall include". The init script's only task is to call the geoip-shell-mk-fw-include.sh script, which makes sure that the firewall include exists and is correct, if not then creates the include. The firewall include is what does the actual persistence work. On OpenWrt, a firewall include is a setting which tells firewall3 or firewall4 to do something specific in response to certain events. geoip-shell firewall include triggers on firewall reload (which happens either at reboot or when the system decides that a reload of the firewall is necessary, or when initiated by the user). The include then calls the -run script with the "restore" action. The -run script verifies that geoip nftables/iptables rules and ip sets exist, and if not then it restores them from backup, or (if backup doesn't exist) initiates re-fetch of the ip lists and then re-creates the rules and the ip sets. By default, geoip-shell does not create backups on OpenWrt because typically the permanent storage is very small and prone to wear. The cron job which implements persistence on other Linuxes and runs at reboot is not created on OpenWrt. Automatic updates of ip lists on OpenWrt are triggered from a cron job like on other Linuxes.
+- Persistence of geoip firewall rules and ip sets works differenetly on OpenWrt than on other Linuxes, since geoip-shell has an OpenWrt-specific procd init script.
+- The cron job which implements persistence on other Linuxes and runs at reboot is not created on OpenWrt.
+- geoip-shell integrates into firewall3 or firewall4 via what's called a "firewall include". On OpenWrt, a firewall include is a setting which tells firewall3 or firewall4 to do something specific in response to certain events.
+- The only task of the init script for geoip-shell is to call the geoip-shell-mk-fw-include.sh script, which makes sure that the firewall include exists and is correct, if not then creates the include.
+- The firewall include is what does the actual persistence work. geoip-shell firewall include triggers on firewall reload (which happens either at reboot or when the system decides that a reload of the firewall is necessary, or when initiated by the user).
+- When triggered, the include script calls the -run script with the "restore" action.
+- The -run script verifies that geoip nftables/iptables rules and ip sets exist, and if not then it restores them from backup, or (if backup doesn't exist) initiates re-fetch of the ip lists and then re-creates the rules and the ip sets.
+- By default, geoip-shell does not create backups on OpenWrt because typically the permanent storage is very small and prone to wear.
+- Automatic updates of ip lists on OpenWrt are triggered from a cron job like on other Linuxes.
 
 ## Defaults for OpenWrt
 Generally the defaults are the same as for other systems, except:
