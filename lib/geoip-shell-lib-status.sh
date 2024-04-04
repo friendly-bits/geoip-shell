@@ -189,3 +189,5 @@ esac
 
 [ "$issues" ] && [ -f "$lock_file" ] &&
 	echo "NOTE: $lock_file lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
+
+return $issues
