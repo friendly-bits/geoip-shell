@@ -131,7 +131,7 @@ cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$conf_dir/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
 		p="$p_name" c="$conf_dir" v="$curr_ver" r="$pkg_ver" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
 
-	printf '\n%s\n' "define Package/$p_name/install"
+	printf '\n%s\n' "define Package/$p_name/install/Default"
 
 	find -- * -print | grep -vE '(ipt|nft)' |
 	awk '$0==c||$0==i||$0==n||$0==l {print "\n\t$(INSTALL_DIR) $(1)/" $0} \
@@ -146,19 +146,17 @@ cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 
 for _OWRTFW in 4 3; do
 	case "$_OWRTFW" in
-		3) _fw="-iptables" _fw_short="ipt" ;;
-		4) _fw="-nftables" _fw_short="nft" ;;
-		*) echo "*** Specify OpenWrt firewall version! ***"; exit 1
+		3) _ipt="-iptables" _fw=ipt ;;
+		4) _ipt='' _fw=nft
 	esac
 
-
-	printf '%s\n' "*** Adding install defines for $p_name$_fw... ***"
+	printf '%s\n' "*** Adding install defines for $p_name$_ipt... ***"
 	{
-		printf '\n%s\n%s\n' "define Package/$p_name$_fw/install" \
-			"\$(call Package/$p_name/install,\$(1))"
+		printf '\n%s\n%s\n' "define Package/$p_name$_ipt/install" \
+			"\$(call Package/$p_name/install/Default,\$(1))"
 
-		printf '\n\t%s\n' "\$(INSTALL_DIR) \$(1)$lib_dir"
-		find -- * -print | grep -E "$_fw_short" |
+		printf '\t%s\n' "\$(INSTALL_DIR) \$(1)$lib_dir"
+		find -- * -print | grep -E "$_fw" |
 		awk '$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
 			l="${lib_dir#"/"}" s="/" b="${lib_dir#"/"}/"
 		printf '\n%s\n\n' "endef"
@@ -166,7 +164,7 @@ for _OWRTFW in 4 3; do
 done
 
 printf '%s\n%s\n\n' \
-	"\$(eval \$(call BuildPackage,$p_name-nftables))" \
+	"\$(eval \$(call BuildPackage,$p_name))" \
 	"\$(eval \$(call BuildPackage,$p_name-iptables))" >> "$build_dir/Makefile"
 echo
 
@@ -192,7 +190,7 @@ printf '\n%s\n' "*** Updating Openwrt feeds... ***"
 printf '\n%s\n' "*** Installing feeds for $p_name... ***"
 ./scripts/feeds install $p_name || die "*** Failed to add $p_name to the make config."
 
-grep "$p_name-nftables=m" .config 1>/dev/null && grep "$p_name-iptables=m" .config 1>/dev/null || {
+grep "$p_name=m" .config 1>/dev/null && grep "$p_name-iptables=m" .config 1>/dev/null || {
 	printf '\n%s\n' "*** I will now run 'make menuconfig'. ***"
 	echo "Go to Network --->, scroll down till you see '$p_name' and make sure both entries for $p_name are checked with <M>."
 	echo "Then exit and save."
@@ -204,28 +202,40 @@ grep "$p_name-nftables=m" .config 1>/dev/null && grep "$p_name-iptables=m" .conf
 ### make ipk's
 
 printf '\n%s\n\n' "*** Making ipk's for $p_name... ***"
-# echo "*** Running: make -j4 package/$p_name$_fw/clean ***"
-# make -j4 "package/$p_name$_fw/clean"
+# echo "*** Running: make -j4 package/$p_name/clean ***"
+# make -j4 "package/$p_name/clean"
 echo "*** Running: make -j8 package/$p_name/compile ***"
 make -j8 "package/$p_name/compile"
 
 for _OWRTFW in 4 3; do
-	_fw=
-	case "$_OWRTFW" in
-		3) _fw="-iptables" ;;
-		4) _fw="-nftables"
-	esac
+	_ipt=
+	[ "$_OWRTFW" = 3 ] && _ipt="-iptables"
 
-	ipk_path="$(find . -name "${p_name}${_fw}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
+	ipk_path="$(find . -name "${p_name}${_ipt}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
 	if [ ! "$ipk_path" ] || [ ! -f "$ipk_path" ]; then
-		printf '%s\n' "*** Can not find file '${p_name}${_fw}_$curr_ver*.ipk' ***" >&2
+		printf '%s\n' "*** Can not find file '${p_name}${_ipt}_$curr_ver*.ipk' ***" >&2
 	else
-		new_ipk_path="$build_dir/$p_name${_fw}_$curr_ver-$pkg_ver.ipk"
+		new_ipk_path="$build_dir/$p_name${_ipt}_$curr_ver-$pkg_ver.ipk"
 		mv "$ipk_path" "$new_ipk_path" && ipk_paths="$ipk_paths$new_ipk_path$_nl" ||
 			printf '%s\n' "*** Failed to move '$ipk_path' to '$new_ipk_path' ***" >&2
 	fi
 done
 
+printf '\n%s\n' "*** Preparing documentation... ***"
+cp -r "$src_dir/Documentation" "$files_dir/"
+sed 's/OpenWrt\/README.md/OpenWrt-README.md/g' "$src_dir/README.md" | sed 's/\[\!\[image\].*//g' | \
+	sed 's/- \[P\.s\.\](#ps)//' | sed -n -e /"^## \*\*P\.s\.\*\*"/q\;p | grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
+	"$files_dir/README.md"
+
+cat "$script_dir/README.md" | \
+sed 's/ipk packages are a new feature and are not yet included in the OpenWrt repository but you can get them from the Releases. //' | \
+sed 's/ or via the Discussions tab on Github//' | \
+sed 's/go ahead and use the Discussions tab, or //' | \
+sed -n -e /"  _<details><summary>To download"/\{:1 -e n\;/"<\/details>"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+sed -n -e /"## Building an OpenWrt package"/\{:1 -e n\;/"read the comments inside that script for instructions\."/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
+sed -n -e /" please consider giving this repository a star"/q\;p | \
+grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
+"$files_dir/OpenWrt-README.md"
 
 [ "$build_dir" ] && {
 	printf '\n%s\n%s\n' "*** New build is available here:" "$build_dir"
