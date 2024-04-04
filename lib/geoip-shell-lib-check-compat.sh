@@ -10,7 +10,7 @@
 
 # check for common deps
 check_common_deps() {
-	for dep in grep tr cut sort wc awk sed logger pgrep; do
+	for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
 		if ! command -v "$dep" 1>/dev/null; then echo "Error: missing dependency: '$dep'"; exit 1; fi
 	done
 }
