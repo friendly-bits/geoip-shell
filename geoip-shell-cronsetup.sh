@@ -218,7 +218,7 @@ check_cron_job() {
 }
 
 get_curr_cron() {
-	crontab -u root -l 2>/dev/null || die "$FAIL read crontab."
+	crontab -u root -l 2>/dev/null
 }
 
 create_cron_job() {
@@ -227,7 +227,7 @@ create_cron_job() {
 
 	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating cron jobs."
 
-	curr_cron="$(get_curr_cron)"
+	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
 	case "$job_type" in
 		update)
 			[ -z "$schedule" ] && die "Cron schedule in the config file is empty!"
@@ -270,7 +270,7 @@ rm_cron_job() {
 	esac
 
 	debugprint "Removing $job_type cron job for $p_name... "
-	curr_cron="$(get_curr_cron)"
+	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
 	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root - ||
 		die "$FAIL remove $job_type cron job."
 }
