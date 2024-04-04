@@ -9,6 +9,33 @@
 # github.com/friendly-bits
 
 
+# kills any running geoip-shell scripts
+kill_geo_pids() {
+	i_kgp=0 _parent="$(grep -o "${p_name}[^[:space:]]*" "/proc/$PPID/comm")"
+	while true; do
+		i_kgp=$((i_kgp+1)); _killed=
+		_geo_ps="$(pgrep -fa "(${p_name}\-|$ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | grep -v pgrep)"
+		newifs "$_nl" kgp
+		for _p in $_geo_ps; do
+			_pid="${_p% *}"
+			_p="$p_name${_p##*"$p_name"}"
+			_p="${_p%% *}"
+			case "$_pid" in "$$"|"$PPID"|*[!0-9]*) continue; esac
+			[ "$_p" = "$_parent" ] && continue
+			IFS=' '
+			for g in run fetch apply cronsetup backup detect-lan; do
+				case "$_p" in *${p_name}-$g*)
+					kill "$_pid" 2>/dev/null
+					_killed=1
+				esac
+			done
+		done
+		oldifs kgp
+		[ ! "$_killed" ] || [ $i_kgp -gt 10 ] && break
+	done
+	unisleep
+}
+
 rm_iplists_rules() {
 	echo "Removing $p_name ip lists and firewall rules..."
 
