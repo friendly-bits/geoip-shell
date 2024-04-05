@@ -381,6 +381,14 @@ set_defaults() {
 		} 2>/dev/null
 	fi
 
+	# check RAM capacity, use performance optimization policy for nftables sets if RAM>=2048MiB
+	nft_perf_def=memory
+	IFS=': ' read -r _ memTotal _ < /proc/meminfo 2>/dev/null
+	case "$memTotal" in
+		''|*![0-9]*) ;;
+		*) [ $memTotal -ge 2097152 ] && nft_perf_def=performance
+	esac
+
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${schedule:="15 4 * * *"}"
@@ -389,7 +397,7 @@ set_defaults() {
 	: "${_fw_backend:="$_fw_backend_def"}"
 	: "${tcp_ports:=skip}"
 	: "${udp_ports:=skip}"
-	: "${nft_perf:=memory}"
+	: "${nft_perf:=$nft_perf_def}"
 	: "${reboot_sleep:=30}"
 	: "${max_attempts:=30}"
 }
