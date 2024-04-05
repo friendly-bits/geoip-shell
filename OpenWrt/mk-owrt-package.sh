@@ -28,7 +28,7 @@
 # 8) select Target system --> [X] x86
 #     (probably this doesn't matter but it may? build faster if you select the same architecture as your CPU)
 # 9) select Subtarget --> X86-64 (same comment as above)
-#     don't change Target and Subtargets later to avoid problems
+#     don't change Target and Subtarget later to avoid problems
 # 10) Exit and save
 
 # 11) run: make -j8 tools/install; make -j8 toolchain/install; make -j8 target/linux/compile
@@ -39,139 +39,44 @@
 # 13) cross your fingers
 # 14) cd into geoip-shell/OpenWrt
 # 15) run: sh mk_owrt_package.sh
+
 #  - to build only for firewall3+iptables or firewall4+nftables, add '3' or '4' as an argument
 
-# if you want to make an updated package later, make sure that the '$curr_ver' value changed in the -install script
-# or change the '$pkg_ver' value in this script
+# if you want to make an updated package later, make sure that the '$curr_ver' value changed in the -geoinit script
+# or change the '$pkg_ver' value in the prep-owrt-package.sh script
 # then run the script again (no need for the above preparation anymore)
 
-pkg_ver=r1
-
-die() {
-	# if first arg is a number, assume it's the exit code
-	unset die_args
-	for die_arg in "$@"; do
-		die_args="$die_args$die_arg$_nl"
-	done
-
-	[ "$die_args" ] && {
-		IFS="$_nl" die
-		for arg in $die_args; do
-			printf '%s\n' "$arg" >&2
-		done
-	}
-	exit 1
-}
-
-### Variables
-p_name="geoip-shell"
-p_name_c="${p_name%%-*}_${p_name#*-}"
+# initial setup
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-src_dir="${script_dir%/*}"
-install_dir="/usr/bin"
-lib_dir="/usr/lib/$p_name"
-conf_dir="/etc/${p_name}"
-init_dir="/etc/init.d"
-_lib="$/usr/lib"
 
-curr_ver="$(grep -o -m 1 'curr_ver=.*$' "$src_dir/${p_name}-geoinit.sh" | cut -d\" -f2)"
+case "$1" in
+	'') ;;
+	3|4|all) _OWRTFW="$1" ;;
+	*) die "Invalid openwrt firewall version '$1'. Expected '3' or '4' or 'all'."
+esac
+: "${_OWRTFW:=all}"
+
+
+### prepare the build
+. "$script_dir/prep-owrt-package.sh" || exit 1
+
+### Paths
 owrt_dist_dir="$HOME/openwrt"
+owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name"
+export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH_orig"
 
-_nl='
-'
-export _OWRTFW=all initsys=procd curr_sh_g="/bin/sh"
-PATH_orig="$PATH"
+unset ipk_paths
 
 ### Checks
 [ ! -d "$owrt_dist_dir" ] && die "*** Openwrt distribution dir '$owrt_dist_dir' doesn't exist. ***"
 [ ! -f "$owrt_dist_dir/feeds.conf.default" ] && die "*** feeds.conf.default not found in '$owrt_dist_dir'. ***"
 
 
-### Main
-
-unset build_dirs ipk_paths
-
-owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name"
-
-build_dir="$script_dir/owrt-build"
-files_dir="$build_dir/files"
-
-# Prepare geoip-shell for OpenWrt
-
-printf '\n%s\n\n' "*** Preparing $p_name for OpenWrt with firewall$_OWRTFW... ***"
-
-rm -rf "$build_dir"
-
-mkdir -p "$files_dir$install_dir" &&
-mkdir -p "$files_dir$lib_dir" &&
-mkdir -p "$files_dir/etc/init.d" || die "*** Failed to create directories for $p_name build. ***"
-
-
-export PATH="/usr/sbin:/usr/bin:/sbin:/bin" inst_root_gs="$build_dir/files"
-printf '%s\n' "*** Running '$src_dir/$p_name-install.sh'... ***"
-sh "$src_dir/$p_name-install.sh" || die "*** Failed to run the -install script or it reported an error. ***"
-echo
-export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH_orig"
-
-cp "$script_dir/$p_name-owrt-uninstall.sh" "${files_dir}${lib_dir}" ||
-	die "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${lib_dir}'. ***"
-
-echo "*** Sanitizing the build... ***"
-rm -f "${files_dir}${install_dir}/${p_name}-uninstall.sh"
-rm -f "${files_dir}${conf_dir}/${p_name}.conf"
-
-# remove debug stuff
-sed -Ei 's/(\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&[[:blank:]]*)*debugprint.*"(;){0,1}//g;s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;s/ debugmode_arg=1//g' \
-	$(find -- "$build_dir"/* -print | grep '.sh$')
-sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${lib_dir}/$p_name-lib-common.sh" || exit 1
-
-printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
-cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
-{
-	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$conf_dir/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
-		p="$p_name" c="$conf_dir" v="$curr_ver" r="$pkg_ver" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
-
-	printf '\n%s\n' "define Package/$p_name/install/Default"
-
-	find -- * -print | grep -vE '(ipt|nft)' |
-	awk '$0==c||$0==i||$0==n||$0==l {print "\n\t$(INSTALL_DIR) $(1)/" $0} \
-		$0~f {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s c} \
-		$0~a {print "\t$(INSTALL_BIN) ./files/" $0 " $(1)" s i} \
-		$0~t {print "\t$(INSTALL_BIN) ./files/" $0 " $(1)" s n} \
-		$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
-			c="${conf_dir#"/"}" i="${install_dir#"/"}" n="${init_dir#"/"}" l="${lib_dir#"/"}" s="/" \
-			f="${conf_dir#"/"}/" a="${install_dir#"/"}/" t="${init_dir#"/"}/" b="${lib_dir#"/"}/"
-	printf '\n%s\n\n' "endef"
-} > "$build_dir/Makefile"
-
-for _OWRTFW in 4 3; do
-	case "$_OWRTFW" in
-		3) _ipt="-iptables" _fw=ipt ;;
-		4) _ipt='' _fw=nft
-	esac
-
-	printf '%s\n' "*** Adding install defines for $p_name$_ipt... ***"
-	{
-		printf '\n%s\n%s\n' "define Package/$p_name$_ipt/install" \
-			"\$(call Package/$p_name/install/Default,\$(1))"
-
-		printf '\t%s\n' "\$(INSTALL_DIR) \$(1)$lib_dir"
-		find -- * -print | grep -E "$_fw" |
-		awk '$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
-			l="${lib_dir#"/"}" s="/" b="${lib_dir#"/"}/"
-		printf '\n%s\n\n' "endef"
-	} >> "$build_dir/Makefile"
-done
-
-printf '%s\n%s\n\n' \
-	"\$(eval \$(call BuildPackage,$p_name))" \
-	"\$(eval \$(call BuildPackage,$p_name-iptables))" >> "$build_dir/Makefile"
-echo
-
 ### Configure owrt feeds
 printf '\n%s\n' "*** Preparing owrt feeds... ***"
 cd "$owrt_dist_dir" || die "*** Failed to cd into '$owrt_dist_dir' ***"
 
+rm -rf "$owrt_dist_src_dir" 2>/dev/null
 mkdir -p "$owrt_dist_src_dir" || die "*** Failed to make dir '$owrt_dist_src_dir' ***"
 
 printf '%s\n' "*** Copying $p_name build into '$owrt_dist_src_dir'... ***"
@@ -190,9 +95,16 @@ printf '\n%s\n' "*** Updating Openwrt feeds... ***"
 printf '\n%s\n' "*** Installing feeds for $p_name... ***"
 ./scripts/feeds install $p_name || die "*** Failed to add $p_name to the make config."
 
-grep "$p_name=m" .config 1>/dev/null && grep "$p_name-iptables=m" .config 1>/dev/null || {
+entry_missing=
+for _fw_ver in $_OWRTFW; do
+	_ipt=
+	[ "$_fw_ver" = 3 ] && _ipt="-iptables"
+	grep "$p_name$_ipt=m" "$owrt_dist_dir/.config" 1>/dev/null || entry_missing=1
+done
+
+[ "$entry_missing" ] && {
 	printf '\n%s\n' "*** I will now run 'make menuconfig'. ***"
-	echo "Go to Network --->, scroll down till you see '$p_name' and make sure both entries for $p_name are checked with <M>."
+	echo "Go to Network --->, scroll down till you see '$p_name' and make sure entries for $p_name are checked with <M>."
 	echo "Then exit and save."
 	echo "Press Enter when ready."
 	read -r dummy
@@ -207,9 +119,9 @@ printf '\n%s\n\n' "*** Making ipk's for $p_name... ***"
 echo "*** Running: make -j8 package/$p_name/compile ***"
 make -j8 "package/$p_name/compile"
 
-for _OWRTFW in 4 3; do
+for _fw_ver in $_OWRTFW; do
 	_ipt=
-	[ "$_OWRTFW" = 3 ] && _ipt="-iptables"
+	[ "$_fw_ver" = 3 ] && _ipt="-iptables"
 
 	ipk_path="$(find . -name "${p_name}${_ipt}_$curr_ver*.ipk" -exec echo {} \; | head -n1)"
 	if [ ! "$ipk_path" ] || [ ! -f "$ipk_path" ]; then
