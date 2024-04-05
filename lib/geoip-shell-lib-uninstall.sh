@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154
+# shellcheck disable=SC2154,SC1090
 
 # geoip-shell-lib-uninstall.sh
 
@@ -46,7 +46,7 @@ rm_iplists_rules() {
 	rm_lock
 
 	### Remove geoip firewall rules
-	rm_all_georules || return 1
+	[ "$_fw_backend" ] && rm_all_georules || return 1
 
 	set +f
 	rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
@@ -93,3 +93,18 @@ rm_config() {
 	rm_geodir "$conf_dir" config
 	:
 }
+
+[ ! "$_fw_backend" ] && {
+	if [ "$_OWRTFW" ]; then
+		[ "$_OWRTFW" = 4 ] && _fw_backend=nft || _fw_backend=ipt
+	elif [ -f "$_lib-check-compat.sh" ]; then
+		. "$_lib-check-compat.sh"
+		if check_fw_backend nft; then
+			_fw_backend=nft
+		elif check_fw_backend ipt; then
+			_fw_backend=ipt
+		fi
+	fi
+}
+
+:
