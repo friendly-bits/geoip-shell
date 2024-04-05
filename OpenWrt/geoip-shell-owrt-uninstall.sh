@@ -20,9 +20,10 @@ geoinit_path="/usr/bin/$geoinit"
 
 [ -f "$geoinit_path" ] && . "$geoinit_path"
 
-for lib_f in owrt-common uninstall "$_fw_backend"; do
+for lib_f in owrt-common uninstall; do
 	[ -f "$_lib-$lib_f.sh" ] && . "$_lib-$lib_f.sh"
 done
+[ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh"
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
