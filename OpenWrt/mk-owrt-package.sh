@@ -150,7 +150,7 @@ grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
 "$files_dir/OpenWrt-README.md"
 
 [ "$build_dir" ] && {
-	printf '\n%s\n%s\n' "*** New build is available here:" "$build_dir"
+	printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
 	echo
 	[ "${ipk_paths%"$_nl"}" ] && printf '%s\n%s\n' "*** New ipk's are available here:" "${ipk_paths%"$_nl"}"
 }
