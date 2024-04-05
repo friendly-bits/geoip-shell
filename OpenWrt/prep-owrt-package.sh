@@ -1,6 +1,9 @@
 #!/bin/sh
 # shellcheck disable=SC2046,SC2034,SC2016
 
+# prepares geoip-shell for OpenWrt (without compilation)
+#  - to build only for firewall3+iptables or firewall4+nftables, add '3' or '4' as an argument
+
 pkg_ver=r1
 
 die() {
@@ -120,6 +123,8 @@ for _fw_ver in $_OWRTFW; do
 done
 
 printf '%s\n\n' "$BP_calls" >> "$build_dir/Makefile"
+
+printf '\n%s\n%s\n' "*** New build is available here:" "$build_dir"
 echo
 
 :
