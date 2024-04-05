@@ -38,7 +38,6 @@ install_dir="/usr/bin"
 lib_dir="/usr/lib/$p_name"
 conf_dir="/etc/$p_name"
 init_dir="/etc/init.d"
-_lib="$/usr/lib"
 
 curr_ver="$(grep -o -m 1 'curr_ver=.*$' "$src_dir/${p_name}-geoinit.sh" | cut -d\" -f2)"
 
@@ -124,7 +123,7 @@ done
 
 printf '%s\n\n' "$BP_calls" >> "$build_dir/Makefile"
 
-printf '\n%s\n%s\n' "*** New build is available here:" "$build_dir"
+printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
 echo
 
 :
