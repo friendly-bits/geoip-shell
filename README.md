@@ -25,11 +25,11 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 * ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**. Both sources provide updated ip lists for all regions.
 
-* All firewall rules and ip sets required for geoip blocking to work are created during installation.
+* All firewall rules and ip sets required for geoip blocking to work are created automatically during installation or setup.
 
 * Implements optional (enabled by default) persistence of geoip blocking across system reboots and automatic updates of the ip lists.
 
-* After installation, a utility is provided to check geoip status and firewall rules or change geoip-related config.
+* After installation, a utility is provided to check geoip status and firewall rules or change country codes and geoip-related config.
 
 ### **Reliability**:
 - Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
@@ -39,10 +39,11 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
 - With nftables, utilizes nftables atomic rules replacement to make the interaction with the system firewall fault-tolerant and to completely eliminate time when geoip is disabled during an automatic update.
 - All scripts perform extensive error detection and handling.
+- All user input is validated to reduce the chance of accidental mistakes.
 - Verifies firewall rules coherence after each action.
-- Automatic backup of geoip-shell state (optional, enabled by default).
-- Automatic recovery of geoip-shell state after a reboot (a.k.a persistence) or in case of unexpected errors.
-- During installation, you can specify trusted ip addresses anywhere on the Internet which will bypass geoip blocking to make it easier to regain access to the machine if something goes wrong.
+- Automatic backup of geoip-shell state (optional, enabled by default except on OpenWrt).
+- Automatic recovery of geoip-shell firewall rules after a reboot (a.k.a persistence) or in case of unexpected errors.
+- During initial setup, you can specify trusted ip addresses anywhere on the Internet which will bypass geoip blocking to make it easier to regain access to the machine if something goes wrong. You can change this setting after installation if you want to.
 </details>
 
 ### **Efficiency**:
@@ -50,7 +51,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 <details><summary>Read more:</summary>
 
-- With nftables, optimizes geoip blocking for low memory consumption or for performance, depending on user preference. With iptables, automatic optimization is implemented.
+- With nftables, optimizes geoip blocking for low memory consumption or for performance, depending on the RAM capacity of the machine and on user preference. With iptables, automatic optimization is implemented.
 - Ip list parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
 - Uses the "prerouting" hook in kernel's netfilter component which shortens the path unwanted packets travel in the system and may reduce the CPU load if any additional firewall rules process incoming traffic down the line.
@@ -68,11 +69,11 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - Extensive and (usually) up-to-date documentation.
 - Comes with an *uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
-- Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the list fetched from the source (RIPE or ipdeny).
+- Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the ip lists fetched from the source (RIPE or ipdeny).
 - Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, change country codes, change geoip blocking mode, change ip lists source, change the cron schedule etc).
 - Post-installation, provides a command _('geoip-shell status')_ to check geoip blocking status, which also reports if there are any issues.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
-- Most scripts display detailed 'usage' info when executed with the '-h' option.
+- All main scripts display detailed 'usage' info when executed with the '-h' option.
 - The code should be fairly easy to read and includes a healthy amount of comments.
 </details>
 
@@ -127,7 +128,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
   - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
   - if your machine uses nftables and has enough memory, consider installing with the `-O performance` option
   - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
-  - if for some reason you need to install the suite in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
+  - if for some reason you need to install geoip-shell in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
   </details>
 
 **5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [INSTALLATION.md](/Documentation/INSTALLATION.md).
@@ -138,7 +139,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
 Generally, once the installation completes, you don't have to do anything else for geoip blocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)). If you want to change geoip blocking config or check geoip blocking status, you can do that via the provided utilities.
-A selection of options is given here, for additional options run `geoip-shell -h` or read [DETAILS.md](/Documentation/DETAILS.md).
+A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md)and [DETAILS.md](/Documentation/DETAILS.md).
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
@@ -161,7 +162,7 @@ _<details><summary>Examples:</summary>_
 
 **To change protocols and ports geoblocking applies to:** `geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
-_(for details, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
+_(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
 
 **To enable or change the automatic update schedule:** `geoip-shell configure -s <"schdedule_expression">`
 
@@ -186,11 +187,11 @@ On OpenWrt, if installed via an ipk package: `opkg uninstall <geoip-shell|geoip-
 - **Linux**. Tested on Debian-like systems and on OPENWRT, should work on any desktop/server distribution and possibly on some other embedded distributions.
 - **POSIX-compliant shell**. Works on most relatively modern shells, including **bash**, **dash**, **ksh93**, **yash** and **ash** (including Busybox **ash**). Likely works on **mksh** and **lksh**. Other flavors of **ksh** may or may not work _(please let me know if you try them)_. Does **not** work on **tcsh** and **zsh**.
 
-    **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh` The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and ksh) due to better performance.
+    **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh` The shell you use to install geoip-shell will be the shell it runs in after installation. Generally prefer the simpler shells (like dash or ash) over complex shells (like bash and mksh) due to better performance.
 - **nftables** - firewall management utility. Supports nftables 1.0.2 and higher (may work with earlier versions but I do not test with them).
 - OR **iptables** - firewall management utility. Should work with any relatively modern version.
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
-- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
+- standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, **pgrep**, **pidof** and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
 - **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
 - for the autoupdate functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
 

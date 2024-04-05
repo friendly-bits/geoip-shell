@@ -1,27 +1,31 @@
-# Notes about questions asked by the _-install_ script
+# Notes about questions asked during the initial setup
 
-## **'Your fancy shell 'X' is supported by geoip-shell but a simple shell 'Y' is available in this system, using it instead is recommended. Would you like to use 'Y' with geoip-shell?'**
+## **'Your shell 'A' is supported by geoip-shell but a faster shell 'B' is available in this system, using it instead is recommended. Would you like to use 'B' with geoip-shell?'**
 
-geoip-shell will work with the shell X you ran it from, but it doesn't need or use the fancy features and it will work faster with a simpler shell Y which is also installed in your system. Your call - type in `y` or `n`. The recommendation is clear.
+geoip-shell will work with the shell A you ran it from, but it will work faster with a shell B which is also installed in your system. Your call - type in `y` or `n`. The recommendation is clear. If you type in `y`, geoip-shell installer will launch itself using shell B and configure geoip-shell to always use shell B.
+
+## **'I'm running under an unsupported/unknown shell shell 'A' but a supported shell 'B' is available in this system, using it instead is recommended. Would you like to use 'B' with geoip-shell?'**
+
+Whether geoip-shell will work correctly or at all with the shell A you ran it from is unknown, but a supported shell B is available in your system. You can try to run geoip-shell with A but the recommendation is clear. Generally, geoip-shell works best with shells `ash` and `dash`. If you type in `y`, geoip-shell installer will launch itself using shell B and configure geoip-shell to always use shell B.
 
 ## **'Please enter your country code':**
 
-If you answer this question, the _-manage_ script will check that the changes in ip lists which you request to make will not block your own country. This applies both to the installation process, and to any subsequent changes to the ip lists which you may want to make in the future. The idea behind this is to make this tool as fool-proof as possible.
+If you answer this question, the _-manage_ script will check that changes in ip lists which you request to make will not block your own country and warn you if they will. This applies both to the initial setup, and to any subsequent changes to the ip lists which you may want to make in the future. The idea behind this is to make this tool as fool-proof as possible. This information is written to the geoip-shell config file (only readable by root) on your device and geoip-shell does not send it anywhere. You can remove this config entry any time via the command `geoip-shell configure -r none`. You can skip the question by pressing Enter if you wish.
 
 ## **'Does this machine have dedicated WAN interface(s)? [y|n]':**
 
 Answering this question is mandatory because the firewall is configured differently, depending on the answer. Answering it incorrectly may cause unexpected results, including having no geoip blocking or losing remote access to your machine.
 
-When a machine has dedicated WAN interfaces, for example if it's a router, geoip rules are applied to traffic arriving from these interfaces, and all other traffic is left alone.
+A machine may have dedicated WAN network interfaces if it's a router or in certain cases a VPS (virtual private server). When geoip-shell is configured to work with certain network interfaces, geoip firewall rules are applied only to traffic arriving from these interfaces, and all other traffic is left alone.
 
-Otherwise, geoip rules are applied to traffic arriving from all network interfaces, except the loopback interface. Besides that, when geoip-shell is installed in whitelist mode and you picked `n` in this question, additional firewall rules may be created which add LAN subnets to the whitelist in order to avoid blocking them (you can approve that on the next step of the installation). This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. This is because while the 'drop' verdict is final, the 'accept' verdict is not.
+Otherwise, geoip rules are applied to traffic arriving from all network interfaces, except the loopback interface. Besides that, when geoip-shell is installed in whitelist mode and you picked `n` in this question, additional firewall rules may be created which add LAN subnets or ip's to the whitelist in order to avoid blocking them (you can approve or configure that on the next step of the installation). This does not guarantee that your LAN subnets will not be blocked by another rule in another table, and in fact, if you prefer to block some of them then having them in whitelist will not matter. This is because while the 'drop' verdict is final, the 'accept' verdict is not.
 
 ## **'Autodetected ipvX LAN subnets: ... [c]onfirm, c[h]ange, [s]kip or [a]bort installation?'**
 
-You will see this question if installing the suite in whitelist mode and you chose `n` in the previous question. The reason why under these conditions this question is asked is explained above, in short - to avoid blocking your LAN from accessing your machine.
+You will see this question if installing the suite in whitelist mode and you chose `n` in the previous question. The reason why under these conditions this question is asked is to avoid blocking your LAN from accessing your machine.
 
 If you are absolutely sure that you will not need to access the machine from the LAN then you can type in 's' to skip.
-Otherwise I recommend to add LAN ip's or subnets to the whitelist.
+Otherwise I recommend to add LAN subnets to the whitelist. You can either confirm the automatically detected subnets, or specify any combination of ip's and subnets on your LAN which you wish to allow connections from.
 
 The autodetection code should, in most cases, detect correct LAN subnets. However, it is up to you to verify that it's done its job correctly.
 
@@ -44,14 +48,20 @@ A third way to do that is by examining your network configuration (in your route
 
 If you find out that the subnets were detected incorrectly, you can type in 'h' and manually enter the correct subnets or ip addresses which you want to allow connections from.
 
-## **'[A]uto-detect local subnets when autoupdating and at launch or keep this config [c]onstant?'**
+## **'A[u]to-detect LAN subnets when updating ip lists or keep this config c[o]nstant?'**
 
-As the above question, you will see this one if installing the suite in whitelist mode and you answered `n` to the question about WAN interfaces.
+As the above question, you will see this one if installing the suite in whitelist mode and you answered `n` to the question about WAN interfaces. You will not see this question if you specified custom subnets or ips in the previous question.
 
-The rationale for this question is that network configuration may change, and if it does then previously correctly auto-detected subnets may become irrelevant.
+The rationale for this question is that network configuration may change, and if it does then previously correctly configured LAN subnets may become irrelevant.
 
 If you type in 'a', each time geoip firewall rules are initialized or updated, LAN subnets will be re-detected.
 
 If you type in 'c' then whatever subnets have been detected during installation will be kept forever (until you re-install geoip-shell).
 
-Generally if autodetection worked as expected during installation, most likely it will work correctly every time, so it is a good idea to allow auto-detection with each update. If not then, well, not.
+Generally if automatic detection worked as expected during initial setup, most likely it will work correctly every time, so it is a good idea to allow auto-detection with each update. If not then, well, not.
+
+## **Extra options**
+
+- geoip-shell supports an additional setting: trusted ip's or subnets. Currently this is only configurable by running the -install script with the option `-t <"[trusted_ips]">` (or after installation via the `geoip-shell configure -t <"[trusted_ips]">` command). You can specify trusted ip addresses or subnets anywhere on the LAN or on the Internet. To remove this setting later, run `geoip-shell configure -t none`.
+
+- geoip-shell supports lots of additional command-line options. You can find out more by running `sh geoip-shell-install.sh -h`, or after installation `geoip-shell -h`, or by reading [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md).
