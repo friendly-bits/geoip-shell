@@ -74,8 +74,7 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-[ ! "$datadir" ] && die "the \$datadir variable is empty."
-[ ! "$geomode" ] && die "the \$geomode variable is empty."
+checkvars datadir geomode ifaces
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
