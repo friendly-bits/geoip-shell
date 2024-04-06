@@ -118,7 +118,7 @@ done
 
 #### Assemble commands for nft
 opt_ifaces=
-[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '%s, ' $ifaces) }"
+[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '"%s", ' $ifaces) }"
 georule="rule inet $geotable $geochain $opt_ifaces"
 
 printf %s "Assembling nftables commands... "
