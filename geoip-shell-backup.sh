@@ -126,7 +126,7 @@ status_file_bak="$bk_dir/status.bak"
 
 #### CHECKS
 
-[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Run the installation script again."
+checkvars _fw_backend datadir
 
 #### MAIN
 
@@ -134,7 +134,7 @@ mk_lock
 set +f
 case "$action" in
 	create-backup)
-		trap 'rm_bk_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
+		trap 'rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		set_archive_type
 		mkdir "$bk_dir" 2>/dev/null
@@ -144,7 +144,7 @@ case "$action" in
 		cp_conf backup || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
-		trap 'rm_rstr_tmp; eval "$trap_args_unlock"' INT TERM HUP QUIT
+		trap 'rm_rstr_tmp; die' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
 		[ ! -s "$config_file_bak" ] && rstr_failed "'$config_file_bak' is empty or doesn't exist."
 		getconfig iplists iplists "$config_file_bak" &&
