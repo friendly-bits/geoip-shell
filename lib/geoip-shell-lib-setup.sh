@@ -155,11 +155,6 @@ pick_ifaces() {
 			read -r REPLY
 			case "$REPLY" in a|A) die 0; esac
 		}
-		is_alphanum "$REPLY" || {
-				REPLY=
-				[ "$nointeract" ] && die
-				continue
-		}
 		san_str u_ifaces "$REPLY"
 		[ -z "$u_ifaces" ] && {
 			printf '%s\n' "No interface names detected in '$REPLY'." >&2
