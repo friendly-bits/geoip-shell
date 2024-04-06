@@ -164,7 +164,7 @@ _<details><summary>Examples:</summary>_
 
 _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
 
-**To enable or change the automatic update schedule:** `geoip-shell configure -s <"schdedule_expression">`
+**To enable or change the automatic update schedule:** `geoip-shell configure -s <"schedule_expression">`
 
 _<details><summary>Example</summary>_
 
