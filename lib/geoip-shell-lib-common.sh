@@ -79,6 +79,12 @@ checkutil() {
 	command -v "$1" 1>/dev/null
 }
 
+checkvars() {
+	for var; do
+		eval "[ \"\$$var\" ]" || die "The '\$$var' variable is unset."
+	done
+}
+
 unknownopt() {
 	usage; die "Unknown option '-$OPTARG' or it requires an argument."
 }
@@ -437,7 +443,7 @@ setconfig() {
 	for config_line in $oldconfig; do
 		eval "case \"$config_line\" in
 				''|$keys_test_str) ;;
-				*) newconfig=\"$newconfig$config_line$_nl\"
+				*) newconfig=\"$newconfig\""'$config_line'"\"$_nl\"
 			esac"
 	done
 	oldifs sc
@@ -476,6 +482,7 @@ setstatus() {
 	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file"
+	[ "$root_ok" ] && chmod -R 600 "${target_file%/*}" "$target_file"
 	setconfig target_file "$@"
 }
 
@@ -527,8 +534,12 @@ add2list() {
 	a2l_fs="${3:- }"
 	eval "_curr_list=\"\$$1\""
 	is_included "$2" "$_curr_list" "$a2l_fs" && return 2
-	eval "$1=\"\${$1}$a2l_fs$2\"; $1=\"\${$1#$a2l_fs}\""
+	eval "$1=\"\${$1}$a2l_fs\""'$2'"; $1=\"\${$1#$a2l_fs}\""
 	return 0
+}
+
+is_str_safe() {
+	case "$1" in *'\'*|*'"'*|*\'*) die "Invalid string '$1'"; esac
 }
 
 # removes duplicate words, removes leading and trailing delimiter, trims in-between extra delimiter characters
@@ -541,7 +552,7 @@ add2list() {
 san_str() {
 	[ "$1" = '-n' ] && { _del="$_nl"; shift; } || _del=' '
 	[ "$2" ] && inp_str="$2" || eval "inp_str=\"\$$1\""
-
+	is_str_safe "$inp_str"
 	_sid="${3:-"$_del"}"
 	_sod="${4:-"$_del"}"
 	_words=
@@ -549,6 +560,7 @@ san_str() {
 	for _w in $inp_str; do
 		add2list _words "$_w" "$_sod"
 	done
+
 	eval "$1"='$_words'
 	oldifs san
 }
@@ -636,6 +648,7 @@ nl2sp() {
 san_args() {
 	_args=
 	for arg in "$@"; do
+		is_str_safe "$arg"
 		trimsp arg
 		[ "$arg" ] && _args="$_args$arg$delim"
 	done
@@ -834,11 +847,14 @@ rm_lock() {
 }
 
 check_lock() {
+	checkvars lock_file
 	[ ! -f "$lock_file" ] && return 0
-	[ ! "$lock_file" ] && die "The \$lock_file var is unset!"
-	used_pid="$(cat "${lock_file}")"
-	[ "$used_pid" ] && kill -0 "$used_pid" 2>/dev/null &&
-	die 0 "Lock file $lock_file claims that $p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
+	read -r used_pid < "$lock_file"
+	case "$used_pid" in
+		''|*![0-9]*) echolog -err "Lock file '$lock_file' is empty or contains unexpected string." ;;
+		*) kill -0 "$used_pid" 2>/dev/null &&
+			die 0 "$p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
+	esac
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
 	return 0
@@ -897,9 +913,6 @@ ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
 : "${me:="${0##*/}"}"
 me_short="${me#"${p_name}-"}"
 me_short="${me_short%.sh}"
-
-# trap var
-trap_args_unlock='[ -f $lock_file ] && [ $$ = $(cat $lock_file 2>/dev/null) ] && rm -f $lock_file 2>/dev/null; exit;'
 
 # vars for common usage() functions
 sp8="        "
