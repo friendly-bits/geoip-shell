@@ -24,6 +24,8 @@ report_fw_state() {
 		esac
 		printf '%s\n' "Whitelist blocking rule: $wl_rule_status"
 	}
+	[ ! "$nft_perf" ] && { nft_perf="${red}Not set $_X"; incr_issues; }
+	printf '\n%s\n' "nftables sets optimization policy: ${blue}$nft_perf$n_c"
 
 	if [ "$verb_status" ]; then
 		dashes="$(printf '%158s' ' ' | tr ' ' '-')"
