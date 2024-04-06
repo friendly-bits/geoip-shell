@@ -517,10 +517,11 @@ toupper dl_src_cap "$dl_src"
 
 #### Checks
 
-set -- $dl_src
-case "$2" in *?*) die "Specify only one download source."; esac
+checkvars dl_src
 
-[ ! "$dl_src" ] && die "'\$dl_src' variable should not be empty!"
+set -- $dl_src
+[ "$2" ] && die "Specify only one download source."
+
 
 # debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
