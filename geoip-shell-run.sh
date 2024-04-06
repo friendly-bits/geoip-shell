@@ -104,26 +104,26 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die
+checkvars i_script iplist_dir geomode _fw_backend _lib
+check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$_lib-apply-$_fw_backend.sh" "$i_script-backup.sh" \
+	"$_lib-backup-$_fw_backend.sh" || die
 
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "config file '$conf_file' doesn't exist! Re-install $p_name."
-
-[ ! "$iplist_dir" ] && die "iplist file path can not be empty!"
-
-[ ! "$geomode" ] && die "\$geomode variable should not be empty! Something is wrong!"
 
 
 #### MAIN
 
 mk_lock
-trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; eval "$trap_args_unlock"' INT TERM HUP QUIT
+trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; die' INT TERM HUP QUIT
 
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
 # wait $reboot_sleep seconds after boot
 [ "$daemon_mode" ] && {
-	uptime="$(cat /proc/uptime)"; uptime="${uptime%%.*}"
+	IFS='. ' read -r uptime _ < /proc/uptime
+	: "${uptime:=0}"
+	: "${reboot_sleep:=30}"
 	sl_time=$((reboot_sleep-uptime))
 	[ $sl_time -gt 0 ] && {
 		echolog "Sleeping for ${sl_time}s..."
@@ -169,7 +169,7 @@ attempt=0 secs=5
 while true; do
 	attempt=$((attempt+1))
 	secs=$((secs+5))
-	[ "$daemon_mode" ] && [ $attempt -gt $max_attempts ] && die "Giving up."
+	[ $attempt -gt $max_attempts ] && die "Giving up."
 
 	### Fetch ip lists
 
@@ -193,8 +193,8 @@ while true; do
 
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
 		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && {
-			[ "$daemon_mode" ] && { daemon_prep_next; continue; } ||
-				die 254 "All fetch attempts failed."
+			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
+			die 254 "All fetch attempts failed."
 		}
 	fi
 
@@ -229,7 +229,7 @@ while true; do
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
 		echolog -warn "actual $geomode firewall config differs from the config file!"
 		for opt in unexpected missing; do
-			eval "[ \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $geomode ip lists in the firewall: '\$${opt}_lists'\"" >&2
+			eval "[ -n \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $geomode ip lists in the firewall: '\$${opt}_lists'\"" >&2
 		done
 		die
 	fi
