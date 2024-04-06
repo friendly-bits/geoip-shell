@@ -286,7 +286,7 @@ esac
 	for i_opt in \
 			"geomode m" "trusted t" "ports p" "lan_ips l" "ifaces i" "geosource u" "datadir a" "nobackup o" "schedule s" \
 				"families f" "user_ccode r" "nft_perf O" "nointeract z"; do
-		eval "[ \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
+		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
 }
 
@@ -299,7 +299,7 @@ case "$action" in
 esac
 
 mk_lock
-trap 'eval "$trap_args_unlock"' INT TERM HUP QUIT
+trap 'die' INT TERM HUP QUIT
 
 
 case "$action" in
@@ -354,6 +354,8 @@ else
 	check_lists_coherence || incoherence_detected
 fi
 
+checkvars _fw_backend datadir geomode
+
 [ "$ccodes_arg" ] && validate_arg_ccodes
 
 lists_req=
@@ -390,7 +392,6 @@ case "$action" in
 		[ ! "$restore_req" ] && { check_lists_coherence 2>/dev/null || restore_req=1; }
 
 		[ "$datadir_change" ] && {
-			[ ! "$datadir" ] && die "Internal error: \$datadir var is unset"
 			printf %s "Creating the new data dir '$datadir'... "
 			mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
 			OK
