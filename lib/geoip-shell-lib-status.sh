@@ -73,14 +73,13 @@ case "$active_families" in
 	*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 esac
 
-unset _ifaces_r
-[ "$ifaces" ] && _ifaces_r=": ${blue}$ifaces$n_c"
-printf '%s\n' "Geoip rules applied to ${_ifaces_all}network interfaces$_ifaces_r"
+[ "$ifaces" ] && _ifaces_r="${blue}$ifaces$n_c" || { _ifaces_r="${red}Not set $_X"; incr_issues; }
+printf '%s\n' "Geoip rules applied to network interfaces: $_ifaces_r"
 
 trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
 trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
 [ "$trusted_ipv4$trusted_ipv6" ] && {
-	printf '\n%s\n' "Allowed trusted ip's:"
+	printf '\n%s\n' "Trusted ip's:"
 	for f in $families; do
 		eval "trusted=\"\$trusted_$f\""
 		[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
