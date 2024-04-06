@@ -112,8 +112,8 @@ case "$rv" in
 	2) usage; die "Invalid country code: '$ccode'."
 esac
 
+checkvars dl_source
 [ "$(printf %s "$dl_source" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
-[ -z "$dl_source" ] && die "'\$dl_source' variable should not be empty!"
 
 subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ -n "$invalid_source" ] && { usage; die "Invalid source: $invalid_source"; }
