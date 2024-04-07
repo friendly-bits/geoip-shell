@@ -62,7 +62,7 @@ esac
 
 ### Paths
 owrt_dist_dir="$HOME/openwrt"
-owrt_dist_src_dir="$owrt_dist_dir/my_packages/net/network/$p_name"
+owrt_dist_src_dir="$owrt_dist_dir/geoip_shell_owrt_src/net/network/$p_name"
 export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH_orig"
 
 unset ipk_paths
@@ -83,11 +83,11 @@ printf '%s\n' "*** Copying $p_name build into '$owrt_dist_src_dir'... ***"
 cp -r "$build_dir"/* "$owrt_dist_src_dir" || die "*** Copy failed ***"
 echo
 
-curr_feeds="$(grep -v "my_packages" "$owrt_dist_dir/feeds.conf.default")" ||
+curr_feeds="$(grep -v "geoip_shell_owrt_src" "$owrt_dist_dir/feeds.conf.default")" ||
 	die "*** Failed to cat '$owrt_dist_dir/feeds.conf.default' ***"
-echo "*** Prepending entry 'src-link local $owrt_dist_dir/my_packages' to '$owrt_dist_dir/feeds.conf.default'... ***"
-printf '%s\n%s\n' "src-link local $owrt_dist_dir/my_packages" "$curr_feeds" > "$owrt_dist_dir/feeds.conf.default" ||
-	die "*** Failed to add 'my_packages' src dir to '$owrt_dist_dir/feeds.conf.default ***"
+echo "*** Prepending entry 'src-link local $owrt_dist_dir/geoip_shell_owrt_src' to '$owrt_dist_dir/feeds.conf.default'... ***"
+printf '%s\n%s\n' "src-link local $owrt_dist_dir/geoip_shell_owrt_src" "$curr_feeds" > "$owrt_dist_dir/feeds.conf.default" ||
+	die "*** Failed to add 'geoip_shell_owrt_src' src dir to '$owrt_dist_dir/feeds.conf.default ***"
 
 printf '\n%s\n' "*** Updating Openwrt feeds... ***"
 ./scripts/feeds update -a || die "*** Failed to update owrt feeds."
