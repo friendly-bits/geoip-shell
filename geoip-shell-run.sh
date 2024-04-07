@@ -57,7 +57,7 @@ while getopts ":l:aodVh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
 		a) export daemon_mode=1 ;;
-		o) nobackup_arg=$OPTARG ;;
+		o) nobackup_arg=true ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
