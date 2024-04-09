@@ -60,8 +60,6 @@ extra_args "$@"
 
 is_root_ok
 
-. "$_lib-backup-$_fw_backend.sh" || die
-
 setdebug
 debugentermsg
 
@@ -124,9 +122,9 @@ config_file="$conf_file"
 config_file_bak="$bk_dir/${p_name}.conf.bak"
 status_file_bak="$bk_dir/status.bak"
 
-#### CHECKS
-
 checkvars _fw_backend datadir
+
+. "$_lib-$_fw_backend.sh" || die
 
 #### MAIN
 
