@@ -260,8 +260,8 @@ detect_init
 export conf_dir="/etc/$p_name"
 
 unset fw_libs ipt_libs nft_libs
-ipt_libs=ipt
-nft_libs=nft
+ipt_fw_libs=ipt
+nft_fw_libs=nft
 all_fw_libs="ipt nft"
 
 [ "$_OWRTFW" ] && {
@@ -275,7 +275,7 @@ all_fw_libs="ipt nft"
 		4) _fw_backend=nft ;;
 		all) _fw_backend=all
 	esac
-	eval "fw_libs=\"\$${_fw_backend}_libs\""
+	eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
 } || {
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
