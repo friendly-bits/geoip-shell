@@ -33,7 +33,7 @@ set_a_arr_el() {
 	___me="set_a_arr_el"
 	_arr_name="$1"; ___pair="$2"
 	case "$#" in 2) ;; *) wrongargs "$@"; return 1; esac
-	check_pair || return 1
+	case "$___pair" in *=* ) ;; *) echolog -err "$___me: '$___pair' is not a 'key=value' pair."; return 1; esac
 	___key="${___pair%%=*}"
 	___new_val="${___pair#*=}"
 	_check_vars "$_arr_name" "$___key" || return 1
@@ -69,10 +69,6 @@ _check_vars() {
 		is_alphanum "$_var_val"
 	done
 	return 1
-}
-
-check_pair() {
-	case "$___pair" in *=* ) ;; *) echolog -err "$___me: '$___pair' is not a 'key=value' pair."; return 1; esac
 }
 
 wrongargs() {
