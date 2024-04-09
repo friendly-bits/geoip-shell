@@ -312,7 +312,17 @@ export datadir lib_dir="/usr/lib/$p_name"
 export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g" status_file="$datadir/status"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-[ ! "$inst_root_gs" ] && { call_script "$p_script-uninstall.sh" || die "Pre-install cleanup failed."; }
+[ ! "$inst_root_gs" ] && {
+	[ "$_OWRT_install" ] && [ -f "$_lib-owrt-common.sh" ] && {
+		. "$_lib-owrt-common.sh"
+		rm -f "$conf_dir/setupdone" 2>/dev/null
+		rm_owrt_init
+		rm_owrt_fw_include
+	}
+	[ "$_fw_backend" ] && rm_iplists_rules && rm_cron_jobs && rm_data && rm_symlink && rm_scripts ||
+		die "Preinstall cleanup failed."
+	[ "$_OWRT_install" ] && reload_owrt_fw
+}
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
