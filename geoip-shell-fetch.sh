@@ -17,7 +17,6 @@ done
 
 . "$geoinit_path" &&
 . "$_lib-arrays.sh" || exit 1
-. "$_lib-ip-regex.sh"
 
 san_args "$@"
 newifs "$delim"
