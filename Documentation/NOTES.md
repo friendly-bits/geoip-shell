@@ -70,21 +70,19 @@
 
     Example: `geoip-shell configure -p udp:allow:all` will allow all udp packets on all ports to bypass the geoip filter.
 
-12) By default, nftables sets are configured with policy 'memory' in order to minimize memory consumption (at the expense of some performance). If your machine has enough memory (perhaps 512MB or higher), consider using the 'performance' policy for sets. This can be enabled by running the _-install.sh_ script with the `-O performance` option, or changed after installation by running `geoip-shell configure -O <performance|memory>`. This does not apply to iptables ip sets as these are configured differently and balancing memory and performance is managed automatically by the -apply script.
+12) Firewall rules persistence, as well as automatic list updates, is implemented via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
 
-13) Firewall rules persistence, as well as automatic list updates, is implemented via cron jobs: a periodic job running by default on a daily schedule, and a job that runs at system reboot (after 30 seconds delay). Either or both cron jobs can be disabled (run the *install script with the -h option to find out how, or read [DETAILS.md](/Documentation/DETAILS.md)). On OpenWrt, persistence is implemented via an init script and a firewall include rather than via a cron job.
+13) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
 
-14) You can specify a custom schedule for the periodic cron job by passing an argument to the install script. Run it with the '-h' option for more info.
+14) If you want to change the autoumatic update schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation). geoip-shell includes a script which validates cron expressions you request, so don't worry about making a mistake.
 
-15) If you want to change the autoumatic update schedule but you don't know the crontab expression syntax, check out https://crontab.guru/ (no affiliation). geoip-shell includes a script which validates cron expressions you request, so don't worry about making a mistake.
+15) Note that cron jobs will be run as root.
 
-16) Note that cron jobs will be run as root.
+16) If you have nftables installed but for some reason you are using iptables rules (via the nft_compat kernel module which is provided by packages like nft-iptables etc), you can and probably should install geoip-shell with the option `-w ipt` which will force it to use iptables+ipset. For example: `geoip-shell install -w ipt`.
 
-17) If you have nftables installed but for some reason you are using iptables rules (via the nft_compat kernel module which is provided by packages like nft-iptables etc), you can and probably should install geoip-shell with the option `-w ipt` which will force it to use iptables+ipset. For example: `geoip-shell install -w ipt`.
+17) If you upgrade your system from iptables to nftables, you can either re-install geoip-shell and it will then automatically use nftables, or you can use this command without reinstalling: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets and re-create nftables rules and sets based on your existing config. If you are on OpenWrt, this does not apply: instead, you will need to install the geoip-shell package for nftables-based OpenWrt.
 
-18) If you upgrade your system from iptables to nftables, you can either re-install geoip-shell and it will then automatically use nftables, or you can use this command without reinstalling: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets and re-create nftables rules and sets based on your existing config. If you are on OpenWrt, this does not apply: instead, you will need to install the geoip-shell package for nftables-based OpenWrt.
-
-19) To test before deployment:
+18) To test before deployment:
     <details> <summary>Read more:</summary>
 
     - You can run the install script with the "-N" (noblock) option to apply all actions and create all firewall rules except the geoip-shell "enable" rule. This way you can make sure that no errors are encountered and check the resulting firewall rules before committing to actual blocking. To enable blocking later, use the command `geoip-shell on`.
@@ -92,7 +90,7 @@
 
     </details>
 
-20) How to get yourself locked out of your remote server and how to prevent this:
+19) How to get yourself locked out of your remote server and how to prevent this:
     <details> <summary>Read more:</summary>
 
     There are 4 scenarios where you can lock yourself out of your remote server with this suite:

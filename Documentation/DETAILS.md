@@ -149,7 +149,7 @@ Advanced options:
 
 `-w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system.
 
-`-O <memory|performance>`: specify optimization policy for nftables sets. By default optimizes for low memory consumption. Doesn't work with iptables.
+`-O <memory|performance>`: specify optimization policy for nftables sets. By default optimizes for low memory consumption if system RAM is less than 2GiB, otherwise optimizes for performance. This option doesn't work with iptables.
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
