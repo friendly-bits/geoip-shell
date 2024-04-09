@@ -27,7 +27,6 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 . "$geoinit_path" || exit 1
-. "$_lib-ip-regex.sh"
 
 ## Simple args parsing
 for arg in "$@"; do
