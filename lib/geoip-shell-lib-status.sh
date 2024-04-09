@@ -8,9 +8,8 @@
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-. "$_lib-$_fw_backend.sh" &&
-. "$_lib-status-$_fw_backend.sh" || die
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
+. "$_lib-$_fw_backend.sh" || die
+[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || die; }
 
 #### FUNCTIONS
 
