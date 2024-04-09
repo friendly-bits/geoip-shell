@@ -31,17 +31,10 @@ This script is only used under specific conditions:
 2. lib/geoip-shell-lib-setup.sh
 3. lib/geoip-shell-lib-ipt.sh
 4. lib/geoip-shell-lib-nft.sh
-5. lib/geoip-shell-lib-apply-ipt.sh
-6. lib/geoip-shell-lib-apply-nft.sh
-7. lib/geoip-shell-lib-backup-ipt.sh
-8. lib/geoip-shell-lib-backup-nft.sh
 9. lib/geoip-shell-lib-status.sh
-10. lib/geoip-shell-lib-status-ipt.sh
-11. lib/geoip-shell-lib-status-nft.sh
-12. lib/geoip-shell-lib-check-compat.sh
-13. lib/geoip-shell-lib-arrays.sh
-14. lib/geoip-shell-lib-ip-regex.sh
-15. lib/geoip-shell-lib-uninstall.sh
+10. lib/geoip-shell-lib-check-compat.sh
+11. lib/geoip-shell-lib-arrays.sh
+12. lib/geoip-shell-lib-uninstall.sh
 
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
@@ -50,7 +43,6 @@ This script is only used under specific conditions:
 - The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
 - The -lib-check-compat script checks for some essential dependencies
 - The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
-- The -lib-ip-regex script stores regex patterns used in several other scripts for ip addresses validation.
 - The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
 
 ### OpenWrt-specific scripts
