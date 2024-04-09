@@ -79,16 +79,6 @@ rm_symlink() {
 	rm -f "${install_dir}/${p_name}" 2>/dev/null
 }
 
-rm_scripts() {
-	printf '%s\n' "Deleting the main $p_name scripts from $install_dir..."
-	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall geoinit; do
-		rm -f "${install_dir}/${p_name}-$script_name.sh" 2>/dev/null
-	done
-
-	rm_geodir "$lib_dir" "library scripts"
-	:
-}
-
 rm_config() {
 	rm_geodir "$conf_dir" config
 	:
