@@ -260,9 +260,9 @@ detect_init
 export conf_dir="/etc/$p_name"
 
 unset fw_libs ipt_libs nft_libs
-ipt_libs="ipt apply-ipt backup-ipt status-ipt"
-nft_libs="nft apply-nft backup-nft status-nft"
-all_libs="$ipt_libs $nft_libs"
+ipt_libs=ipt
+nft_libs=nft
+all_fw_libs="ipt nft"
 
 [ "$_OWRTFW" ] && {
 	o_script="OpenWrt/${p_name}-owrt"
@@ -280,7 +280,7 @@ all_libs="$ipt_libs $nft_libs"
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
 	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
-	fw_libs="$all_libs"
+	fw_libs="$all_fw_libs"
 }
 
 detect_lan="${p_name}-detect-lan.sh"
@@ -291,7 +291,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in uninstall common arrays status setup ip-regex $check_compat $fw_libs; do
+for f in uninstall common arrays status setup $check_compat $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
