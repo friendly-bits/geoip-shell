@@ -37,6 +37,12 @@ Options:
 EOF
 }
 
+die_a() {
+	destroy_tmp_ipsets
+	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+	die "$@"
+}
+
 ## PARSE ARGUMENTS
 
 # check for valid action
@@ -74,7 +80,7 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-checkvars datadir geomode ifaces
+checkvars datadir geomode ifaces _fw_backend
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
@@ -85,4 +91,17 @@ checkvars datadir geomode ifaces
 
 ## MAIN
 
-. "$_lib-apply-$_fw_backend.sh"
+. "$_lib-$_fw_backend.sh" || exit 1
+
+case "$geomode" in
+	whitelist) iplist_verdict=accept; fw_target=ACCEPT ;;
+	blacklist) iplist_verdict=drop; fw_target=DROP ;;
+	*) die "Unknown firewall mode '$geomode'."
+esac
+
+case "$action" in
+	on) geoip_on; exit ;;
+	off) geoip_off; exit
+esac
+
+apply_rules
