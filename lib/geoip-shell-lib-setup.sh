@@ -9,8 +9,6 @@
 # github.com/friendly-bits
 
 
-. "$_lib-ip-regex.sh"
-
 #### FUNCTIONS
 
 validate_arg_ccodes() {
