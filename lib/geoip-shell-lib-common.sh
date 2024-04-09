@@ -925,6 +925,14 @@ fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
 families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
 list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
 
+# ip regex
+export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])' \
+	ipv6_regex='([0-9a-f]{0,4})(:[0-9a-f]{0,4}){2,7}' \
+	maskbits_regex_ipv4='(3[0-2]|([1-2][0-9])|[6-9])' \
+	maskbits_regex_ipv6='(12[0-8]|((1[0-1]|[1-9])[0-9])|[6-9])'
+export subnet_regex_ipv4="${ipv4_regex}\/${maskbits_regex_ipv4}" \
+	subnet_regex_ipv6="${ipv6_regex}\/${maskbits_regex_ipv6}"
+
 set -f
 
 if [ -z "$geotag" ]; then
