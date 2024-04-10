@@ -287,13 +287,14 @@ run_cmd="$i_script-run.sh"
 schedule="${schedule:-$default_schedule}"
 
 
+printf %s "Processing cron jobs..."
+
 #### Checks
 
 check_cron_compat
-
+checkvars no_persist
 #### Main
 
-printf %s "Processing cron jobs..."
 
 # update job
 case "$schedule" in
@@ -304,8 +305,8 @@ esac
 # persistence job
 [ ! "$_OWRTFW" ] && {
 	case "$no_persist" in
-		'') create_cron_job persistence ;;
-		*) rm_cron_job persistence
+		false) create_cron_job persistence ;;
+		true) rm_cron_job persistence
 			echolog "${_nl}Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
 			"To enable persistence, install $p_name again without the '-n' option."
 	esac
