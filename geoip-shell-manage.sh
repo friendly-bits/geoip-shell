@@ -140,7 +140,7 @@ incoherence_detected() {
 		"'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
 
 	while true; do
-		printf %s "[Y|N|S] "
+		printf %s "[y|n|s] "
 		read -r REPLY
 		case "$REPLY" in
 			[Yy] ) echo; restore_from_config; break ;;
@@ -253,7 +253,7 @@ changeact="Changing action to 'configure'."
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
 		q="[K]eep previous"; keep_opt=k
 		for _par in geomode ccodes families schedule ifaces lan_ips trusted ports user_ccode geosource datadir nobackup \
-			_fw_backend nft_perf nopersist; do
+			_fw_backend nft_perf no_persist noblock; do
 			eval "[ \"\$${_par}_arg\" ]" && { q="[M]erge previous and new"; keep_opt=m; break; }
 		done
 
@@ -271,15 +271,15 @@ changeact="Changing action to 'configure'."
 }
 
 [ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
-	[ "$action" != configure ] && echolog "Firewall backend is not set.  $changeact"
+	[ "$action" != configure ] && echolog "Firewall backend is not set. $changeact"
 	action=configure restore_req=1
 }
 
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
+[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || die; }
 
 case "$geomode" in
 	whitelist|blacklist) ;;
-	'') [ "$action" != configure ] && echolog "Geoip mode is not set.  $changeact"
+	'') [ "$action" != configure ] && echolog "Geoip mode is not set. $changeact"
 		rm -f "$conf_dir/setupdone" 2>/dev/null
 		action=configure restore_req=1 ;;
 	*) die "Unexpected geoip mode '$geomode'!"
@@ -329,8 +329,8 @@ case "$action" in
 	on|off)
 		case "$action" in
 			on) [ ! "$iplists" ] && die "No ip lists registered. Refusing to enable geoip blocking."
-				setconfig "noblock=" ;;
-			off) setconfig "noblock=1"
+				setconfig "noblock=false" ;;
+			off) setconfig "noblock=true"
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
