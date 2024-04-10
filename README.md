@@ -207,8 +207,7 @@ For specifics about each script, read [DETAILS.md](/Documentation/DETAILS.md).
 For information about OpenWrt support, read the [OpenWrt README](/OpenWrt/README.md).
 
 ## **Privacy**
-These scripts do not share your data with anyone, as long as you downloaded them from the official source, which is
-https://github.com/friendly-bits/geoip-shell
+geoip-shell does not share your data with anyone.
 If you are using the ipdeny source then note that they are a 3rd party which has its own data privacy policy.
 
 ## **P.s.**
