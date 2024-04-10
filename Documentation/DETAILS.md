@@ -95,7 +95,7 @@ Options:
 - Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/bin
 
 Advanced options:
-- `-l`: prepares the system for re-installation of geoip-shell: cleans up previous firewall geoip rules, removes backups and removes the cron jobs (and the OpenWrt-specific scripts).
+- `-r`: prepares the system for re-installation of geoip-shell: cleans up previous firewall geoip rules, removes backups and removes the cron jobs (and the OpenWrt-specific scripts).
 
 **geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it contains a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
