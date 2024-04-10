@@ -18,7 +18,7 @@
 ### Helper Scripts
 1. geoip-shell-geoinit.sh
 
-This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell-consts file which stores some system-specific constants.
+This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell.const file which stores some system-specific constants.
 
 2. geoip-shell-detect-lan.sh
 
@@ -31,10 +31,10 @@ This script is only used under specific conditions:
 2. lib/geoip-shell-lib-setup.sh
 3. lib/geoip-shell-lib-ipt.sh
 4. lib/geoip-shell-lib-nft.sh
-9. lib/geoip-shell-lib-status.sh
-10. lib/geoip-shell-lib-check-compat.sh
-11. lib/geoip-shell-lib-arrays.sh
-12. lib/geoip-shell-lib-uninstall.sh
+5. lib/geoip-shell-lib-status.sh
+6. lib/geoip-shell-lib-check-compat.sh
+7. lib/geoip-shell-lib-arrays.sh
+8. lib/geoip-shell-lib-uninstall.sh
 
 - The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
@@ -84,20 +84,18 @@ Options:
 - `-f <ipv4|ipv6|"ipv4 ipv6">`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
 - `-p <tcp|udp>:<allow|block>:<all|[ports]>`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice in one command. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
 - `-s <"[schedule_expression]"|disable>`: specify custom cron schedule expression for the autoupdate schedule. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day, or "15 4 * * 5" for OpenWrt - each Friday at 4:15am. 'disable' instead of the schedule will disable autoupdates.
-- `-n`: disable persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in).
-- `-o <true|false>`: Nobackup: `true` disables automatic backups of the ip sets and geoip config, `false` enables them. Backups are used both as a backup, and for persistence since ip lists are loaded from the backup at reboot. Installation with this option will avoid using permanent storage for the ip lists but will trigger ip lists re-fetch at reboot. This option is only useful for devices with very small storage size (backup of a dozen large ip lists takes around 0.5MB). Default is `true` for OpenWrt systems, `false` for all other systems.
+- `-n <true|false>`: NoPersistence. `true` disables persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in). `false` enables persistence. Default is `false`.
+- `-o <true|false>`: Nobackup. `true` disables automatic backups of the ip sets and geoip config, `false` enables them. Backups are used both as a backup, and for persistence since ip lists are loaded from the backup at reboot. Installation with this option will avoid using permanent storage for the ip lists but will trigger ip lists re-fetch at reboot. This option is only useful for devices with very small storage size (backup of a dozen large ip lists takes around 0.5MB). Default is `true` for OpenWrt systems, `false` for all other systems.
 - `a <path>`: Data directory path. The data directory stores the backup and the status file. Defaults to `/tmp/geoip-shell-data` for OpenWrt, `/var/lib/geoip-shell` for other systems.
 - `-w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system
-- `-k`: skip adding the geoip 'enable' rule. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the *manage script.
-- `-e`: create nftables sets with the 'performance' optimization policy (defaults to 'memory' policy to optimize for low memory consumption)
+- `-N <true|false>`: NoBlock. If installing with the `-N true` option, the geoip 'enable' rule will not be created. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the command `geoip-shell on`, or reinstall with the `-N false` option. Default is `false`.
+- `-O <memory|performance>`: create nftables sets with given optimization policy. By default, optimizes for memory when the machine has less than 2GiB RAM, otherwise optimizes for performance.
 
 **geoip-shell-uninstall.sh**
 - Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/bin
 
 Advanced options:
-- `-l`: cleans up previous firewall geoip rules and resets the ip lists in the config
-- `-c`: cleans up previous firewall geoip rules, removes geoip cron jobs and resets the ip lists in the config
-- `-r`: prepares the system for re-installation of the suite: cleans up previous firewall geoip rules, removes the cron jobs (and the OpenWrt-specific scripts) and removes the config.
+- `-l`: prepares the system for re-installation of geoip-shell: cleans up previous firewall geoip rules, removes backups and removes the cron jobs (and the OpenWrt-specific scripts).
 
 **geoip-shell-manage.sh**: serves as the main user interface to configure geoip after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it contains a lot of logic to generate a report, parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
