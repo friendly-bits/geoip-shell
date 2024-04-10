@@ -49,8 +49,8 @@ rm_iplists_rules() {
 	[ "$_fw_backend" ] && rm_all_georules || return 1
 
 	set +f
-	rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
-	rm -rf "${datadir:?}"/* 2>/dev/null
+	[ "$iplist_dir" ] && rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
+	[ "$datadir" ] && rm -rf "${datadir:?}"/* 2>/dev/null
 	set -f
 	:
 }
