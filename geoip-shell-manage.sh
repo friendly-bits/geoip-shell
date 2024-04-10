@@ -18,6 +18,8 @@ script_dir="$install_dir" &&
 san_args "$@"
 newifs "$delim"
 set -- $_args; oldifs
+setdebug
+debugentermsg
 
 #### USAGE
 
@@ -129,16 +131,6 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 is_root_ok
-[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
-	echolog "Firewall backend is not set."
-	[ "$action" != configure ] && echolog "Changing action to 'configure'."
-	action=configure restore_req=1
-}
-
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
-
-setdebug
-debugentermsg
 
 
 #### FUNCTIONS
@@ -250,13 +242,38 @@ get_wrong_ccodes() {
 
 #### VARIABLES
 
+changeact="Changing action to 'configure'."
+
+[ ! -f "$conf_dir/setupdone" ] && {
+	[ "$action" != configure ] && {
+		echolog "Setup has not been completed. $changeact"
+		action=configure restore_req=1
+	}
+
+	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
+		echo "Existing config file found. Keep previous config? [y|n] or [a] to abort setup."
+		pick_opt "y|n|a"
+		case "$REPLY" in
+			a) exit 0 ;;
+			n) rm -f "$conf_file"
+		esac
+	}
+}
+
 [ -s "$conf_file" ] && {
 	nodie=1 get_config_vars 2>/dev/null || echolog "Config file not found or failed to get config."
 }
 
+[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
+	[ "$action" != configure ] && echolog "Firewall backend is not set.  $changeact"
+	action=configure restore_req=1
+}
+
+[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || exit 1; }
+
 case "$geomode" in
 	whitelist|blacklist) ;;
-	'') [ "$action" != configure ] && echolog "Geoip mode is not set. Changing action to 'configure'."
+	'') [ "$action" != configure ] && echolog "Geoip mode is not set.  $changeact"
 		rm -f "$conf_dir/setupdone" 2>/dev/null
 		action=configure restore_req=1 ;;
 	*) die "Unexpected geoip mode '$geomode'!"
@@ -316,6 +333,9 @@ case "$action" in
 esac
 
 if [ "$action" = configure ]; then
+	first_setup=
+	[ ! -f "$conf_dir/setupdone" ] && export first_setup=1
+
 	[ ! -s "$conf_file" ] && {
 		rm -f "$conf_dir/setupdone" 2>/dev/null
 		touch "$conf_file" || die "$FAIL create the config file."
@@ -330,9 +350,6 @@ if [ "$action" = configure ]; then
 		unset "${opt_ch}_change"
 		eval "[ \"\$${opt_ch}_arg\" ] && [ \"\$${opt_ch}_arg\" != \"\$${opt_ch}\" ] && ${opt_ch}_change=1"
 	done
-
-	first_setup=
-	[ "$_OWRTFW" ] && [ ! -f "$conf_dir/setupdone" ] && export first_setup=1
 
 	export nointeract="${nointeract_arg:-$nointeract}"
 
@@ -405,8 +422,8 @@ case "$action" in
 				rm -rf "$datadir_prev" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL remove the old data dir."; }
 				OK
 			}
-			export datadir status_file="$datadir/status"
 		}
+		export datadir status_file="$datadir/status"
 
 		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 			nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
@@ -434,15 +451,15 @@ case "$action" in
 			call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		}
 
-		[ "$rv_apply" = 0 ] && [ "$_OWRTFW" ] && {
-			.  "$_lib-owrt-common.sh" || die 1
-			[ "$first_setup" ] && {
-				touch "$conf_dir/setupdone"
+		[ "$rv_apply" = 0 ] && [ "$first_setup" ] && {
+			touch "$conf_dir/setupdone"
+			[ "$_OWRTFW" ] && {
+				.  "$_lib-owrt-common.sh" || die
 				rm_lock
 				enable_owrt_init; rv_apply=$?
 				[ -f "$lock_file" ] && {
 					echo "Waiting for background processes to complete..."
-					for i in $(seq 1 60); do
+					for i in $(seq 1 30); do
 						[ ! -f "$lock_file" ] && break
 						sleep 1
 					done
@@ -450,6 +467,7 @@ case "$action" in
 				}
 			}
 		}
+
 		report_lists; statustip
 		die $rv_apply ;;
 	add)
