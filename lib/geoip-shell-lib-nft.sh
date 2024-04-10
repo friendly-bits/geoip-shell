@@ -184,10 +184,11 @@ destroy_tmp_ipsets() {
 }
 
 geoip_on() {
+	get_nft_geoip_state
 	[ -n "$geochain_on" ] && { echo "Geoip chain is already switched on."; exit 0; }
 	[ -z "$base_chain_cont" ] && missing_chain="base geoip"
-	[ -z "$geochain_cont" ] && missing_chain="geoip"
-	[ -n "$missing_chain" ] && { echo "Can't switch geoip on because $missing_chain chain is missing."; exit 1; }
+	[ -z "$geochain_cont" ] && missing_chain=geoip
+	[ -n "$missing_chain" ] && { echo "Can't switch geoip on because the $missing_chain chain is missing."; exit 1; }
 
 	printf %s "Adding the geoip enable rule... "
 	printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable" | nft -f -; rv=$?
@@ -196,11 +197,21 @@ geoip_on() {
 }
 
 geoip_off() {
+	get_nft_geoip_state
 	[ -z "$geochain_on" ] && { echo "Geoip chain is already disabled."; exit 0; }
 	printf %s "Removing the geoip enable rule... "
 	mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" | nft -f -; rv=$?
 	[ $rv != 0 ] || is_geochain_on -f && { FAIL; die "$FAIL remove firewall rule."; }
 	OK
+}
+
+# populates $_geotable_cont, $geochain_cont, $base_chain_cont, $geochain_on
+get_nft_geoip_state() {
+	nft_get_geotable -f 1>/dev/null
+	geochain_on=
+	is_geochain_on && geochain_on=1
+	geochain_cont="$(nft_get_chain "$geochain")"
+	base_chain_cont="$(nft_get_chain "$base_geochain")"
 }
 
 apply_rules() {
@@ -211,11 +222,7 @@ apply_rules() {
 	#### MAIN
 
 	### Read current firewall geoip rules
-	nft_get_geotable -f 1>/dev/null
-	geochain_on=
-	is_geochain_on && geochain_on=1
-	geochain_cont="$(nft_get_chain "$geochain")"
-	base_chain_cont="$(nft_get_chain "$base_geochain")"
+	get_nft_geoip_state
 
 	[ ! "$list_ids" ] && [ "$action" != update ] && {
 		usage
@@ -394,7 +401,7 @@ apply_rules() {
 		[ "$geomode" = whitelist ] && printf '%s\n' "add $georule counter drop comment ${geotag}_whitelist_block"
 
 		## geoip enable rule
-		[ -z "$noblock" ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
+		[ "$noblock" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
 
 		exit 0
 	)" || die_a 254 "$FAIL assemble nftables commands."
@@ -407,7 +414,7 @@ apply_rules() {
 	printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "$FAIL apply new firewall rules"
 	OK
 
-	[ -n "$noblock" ] && echolog -warn "Geoip blocking is disabled via config."
+	[ "$noblock" = true ] && echolog -warn "Geoip blocking is disabled via config."
 
 	echo
 
