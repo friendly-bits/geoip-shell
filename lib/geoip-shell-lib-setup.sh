@@ -382,6 +382,8 @@ set_defaults() {
 		*) [ $memTotal -ge 2097152 ] && nft_perf_def=performance
 	esac
 
+	noblock_def=false no_persist_def=false
+
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${schedule:="15 4 * * *"}"
@@ -393,6 +395,8 @@ set_defaults() {
 	: "${nft_perf:=$nft_perf_def}"
 	: "${reboot_sleep:=30}"
 	: "${max_attempts:=30}"
+	: "${noblock:=$noblock_def}"
+	: "${no_persist:=$no_persist_def}"
 }
 
 get_prefs() {
@@ -415,15 +419,26 @@ get_prefs() {
 		''|performance|memory) ;;
 		*) die "Invalid value for option '-O': '$nft_perf_arg'."
 	esac
-	nft_perf="${nft_perf_arg:=$nft_perf}"
+	nft_perf="${nft_perf_arg:-$nft_perf}"
 
-	# nobackup
-	[ "$nobackup_arg" ] && tolower nobackup_arg
-	case "$nobackup_arg" in
-		''|true|false) ;;
-		*) die "Invalid value for option '-o': '$nobackup_arg'."
-	esac
-	nobackup="${nobackup_arg:=$nobackup}"
+	# nobackup, noblock, no_persist
+	for _par in "nobackup o" "noblock N" "no_persist n"; do
+		par_name="${_par% *}" par_opt="${_par#* }"
+		eval "par_val=\"\${${par_name}_arg}\""
+		[ "$par_val" ] && tolower par_val
+		case "$par_val" in
+			''|true|false) ;;
+			*) die "Invalid value for option '-$par_opt': '$par_val'."
+		esac
+		eval "$par_name=\"\${${par_name}_arg:-\$$par_name}\""
+		eval "par_val=\"\$$par_name\""
+		case "$par_val" in
+			''|true|false) ;;
+			*) eval "def_val=\"\$${par_name}_def\""
+				echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
+				eval "$par_name=\"$def_val\""
+		esac
+	done
 
 	# datadir
 	[ "$datadir_arg" ] && {
@@ -472,6 +487,8 @@ get_prefs() {
 
 	# ports
 	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
+
+	echo
 
 	# geoip mode
 	[ "$geomode_arg" ] || [ ! "$geomode" ] && {
