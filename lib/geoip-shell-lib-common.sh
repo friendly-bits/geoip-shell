@@ -762,7 +762,7 @@ check_cron() {
 			# check for busybox cron
 			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
 			cron_rv=0
-			[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$no_cr_persist" ] && continue
+			[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$no_cr_persist" ] && continue
 			break
 		}
 	done
@@ -773,7 +773,7 @@ check_cron() {
 check_cron_compat() {
 	unset no_cr_persist cr_p1 cr_p2
 	[ ! "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
-	[ "$no_persist" ] || [ "$_OWRTFW" ] && no_cr_persist=1
+	[ "$no_persist" = true ] || [ "$_OWRTFW" ] && no_cr_persist=1
 	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ] ; then
 		for i in 1 2; do
 			# check if cron is running
@@ -826,7 +826,7 @@ check_cron_compat() {
 				}
 			done 1>/dev/null 2>/dev/null
 		done
-		[ ! "$cron_reboot" ] && [ ! "$no_persist" ] && [ ! "$_OWRTFW" ] &&
+		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
 			die "cron-based persistence doesn't work with Busybox cron." \
 			"If you want to install without persistence support, install with option '-n'"
 	fi
