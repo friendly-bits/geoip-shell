@@ -43,7 +43,7 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 - Verifies firewall rules coherence after each action.
 - Automatic backup of geoip-shell state (optional, enabled by default except on OpenWrt).
 - Automatic recovery of geoip-shell firewall rules after a reboot (a.k.a persistence) or in case of unexpected errors.
-- During initial setup, you can specify trusted ip addresses anywhere on the Internet which will bypass geoip blocking to make it easier to regain access to the machine if something goes wrong. You can change this setting after installation if you want to.
+- Supports specifying trusted ip addresses anywhere on the Internet which will bypass geoip blocking to make it easier to regain access to the machine if something goes wrong.
 </details>
 
 ### **Efficiency**:
@@ -62,12 +62,12 @@ Supports running on OpenWrt. Supports ipv4 and ipv6.
 
 ### **User-friendliness**:
 - Installation is easy and normally takes a very short time.
+- Good command line interface and useful console messages.
 
 <details><summary>Read more:</summary>
 
-- Good command line interface and useful console messages.
 - Extensive and (usually) up-to-date documentation.
-- Comes with an *uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
+- Comes with an uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the ip lists fetched from the source (RIPE or ipdeny).
 - Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, change country codes, change geoip blocking mode, change ip lists source, change the cron schedule etc).
@@ -138,7 +138,8 @@ _(Note that some commands require root privileges, so you will likely need to ru
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-Generally, once the installation completes, you don't have to do anything else for geoip blocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)). If you want to change geoip blocking config or check geoip blocking status, you can do that via the provided utilities.
+Generally, once the installation completes, you don't have to do anything else for geoip blocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)).
+If you want to change geoip blocking config or check geoip blocking status, you can do that via the provided utilities.
 A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md)and [DETAILS.md](/Documentation/DETAILS.md).
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
@@ -176,9 +177,7 @@ _<details><summary>Example</summary>_
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
 
-**To uninstall:**
-
-`geoip-shell-uninstall.sh`
+**To uninstall:** `geoip-shell-uninstall.sh`
 
 On OpenWrt, if installed via an ipk package: `opkg uninstall <geoip-shell|geoip-shell-iptables>`
 

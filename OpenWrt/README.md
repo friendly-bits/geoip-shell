@@ -2,7 +2,7 @@
 
 Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing the same user interface and features as on any other Linux system. So usage is the same as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
 
-Installation is possible either via the -install script (as described in the main README), or via an ipk package. ipk packages are a new feature and are not yet included in the OpenWrt repository but you can get them from the Releases. They come in 2 flavors: geoip-shell-[...].ipk and geoip-shell-iptables[...].ipk. The -iptables package is for firewall3+iptables OpenWrt systems, while the non-iptables package is for firewall4+nftables OpenWrt systems.
+Installation is possible either via the -install script (as described in the main README), or via an ipk package. ipk packages are a new feature and are not yet included in the OpenWrt repository but you can get them from the Releases. They come in 2 flavors: geoip-shell-[...].ipk and geoip-shell-iptables[...].ipk. The _geoip-shell-iptables_ package is for firewall3+iptables OpenWrt systems, while the _geoip-shell_ package is for firewall4+nftables OpenWrt systems.
 
   _<details><summary>To download the latest ipk via the command line (using curl):</summary>_
 
