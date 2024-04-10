@@ -11,7 +11,7 @@ checkutil () { command -v "$1" 1>/dev/null; }
 
 enable_owrt_init() {
 	init_script="/etc/init.d/${p_name}-init"
-	if [ "$no_persist" ]; then
+	if [ "$no_persist" = true ]; then
 		printf '%s\n\n' "Installed without persistence functionality."
 	else
 		! check_owrt_init && {
