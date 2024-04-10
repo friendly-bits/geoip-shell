@@ -251,11 +251,17 @@ changeact="Changing action to 'configure'."
 	}
 
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
-		echo "Existing config file found. Keep previous config? [y|n] or [a] to abort setup."
-		pick_opt "y|n|a"
+		q="[K]eep previous"; keep_opt=k
+		for _par in geomode ccodes families schedule ifaces lan_ips trusted ports user_ccode geosource datadir nobackup \
+			_fw_backend nft_perf nopersist; do
+			eval "[ \"\$${_par}_arg\" ]" && { q="[M]erge previous and new"; keep_opt=m; break; }
+		done
+
+		echo "Existing config file found. $q config or [f]orget the old config? [$keep_opt|f] or [a] to abort setup."
+		pick_opt "$keep_opt|f|a"
 		case "$REPLY" in
 			a) exit 0 ;;
-			n) rm -f "$conf_file"
+			f) rm -f "$conf_file"
 		esac
 	}
 }
