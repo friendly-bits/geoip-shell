@@ -104,8 +104,8 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:nNzdVh" opt; do
 
 		n) no_persist=1 ;;
 		N) noblock=1 ;;
-		z) export nointeract=1 ;;
-		d) export debugmode=1 ;;
+		z) nointeract_arg=1 ;;
+		d) debugmode=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
 		*) unknownopt
@@ -257,7 +257,10 @@ detect_init
 
 #### Variables
 
-export conf_dir="/etc/$p_name"
+export ccodes_arg geomode_arg schedule_arg families_arg geosource_arg ifaces_arg lan_ips_arg trusted_arg ports_arg \
+	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist noblock nointeract_arg \
+	debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name"
+export conf_file="$conf_dir/$p_name.conf"
 
 unset fw_libs ipt_libs nft_libs
 ipt_fw_libs=ipt
@@ -296,33 +299,21 @@ for f in uninstall common arrays status setup $check_compat $fw_libs; do
 done
 lib_files="$lib_files $owrt_comm"
 
+
 #### CHECKS
 
 check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "missing files: $missing_files."
 
+
 #### MAIN
 
-[ ! "$_OWRTFW" ] && [ ! "$nointeract" ] && pick_shell
+[ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
 
-# parse command line args and make interactive setup if needed
-[ ! "$inst_root_gs" ] && { get_prefs || die; }
-
-export datadir lib_dir="/usr/lib/$p_name"
-export _lib="$lib_dir/$p_name-lib" conf_file="$conf_dir/$p_name.conf" use_shell="$curr_sh_g" status_file="$datadir/status"
+export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-[ ! "$inst_root_gs" ] && {
-	[ "$_OWRT_install" ] && [ -f "$_lib-owrt-common.sh" ] && {
-		. "$_lib-owrt-common.sh"
-		rm -f "$conf_dir/setupdone" 2>/dev/null
-		rm_owrt_init
-		rm_owrt_fw_include
-	}
-	[ "$_fw_backend" ] && rm_iplists_rules && rm_cron_jobs && rm_data && rm_symlink && rm_scripts ||
-		die "Preinstall cleanup failed."
-	[ "$_OWRT_install" ] && reload_owrt_fw
-}
+[ ! "$inst_root_gs" ] && { call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."; }
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
@@ -345,14 +336,6 @@ OK
 # Create the directory for config
 mkdir -p "$inst_root_gs$conf_dir"
 
-
-# write config
-printf %s "Setting config... "
-nodie=1
-setconfig datadir user_ccode "iplists=" geomode tcp_ports udp_ports geosource families "schedule=" \
-	max_attempts ifaces autodetect nft_perf lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 \
-	reboot_sleep nobackup no_persist noblock "http=" _fw_backend || install_failed
-OK
 
 # create the .const file
 cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}.const" || install_failed "$FAIL set essential variables."
@@ -422,13 +405,12 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 
 
 [ ! "$inst_root_gs" ] && {
-	# only allow root to read the $datadir and $conf_dir and files inside it
-	mkdir -p "$datadir" && chmod -R 600 "$datadir" "$conf_dir" && chown -R root:root "$datadir" "$conf_dir" ||
-		install_failed "$FAIL create '$datadir'."
+	# only allow root to read the $conf_dir and files inside it
+	chmod -R 600 "$conf_dir" && chown -R root:root "$conf_dir" ||
+		install_failed "$FAIL set permissions for '$conf_dir'."
 
 	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-	call_script "$i_script-manage.sh" configure -c "$ccodes" -s "$schedule" ||
-		install_failed "$FAIL create and apply the iplist."
+	call_script "$i_script-manage.sh" configure || die "$FAIL create and apply the iplist."
 }
 
 echo "Install done."
