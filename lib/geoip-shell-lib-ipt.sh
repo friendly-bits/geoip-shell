@@ -448,8 +448,8 @@ apply_rules() {
 
 	# insert the main blocking rule
 	case "$noblock" in
-		'') geoip_on ;;
-		*) echolog -warn "Geoip blocking is disabled via config."
+		false) geoip_on ;;
+		true) echolog -warn "Geoip blocking is disabled via config."
 	esac
 
 	[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
