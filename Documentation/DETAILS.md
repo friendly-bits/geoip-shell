@@ -36,7 +36,7 @@ This script is only used under specific conditions:
 7. lib/geoip-shell-lib-arrays.sh
 8. lib/geoip-shell-lib-uninstall.sh
 
-- The 'library' term is used loosely as some of these scripts actually do some work by themselves. In particular, the lib-apply scripts. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
+- The 'library' term is used loosely as some of these scripts actually do some work by themselves. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
 - The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
 - The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
 - The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
