@@ -33,7 +33,7 @@ Because OpenWrt typically runs on embedded devices with limited memory and very 
 - Some defaults on OpenWrt are different to further minimize flash storage wear (read below).
 
 ### Scripts size
-Typical geoip-shell installation on an OpenWrt system currently consumes around 115kB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but you can install via an ipk which doesn't remain in storage after installation, or if installing via the -install script, delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
+Typical geoip-shell installation on an OpenWrt system currently consumes around 120kB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but you can install via an ipk which doesn't remain in storage after installation, or if installing via the -install script, delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
 I have some plans to reduce that size by compressing certain scripts which provide user interface and implementing automatic extraction to /tmp when the user wants to access them, but this is not yet implemented.
 
 To view all installed geoip-shell scripts in your system and their sizes, run `ls -lh /usr/bin/geoip-shell-* /usr/lib/geoip-shell/*`.
