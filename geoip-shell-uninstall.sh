@@ -41,6 +41,7 @@ Usage: $me [-V] [-h]
 5) Deletes the config folder /etc/geoip-shell
 
 Options:
+  -r  : Leave the config file in place
   -V  : Version
   -h  : This help
 
@@ -60,19 +61,15 @@ rm_scripts() {
 
 #### PARSE ARGUMENTS
 
-while getopts ":rlcVh" opt; do
+while getopts ":rVh" opt; do
 	case $opt in
-		l) resetonly_lists="-l" ;;
-		c) reset_only_lists_cron="-c" ;;
-		r) resetonly="-r" ;;
+		r) leaveconfig="-r" ;;
 		V) echo "$curr_ver"; exit 0 ;;
-		h) usage; exit 0;;
-		*) unknownopt
+		h) usage; exit 0 ;;
+		*) ;;
 	esac
 done
 shift $((OPTIND-1))
-
-extra_args "$@"
 
 is_root_ok || exit 1
 
@@ -90,7 +87,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	# prevents infinite loop
 	export norecur=1
-	call_script "$install_dir/${p_name}-uninstall.sh" && exit 0
+	call_script "$install_dir/${p_name}-uninstall.sh" "$leaveconfig" && exit 0
 }
 
 : "${conf_dir:=/etc/$p_name}"
@@ -99,6 +96,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 
 #### MAIN
 
+rm -f "$conf_dir/setupdone" 2>/dev/null
 [ "$_fw_backend" ] && rm_iplists_rules
 rm_cron_jobs
 rm_data
@@ -106,7 +104,6 @@ rm_data
 # For OpenWrt
 [ "$_OWRT_install" ] && [ -f "$_lib-owrt-common.sh" ] && {
 	. "$_lib-owrt-common.sh"
-	rm -f "$conf_dir/setupdone" 2>/dev/null
 	rm_owrt_init
 	rm_owrt_fw_include
 	restart_owrt_fw
@@ -114,6 +111,6 @@ rm_data
 
 rm_symlink
 rm_scripts
-rm_config
+[ ! "$leaveconfig" ] && rm_config
 
 printf '%s\n\n' "Uninstall complete."
