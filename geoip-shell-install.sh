@@ -71,10 +71,11 @@ Core Options:
 
   -O $nft_perf_usage
 
+  -n <true|false> : No persistence. Geoip blocking may not work after reboot. Default is false.
+  -N <true|false> : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
+        Everything will be installed and configured but geoip blocking will not be enabled. Default is false.
+
 Extra Options:
-  -n : No persistence. Geoip blocking may not work after reboot.
-  -N : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
-         (everything will be installed and configured but geoip blocking will not be enabled)
   -z : $nointeract_usage
   -d : Debug
   -V : Version
@@ -85,7 +86,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:nNzdVh" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:n:N:zdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -101,9 +102,9 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:nNzdVh" opt; do
 		o) nobackup_arg=$OPTARG ;;
 		w) _fw_backend_arg=$OPTARG ;;
 		O) nft_perf_arg=$OPTARG ;;
+		n) no_persist_arg=$OPTARG ;;
+		N) noblock_arg=$OPTARG ;;
 
-		n) no_persist=1 ;;
-		N) noblock=1 ;;
 		z) nointeract_arg=1 ;;
 		d) debugmode=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
@@ -258,7 +259,7 @@ detect_init
 #### Variables
 
 export ccodes_arg geomode_arg schedule_arg families_arg geosource_arg ifaces_arg lan_ips_arg trusted_arg ports_arg \
-	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist noblock nointeract_arg \
+	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist_arg noblock_arg nointeract_arg \
 	debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name"
 export conf_file="$conf_dir/$p_name.conf"
 
@@ -379,7 +380,7 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 
 	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}.const"
 
-	if [ "$no_persist" ]; then
+	if [ "$no_persist_arg" ]; then
 		echolog -warn "Installed without persistence functionality."
 	else
 		echo "Adding the init script... "
