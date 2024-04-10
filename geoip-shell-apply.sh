@@ -80,7 +80,7 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-checkvars datadir geomode ifaces _fw_backend
+checkvars datadir geomode ifaces _fw_backend noblock
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
