@@ -1,6 +1,6 @@
 ## **Prelude**
 - geoip-shell supports a numer of different use cases, many different platforms, and 2 backend firewall utilities (nftables and iptables). For this reason I designed it to be modular rather than monolithic. In this design, the functionality is split between few main scripts. Each main script performs specific tasks and utilizes library scripts which are required for the task with the given platform and firewall utility.
-- This document intends to provide some info on the purpose and core options of the main scripts and how they work in tandem.
+- This document provides some info on the purpose and core options of the main scripts and how they work in tandem.
 - The main scripts display "usage" when called with the "-h" option. You can find out about some additional options specific to each script by running it with that option.
 
 ## **Overview**
@@ -16,15 +16,13 @@
 - geoip-shell-cronsetup.sh
 
 ### Helper Scripts
-- geoip-shell-geoinit.sh
+**geoip-shell-geoinit.sh**
+- This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell.const file which stores some system-specific constants.
 
-  This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell.const file which stores some system-specific constants.
-
-- geoip-shell-detect-lan.sh
-
+**geoip-shell-detect-lan.sh**
 This script is only used under specific conditions:
-- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and lan subnets were not specified via command line args. geoip-shell then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
-- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection was enabled during initial setup or later via the `geoip-shell configure -l auto` command. The suite then re-detects and refreshes the LAN subnets in the whitelist automatically.
+- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being installed on a machine belonging to a LAN, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
+- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
 
 ### Library Scripts
 - lib/geoip-shell-lib-common.sh
@@ -36,14 +34,19 @@ This script is only used under specific conditions:
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
 
-- The 'library' term is used loosely as some of these scripts actually do some work by themselves. What's common to all of them is that they are sourced from other scripts rather than called to run as an individual script.
-- The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
-- The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -install and -manage scripts.
-- The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
-- The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
-- The -lib-check-compat script checks for some essential dependencies
-- The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
-- The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
+The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
+
+The lib-setup script implements CLI interactive and noninteractive setup and arguments parsing. It is used in the -manage script.
+
+The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
+
+The -ipt and -nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
+
+The -lib-check-compat script checks for some essential dependencies
+
+The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
+
+The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation (when using the install script), or at the time of OpenWrt package preparation.
@@ -67,7 +70,7 @@ After installation, the user interface is provided by running "geoip-shell", whi
 - Processes command line arguments, then, if needed, asks the user additional questions.
 - Creates directories for config and data.
 - Sets permissions for the data and config directories to be only readable and writable by root.
-- Copies the scripts to `/usr/bin`, config to `/etc/geoip-shell`, and creates a directory for data in `/var/lib/geoip-shell` (or in `/etc/geoip-shell/data` on OpenWrt).
+- Copies the scripts to `/usr/bin`, config to `/etc/geoip-shell`, and creates a directory for data in `/var/lib/geoip-shell` (or in `/tmp/geoip-shell-data` on OpenWrt).
 - Sets the initial config.
 - Calls the -manage script to set up geoip (which, in turn, calls additional scripts).
 - If an error occurs during the installation, it is propagated back through the execution chain and eventually the -install script calls the -uninstall script to revert any changes made to the system.
@@ -83,14 +86,14 @@ Options:
 - `-t <"[trusted_ips]">` : optional list of trusted ip addresses or subnets anywhere on the Internet to exclude from geoip blocking.
 - `-r <[user_country_code]|none>`: Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 - `-f <ipv4|ipv6|"ipv4 ipv6">`: specify the ip protocol family (ipv4 or ipv6). Defaults to both.
-- `-p <tcp|udp>:<allow|block>:<all|[ports]>`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice in one command. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 8-10.
-- `-s <"[schedule_expression]"|disable>`: specify custom cron schedule expression for the autoupdate schedule. Default cron schedule is "15 4 * * *" - at 4:15 [am] every day, or "15 4 * * 5" for OpenWrt - each Friday at 4:15am. 'disable' instead of the schedule will disable autoupdates.
-- `-n <true|false>`: NoPersistence. `true` disables persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in). `false` enables persistence. Default is `false`.
-- `-o <true|false>`: Nobackup. `true` disables automatic backups of the ip sets and geoip config, `false` enables them. Backups are used both as a backup, and for persistence since ip lists are loaded from the backup at reboot. Installation with this option will avoid using permanent storage for the ip lists but will trigger ip lists re-fetch at reboot. This option is only useful for devices with very small storage size (backup of a dozen large ip lists takes around 0.5MB). Default is `true` for OpenWrt systems, `false` for all other systems.
+- `-p <tcp|udp>:<allow|block>:<all|[ports]>`: specify ports geoip blocking will apply (or not apply) to, for tcp or udp. To specify ports for both protocols, use the `-p` option twice in one command. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 9-11.
+- `-s <"[schedule_expression]"|disable>`: specify custom crontab expression for the automatic update schedule. Default schedule is "15 4 * * *" - at 4:15 [am] every day. 'disable' will disable automatic update of the ip lists.
 - `a <path>`: Data directory path. The data directory stores the backup and the status file. Defaults to `/tmp/geoip-shell-data` for OpenWrt, `/var/lib/geoip-shell` for other systems.
 - `-w <ipt|nft>`: specify the backend firewall management utility to use with geoip-shell. `ipt` for iptables, `nft` for nftables. Default is nftables if it is present in the system
-- `-N <true|false>`: NoBlock. If installing with the `-N true` option, the geoip 'enable' rule will not be created. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the command `geoip-shell on`, or reinstall with the `-N false` option. Default is `false`.
 - `-O <memory|performance>`: create nftables sets with given optimization policy. By default, optimizes for memory when the machine has less than 2GiB RAM, otherwise optimizes for performance.
+- `-n <true|false>`: NoPersistence. `true` disables persistence (reboot cron job won't be created so after system reboot, there will be no more geoip blocking - unless the autoupdate cron job kicks in). `false` enables persistence. Default is `false`.
+- `-N <true|false>`: NoBlock. If installing with the `-N true` option, the geoip 'enable' rule will not be created. This can be used if you want to install and check the rules before commiting to actual geoip blocking. To enable blocking later, use the command `geoip-shell on`, or reinstall with the `-N false` option. Default is `false`.
+- `-o <true|false>`: NoBackup. `true` disables automatic backup of the ip sets and geoip config, `false` enables them. When NoBackup is set to `false`, ip lists will be loaded from backup after reboot. When set to `true`, ip lists will not be backed up and instead geoip-shell will automatically re-fetch them after reboot to _/tmp_, load the fetched ip lists into the firewall and then immediately delete the fetched files. Setting NoBackup to `true` is mainly useful for devices with very small storage size (backup of a dozen large ip lists takes around 0.5MB). Default is `true` for OpenWrt systems, `false` for all other systems.
 
 **geoip-shell-uninstall.sh**
 - Removes geoip firewall rules, geoip cron jobs, scripts' data and config, and deletes the scripts from /usr/bin
@@ -108,9 +111,11 @@ Advanced options:
 
 `geoip-shell status`
 * Displays information on the current state of geoip blocking
-* For a list of all firewall rules in the geoip chain, run `geoip-shell status -v`.
+* For a list of all firewall rules in the geoip chain and for detailed count of ip ranges, run `geoip-shell status -v`.
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
+
+`geoip-shell configure [options]` : changes geoip-shell configuration
 
 **Options for the `geoip-shell configure` command:**
 
