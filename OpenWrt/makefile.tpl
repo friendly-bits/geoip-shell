@@ -8,6 +8,10 @@ PKG_VERSION:=$curr_ver
 PKG_RELEASE:=$pkg_ver
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=antonk <antonk.d3v@gmail.com>
+PKG_SOURCE_PROTO:=git
+PKG_SOURCE_VERSION:=$last_commit
+PKG_SOURCE_URL:=https://github.com/friendly-bits/geoip-shell-openwrt.git
+PKG_MIRROR_HASH:=skip
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -40,7 +44,7 @@ endef
 define Package/$p_name/description/Default
 	Flexible geoip blocker with a user-friendly command line interface (currently no LuCi interface).
 	For readme, please see
-	https://github.com/openwrt/packages/blob/master/net/$p_name/files/OpenWrt-README.md
+	https://github.com/openwrt/packages/blob/master/net/$p_name/OpenWrt-README.md
 endef
 
 define Package/$p_name/description
