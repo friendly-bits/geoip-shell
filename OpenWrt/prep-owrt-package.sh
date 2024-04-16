@@ -4,7 +4,7 @@
 # prepares geoip-shell for OpenWrt (without compilation)
 #  - to build only for firewall3+iptables or firewall4+nftables, add '3' or '4' as an argument
 
-pkg_ver=r1
+: "${pkg_ver:=r1}"
 
 die() {
 	# if first arg is a number, assume it's the exit code
@@ -48,7 +48,8 @@ PATH_orig="$PATH"
 
 ### Main
 
-build_dir="$script_dir/owrt-build"
+gsh_dir="$HOME/geoip-shell"
+build_dir="$gsh_dir/owrt-build"
 files_dir="$build_dir/files"
 
 # Prepare geoip-shell for OpenWrt
@@ -57,12 +58,11 @@ printf '\n%s\n\n' "*** Preparing $p_name for OpenWrt... ***"
 
 rm -rf "$build_dir"
 
-mkdir -p "$files_dir$install_dir" &&
-mkdir -p "$files_dir$lib_dir" &&
-mkdir -p "$files_dir/etc/init.d" || die "*** Failed to create directories for $p_name build. ***"
+mkdir -p "$files_dir$install_dir" "$files_dir$lib_dir" "$files_dir$init_dir" ||
+	die "*** Failed to create directories for $p_name build. ***"
 
 
-export PATH="/usr/sbin:/usr/bin:/sbin:/bin" inst_root_gs="$build_dir/files"
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin" inst_root_gs="$files_dir"
 printf '%s\n' "*** Running '$src_dir/$p_name-install.sh'... ***"
 sh "$src_dir/$p_name-install.sh" || die "*** Failed to run the -install script or it reported an error. ***"
 echo
@@ -80,6 +80,7 @@ sed -Ei 's/(\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&[[:blank:]]*)
 	$(find -- "$build_dir"/* -print | grep '.sh$')
 sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${lib_dir}/$p_name-lib-common.sh" || exit 1
 
+# prepare Makefile
 printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 {
@@ -122,6 +123,79 @@ for _fw_ver in $_OWRTFW; do
 done
 
 printf '%s\n\n' "$BP_calls" >> "$build_dir/Makefile"
+
+printf '\n%s\n' "*** Preparing documentation... ***"
+rm -rf "$build_dir/Documentation" "$build_dir/"*.md 2>/dev/null
+
+# Prepare the main README.md
+sed 's/\/OpenWrt\/README.md/OpenWrt-README.md/g' "$src_dir/README.md" | sed 's/\[\!\[image\].*//g' | \
+sed -n -e /"## \*\*Installation\*\*"/\{:1 -e n\;/"That's\ it"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
+sed 's/Post-installation, provides/Provides/;
+	s/ Except on OpenWrt, persistence.*//;
+	s/\/Documentation\///g' |
+sed -n '/^## \*\*P\.s\.\*\*/q;
+	/- Installation is easy.*/n;
+	/- Comes with an uninstall script.*/n;
+	/.*once the installation completes.*/n;
+	/.*require root privileges.*/n;
+	/\*\*To uninstall:\*\*.*/n;
+	/\*\*To uninstall:\*\*.*/n;
+	/.*shell is incompatible.*/n;
+	/.*Default source for ip lists is RIPE.*/n;
+	/.*check-ip-in-source.sh.*/n;
+	/.*if a pre-requisite is missing.*/n;
+	/- \[Installation\](#installation)/n;
+	/- \[P\.s\.\](#ps)/n;
+	p' |
+grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > "$build_dir/README.md"
+
+# Prepare SETUP.md
+cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g' > "$build_dir/SETUP.md"
+
+# Prepare OpenWrt-README.md
+cat "$script_dir/README.md" | \
+sed 's/ipk packages are a new feature .* from the Releases. //;
+	s/Installation is possible.*\.ipk\. //;
+	s/ or via the Discussions tab on Github//;
+	s/\/README/README/g' | \
+sed 's/go ahead and use the Discussions tab, or //' | \
+sed -n -e /"  _<details><summary>To download"/\{:1 -e n\;/"<\/details>"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+sed -n -e /"## Building an OpenWrt package"/\{:1 -e n\;/"read the comments inside that script for instructions\."/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
+sed -n -e /" please consider giving this repository a star"/q\;p | \
+grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
+"$build_dir/OpenWrt-README.md"
+
+
+# Prepare NOTES.md
+cat "$src_dir/Documentation/NOTES.md" | \
+sed 's/Which shell to use with geoip-shell.*/On OpenWrt, geoip-shell expects that the default shell (called by the `sh` command) is _ash_, and the automatic shell detection feature implemented for other platforms is disabled on OpenWrt./' | \
+sed 's/\/Documentation\///g' \
+	> "$build_dir/NOTES.md"
+
+# Prepare DETAILS.md
+owrt_prelude="## **Prelude**
+- This document only covers scripts installed on OpenWrt systems and only options available on OpenWrt."
+
+owrt_scripts_details="### OpenWrt-specific scripts
+- geoip-shell-lib-owrt-common.sh
+- geoip-shell-init
+- geoip-shell-mk-fw-include.sh
+- geoip-shell-fw-include.sh
+- geoip-shell-owrt-uninstall.sh
+
+For more information about integration with OpenWrt, read [OpenWrt-README.md](OpenWrt-README.md)
+"
+
+cat "$src_dir/Documentation/DETAILS.md" | \
+sed -n '/.*lib-check-compat.*/n;p' | \
+sed -n '/.*-w <ipt|nft>.*/n;p' | \
+sed -n -e /"### OpenWrt-specific scripts"/\{p\;:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+sed -n -e /"### Optional script"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+sed -n -e /"^\*\*geoip-shell-install.sh\*\*"/\{:1 -e n\;/"^\*\*geoip-shell-manage.sh\*\*"/\{:2 -e p\; -e n\;b2 -e \}\;b1 -e \}\;p | \
+awk '{sub(/### OpenWrt-specific scripts/,s); sub(/## \*\*Prelude\*\*/,p)}1' s="$owrt_scripts_details" p="$owrt_prelude" | \
+sed -n -e /"## \*\*Optional script\*\*"/q\;p | \
+sed 's/\/Documentation\///g' \
+	> "$build_dir/DETAILS.md"
 
 printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
 echo
