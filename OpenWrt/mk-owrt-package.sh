@@ -31,7 +31,7 @@
 #     don't change Target and Subtarget later to avoid problems
 # 10) Exit and save
 
-# 11) run: make -j8 tools/install; make -j8 toolchain/install; make -j8 target/linux/compile
+# 11) run: make -j9 tools/install; make -j9 toolchain/install; make -j9 target/linux/compile
 #     (assuming your machine has 8 physical or logical cores)
 # If this is the first time you are running these commands, this may take a long while.
 
@@ -46,50 +46,11 @@
 # or change the '$pkg_ver' value in the prep-owrt-package.sh script
 # then run the script again (no need for the above preparation anymore)
 
-prep_docs() {
-	printf '\n%s\n' "*** Preparing documentation... ***"
-	cp -r "$src_dir/Documentation" "$files_dir/"
-
-	# Prepare the main README.md
-	sed 's/OpenWrt\/README.md/OpenWrt-README.md/g' "$src_dir/README.md" | sed 's/\[\!\[image\].*//g' | \
-	sed -n -e /"## \*\*Installation\*\*"/\{:1 -e n\;/"That's\ it"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
-	sed 's/Post-installation, provides/Provides/;
-		s/ Except on OpenWrt, persistence.*//' |
-	sed -n '/^## \*\*P\.s\.\*\*/q;
-		/- Installation is easy.*/n;
-		/- Comes with an uninstall script.*/n;
-		/.*once the installation completes.*/n;
-		/.*require root privileges.*/n;
-		/\*\*To uninstall:\*\*.*/n;
-		/\*\*To uninstall:\*\*.*/n;
-		/.*shell is incompatible.*/n;
-		/.*Default source for ip lists is RIPE.*/n;
-		/.*check-ip-in-source.sh.*/n;
-		/.*if a pre-requisite is missing.*/n;
-		/- \[Installation\](#installation)/n;
-		/- \[P\.s\.\](#ps)/n;
-		p' |
-	grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > "$files_dir/README.md"
-
-	# Prepare OpenWrt-README.md
-	cat "$script_dir/README.md" | \
-	sed 's/ipk packages are a new feature .* from the Releases. //;
-		s/Installation is possible.*\.ipk\. //;
-		s/ or via the Discussions tab on Github//' | \
-	sed 's/go ahead and use the Discussions tab, or //' | \
-	sed -n -e /"  _<details><summary>To download"/\{:1 -e n\;/"<\/details>"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
-	sed -n -e /"## Building an OpenWrt package"/\{:1 -e n\;/"read the comments inside that script for instructions\."/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
-	sed -n -e /" please consider giving this repository a star"/q\;p | \
-	grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
-	"$files_dir/OpenWrt-README.md"
-}
-
 # initial setup
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 case "$1" in
 	'') ;;
-	'-d') docs_only=1 ;;
 	3|4|all) _OWRTFW="$1" ;;
 	*) die "Invalid openwrt firewall version '$1'. Expected '3' or '4' or 'all'."
 esac
@@ -98,8 +59,6 @@ esac
 
 ### prepare the build
 . "$script_dir/prep-owrt-package.sh" || exit 1
-
-[ "$docs_only" ] && { prep_docs; exit; }
 
 ### Paths
 owrt_dist_dir="$HOME/openwrt"
@@ -173,8 +132,6 @@ for _fw_ver in $_OWRTFW; do
 			printf '%s\n' "*** Failed to move '$ipk_path' to '$new_ipk_path' ***" >&2
 	fi
 done
-
-prep_docs
 
 [ "$build_dir" ] && {
 	printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
