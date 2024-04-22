@@ -108,7 +108,7 @@ checkvars i_script iplist_dir geomode _fw_backend _lib
 check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" "$_lib-$_fw_backend.sh" || die
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && die "config file '$conf_file' doesn't exist! Re-install $p_name."
+[ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Please run '$p_name configure'."
 
 
 #### MAIN
@@ -118,12 +118,18 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; die' INT TERM HUP QUIT
 
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
-# wait $reboot_sleep seconds after boot
+# wait $reboot_sleep seconds after boot, or 0-59 seconds before updating
 [ "$daemon_mode" ] && {
-	IFS='. ' read -r uptime _ < /proc/uptime
-	: "${uptime:=0}"
-	: "${reboot_sleep:=30}"
-	sl_time=$((reboot_sleep-uptime))
+	if [ "$action_run" = restore ]; then
+		IFS='. ' read -r uptime _ < /proc/uptime
+		: "${uptime:=0}"
+		: "${reboot_sleep:=30}"
+		sl_time=$((reboot_sleep-uptime))
+	elif [ "$action_run" = update ]; then
+		rand_int="$(tr -cd 0-9 < /dev/urandom | dd bs=3 count=1 2>/dev/null)"
+		: "${rand_int:=0}"
+		sl_time=$(( $(printf "%.0f" "$rand_int")*60/999 ))
+	fi
 	[ $sl_time -gt 0 ] && {
 		echolog "Sleeping for ${sl_time}s..."
 		sleep $sl_time
@@ -134,7 +140,7 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; die' INT TERM HUP QUIT
 # *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
 case "$action_run" in
 	add) action_apply=add; [ ! "$apply_lists" ] && die "no list id's were specified!" ;;
-	# if firewall is in incoherent state, force re-fetch
+	# if firewall rules don't match the config, force re-fetch
 	update) action_apply=add; check_lists_coherence || force="-f" ;;
 	remove) action_apply=remove; rm_lists="$apply_lists" ;;
 	restore)
@@ -173,7 +179,7 @@ while true; do
 	### Fetch ip lists
 
 	if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
-		# mark all lists as failed in the status file before launching *fetch. if *fetch completes successfully, it will reset this
+		# mark all lists as failed in the status file before calling fetch. if fetch completes successfully, it will reset this
 		setstatus "$status_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
 
 		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$geosource" "$force" "$raw_mode"
