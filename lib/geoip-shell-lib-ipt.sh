@@ -366,7 +366,7 @@ apply_rules() {
 			[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
 				if [ "$family" = ipv6 ]; then
 					printf '%s\n' "-I $geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
-					printf '%s\n' "-I $geochain -s fe80::/8 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
+					printf '%s\n' "-I $geochain -s fe80::/10 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
 				# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
 				# else
 				# 	printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
@@ -518,7 +518,8 @@ restorebackup() {
 
 	rm_rstr_tmp
 
-	cp_conf restore || rstr_failed
+	[ "$restore_config" ] && { cp_conf restore || rstr_failed; }
+	export main_config=
 	:
 }
 
