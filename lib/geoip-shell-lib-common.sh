@@ -67,7 +67,7 @@ oldifs() {
 is_root_ok() {
 	[ "$root_ok" ] && return 0
 	rv=1
-	[ "$manualmode" ] && { rv=0; tip=" For usage, run '$me -h'."; }
+	[ "$manmode" ] && { rv=0; tip=" For usage, run '$me -h'."; }
 	die $rv "$me needs to be run as root.$tip"
 }
 
@@ -80,8 +80,8 @@ checkutil() {
 }
 
 checkvars() {
-	for var; do
-		eval "[ \"\$$var\" ]" || die "The '\$$var' variable is unset."
+	for chkvar; do
+		eval "[ \"\$$chkvar\" ]" || die "The '\$$chkvar' variable is unset."
 	done
 }
 
@@ -193,6 +193,7 @@ toupper() {
 }
 
 # calls another script and resets the config cache on exit
+# if $use_lock is set, removes lock before calling daughter script and makes lock after
 call_script() {
 	[ "$1" = '-l' ] && { use_lock=1; shift; }
 	script_to_call="$1"
@@ -494,7 +495,7 @@ awk_cmp() {
 # discards empty lines
 # returns 0 for no diff, 1 for diff, 2 for error
 compare_files() {
-	[ -f "$1" ] && [ -f "$2" ] || { echolog -err "compare_conf: file '$1' or '$2' does not exist."; return 2; }
+	[ -f "$1" ] && [ -f "$2" ] || { echolog -err "compare_files: file '$1' or '$2' does not exist."; return 2; }
 	awk_cmp "$1" "$2" && awk_cmp "$2" "$1"
 }
 
@@ -538,6 +539,7 @@ add2list() {
 	return 0
 }
 
+# checks if string $1 is safe to use with eval
 is_str_safe() {
 	case "$1" in *'\'*|*'"'*|*\'*) die "Invalid string '$1'"; esac
 }
@@ -749,6 +751,8 @@ detect_ifaces() {
 	[ -r "/proc/net/dev" ] && sed -n '/^[[:space:]]*[^[:space:]]*:/{s/^[[:space:]]*//;s/:.*//p}' < /proc/net/dev | grep -vx 'lo'
 }
 
+# returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
+# sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
 	[ "$cron_rv" ] && return "$cron_rv"
 	# check reading crontab
@@ -770,6 +774,8 @@ check_cron() {
 	return "$cron_rv"
 }
 
+# checks if the cron service is running and if it supports features required by the config
+# if cron service is not running, implements dialog with the user and optional automatic correction
 check_cron_compat() {
 	unset no_cr_persist cr_p1 cr_p2
 	[ ! "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
@@ -828,7 +834,7 @@ check_cron_compat() {
 		done
 		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
 			die "cron-based persistence doesn't work with Busybox cron." \
-			"If you want to install without persistence support, install with option '-n'"
+			"If you want to use $p_name without persistence support, install/configure with option '-n'."
 	fi
 }
 
