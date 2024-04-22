@@ -9,7 +9,7 @@ PKG_RELEASE:=$pkg_ver
 PKG_LICENSE:=GPL-3.0-or-later
 PKG_MAINTAINER:=antonk <antonk.d3v@gmail.com>
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_VERSION:=$last_commit
+PKG_SOURCE_VERSION:=$pkg_source_version
 PKG_SOURCE_URL:=https://github.com/friendly-bits/geoip-shell-openwrt.git
 PKG_MIRROR_HASH:=skip
 
