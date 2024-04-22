@@ -242,6 +242,7 @@ create_cron_job() {
 
 			# Remove existing update cron job before creating new one
 			rm_cron_job update
+			curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
 			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
 			w_sch=" with schedule '$schedule'" ;;
 		persistence)
