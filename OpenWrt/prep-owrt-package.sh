@@ -85,7 +85,7 @@ printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 {
 	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$conf_dir/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
-		p="$p_name" c="$conf_dir" v="$curr_ver" r="$pkg_ver" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
+		p="$p_name" c="$conf_dir" v="$curr_ver" r="${pkg_ver#r}" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
 
 	printf '\n%s\n' "define Package/$p_name/install/Default"
 
@@ -169,7 +169,8 @@ grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
 # Prepare NOTES.md
 cat "$src_dir/Documentation/NOTES.md" | \
 sed 's/Which shell to use with geoip-shell.*/On OpenWrt, geoip-shell expects that the default shell (called by the `sh` command) is _ash_, and the automatic shell detection feature implemented for other platforms is disabled on OpenWrt./' | \
-sed 's/\/Documentation\///g' \
+sed 's/\/Documentation\///g;
+	s/Scripts intended as user interface .*\./The script intended as user interface is \*\*geoip-shell-manage\.sh\*\* (also called by running '\*\*geoip-shell\*\*')\./' \
 	> "$build_dir/NOTES.md"
 
 # Prepare DETAILS.md
@@ -192,12 +193,17 @@ sed -n '/.*-w <ipt|nft>.*/n;p' | \
 sed -n -e /"### OpenWrt-specific scripts"/\{p\;:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n -e /"### Optional script"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n -e /"^\*\*geoip-shell-install.sh\*\*"/\{:1 -e n\;/"^\*\*geoip-shell-manage.sh\*\*"/\{:2 -e p\; -e n\;b2 -e \}\;b1 -e \}\;p | \
+sed -n '/.*geoip-shell-install.*/n;p' | \
 awk '{sub(/### OpenWrt-specific scripts/,s); sub(/## \*\*Prelude\*\*/,p)}1' s="$owrt_scripts_details" p="$owrt_prelude" | \
 sed -n -e /"## \*\*Optional script\*\*"/q\;p | \
-sed 's/\/Documentation\///g' \
+sed 's/\/Documentation\///g;
+	s/Scripts intended as user interface .*//;
+	s/-install and -manage scripts/-manage script/' \
 	> "$build_dir/DETAILS.md"
 
 printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
 echo
+
+PATH="$PATH_orig"
 
 :
