@@ -74,6 +74,8 @@ debugentermsg
 
 get_config_vars
 
+debugprint "ip lists: '$ip_lists'"
+
 tolower action
 
 geotag_aux="${geotag}_aux"
@@ -91,6 +93,7 @@ checkvars datadir geomode ifaces _fw_backend noblock
 
 ## MAIN
 
+debugprint "loading the $_fw_backend libarary..."
 . "$_lib-$_fw_backend.sh" || exit 1
 
 case "$geomode" in
