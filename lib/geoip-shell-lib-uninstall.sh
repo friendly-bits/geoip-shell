@@ -50,7 +50,6 @@ rm_iplists_rules() {
 
 	set +f
 	[ "$iplist_dir" ] && rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
-	[ "$datadir" ] && rm -rf "${datadir:?}"/* 2>/dev/null
 	set -f
 	:
 }
