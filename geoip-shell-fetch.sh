@@ -209,7 +209,7 @@ group_lists_by_registry() {
 	}
 }
 
-# checks the status faile
+# checks vars set in the status file
 # and populates variables $prev_list_reg, $prev_date_raw, $prev_date_compat, $prev_s_cnt
 check_prev_list() {
 	list_id="$1"
@@ -239,7 +239,9 @@ check_updates() {
 
 	time_now="$(date +%s)"
 
-	printf '\n%s\n\n' "Checking for ip list updates on the $dl_src_cap server..."
+	printf '\n%s\n' "Checking for ip list updates on the $dl_src_cap server..."
+	[ "$dl_src" = ipdeny ] && printf '%s\n' "Note: IPDENY server may be unresponsive at round hours."
+	echo
 
 	case "$dl_src" in
 		ipdeny) get_src_dates_ipdeny ;;
@@ -427,6 +429,25 @@ check_subnets_cnt_drop() {
 }
 
 
+#### Variables
+
+# check that either $iplist_dir_f or $output_file is set
+[ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
+	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
+# ... but not both
+[ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
+
+[ ! "$lists_arg" ] && die "Specify list id's!"
+fast_el_cnt "$lists_arg" " " lists_arg_cnt
+
+# if $output_file is set, make sure that no more than 1 list is specified
+[ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
+	die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
+
+[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] && die "Directory '$iplist_dir_f' doesn't exist!"
+iplist_dir_f="${iplist_dir_f%/}"
+
+
 #### CONSTANTS
 
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
@@ -448,7 +469,7 @@ oldifs cca
 ucl_f_cmd="uclient-fetch -T 16"
 curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
 
-[ "$script_dir" = "$install_dir" ] && getconfig http
+[ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
 unset secure_util fetch_cmd
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
@@ -530,23 +551,6 @@ case "$dl_src" in
 	ripe) dl_srv="${ripe_url_api%%/*}" ;;
 	ipdeny) dl_srv="${ipdeny_ipv4_url%%/*}"
 esac
-
-# check that either $iplist_dir_f or $output_file is set
-[ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
-	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
-# ... but not both
-[ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
-
-[ ! "$lists_arg" ] && die "Specify country code/s!"
-fast_el_cnt "$lists_arg" " " lists_arg_cnt
-
-
-# if $output_file is set, make sure that no more than 1 list is specified
-[ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
-	die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
-
-[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] && die "Directory '$iplist_dir_f' doesn't exist!"
-iplist_dir_f="${iplist_dir_f%/}"
 
 # check internet connectivity
 printf '\n%s' "Checking connectivity... "
