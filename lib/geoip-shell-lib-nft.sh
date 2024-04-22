@@ -290,7 +290,7 @@ apply_rules() {
 		rv=0
 
 		### Create the chains
-		printf '%s\n%s\n' "add chain inet $geotable $base_geochain { type filter hook prerouting priority mangle; policy accept; }" \
+		printf '%s\n%s\n' "add chain inet $geotable $base_geochain { type filter hook prerouting priority -141; policy accept; }" \
 			"add chain inet $geotable $geochain"
 
 		## Remove the whitelist blocking rule and the auxiliary rules
@@ -363,7 +363,7 @@ apply_rules() {
 		# Allow link-local, DHCPv6
 		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
 			printf '%s\n' "insert $georule ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546 counter accept comment ${geotag_aux}_DHCPv6"
-			printf '%s\n' "insert $georule ip6 saddr fe80::/8 counter accept comment ${geotag_aux}_link-local"
+			printf '%s\n' "insert $georule ip6 saddr fe80::/10 counter accept comment ${geotag_aux}_link-local"
 
 			# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
 			# printf '%s\n' "add $georule meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
@@ -439,8 +439,8 @@ restorebackup() {
 	done
 	OK
 
-	cp_conf restore || rstr_failed
-	main_config=
+	[ "$restore_config" ] && { cp_conf restore || rstr_failed; }
+	export main_config=
 
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
