@@ -94,7 +94,7 @@ _To find out more, use `sh geoip-shell-install.sh -h` or read [NOTES.md](/Docume
 
 _(Note that some commands require root privileges, so you will likely need to run them with `sudo`)_
 
-**1)** If your system doesn't have `wget`, `curl` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager. Systems which only have `iptables` also require the `ipset` utility.
+**1)** If your system doesn't have `curl`, `wget` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager (for Debian and derivatives: `apt-get install curl`). Systems which only have `iptables` also require the `ipset` utility (`apt-get install ipset`).
 
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
   _<details><summary>Or download using the command line:</summary>_
@@ -123,12 +123,13 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
   `sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
 
-  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where <source> is `ripe` or `ipdeny`.
+  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where `<source>` is `ripe` or `ipdeny`.
   - to block or allow specific ports or ports ranges, use `<[tcp|udp]:[allow|block]:[ports]>`. This option may be used twice in one command to specify ports for both tcp and udp _(for examples, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_.
   - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
-  - if your machine uses nftables and has enough memory, consider installing with the `-O performance` option
+  - if your machine uses nftables, depending on the RAM capacity of the machine and the number and size of the ip lists, consider installing with the `-O performance` or `-O memory` option. This will create nft sets optimized either for performance or for low memory consumption. By default, when the machine has more than 2GiB of memory, the `performance` option is used, otherwise the `memory` option is used.
   - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
-  - if for some reason you need to install geoip-shell in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions and will fail if required config is incomplete or invalid.
+  - if your system has nftables installed and also a package like _xtables-compat_ (utilizing the nft_compat module) which allows to manage the nftables backend using iptables rules, you can override the geoip-shell default to directly utilize the nftables backend with option `-w ipt`. This will create iptables rules and ipsets for geoip-shell rather than nftables rules and sets. You will need the `ipset` utility installed for this.
+  - if for some reason you need to install geoip-shell in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions. geoip-shell will get installed but initial setup will fail if required config is incomplete or invalid.
   </details>
 
 **5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [SETUP.md](/Documentation/SETUP.md).
