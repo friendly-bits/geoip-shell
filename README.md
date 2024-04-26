@@ -134,7 +134,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
 **5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [SETUP.md](/Documentation/SETUP.md).
 
-**6)** That's it! By default, ip lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update). You can verify that automatic updates are working by running `geoip-shell status`: this will report geoip-shell status and time of last successful update (note that this time doesn't change if ip lists are already up-to-date during an automatic update). Alternatively, run `cat /var/log/syslog | grep geoip-shell` on the next day to check geoip-shell log messages (change syslog path if necessary, according to the location assigned by your distro. on OpenWrt and some other distributions a different command should be used, such as `logread`).
+**6)** That's it! By default, ip lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
