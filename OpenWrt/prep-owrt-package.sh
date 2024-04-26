@@ -150,7 +150,10 @@ sed -n '/^## \*\*P\.s\.\*\*/q;
 grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > "$build_dir/README.md"
 
 # Prepare SETUP.md
-cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g' > "$build_dir/SETUP.md"
+cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g;
+	s/`sh geoip-shell-install.sh -h`, or after installation //' | \
+	sed -n -e /"### \*\*'Your shell 'A' is supported"/\{:1 -e n\;/"Whether geoip-shell will work correctly"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p > \
+	"$build_dir/SETUP.md"
 
 # Prepare OpenWrt-README.md
 cat "$script_dir/README.md" | \
@@ -193,7 +196,7 @@ sed -n '/.*-w <ipt|nft>.*/n;p' | \
 sed -n -e /"### OpenWrt-specific scripts"/\{p\;:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n -e /"### Optional script"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n -e /"^\*\*geoip-shell-install.sh\*\*"/\{:1 -e n\;/"^\*\*geoip-shell-manage.sh\*\*"/\{:2 -e p\; -e n\;b2 -e \}\;b1 -e \}\;p | \
-sed -n '/.*geoip-shell-install.*/n;p' | \
+sed -n '/.*geoip-shell-install.*/n;/.*geoip-shell-uninstall.*/n;p' | \
 awk '{sub(/### OpenWrt-specific scripts/,s); sub(/## \*\*Prelude\*\*/,p)}1' s="$owrt_scripts_details" p="$owrt_prelude" | \
 sed -n -e /"## \*\*Optional script\*\*"/q\;p | \
 sed 's/\/Documentation\///g;
