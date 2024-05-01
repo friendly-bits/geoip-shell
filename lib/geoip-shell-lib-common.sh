@@ -47,6 +47,10 @@ debugexitmsg() {
 }
 #@
 
+get_md5() {
+	printf %s "$1" | md5sum | cut -d' ' -f1
+}
+
 # sets some variables for colors, symbols and delimiter
 set_ansi() {
 	set -- $(printf '\033[0;31m \033[0;32m \033[1;34m \033[1;33m \033[0;35m \033[0m \35 \342\234\224 \342\234\230 \t')
@@ -384,6 +388,8 @@ get_config_vars() {
 	}
 
 	target_f_gcv="${1:-"$conf_file"}"
+	_exp=
+	[ "$export_conf" ] && _exp="export "
 
 	getallconf all_config "$target_f_gcv" || {
 		echolog -err "$FAIL get config from '$target_f_gcv'."
@@ -401,7 +407,7 @@ get_config_vars() {
 		esac
 		key_conf="${entry%=*}"
 		is_alphanum "$key_conf" || { inval_e; return 1; }
-		eval "$key_conf"='${entry#${key_conf}=}'
+		eval "$_exp$key_conf"='${entry#${key_conf}=}'
 	done
 	oldifs gcv
 	:
@@ -945,7 +951,7 @@ if [ -z "$geotag" ]; then
 	# export some vars
 	set_ansi
 	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
-	[ ! "$in_install" ] && [ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
+	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
 		export datadir status_file="$datadir/status"
 	}
