@@ -462,7 +462,7 @@ case "$action" in
 		case "$conf_act" in
 			reset) restore_from_config ;;
 			restore) call_script -l "$i_script-backup.sh" restore -n ;;
-			backup) call_script -l "$i_script-backup.sh" create-backup ;;
+			backup) call_script -l "$i_script-backup.sh" create-backup; die $? ;;
 			'') call_script "$i_script-apply.sh" update
 		esac
 		rv_conf=$?
@@ -473,6 +473,9 @@ case "$action" in
 		[ "$schedule_change" ] || [ "$conf_act" = reset ]  || [ "$first_setup" ] && {
 			call_script "$i_script-cronsetup.sh" || die "$FAIL update cron jobs."
 		}
+
+		[ ! "$conf_act" ] && [ "$nobackup" != true ] && call_script -l "$i_script-backup.sh" create-backup
+
 
 		[ "$rv_conf" = 0 ] && [ "$first_setup" ] && {
 			touch "$conf_dir/setupdone"
@@ -486,7 +489,7 @@ case "$action" in
 						[ ! -f "$lock_file" ] && break
 						sleep 1
 					done
-					[ $i = 60 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; }
+					[ $i = 30 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; }
 				}
 			}
 		}
