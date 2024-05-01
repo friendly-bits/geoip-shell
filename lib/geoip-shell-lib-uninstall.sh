@@ -45,12 +45,14 @@ rm_iplists_rules() {
 	# remove the lock file
 	rm_lock
 
-	### Remove geoip firewall rules
-	[ "$_fw_backend" ] && rm_all_georules || return 1
-
+	# remove iplist files if any
 	set +f
 	[ "$iplist_dir" ] && rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
 	set -f
+
+	### Remove geoip firewall rules
+	[ "$_fw_backend" ] && { rm_all_georules || return 1; }
+
 	:
 }
 
