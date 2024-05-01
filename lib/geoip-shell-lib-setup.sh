@@ -300,7 +300,7 @@ parse_ports() {
 	[ "$ranges_cnt" = 0 ] && { echolog -err "No ports specified for protocol $_proto."; return 1; }
 	_ports=":${_ports%,}"
 
-	[ "$_fw_backend" = ipt ] && [ "$ranges_cnt" -gt 1 ] && mp="multiport"
+	[ "$ranges_cnt" -gt 1 ] && mp="multiport "
 	:
 }
 
@@ -340,7 +340,7 @@ setports() {
 			[ "$neg" ] && ports_exp=skip || ports_exp=all
 		else
 			parse_ports || return 1
-			ports_exp="$mp ${neg}dport"
+			ports_exp="$mp${neg}dport"
 		fi
 		trimsp ports_exp
 		eval "${_proto}_ports=\"$ports_exp$_ports\""
