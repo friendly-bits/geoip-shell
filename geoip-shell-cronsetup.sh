@@ -288,7 +288,7 @@ run_cmd="$i_script-run.sh"
 schedule="${schedule:-$default_schedule}"
 
 
-printf %s "Processing cron jobs..."
+printf %s "Processing cron jobs... "
 
 #### Checks
 
