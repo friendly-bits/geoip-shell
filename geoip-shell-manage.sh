@@ -407,7 +407,6 @@ case "$action" in
 		[ ! "$conf_act" ] && [ "$nobackup_change" ] && [ "$nobackup" = false ] && conf_act=backup
 		[ "$conf_act" != reset ] &&
 			{ [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } || [ "$nft_perf_change" ] && conf_act=restore
-		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -d "$bk_dir" ]; } && conf_act=reset
 
 		[ "$geomode_change" ] || [ "$geosource_change" ] || [ "$lists_change" ] || [ "$_fw_backend_change" ] && conf_act=reset
 
@@ -423,6 +422,7 @@ case "$action" in
 		}
 
 		case "$conf_act" in ''|backup) ! check_lists_coherence 2>/dev/null && conf_act=restore; esac
+		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -d "$bk_dir" ]; } && conf_act=reset
 
 		[ "$datadir_change" ] && {
 			printf %s "Creating the data dir '$datadir'... "
