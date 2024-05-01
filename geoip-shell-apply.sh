@@ -43,6 +43,19 @@ die_a() {
 	die "$@"
 }
 
+# populates $counter_val for rule $1
+get_counter_val() {
+	rule_md5="$(get_md5 "$1")"
+	eval "counter_val=\"\$counter_$rule_md5\""
+	debugprint "counter val for '$1': '$counter_val'"
+	[ ! "$counter_val" ] && {
+		case "$_fw_backend" in
+			nft) counter_val="packets 0 bytes 0" ;;
+			ipt) counter_val="[0:0]"
+		esac
+	}
+}
+
 ## PARSE ARGUMENTS
 
 # check for valid action
