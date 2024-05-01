@@ -38,7 +38,7 @@ nft_get_chain() {
 
 rm_all_georules() {
 	printf %s "Removing firewall geoip rules... "
-	nft_get_geotable -f 1>/dev/null 2>/dev/null || return 0
+	nft_get_geotable -f 1>/dev/null 2>/dev/null || { OK; return 0; }
 	nft delete table inet "$geotable" || { echolog -err -nolog "$FAIL delete table '$geotable'."; return 1; }
 	export _geotable_cont=
 	OK
@@ -46,6 +46,37 @@ rm_all_georules() {
 
 
 ### Rules
+
+# store current counter values in vars
+# 1 - chain contents
+get_geocounters() {
+	curr_rules="$(printf '%s\n' "$1" | grep "$geotag")"
+	newifs "$_nl" cnt
+	for rule in $curr_rules; do
+		case "$rule" in *counter*) ;; *) continue; esac
+
+		# remove leading whitespaces and tabs
+		rule="${rule#"${rule%%[! 	]*}"}"
+
+		# extract counter values
+		counter_val_tmp="${rule##*"counter "}"
+		bytes="${counter_val_tmp##*"bytes "}"
+		bytes="${bytes%% *}"
+		counter_val="${counter_val_tmp%%bytes*}bytes $bytes"
+
+		# remove counter values from the rule string
+		rule_pt2="${rule#*bytes }"
+		rule="${rule%%counter*}${rule_pt2#* }"
+		rule="${rule%%" #"*}"
+
+		rule_md5="$(get_md5 "$rule")"
+		[ ! "$rule_md5" ] && continue
+
+		eval "counter_$rule_md5=\"$counter_val\""
+		eval "printf '%s\n' \"counter_$rule_md5=$counter_val\""
+	done
+	oldifs cnt
+}
 
 # 1 - chain name
 # 2 - current chain contents
@@ -282,16 +313,21 @@ apply_rules() {
 
 	#### Assemble commands for nft
 	opt_ifaces=
-	[ "$ifaces" != all ] && opt_ifaces="iifname { $(printf '"%s", ' $ifaces) }"
-	georule="rule inet $geotable $geochain $opt_ifaces"
+	[ "$ifaces" != all ] && {
+		unset br1 br2
+		case "$ifaces" in *' '*) br1='{ ' br2=' }'; esac
+		opt_ifaces=" iifname $br1$(printf '"%s", ' $ifaces)"
+		opt_ifaces="${opt_ifaces%", "}$br2"
+	}
+	geopath="inet $geotable $geochain"
 
 	printf %s "Assembling nftables commands... "
 	nft_cmd_chain="$(
-		rv=0
+		get_geocounters "$geochain_cont" >/dev/null
 
 		### Create the chains
 		printf '%s\n%s\n' "add chain inet $geotable $base_geochain { type filter hook prerouting priority -141; policy accept; }" \
-			"add chain inet $geotable $geochain"
+			"add chain $geopath"
 
 		## Remove the whitelist blocking rule and the auxiliary rules
 		mk_nft_rm_cmd "$geochain" "$geochain_cont" "${geotag}_whitelist_block" "${geotag_aux}" || exit 1
@@ -326,7 +362,7 @@ apply_rules() {
 					{ type ${family}_addr; $interval elements={ "
 				printf '%s,' $trusted
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert $georule $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
+				printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
 			}
 		done
 
@@ -354,7 +390,7 @@ apply_rules() {
 						{ type ${family}_addr; $interval elements={ "
 					printf '%s,' $lan_ips
 					printf '%s\n' " }; }"
-					printf '%s\n' "insert $georule $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
+					printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
 				}
 			done
 			[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
@@ -362,43 +398,62 @@ apply_rules() {
 
 		# Allow link-local, DHCPv6
 		[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
-			printf '%s\n' "insert $georule ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546 counter accept comment ${geotag_aux}_DHCPv6"
-			printf '%s\n' "insert $georule ip6 saddr fe80::/10 counter accept comment ${geotag_aux}_link-local"
+			rule_DHCPv6_1="ip6 saddr fc00::/6 ip6 daddr fc00::/6 udp dport 546"
+			rule_DHCPv6_2="accept comment \"${geotag_aux}_DHCPv6\""
+			get_counter_val "$rule_DHCPv6_1 $rule_DHCPv6_2"
+			printf '%s\n' "insert rule $geopath$opt_ifaces $rule_DHCPv6_1 counter $counter_val $rule_DHCPv6_2"
+
+			rule_LL_1="ip6 saddr fe80::/10"
+			rule_LL_2="accept comment \"${geotag_aux}_link-local\""
+			get_counter_val "$rule_LL_1 $rule_LL_2"
+			printf '%s\n' "insert rule $geopath$opt_ifaces $rule_LL_1 counter $counter_val $rule_LL_2"
 
 			# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
-			# printf '%s\n' "add $georule meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
+			# printf '%s\n' "add rule $geopath$opt_ifaces meta nfproto ipv4 udp dport 68 counter accept comment ${geotag_aux}_DHCP"
 		}
 
 		# ports
 		for proto in tcp udp; do
 			eval "ports_exp=\"\${${proto}_ports%:*}\" ports=\"\${${proto}_ports##*:}\""
-			eval "proto_ports=\"\$${proto}_ports\""
-			debugprint "proto_ports: '$proto_ports', ports_exp: '$ports_exp', ports: '$ports'"
+			debugprint "ports_exp: '$ports_exp', ports: '$ports'"
 			[ "$ports_exp" = skip ] && continue
 			if [ "$ports_exp" = all ]; then
 				ports_exp="meta l4proto $proto"
 			else
-				ports_exp="$proto $(printf %s "$ports_exp" | sed "s/multiport //;s/!dport/dport !=/") { $ports }"
+				unset br1 br2
+				case "$ports" in *','*)
+					br1='{ ' br2=' }'
+					ports="$(printf %s "$ports" | sed 's/,/, /g')"
+				esac
+				ports_exp="$proto $(printf %s "$ports_exp" | sed "s/multiport //;s/!dport/dport !=/") $br1$ports$br2"
 			fi
-			printf '%s\n' "insert $georule $ports_exp counter accept comment ${geotag_aux}_ports"
+			rule_ports_pt2="accept comment \"${geotag_aux}_ports\""
+			get_counter_val "$ports_exp $rule_ports_pt2"
+			printf '%s\n' "insert rule $geopath$opt_ifaces $ports_exp counter $counter_val $rule_ports_pt2"
 		done
 
 		# established/related
-		printf '%s\n' "insert $georule ct state established,related accept comment ${geotag_aux}_est-rel"
+		printf '%s\n' "insert rule $geopath$opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 		# lo interface
 		[ "$geomode" = "whitelist" ] && [ "$ifaces" = all ] &&
-			printf '%s\n' "insert rule inet $geotable $geochain iifname lo accept comment ${geotag_aux}-loopback"
+			printf '%s\n' "insert rule $geopath$opt_ifaces iifname lo accept comment ${geotag_aux}-loopback"
 
 		## add iplist-specific rules
 		for new_ipset in $new_ipsets; do
 			get_ipset_id "$new_ipset" || exit 1
 			get_nft_family
-			printf '%s\n' "add $georule $nft_family saddr @$new_ipset counter $iplist_verdict"
+			rule_ipset="$nft_family saddr @$new_ipset"
+			get_counter_val "$rule_ipset $iplist_verdict"
+			printf '%s\n' "add rule $geopath$opt_ifaces $rule_ipset counter $counter_val $iplist_verdict"
 		done
 
 		## whitelist blocking rule
-		[ "$geomode" = whitelist ] && printf '%s\n' "add $georule counter drop comment ${geotag}_whitelist_block"
+		[ "$geomode" = whitelist ] && {
+			rule_wl_pt2="drop comment \"${geotag}_whitelist_block\""
+			get_counter_val "$rule_wl_pt2"
+			printf '%s\n' "add rule $geopath$opt_ifaces counter $counter_val $rule_wl_pt2"
+		}
 
 		## geoip enable rule
 		[ "$noblock" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
@@ -414,6 +469,23 @@ apply_rules() {
 	printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "$FAIL apply new firewall rules"
 	OK
 
+	# update ports in config
+	nft_get_geotable -f >/dev/null
+	ports_conf=
+	for proto in tcp udp; do
+		eval "ports_exp=\"\$${proto}_ports\""
+		case "$ports_exp" in skip|all) continue; esac
+		ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*")"
+
+		IFS=' 	' set -- $ports_line; shift 2
+		get_nft_list "$@"; ports_exp="$_res"
+		unset mp neg
+		case "$ports_exp" in *','*) mp="multiport "; esac
+		case "$ports_exp" in *'!'*) neg='!'; esac
+		ports_conf="$ports_conf${proto}_ports=$mp${neg}dport:${ports_exp#*"!="}$_nl"
+	done
+	[ "$ports_conf" ] && setconfig "${ports_conf%"$_nl"}"
+
 	[ "$noblock" = true ] && echolog -warn "Geoip blocking is disabled via config."
 
 	echo
@@ -424,6 +496,7 @@ apply_rules() {
 # resets firewall rules, destroys geoip ipsets and then initiates restore from file
 restorebackup() {
 	printf %s "Restoring ip lists from backup... "
+	counters_f="$bk_dir/counters.bak"
 	for list_id in $iplists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
@@ -445,6 +518,7 @@ restorebackup() {
 	# remove geoip rules
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
+	[ -s "$counters_f" ] && export_conf=1 nodie=1 get_config_vars "$counters_f"
 	call_script "${i_script}-apply.sh" add -l "$iplists"; apply_rv=$?
 	rm "$iplist_dir/"*.iplist 2>/dev/null
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
@@ -504,7 +578,15 @@ create_backup() {
 	for f in "${bk_dir}"/*.new; do
 		mv -- "$f" "${f%.new}" || bk_failed
 	done
+
+	bk_geocounters
 	:
+}
+
+# backup up rule counters
+bk_geocounters() {
+	geochain_cont="$(nft_get_chain "$geochain")" &&
+	get_geocounters "$geochain_cont" > "$bk_dir/counters.bak"
 }
 
 geotable="$geotag"
