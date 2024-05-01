@@ -42,7 +42,7 @@ cnt_ipset_elements() {
 rm_ipt_rules() {
 	printf %s "Removing $family iptables rules tagged '$1'... "
 	set_ipt_cmds
-
+	save_counter "$1"
 	{ echo "*$ipt_table"; eval "$ipt_save_cmd" | sed -n "/$1/"'s/^-A /-D /p'; echo "COMMIT"; } |
 		eval "$ipt_restore_cmd" ||
 		{ FAIL; echolog -err "rm_ipt_rules: $FAIL remove firewall rules tagged '$1'."; return 1; }
@@ -100,10 +100,25 @@ destroy_tmp_ipsets() {
 	done
 }
 
+# saves current counter values for rule tagged $1
+save_counter() {
+	newifs "$_nl" cnt
+	for rm_rule in $curr_ipt; do
+		case "$rm_rule" in *"$1"*) ;; *) continue; esac
+		counter_val="${rm_rule%%\]*}]"
+		rm_rule="${rm_rule#*" -A "}"
+		rule_md5="$(get_md5 "$rm_rule")"
+		[ ! "$rule_md5" ] && continue
+		eval "counter_$rule_md5=\"$counter_val\""
+	done
+	oldifs cnt
+}
+
 # 1 - iptables tag
 mk_ipt_rm_cmd() {
 	for tag in "$@"; do
-		printf '%s\n' "$curr_ipt"  | sed -n "/$tag/"'s/^-A /-D /p' || return 1
+		save_counter "$tag"
+		printf '%s\n' "$curr_ipt" | sed -n "/$tag/"'{s/^\[.*\]//;s/ -A /-D /;p}' || return 1
 	done
 }
 
@@ -247,7 +262,7 @@ apply_rules() {
 
 	for family in $families; do
 		set_ipt_cmds || die_a
-		curr_ipt="$(eval "$ipt_save_cmd")" || die_a "$FAIL read iptables rules."
+		curr_ipt="$(eval "$ipt_save_cmd -c")" || die_a "$FAIL read iptables rules."
 
 		# remove lan and trusted ipsets
 		t_ipset="trusted_${family}_${geotag}"
@@ -259,7 +274,7 @@ apply_rules() {
 		rm_ipset "$lan_ipset"
 
 		get_curr_ipsets
-		curr_ipt="$(eval "$ipt_save_cmd")" || die_a "$FAIL read iptables rules."
+		curr_ipt="$(eval "$ipt_save_cmd -c")" || die_a "$FAIL read iptables rules."
 
 		ipsets_to_add=
 
@@ -322,20 +337,18 @@ apply_rules() {
 		set_ipt_cmds || die_a
 
 		iptr_cmd_chain="$(
-			rv=0
-
 			printf '%s\n' "*$ipt_table"
 
 			### Remove existing geoip rules
 
 			## Remove the main blocking rule, the whitelist blocking rule and the auxiliary rules
-			mk_ipt_rm_cmd "${geotag}_enable" "${geotag_aux}" "${geotag}_whitelist_block" "${geotag}_iface_filter" || rv=1
+			mk_ipt_rm_cmd "${geotag}_enable" "${geotag_aux}" "${geotag}_whitelist_block" "${geotag}_iface_filter" || exit 1
 
 			## Remove rules for $list_ids
 			for list_id in $list_ids; do
 				[ "$family" != "${list_id#*_}" ] && continue
 				list_tag="${list_id}_${geotag}"
-				mk_ipt_rm_cmd "$list_tag" || rv=1
+				mk_ipt_rm_cmd "$list_tag" || exit 1
 			done
 
 
@@ -355,18 +368,29 @@ apply_rules() {
 			## Auxiliary rules
 
 			# trusted subnets/ips
-			[ "$trusted" ] &&
-				printf '%s\n' "-I $geochain -m set --match-set trusted_${family}_${geotag} src $ipt_comm trusted_${family}_${geotag_aux} -j ACCEPT"
+			[ "$trusted" ] && {
+				rule="$geochain -m set --match-set trusted_${family}_${geotag} src $ipt_comm trusted_${family}_${geotag_aux} -j ACCEPT"
+				get_counter_val "$rule"
+				printf '%s\n' "$counter_val -I $rule"
+			}
 
 			# LAN subnets/ips
-			[ "$geomode" = whitelist ] && [ "$lan_ips" ] &&
-				printf '%s\n' "-I $geochain -m set --match-set lan_ips_${family}_${geotag} src $ipt_comm lan_ips_${family}_${geotag_aux} -j ACCEPT"
+			[ "$geomode" = whitelist ] && [ "$lan_ips" ] && {
+				rule="$geochain -m set --match-set lan_ips_${family}_${geotag} src $ipt_comm lan_ips_${family}_${geotag_aux} -j ACCEPT"
+				get_counter_val "$rule"
+				printf '%s\n' "$counter_val -I $rule"
+			}
 
 			# Allow link-local, DHCPv6
 			[ "$geomode" = whitelist ] && [ "$ifaces" != all ] && {
 				if [ "$family" = ipv6 ]; then
-					printf '%s\n' "-I $geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
-					printf '%s\n' "-I $geochain -s fe80::/10 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
+					rule_DHCPv6="$geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
+					get_counter_val "$rule_DHCPv6"
+					printf '%s\n' "$counter_val -I $rule_DHCPv6"
+
+					rule_LL="$geochain -s fe80::/10 $ipt_comm ${geotag_aux}_link-local -j ACCEPT"
+					get_counter_val "$rule_LL"
+					printf '%s\n' "$counter_val -I $rule_LL"
 				# leaving DHCP v4 allow disabled for now because it's unclear that it is needed
 				# else
 				# 	printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
@@ -381,19 +405,25 @@ apply_rules() {
 					ports_exp=
 				else
 					dport='--dport'
-					case "$ports_exp" in *multiport*) dport='--dports'; esac
+					case "$ports_exp" in *multiport*) dport='--dports' ;; '') ;; *) proto="$proto -m $proto"; esac
 					ports="$(printf %s "$ports" | sed 's/-/:/g')"
 					ports_exp="$(printf %s "$ports_exp" | sed "s/all//;s/multiport/-m multiport/;s/!/! /;s/dport/$dport/") $ports"
 				fi
-				printf '%s\n' "-I $geochain -p $proto $ports_exp -j ACCEPT $ipt_comm ${geotag_aux}_ports"
+				trimsp ports_exp
+				[ "$ports_exp" ] && ports_exp=" $ports_exp"
+				rule="$geochain -p $proto$ports_exp $ipt_comm ${geotag_aux}_ports -j ACCEPT"
+				get_counter_val "$rule"
+				printf '%s\n' "$counter_val -I $rule"
 			done
 
 			# established/related
-			printf '%s\n' "-I $geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
+			rule="$geochain -m conntrack --ctstate RELATED,ESTABLISHED $ipt_comm ${geotag_aux}_rel-est -j ACCEPT"
+			get_counter_val "$rule"
+			printf '%s\n' "$counter_val -I $rule"
 
 			# lo interface
 			[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
-				printf '%s\n' "-I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
+				printf '%s\n' "[0:0] -I $geochain -i lo $ipt_comm ${geotag_aux}-lo -j ACCEPT"
 
 			## iplist-specific rules
 			if [ "$action" = add ]; then
@@ -401,21 +431,27 @@ apply_rules() {
 					[ "$family" != "${list_id#*_}" ] && continue
 					perm_ipset="${list_id}_${geotag}"
 					list_tag="${list_id}_${geotag}"
-					printf '%s\n' "-A $geochain -m set --match-set $perm_ipset src $ipt_comm $list_tag -j $fw_target"
+					rule="$geochain -m set --match-set $perm_ipset src $ipt_comm $list_tag -j $fw_target"
+					get_counter_val "$rule"
+					printf '%s\n' "$counter_val -A $rule"
 				done
 			fi
 
 			# whitelist block
-			[ "$geomode" = whitelist ] && printf '%s\n' "-A $geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
+			[ "$geomode" = whitelist ] && {
+				rule="$geochain $ipt_comm ${geotag}_whitelist_block -j DROP"
+				get_counter_val "$rule"
+				printf '%s\n' "$counter_val -A $rule"
+			}
 
-			echo "COMMIT"
-			exit "$rv"
+			echo COMMIT
+			:
 		)" || die_a "$FAIL assemble commands for iptables-restore"
 		OK
 
-		### "Apply new rules
+		### Apply new rules
 		printf %s "Applying new $family firewall rules... "
-		printf '%s\n' "$iptr_cmd_chain" | eval "$ipt_restore_cmd" || critical "$FAIL apply new iptables rules"
+		printf '%s\n' "$iptr_cmd_chain" | eval "$ipt_restore_cmd -c" || critical "$FAIL apply new iptables rules"
 		OK
 
 		[ -n "$ipsets_to_add" ] && {
@@ -446,7 +482,7 @@ apply_rules() {
 
 	# insert the main blocking rule
 	case "$noblock" in
-		false) geoip_on ;;
+		false) geoip_on >/dev/null ;;
 		true) echolog -warn "Geoip blocking is disabled via config."
 	esac
 
@@ -466,10 +502,10 @@ restorebackup() {
 	# outputs the ipset portion of the backup file
 	get_ipset_bk() { sed -n "/create .*${p_name}/,\$p" < "$tmp_file"; }
 
-	printf '%s\n' "Restoring firewall state from backup... "
+	printf '%s\n' "Restoring $p_name state from backup... "
 
 	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
-	[ -z "$bk_file" ] && die "Can not restore the firewall state: no backup found."
+	[ -z "$bk_file" ] && die "Can not restore $p_name state: no backup found."
 	[ ! -f "$bk_file" ] && die "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
@@ -498,21 +534,22 @@ restorebackup() {
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
 
 	# ipset needs to be restored before iptables
-	for restoretgt in ipset iptables; do
-		printf %s "Restoring $restoretgt state... "
+	for restoretgt in ipsets rules; do
+		printf %s "Restoring $p_name $restoretgt... "
 		case "$restoretgt" in
-			ipset) get_ipset_bk | ipset restore; rv=$? ;;
-			iptables)
+			ipsets) get_ipset_bk | ipset restore; rv=$? ;;
+			rules)
 				rv=0
 				for family in $families; do
 					set_ipt_cmds
-					get_iptables_bk | $ipt_restore_cmd; rv=$((rv+$?))
+					get_iptables_bk | $ipt_restore_cmd -c
+					rv=$((rv+$?))
 				done ;;
 		esac
 
 		case "$rv" in
 			0) OK ;;
-			*) FAIL; rstr_failed "$FAIL restore $restoretgt state from backup." reset
+			*) FAIL; rstr_failed "$FAIL restore $p_name $restoretgt from backup." reset
 		esac
 	done
 
@@ -551,30 +588,25 @@ bk_failed() {
 create_backup() {
 	printf %s "Creating backup of current $p_name state... "
 
-	bk_len=0
-	for family in $families; do
+	( for family in $families; do
 		set_ipt_cmds
-		printf '%s\n' "[${p_name}_IPTABLES_$family]" >> "$tmp_file" &&
-		printf '%s\n' "*$ipt_table" >> "$tmp_file" &&
-		$ipt_save_cmd | grep -i "$geotag" >> "$tmp_file" &&
-		printf '%s\n' "COMMIT" >> "$tmp_file" || bk_failed "$FAIL back up $p_name state."
-	done
+		printf '%s\n%s\n' "[${p_name}_IPTABLES_$family]" "*$ipt_table"
+		$ipt_save_cmd -c | grep -i "$geotag" || exit 1
+		echo COMMIT
+	done ) > "$tmp_file" && [ -s "$tmp_file" ] || bk_failed "$FAIL back up $p_name state."
 	OK
 
-	bk_len="$(wc -l < "$tmp_file")"
 	printf '%s\n' "[${p_name}_IPSET]" >> "$tmp_file"
 
-	for ipset in $(ipset list -n | grep $geotag); do
-		printf %s "Creating backup of ipset '$ipset'... "
-
-		# append current ipset content to tmp_file
-		ipset save "$ipset" >> "$tmp_file"; rv=$?
-
-		bk_len_old=$(( bk_len + 1 ))
-		bk_len="$(wc -l < "$tmp_file")"
-		[ "$rv" != 0 ] || [ "$bk_len" -le "$bk_len_old" ] && bk_failed "$FAIL back up ipset '$ipset'."
-		OK
-	done
+	( for ipset in $(ipset list -n | grep "$geotag"); do
+		printf %s "Creating backup of ipset '$ipset'... " >&2
+		ipset save "$ipset" > "${tmp_file}_1" &&
+		cat "${tmp_file}_1" &&
+		[ -s "${tmp_file}_1" ]; rv=$?
+		rm -f "${tmp_file}_1"
+		[ $rv != 0 ] && exit 1
+		OK >&2
+	done ) >> "$tmp_file" || bk_failed "$FAIL back up ipset '$ipset'."
 
 	printf %s "Compressing backup... "
 	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
