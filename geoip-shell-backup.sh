@@ -47,10 +47,10 @@ case "$action" in
 esac
 
 # process the rest of the args
-restore_config=1
+restore_conf=1
 while getopts ":ndVh" opt; do
 	case $opt in
-		n) restore_config= ;;
+		n) restore_conf= ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
@@ -150,7 +150,7 @@ case "$action" in
 		[ "$restore_conf" ] && bk_conf_file="$config_file_bak" || bk_conf_file="$config_file"
 		[ ! -s "$bk_conf_file" ] && rstr_failed "File '$bk_conf_file' is empty or doesn't exist."
 		getconfig iplists iplists "$bk_conf_file" &&
-		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed
+		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
 		set_extract_cmd "$bk_ext"
 		restorebackup
 		printf '%s\n\n' "Successfully completed action 'restore'."
