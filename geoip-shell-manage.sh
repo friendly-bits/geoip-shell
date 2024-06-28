@@ -242,7 +242,6 @@ get_wrong_ccodes() {
 	san_str wrong_ccodes
 }
 
-
 #### VARIABLES
 
 changeact="Changing action to 'configure'."
@@ -285,7 +284,7 @@ conf_act=
 case "$geomode" in
 	whitelist|blacklist) ;;
 	'') [ "$action" != configure ] && echolog "Geoip mode is not set. $changeact"
-		rm -f "$conf_dir/setupdone" 2>/dev/null
+		rm_setupdone
 		action=configure conf_act=reset ;;
 	*) die "Unexpected geoip mode '$geomode'!"
 esac
@@ -339,13 +338,13 @@ case "$action" in
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
-	reset) rm_iplists_rules; rm_data; setconfig "iplists="; die $? ;;
+	reset) rm_iplists_rules; rm_data; rm -f "$conf_file" 2>/dev/null; rm_setupdone; die ;;
 	restore) restore_from_config; die $?
 esac
 
 if [ "$action" = configure ]; then
 	[ ! -s "$conf_file" ] && {
-		rm -f "$conf_dir/setupdone" 2>/dev/null
+		rm_setupdone
 		touch "$conf_file" || die "$FAIL create the config file."
 		[ "$_fw_backend" ] && rm_iplists_rules
 	}
