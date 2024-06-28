@@ -33,7 +33,8 @@ Options:
   -l $list_ids_usage
   -o <true|false>  : No backup: don't create backup of ip lists and firewall rules after the action.
 
-  -a               : daemon mode (will retry actions \$max_attempts times with growing time intervals)
+  -f               : Force fetch
+  -a               : Daemon mode (will retry actions \$max_attempts times with growing time intervals)
   -d               : Debug
   -V               : Version
   -h               : This help
@@ -53,9 +54,10 @@ case "$action_run" in
 esac
 
 # process the rest of the args
-while getopts ":l:aodVh" opt; do
+while getopts ":l:faodVh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
+		f) force_fetch="-f" ;;
 		a) export daemon_mode=1 ;;
 		o) nobackup_arg=true ;;
 		d) debugmode_arg=1 ;;
@@ -141,14 +143,14 @@ trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; die' INT TERM HUP QUIT
 case "$action_run" in
 	add) action_apply=add; [ ! "$apply_lists" ] && die "no list id's were specified!" ;;
 	# if firewall rules don't match the config, force re-fetch
-	update) action_apply=add; check_lists_coherence || force="-f" ;;
+	update) action_apply=add; check_lists_coherence || force_fetch="-f" ;;
 	remove) action_apply=remove; rm_lists="$apply_lists" ;;
 	restore)
 		check_lists_coherence -n 2>/dev/null && { echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" = true ]; then
 			echolog "$p_name was configured with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
-			action_run=update action_apply=add force="-f"
+			action_run=update action_apply=add force_fetch="-f"
 		else
 			call_script -l "$i_script-backup.sh" restore; rv_cs=$?
 			getconfig apply_lists iplists
@@ -157,7 +159,7 @@ case "$action_run" in
 			else
 				echolog -err "Restore from backup failed. Changing action to 'update'."
 				# if restore failed, force re-fetch
-				action_run=update action_apply=add force="-f"
+				action_run=update action_apply=add force_fetch="-f"
 			fi
 		fi
 esac
@@ -182,7 +184,7 @@ while true; do
 		# mark all lists as failed in the status file before calling fetch. if fetch completes successfully, it will reset this
 		setstatus "$status_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
 
-		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$geosource" "$force" "$raw_mode"
+		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$geosource" "$force_fetch" "$raw_mode"
 
 		# read *fetch results from the status file
 		getstatus "$status_file" || die "$FAIL read the status file '$status_file'"
@@ -220,7 +222,8 @@ while true; do
 			0) ;;
 			254) [ "$in_install" ] && die
 				echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
-			*) debugprint "NOTE: apply exited with code '$apply_rv'."; die "$apply_rv"
+			*) debugprint "NOTE: apply exited with code '$apply_rv'."
+				die "$apply_rv"
 		esac
 		echolists=" for ip lists '$ok_lists$rm_lists'"
 	esac
