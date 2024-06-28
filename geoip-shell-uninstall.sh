@@ -96,7 +96,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 
 #### MAIN
 
-rm -f "$conf_dir/setupdone" 2>/dev/null
+rm_setupdone
 [ "$_fw_backend" ] && rm_iplists_rules
 rm_cron_jobs
 
