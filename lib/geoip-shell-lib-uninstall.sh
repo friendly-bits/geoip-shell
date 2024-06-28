@@ -85,6 +85,11 @@ rm_config() {
 	:
 }
 
+rm_setupdone() {
+	rm -f "$conf_dir/setupdone" 2>/dev/null
+}
+
+
 [ ! "$_fw_backend" ] && [ "$root_ok" ] && {
 	if [ "$_OWRTFW" ]; then
 		[ "$_OWRTFW" = 4 ] && _fw_backend=nft || _fw_backend=ipt
