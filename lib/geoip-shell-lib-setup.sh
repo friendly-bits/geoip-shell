@@ -356,23 +356,7 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	if [ "$_OWRTFW" ]; then
-		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
-		case "$_OWRTFW" in
-			3) _fw_backend=ipt ;;
-			4) _fw_backend=nft
-		esac
-	else
-		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
-		. "$_lib-check-compat.sh" || exit 1
-		[ ! "$_fw_backend_arg" ] && {
-			if check_fw_backend nft; then
-				_fw_backend_def=nft
-			elif check_fw_backend ipt; then
-				_fw_backend_def=ipt
-			fi
-		} 2>/dev/null
-	fi
+	detect_fw_backend || die
 
 	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=2048MiB
 	[ ! "$nft_perf" ] && {
