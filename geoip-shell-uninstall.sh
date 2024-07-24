@@ -14,14 +14,16 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
 nolog=1
+in_uninstall=1
 
 geoinit="${p_name}-geoinit.sh"
 for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
+
 . "$geoinit_path" &&
-. "$_lib-uninstall.sh" || exit 1
-[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; }
+. "$_lib-uninstall.sh" &&
+. "$_lib-$_fw_backend.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -92,7 +94,8 @@ install_dir="${old_install_dir:-"$install_dir"}"
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -s "$conf_file" ] && getconfig datadir
+[ -s "$conf_file" ] && nodie=1 getconfig datadir
+: "${datadir:="/var/lib/geoip-shell"}"
 
 #### MAIN
 
