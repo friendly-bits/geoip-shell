@@ -37,18 +37,23 @@ kill_geo_pids() {
 }
 
 rm_iplists_rules() {
-	echo "Removing $p_name ip lists and firewall rules..."
-
 	# kill any related processes which may be running in the background
 	kill_geo_pids
 
 	# remove the lock file
 	rm_lock
 
-	# remove iplist files if any
-	set +f
-	[ "$iplist_dir" ] && rm -f "${iplist_dir:?}"/*.iplist 2>/dev/null
-	set -f
+	case "$iplist_dir" in
+		*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
+		*)
+			# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
+			[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
+				echo "Removing $p_name ip lists..."
+				set +f
+				rm -f "${iplist_dir:?}"/*.iplist
+				set -f
+			}
+	esac
 
 	### Remove geoip firewall rules
 	[ "$_fw_backend" ] && { rm_all_georules || return 1; }
@@ -57,8 +62,10 @@ rm_iplists_rules() {
 }
 
 rm_cron_jobs() {
-	echo "Removing cron jobs..."
-	crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
+	case "$(crontab -u root -l 2>/dev/null)" in *"${p_name}-run.sh"*)
+		echo "Removing cron jobs..."
+		crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
+	esac
 	:
 }
 
@@ -77,7 +84,7 @@ rm_data() {
 }
 
 rm_symlink() {
-	rm -f "${install_dir}/${p_name}" 2>/dev/null
+	rm -f "${install_dir}/${p_name}"
 }
 
 rm_config() {
@@ -86,7 +93,7 @@ rm_config() {
 }
 
 rm_setupdone() {
-	rm -f "$conf_dir/setupdone" 2>/dev/null
+	rm -f "$conf_dir/setupdone"
 }
 
 
