@@ -158,7 +158,6 @@ restore_from_config() {
 	check_reapply() {
 		check_lists_coherence && { echolog "$restore_ok_msg"; return 0; }
 		echolog -err "$FAIL apply $p_name config."
-		report_incoherence
 		return 1
 	}
 
@@ -173,7 +172,7 @@ restore_from_config() {
 		'') echolog -err "No ip lists registered in the config." ;;
 		*) [ ! "$in_install" ] && [ ! "$first_setup" ] && { rm_iplists_rules || return 1; }
 			setconfig iplists
-			rm_data
+			[ ! "$first_setup" ] && rm_data
 			call_script -l "$run_command" add -l "$iplists" -o
 			check_reapply && {
 				setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die
@@ -338,7 +337,7 @@ case "$action" in
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
-	reset) rm_iplists_rules; rm_data; rm -f "$conf_file" 2>/dev/null; rm_setupdone; die ;;
+	reset) rm_iplists_rules; rm_data; rm -f "$conf_file"; rm_setupdone; die ;;
 	restore) restore_from_config; die $?
 esac
 
@@ -423,18 +422,20 @@ case "$action" in
 		case "$conf_act" in ''|backup) ! check_lists_coherence 2>/dev/null && conf_act=restore; esac
 		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -d "$bk_dir" ]; } && conf_act=reset
 
+		debugprint "config action: '$conf_act'"
 		[ "$datadir_change" ] && {
 			printf %s "Creating the data dir '$datadir'... "
+			rm -rf "$datadir"
 			mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
 			OK
 			[ -d "$datadir_prev" ] && {
 				printf %s "Moving data to the new path... "
 				set +f
-				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL move the data."; }
+				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data."; }
 				set -f
 				OK
 				printf %s "Removing the old data dir '$datadir_prev'..."
-				rm -rf "$datadir_prev" || { rm -rf "$datadir" 2>/dev/null; die "$FAIL remove the old data dir."; }
+				rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data dir."; }
 				OK
 			}
 		}
