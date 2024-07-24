@@ -37,10 +37,10 @@ nft_get_chain() {
 }
 
 rm_all_georules() {
-	printf %s "Removing firewall geoip rules... "
-	nft_get_geotable -f 1>/dev/null 2>/dev/null || { OK; return 0; }
-	nft delete table inet "$geotable" || { echolog -err -nolog "$FAIL delete table '$geotable'."; return 1; }
+	nft_get_geotable -f 1>/dev/null 2>/dev/null || return 0
+	printf %s "Removing $p_name firewall rules... "
 	export _geotable_cont=
+	nft delete table inet "$geotable" || { echolog -err -nolog "$FAIL delete table '$geotable'."; return 1; }
 	OK
 }
 
@@ -308,7 +308,7 @@ apply_rules() {
 		} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$new_ipset'."
 		OK
 
-		[ "$debugmode" ] && debugprint "elements in $new_ipset: $(cnt_ipset_elements "$new_ipset")"
+		[ "$debugmode" ] && { ipsets="$(get_ipsets)"; debugprint "elements in $new_ipset: $(cnt_ipset_elements "$new_ipset")"; }
 	done
 
 	#### Assemble commands for nft
@@ -497,6 +497,7 @@ apply_rules() {
 restorebackup() {
 	printf %s "Restoring ip lists from backup... "
 	counters_f="$bk_dir/counters.bak"
+	mkdir -p "$iplist_dir"
 	for list_id in $iplists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
@@ -520,13 +521,13 @@ restorebackup() {
 
 	[ -s "$counters_f" ] && export_conf=1 nodie=1 get_config_vars "$counters_f"
 	call_script "${i_script}-apply.sh" add -l "$iplists"; apply_rv=$?
-	rm "$iplist_dir/"*.iplist 2>/dev/null
+	rm -f "$iplist_dir/"*.iplist
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
 	:
 }
 
 rm_rstr_tmp() {
-	rm "$iplist_dir/"*.iplist 2>/dev/null
+	rm -f "$iplist_dir/"*.iplist
 }
 
 rstr_failed() {
@@ -541,7 +542,7 @@ rstr_failed() {
 }
 
 rm_bk_tmp() {
-	rm -f "$tmp_file" "$bk_dir/"*.new 2>/dev/null
+	rm -f "$tmp_file" "$bk_dir/"*.new
 }
 
 bk_failed() {
@@ -556,12 +557,11 @@ create_backup() {
 	getstatus "$status_file" || bk_failed
 	for list_id in $iplists; do
 		bk_file="${bk_dir}/${list_id}.${bk_ext:-bak}"
-		iplist_file="$iplist_dir/${list_id}.iplist"
 		eval "list_date=\"\$prev_date_${list_id}\""
 		[ -z "$list_date" ] && bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
 
-		rm -f "$tmp_file" 2>/dev/null
+		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file
 		nft list set inet "$geotable" "$ipset" |
 			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
