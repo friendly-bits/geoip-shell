@@ -361,9 +361,15 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
-	. "\$conf_dir/\${p_name}.const" || exit 1
+	[ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
+		{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
 	[ ! -s "\$conf_file" ] && return 0
-	getconfig _fw_backend
+	nodie=1 getconfig _fw_backend ||
+		{
+			[ ! "\$in_uninstall" ] && die "\$FAIL read value for '_fw_backend' from config."
+			detect_fw_backend || die
+		}
+
 	$init_check_compat_pt2
 	export fwbe_ok=1 _fw_backend
 	:
@@ -411,7 +417,7 @@ cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL co
 		install_failed "$FAIL set permissions for '$conf_dir'."
 
 	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
-	call_script "$i_script-manage.sh" configure || die "$FAIL create and apply the iplist."
+	call_script "$i_script-manage.sh" configure || die "$p_name-manage.sh exited with error code $?."
 }
 
 echo "Install done."
