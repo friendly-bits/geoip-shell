@@ -91,10 +91,10 @@ EOF
 #### PARSE ARGUMENTS
 
 # check for valid action
-action="$1"
+tolower action "$1"
 case "$action" in
 	add|remove|configure|status|restore|reset|on|off|showconfig) shift ;;
-	*) unknownact
+	*) action="$1"; unknownact
 esac
 
 # process the rest of the args
