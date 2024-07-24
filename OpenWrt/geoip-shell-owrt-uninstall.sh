@@ -11,6 +11,7 @@
 p_name="geoip-shell"
 manmode=1
 nolog=1
+in_uninstall=1
 
 lib_dir="/usr/lib/$p_name"
 _lib="$lib_dir/$p_name-lib"
@@ -27,7 +28,7 @@ done
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -f "$conf_file" ] && getconfig datadir
+[ -f "$conf_file" ] && nodie=1 getconfig datadir
 : "${datadir:=/tmp/$p_name-data}"
 
 rm_setupdone
