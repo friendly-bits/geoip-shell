@@ -115,10 +115,13 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" "$_li
 
 #### MAIN
 
-mk_lock
-trap 'set +f; rm -f \"$iplist_dir/\"*.iplist 2>/dev/null; die' INT TERM HUP QUIT
-
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
+
+mkdir -p "$iplist_dir"
+[ ! -d "$iplist_dir" ] && die "$FAIL create directory '$iplist_dir'."
+
+mk_lock
+trap 'set +f; rm -f \"$iplist_dir/\"*.iplist; die' INT TERM HUP QUIT
 
 # wait $reboot_sleep seconds after boot, or 0-59 seconds before updating
 [ "$daemon_mode" ] && {
@@ -192,7 +195,7 @@ while true; do
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 			[ "$action_run" = add ] && {
-				set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+				set +f; rm -f "$iplist_dir/"*.iplist; set -f
 				die 254 "Aborting the action 'add'."
 			}
 			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
@@ -216,7 +219,7 @@ while true; do
 		[ ! "$apply_lists" ] && { echolog "Firewall reconfiguration isn't required."; die 0; }
 
 		call_script "$i_script-apply.sh" "$action_apply" -l "$apply_lists"; apply_rv=$?
-		set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+		set +f; rm -f "$iplist_dir/"*.iplist; set -f
 
 		case "$apply_rv" in
 			0) ;;
@@ -235,11 +238,7 @@ while true; do
 		echolog "Successfully executed action '$action_run'$echolists."; echo; break
 	else
 		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		echolog -warn "actual $geomode firewall config differs from the config file!"
-		for opt in unexpected missing; do
-			eval "[ -n \"\$${opt}_lists\" ] && printf '%s\n' \"$opt $geomode ip lists in the firewall: '\$${opt}_lists'\"" >&2
-		done
-		die
+		die "actual $geomode firewall config differs from the config file!"
 	fi
 done
 
