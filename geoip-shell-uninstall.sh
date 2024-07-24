@@ -59,9 +59,13 @@ EOF
 }
 
 rm_scripts() {
-	printf '%s\n' "Deleting the main $p_name scripts from $install_dir..."
+	printed=
 	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall geoinit; do
-		rm -f "${install_dir}/${p_name}-$script_name.sh" 2>/dev/null
+		s_path="${install_dir}/${p_name}-$script_name.sh"
+		[ -f "$s_path" ] && {
+			[ ! "$printed" ] && { printf '%s\n' "Deleting $p_name main scripts from $install_dir..."; printed=1; }
+			rm -f "$s_path"
+		}
 	done
 
 	rm_geodir "$lib_dir" "library scripts"
@@ -108,7 +112,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 #### MAIN
 
 rm_setupdone
-[ "$_fw_backend" ] && rm_iplists_rules
+rm_iplists_rules
 rm_cron_jobs
 
 # For OpenWrt
