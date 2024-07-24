@@ -64,7 +64,7 @@ rm_owrt_fw_include() {
 
 rm_owrt_init() {
 	echo "Deleting the init script..."
-	/etc/init.d/${p_name}-init disable 2>/dev/null && rm "/etc/init.d/${p_name}-init" 2>/dev/null
+	/etc/init.d/${p_name}-init disable 2>/dev/null && rm -f "/etc/init.d/${p_name}-init"
 	:
 }
 
