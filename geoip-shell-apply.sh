@@ -39,7 +39,7 @@ EOF
 
 die_a() {
 	destroy_tmp_ipsets
-	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+	set +f; rm -f "$iplist_dir/"*.iplist; set -f
 	die "$@"
 }
 
@@ -95,7 +95,7 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-checkvars datadir geomode ifaces _fw_backend noblock
+checkvars datadir geomode ifaces _fw_backend noblock iplist_dir
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
@@ -106,7 +106,7 @@ checkvars datadir geomode ifaces _fw_backend noblock
 
 ## MAIN
 
-debugprint "loading the $_fw_backend libarary..."
+debugprint "loading the $_fw_backend library..."
 . "$_lib-$_fw_backend.sh" || exit 1
 
 case "$geomode" in
