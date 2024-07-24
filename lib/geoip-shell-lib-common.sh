@@ -310,13 +310,13 @@ num2human() {
 	i=${1:-0} s=0 d=0
 	case "$2" in bytes) m=1024 ;; '') m=1000 ;; *) return 1; esac
 	case "$i" in *[!0-9]*) echolog -err "num2human: Invalid unsigned integer '$i'."; return 1; esac
-	for S in B KiB MiB TiB PiB; do
+	for S in B KiB MiB GiB TiB; do
 		[ $((i > m && s < 4)) = 0 ] && break
 		d=$i
 		i=$((i/m))
 		s=$((s+1))
 	done
-	[ -z "$2" ] && { S=${S%B}; S=${S%i}; [ "$S" = P ] && S=Q; }
+	[ -z "$2" ] && { S=${S%B}; S=${S%i}; [ "$S" = G ] && S=B; }
 	d=$((d % m * 100 / m))
 	case $d in
 		0) printf "%s%s\n" "$i" "$S"; return ;;
@@ -717,7 +717,7 @@ check_lists_coherence() {
 	case "$lists_difference" in
 		'') debugprint "Successfully verified ip lists coherence."; rv_clc=0 ;;
 		*)
-			echolog -err "$_nl$FAIL verify ip lists coherence." "Firewall ip lists: '$active_lists'" "Config ip lists: '$iplists'"
+			debugprint "$_nl$FAIL verify ip lists coherence." "Config ip lists: '$iplists'" "Firewall ip lists: '$active_lists'"
 			subtract_a_from_b "$iplists" "$active_lists" unexpected_lists
 			subtract_a_from_b "$active_lists" "$iplists" missing_lists
 			report_incoherence
@@ -755,6 +755,29 @@ validate_ccode() {
 # returns 1 if nothing detected
 detect_ifaces() {
 	[ -r "/proc/net/dev" ] && sed -n '/^[[:space:]]*[^[:space:]]*:/{s/^[[:space:]]*//;s/:.*//p}' < /proc/net/dev | grep -vx 'lo'
+}
+
+detect_fw_backend() {
+	detect_fw_be_failed() { echolog -err "$FAIL detect firewall backend."; return 1; }
+	if [ "$_OWRTFW" ]; then
+		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
+		case "$_OWRTFW" in
+			3) _fw_backend=ipt ;;
+			4) _fw_backend=nft ;;
+			*) detect_fw_be_failed
+		esac
+	else
+		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
+		. "$_lib-check-compat.sh" || detect_fw_be_failed
+		[ ! "$_fw_backend_arg" ] && {
+			if check_fw_backend nft; then
+				_fw_backend_def=nft
+			elif check_fw_backend ipt; then
+				_fw_backend_def=ipt
+			else detect_fw_be_failed
+			fi
+		} 2>/dev/null
+	fi
 }
 
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
@@ -855,7 +878,7 @@ mk_lock() {
 }
 
 rm_lock() {
-	[ -f "$lock_file" ] && { rm -f "$lock_file" 2>/dev/null; unset nodie die_unlock; }
+	[ -f "$lock_file" ] && { rm -f "$lock_file"; unset nodie die_unlock; }
 }
 
 check_lock() {
