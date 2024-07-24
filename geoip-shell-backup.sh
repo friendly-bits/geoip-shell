@@ -140,7 +140,7 @@ case "$action" in
 		set_archive_type
 		mkdir "$bk_dir" 2>/dev/null
 		create_backup
-		rm "$tmp_file" 2>/dev/null
+		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
 		cp_conf backup || bk_failed
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
