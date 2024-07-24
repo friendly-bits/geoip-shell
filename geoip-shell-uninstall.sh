@@ -22,6 +22,7 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 done
 
 . "$geoinit_path" &&
+: "${_fw_backend:=$_fw_backend_def}" &&
 . "$_lib-uninstall.sh" &&
 . "$_lib-$_fw_backend.sh" || exit 1
 
