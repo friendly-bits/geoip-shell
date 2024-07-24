@@ -26,6 +26,11 @@ for lib_f in owrt-common uninstall; do
 done
 [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh"
 
+[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" ||
+echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules." \
+	"Please restart the machine after uninstalling."
+
+
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
 [ -f "$conf_file" ] && nodie=1 getconfig datadir
