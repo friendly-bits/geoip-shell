@@ -314,7 +314,10 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
-[ ! "$inst_root_gs" ] && { call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."; }
+[ ! "$inst_root_gs" ] && {
+	echolog "Cleaning up previous installation (if any)..."
+	call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
+}
 
 ## Copy scripts to $install_dir
 printf %s "Copying scripts to $install_dir... "
@@ -328,7 +331,7 @@ OK
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
 [ ! "$inst_root_gs" ] && {
-	rm "$i_script" 2>/dev/null
+	rm -f "$i_script"
 	ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
 	# add $install_dir to $PATH
 	add2list PATH "$install_dir" ':'
@@ -352,7 +355,7 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	# Copyright: antonk (antonk.d3v@gmail.com)
 	# github.com/friendly-bits
 
-	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp" lock_file="/tmp/$p_name.lock"
+	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock"
 	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 \$_nl"
