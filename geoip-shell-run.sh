@@ -50,7 +50,7 @@ daemon_mode=
 tolower action_run "$1"
 case "$action_run" in
 	add|remove|update|restore) shift ;;
-	*) action="$action_run"; unknownact
+	*) action="$1"; unknownact
 esac
 
 # process the rest of the args
