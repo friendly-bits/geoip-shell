@@ -21,10 +21,17 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 
+[ ! "$geoinit_path" ] && die "Cannot uninstall $p_name because ${p_name}-geoinit.sh is missing."
+
 . "$geoinit_path" &&
 : "${_fw_backend:=$_fw_backend_def}" &&
 . "$_lib-uninstall.sh" &&
-. "$_lib-$_fw_backend.sh" || exit 1
+{
+	[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; } ||
+	echolog -err "Firewall backend is unknown. Cannot remove firewall rules." \
+		"Please restart the machine after uninstalling."
+	:
+} || exit 1
 
 san_args "$@"
 newifs "$delim"
