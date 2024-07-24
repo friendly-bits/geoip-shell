@@ -62,7 +62,7 @@ setdebug
 #### Functions
 
 die() {
-	rm -f "$list_file" "$status_file" 2>/dev/null
+	rm -f "$list_file" "$status_file"
 	printf '\n%s\n\n' "$*" >&2
 	exit 1
 }
@@ -163,7 +163,7 @@ for family in $families; do
 		[ "$rv" =  1 ] && { no="no"; ip_check_rv=$((ip_check_rv+1)); }
 		add2list "${no}match_ips" "$val_ip" "$_nl"
 	done
-	rm -f "$list_file" "$status_file" 2>/dev/null
+	rm -f "$list_file" "$status_file"
 done
 
 match="Included"
