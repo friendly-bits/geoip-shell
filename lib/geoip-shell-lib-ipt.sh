@@ -89,7 +89,7 @@ critical() {
 	echo "Failed." >&2
 	echolog -err "Removing geoip rules..."
 	rm_all_georules
-	set +f; rm "$iplist_dir/"*.iplist 2>/dev/null; set -f
+	set +f; rm -f "$iplist_dir/"*.iplist; set -f
 	die "$1"
 }
 
@@ -154,7 +154,7 @@ add_ipset() {
 	debugprint "Making the ipset '$perm_ipset' permanent... "
 	ipset swap "$tmp_ipset" "$perm_ipset" || critical "$FAIL swap temporary and permanent ipsets."
 	debugprint "Ok."
-	rm "$iplist_file"
+	rm -f "$iplist_file"
 }
 
 mk_perm_ipset() {
@@ -561,7 +561,7 @@ restorebackup() {
 }
 
 rm_rstr_tmp() {
-	rm -f "$tmp_file" 2>/dev/null
+	rm -f "$tmp_file"
 }
 
 rstr_failed() {
@@ -576,7 +576,7 @@ rstr_failed() {
 }
 
 rm_bk_tmp() {
-	rm -f "$tmp_file" "${bk_file}.new" 2>/dev/null
+	rm -f "$tmp_file" "${bk_file}.new"
 }
 
 bk_failed() {
