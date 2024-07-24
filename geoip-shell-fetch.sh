@@ -129,7 +129,7 @@ get_src_dates_ipdeny() {
 		# 1st part of awk strips HTML tags, 2nd part trims extra spaces
 		[ -f "$server_html_file" ] && awk '{gsub("<[^>]*>", "")} {$1=$1};1' "$server_html_file" > "$server_plaintext_file" ||
 			echolog "failed to fetch server dates from the IPDENY server."
-		rm "$server_html_file" 2>/dev/null
+		rm -f "$server_html_file"
 	done
 
 	for list_id in $valid_lists; do
@@ -147,7 +147,7 @@ get_src_dates_ipdeny() {
 		reg_server_date "$server_date" "$list_id" "IPDENY"
 	done
 
-	for family in $families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp" 2>/dev/null; done
+	for family in $families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp"; done
 }
 
 # get list time based on the filename on the server
@@ -170,7 +170,7 @@ get_src_dates_ripe() {
 		# based on a heuristic but it's a standard format and unlikely to change
 		server_date="$(grep -oE '\-[0-9]{8}\.md5' < "$server_html_file" | cut -b 2-9 | sort -V | tail -n1)"
 
-		rm "$server_html_file" 2>/dev/null
+		rm -f "$server_html_file"
 		get_a_arr_val fetch_lists_arr "$registry" list_ids
 		for list_id in $list_ids; do
 			reg_server_date "$server_date" "$list_id" "RIPE"
@@ -291,7 +291,7 @@ check_updates() {
 }
 
 rm_tmp_f() {
-	rm -f "$fetched_list" "$parsed_list" "$valid_list" 2>/dev/null
+	rm -f "$fetched_list" "$parsed_list" "$valid_list"
 }
 
 list_failed() {
@@ -355,7 +355,7 @@ process_ccode() {
 		printf %s "Validating '$purple$list_id$n_c'... "
 		# Validates the parsed list, populates the $valid_s_cnt, failed_s_cnt variables
 		validate_list "$list_id"
-		rm -f "$parsed_list" 2>/dev/null
+		rm -f "$parsed_list"
 
 		[ "$failed_s_cnt" = 0 ] && OK || { FAIL; continue; }
 
@@ -375,10 +375,10 @@ process_ccode() {
 		set_a_arr_el subnets_cnt_arr "$list_id=$valid_s_cnt"
 		set_a_arr_el list_date_arr "$list_id=$date_src_compat"
 
-		rm -f "$valid_list" 2>/dev/null
+		rm -f "$valid_list"
 	done
 
-	rm -f "$fetched_list" 2>/dev/null
+	rm -f "$fetched_list"
 	:
 }
 
@@ -601,9 +601,9 @@ else
 fi
 unset failed_lists fetched_lists
 
-trap 'rm_tmp_f; rm -f "$server_html_file" 2>/dev/null
+trap 'rm_tmp_f; rm -f "$server_html_file"
 	for family in $families; do
-		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp" 2>/dev/null
+		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp"
 	done; exit' INT TERM HUP QUIT
 
 check_updates
