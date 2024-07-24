@@ -95,8 +95,10 @@ reg_server_date() {
 	case "$1" in
 		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] )
 			set_a_arr_el server_dates_arr "$2=$1"
-			debugprint "Got date from $3 for '$2': '$1'." ;;
+			debugprint "Got date from $3 for '$2': '$1'."
+			;;
 		*) debugprint "$FAIL get date from $3 for '$2'."
+			:
 	esac
 }
 
@@ -217,7 +219,9 @@ check_prev_list() {
 
 	eval "prev_s_cnt=\"\$prev_ips_cnt_${list_id}\""
 	case "$prev_s_cnt" in
-		''|0) debugprint "Previous subnets count for '$list_id' is 0."; prev_s_cnt='' ;;
+		''|0) prev_s_cnt=''
+			debugprint "Previous subnets count for '$list_id' is 0."
+			;;
 		*)
 			eval "prev_date_compat=\"\$prev_date_${list_id}\""
 			if [ "$prev_date_compat" ]; then
@@ -240,7 +244,6 @@ check_updates() {
 	time_now="$(date +%s)"
 
 	printf '\n%s\n' "Checking for ip list updates on the $dl_src_cap server..."
-	[ "$dl_src" = ipdeny ] && printf '%s\n' "Note: IPDENY server may be unresponsive at round hours."
 	echo
 
 	case "$dl_src" in
@@ -306,13 +309,13 @@ process_ccode() {
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
 		case "$dl_src" in
-			ripe ) dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
-			ipdeny )
+			ripe) dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
+			ipdeny)
 				case "$family" in
 					"ipv4" ) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
-					* ) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
+					*) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
 				esac ;;
-			* ) die "Unsupported source: '$dl_src'."
+			*) die "Unsupported source: '$dl_src'."
 		esac
 
 		# set list_path to $output_file if it is set, or to $iplist_dir_f/$list_id otherwise
@@ -466,8 +469,8 @@ for i in 1 2 3 4 5; do
 done
 oldifs cca
 
-ucl_f_cmd="uclient-fetch -T 16"
-curl_cmd="curl -L --retry 5 -f --fail-early --connect-timeout 7"
+ucl_f_cmd="uclient-fetch"
+curl_cmd="curl -L -f --fail-early"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
 unset secure_util fetch_cmd
@@ -476,24 +479,34 @@ for util in curl wget uclient-fetch; do
 	case "$util" in
 		curl)
 			secure_util="curl"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s --head"
+			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
 			fetch_cmd_q="$curl_cmd -s"
 			break ;;
 		wget)
-			if checkutil ubus && checkutil uci; then
-				wget_cmd="wget -q --timeout=16"
-				[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="wget"; break; }
+			if ! wget --version | grep -m1 "GNU Wget"; then
+				wget_cmd="wget -q"
+				unset wget_tries wget_tries_con_check wget_show_progress
+				[ -s "/usr/lib/libustream-ssl.so" ] && checkutil uci && secure_util="wget"
 			else
-				wget_cmd="wget -q --max-redirect=10 --tries=5 --timeout=16"
+				wget_show_progress=" --show-progress"
+				wget_cmd="wget -q --max-redirect=10"
 				secure_util="wget"
-				fetch_cmd="$wget_cmd --show-progress -O -"
-				fetch_cmd_q="$wget_cmd -O -"
-				break
-			fi ;;
+				wget_tries=" --tries=5"
+				wget_tries_con_check=" --tries=2"
+			fi 1>/dev/null 2>/dev/null
+
+			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider"
+			wget_cmd="$wget_cmd$wget_tries --timeout=16"
+			fetch_cmd="$wget_cmd$wget_show_progress -O -"
+			fetch_cmd_q="$wget_cmd -O -"
+			[ "$secure_util" ] && break ;;
 		uclient-fetch)
-			[ -s "/usr/lib/libustream-ssl.so" ] && secure_util="uclient-fetch"
-			fetch_cmd="$ucl_f_cmd -O -"
-			fetch_cmd_q="$ucl_f_cmd -q -O -"
+			fetch_cmd="$ucl_f_cmd -T 16 -O -"
+			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
+			con_check_cmd="$ucl_f_cmd -T 7 -q -s"
+			[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="uclient-fetch"; break; }
 	esac
 done
 
@@ -513,6 +526,7 @@ if [ -z "$secure_util" ] && [ -z "$http" ]; then
 		n|N) die "No fetch utility available." ;;
 		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
 	esac
+elif [ -n "$secure_util" ]; then http="https"
 fi
 : "${http:=https}"
 
@@ -548,20 +562,17 @@ subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
 case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
 
 case "$dl_src" in
-	ripe) dl_srv="${ripe_url_api%%/*}" ;;
+	ripe) dl_srv="${ripe_url_api%%/*}"
+		con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
 	ipdeny) dl_srv="${ipdeny_ipv4_url%%/*}"
+		con_check_url="${ipdeny_ipv4_url}"
 esac
 
 # check internet connectivity
+[ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 printf '\n%s' "Checking connectivity... "
-nslookup="nslookup -retry=1"
-{
-	# some implementations don't support -retry
-	eval "$nslookup" 127.0.0.1 || eval "$nslookup" ::1 || nslookup=nslookup
-	for ns in "8.8.8.8" "208.68.222.222" "2001:4860:4860::8888" "2620:119:35::35"; do
-		eval "$nslookup" "$dl_srv" "$ns" && break
-	done
-} 1>/dev/null 2>/dev/null || die "Machine appears to have no Internet connectivity or $dl_src_cap server is currently down."
+$con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null ||
+	die "Connection attempt to the $dl_src_cap server failed."
 OK
 
 for f in "$status_file" "$output_file"; do
