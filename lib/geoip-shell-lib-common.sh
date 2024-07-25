@@ -373,7 +373,7 @@ getallconf() {
 	conf_gac=
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
 	[ -z "$conf_gac" ] && {
-		conf_gac="$(cat "$2")"
+		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2")"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
 	eval "$1=\"$conf_gac\""
@@ -731,6 +731,13 @@ check_lists_coherence() {
 	esac
 	r_no_l
 	return $rv_clc
+}
+
+report_excluded_lists() {
+	fast_el_cnt "$1" ' ' excl_cnt
+	excl_list="list" excl_verb="is"
+	[ "$excl_cnt" != 1 ] && excl_list="lists" excl_verb="are"
+	echolog -nolog "Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
 }
 
 report_incoherence() {
