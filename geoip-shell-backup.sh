@@ -66,6 +66,10 @@ is_root_ok
 setdebug
 debugentermsg
 
+rm_bk_tmp() {
+	rm -rf "$tmp_file" "$bk_dir_new"
+}
+
 # detects archive type (if any) of file passed in 1st argument by its extension
 # and sets the $extract_cmd variable accordingly
 set_extract_cmd() {
@@ -97,18 +101,19 @@ set_archive_type() {
 # checks for diff in new and old config and status files and makes a backup or restores if necessary
 # 1 - restore|backup
 cp_conf() {
-	unset src_f dest_f
+	unset src_f src_d dest_f dest_d
 	case "$1" in
-		restore) src_f=_bak; cp_act=Restoring ;;
-		backup) dest_f=_bak; cp_act="Creating backup of" ;;
+		restore) src_f=_bak; src_d="$bk_dir/"; cp_act=Restoring ;;
+		backup) dest_f=_bak; dest_d="$bk_dir_new/"; cp_act="Creating backup of" ;;
 		*) echolog -err "cp_conf: bad argument '$1'"; return 1
 	esac
 
 	for bak_f in status config; do
-		eval "cp_src=\"\$${bak_f}_file$src_f\" cp_dest=\"\$${bak_f}_file$dest_f\""
+		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" cp_dest=\"$dest_d\$${bak_f}_file$dest_f\""
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
-		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && continue
+		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && { debugprint "$cp_src is identical to $cp_dest"; continue; }
+		debugprint "Copying '$cp_src' to '$cp_dest'"
 		printf %s "$cp_act the $bak_f file... "
 		cp "$cp_src" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
 		OK
@@ -121,9 +126,10 @@ getconfig families
 getconfig iplists
 
 bk_dir="$datadir/backup"
+bk_dir_new="${bk_dir}.new"
 config_file="$conf_file"
-config_file_bak="$bk_dir/${p_name}.conf.bak"
-status_file_bak="$bk_dir/status.bak"
+config_file_bak="${p_name}.conf.bak"
+status_file_bak="status.bak"
 
 checkvars _fw_backend datadir
 
@@ -138,16 +144,19 @@ case "$action" in
 		trap 'rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		set_archive_type
-		mkdir "$bk_dir" 2>/dev/null
+		mkdir -p "$bk_dir_new"
 		create_backup
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
 		cp_conf backup || bk_failed
+		rm -rf "$bk_dir"
+		mv "$bk_dir_new" "$bk_dir" || bk_failed
+
 		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
 	restore)
 		trap 'rm_rstr_tmp; die' INT TERM HUP QUIT
 		printf '%s\n' "Preparing to restore $p_name from backup..."
-		[ "$restore_conf" ] && bk_conf_file="$config_file_bak" || bk_conf_file="$config_file"
+		[ "$restore_conf" ] && bk_conf_file="$bk_dir/$config_file_bak" || bk_conf_file="$config_file"
 		[ ! -s "$bk_conf_file" ] && rstr_failed "File '$bk_conf_file' is empty or doesn't exist."
 		getconfig iplists iplists "$bk_conf_file" &&
 		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
