@@ -346,7 +346,7 @@ case "$action" in
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
-	reset) rm_iplists_rules; rm_data; rm -f "$conf_file"; rm_setupdone; die ;;
+	reset) rm_iplists_rules; rm_data; rm -f "$conf_file"; rm_setupdone; die 0 ;;
 	restore) restore_from_config; die $?
 esac
 
@@ -391,14 +391,28 @@ fi
 
 checkvars _fw_backend datadir geomode
 
-[ "$ccodes_arg" ] && validate_arg_ccodes
+unset lists_req exclude_iplists excl_list_ids
+excl_file="$conf_dir/iplist-exclusions.conf"
 
-lists_req=
+[ "$ccodes_arg" ] && {
+	validate_arg_ccodes
+	[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+}
+
 for ccode in $ccodes_arg; do
 	for f in $families; do
-		add2list lists_req "${ccode}_$f"
+		list_id="${ccode}_$f"
+		case "$exclude_iplists" in *"$list_id"*)
+			add2list excl_list_ids "$list_id"
+			continue
+		esac
+		add2list lists_req "$list_id"
 	done
 done
+
+[ "$ccodes_arg" ] && [ ! "$lists_req" ] && die "No applicable ip list id's could be generated for country codes '$ccodes_arg'."
+
+[ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
 
 case "$action" in
 	configure)
