@@ -457,7 +457,6 @@ iplist_dir_f="${iplist_dir_f%/}"
 
 #### CONSTANTS
 
-excl_file="$conf_dir/iplist-exclusions.conf"
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
 newifs "$_nl" cca
