@@ -297,7 +297,7 @@ apply_rules() {
 		[ ! -f "$iplist_file" ] && die_a "Can not find the iplist file '$iplist_file'."
 
 		# count ips in the iplist file
-		[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | wc -w)"
+		[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | sed 's/elements = { //;s/ }//' | wc -w)"
 		debugprint "\nip count in the iplist file '$iplist_file': $ip_cnt"
 
 		# read $iplist_file into new set
@@ -520,7 +520,11 @@ restorebackup() {
 	rm_all_georules || rstr_failed "$FAIL remove firewall rules."
 
 	[ -s "$counters_f" ] && export_conf=1 nodie=1 get_config_vars "$counters_f"
-	call_script "${i_script}-apply.sh" add -l "$iplists"; apply_rv=$?
+	if [ -n "$iplists" ]; then
+		call_script "${i_script}-apply.sh" add -l "$iplists"; apply_rv=$?
+	else
+		apply_rv=0
+	fi
 	rm -f "$iplist_dir/"*.iplist
 	[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
 	:
@@ -564,7 +568,7 @@ create_backup() {
 		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file
 		nft list set inet "$geotable" "$ipset" |
-			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
+			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;/\}/q\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
 		[ ! -s "$tmp_file" ] && bk_failed
 
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
@@ -573,11 +577,12 @@ create_backup() {
 		$compr_cmd < "$tmp_file" > "${bk_file}.new"; rv=$?
 		[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && bk_failed
 	done
-	OK
 
 	for f in "${bk_dir}"/*.new; do
+		case "$f" in *'*.new'*) break; esac
 		mv -- "$f" "${f%.new}" || bk_failed
 	done
+	OK
 
 	bk_geocounters
 	:
