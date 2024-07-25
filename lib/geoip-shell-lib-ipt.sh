@@ -555,7 +555,7 @@ restorebackup() {
 
 	rm_rstr_tmp
 
-	[ "$restore_config" ] && { cp_conf restore || rstr_failed; }
+	[ "$restore_conf" ] && { cp_conf restore || rstr_failed; }
 	export main_config=
 	:
 }
