@@ -392,7 +392,6 @@ fi
 checkvars _fw_backend datadir geomode
 
 unset lists_req exclude_iplists excl_list_ids
-excl_file="$conf_dir/iplist-exclusions.conf"
 
 [ "$ccodes_arg" ] && {
 	validate_arg_ccodes
