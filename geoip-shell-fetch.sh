@@ -180,7 +180,7 @@ get_src_dates_ripe() {
 
 parse_ripe_json() {
 	in_list="$1" out_list="$2" family="$3"
-	sed -n -e /"$family"/\{:1 -e n\;/]/q\;p\;b1 -e \} "$in_list" | cut -d\" -f2 > "$out_list"
+	sed -n -e /"$family"/\{/]/q\;:1 -e n\;/]/q\;p\;b1 -e \} "$in_list" | cut -d\" -f2 > "$out_list"
 	[ -s "$out_list" ]; return $?
 }
 
