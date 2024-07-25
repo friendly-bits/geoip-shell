@@ -355,7 +355,8 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	# Copyright: antonk (antonk.d3v@gmail.com)
 	# github.com/friendly-bits
 
-	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock"
+	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
+		excl_file="$conf_dir/iplist-exclusions.conf"
 	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 \$_nl"
