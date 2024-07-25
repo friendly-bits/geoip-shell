@@ -304,6 +304,8 @@ tolower action
 
 run_command="$i_script-run.sh"
 
+[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+
 
 ## Check args for sanity
 
@@ -391,11 +393,10 @@ fi
 
 checkvars _fw_backend datadir geomode
 
-unset lists_req exclude_iplists excl_list_ids
+unset lists_req excl_list_ids
 
 [ "$ccodes_arg" ] && {
 	validate_arg_ccodes
-	[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
 }
 
 for ccode in $ccodes_arg; do
