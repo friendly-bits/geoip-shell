@@ -118,9 +118,15 @@ report_fw_state
 			for ccode in $active_ccodes; do
 				el_summary=''
 				printf %s "${purple}${ccode}${n_c}: "
-				for family in $active_families; do
-					el_cnt="$(cnt_ipset_elements "${ccode}_${family}")"
-					[ "$el_cnt" != 0 ] && list_empty='' || { list_empty=" $_X"; incr_issues; }
+				for family in $families; do
+					list_id="${ccode}_${family}"
+					el_cnt="$(cnt_ipset_elements "$list_id")"
+					[ "$el_cnt" != 0 ] && list_empty='' || {
+						case "$exclude_iplists" in
+							*"$list_id"*) list_empty=" (excluded)" ;;
+							*) list_empty=" $_X"; incr_issues
+						esac
+					}
 					el_summary="$el_summary$family - $blue$el_cnt$n_c$list_empty, "
 					total_el_cnt=$((total_el_cnt+el_cnt))
 				done
