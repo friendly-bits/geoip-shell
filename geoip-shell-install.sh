@@ -381,6 +381,9 @@ EOF
 # copy cca2.list
 cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
 
+# copy iplist-exclusions.conf
+cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'iplist-exclusions.conf' to '$conf_dir'."
+
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
 	init_script="/etc/init.d/${p_name}-init"
