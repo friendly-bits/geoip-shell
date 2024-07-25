@@ -190,7 +190,7 @@ group_lists_by_registry() {
 	# group lists by registry
 	for registry in $all_registries; do
 		list_ids=
-		for list_id in $lists_arg; do
+		for list_id in $san_lists; do
 			ccode="${list_id%_*}"
 			get_a_arr_val registry_ccodes_arr "$registry" ccodes
 			case "$ccodes" in *" ${ccode} "*)
@@ -202,13 +202,14 @@ group_lists_by_registry() {
 		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
 	done
 
-	subtract_a_from_b "$valid_lists" "$lists_arg" invalid_lists
+	subtract_a_from_b "$valid_lists" "$san_lists" invalid_lists
 	[ "$invalid_lists" ] && {
 		for invalid_list in $invalid_lists; do
 			add2list invalid_ccodes "${invalid_list%_*}"
 		done
 		die "Invalid country codes: '$invalid_ccodes'."
 	}
+	[ ! "$valid_lists" ] && die "No applicable ip list id's found in '$lists_arg'."
 }
 
 # checks vars set in the status file
@@ -308,6 +309,10 @@ process_ccode() {
 
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
+		case "$exclude_iplists" in *"$list_id"*)
+			add2list excl_list_ids "$list_id"
+			continue
+		esac
 		case "$dl_src" in
 			ripe) dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
 			ipdeny)
@@ -440,7 +445,6 @@ check_subnets_cnt_drop() {
 # ... but not both
 [ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
 
-[ ! "$lists_arg" ] && die "Specify list id's!"
 fast_el_cnt "$lists_arg" " " lists_arg_cnt
 
 # if $output_file is set, make sure that no more than 1 list is specified
@@ -453,6 +457,7 @@ iplist_dir_f="${iplist_dir_f%/}"
 
 #### CONSTANTS
 
+excl_file="$conf_dir/iplist-exclusions.conf"
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
 
 newifs "$_nl" cca
@@ -535,14 +540,25 @@ default_source="ripe"
 
 #### VARIABLES
 
-lists=
+unset lists exclude_iplists excl_list_ids
+[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+
 for list_id in $lists_arg; do
 	case "$list_id" in
-		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}"; add2list lists "$cc_up$fml_lo" ;;
+		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}" ;;
 		*) die "invalid list id '$list_id'."
 	esac
+	list_id="$cc_up$fml_lo"
+	case "$exclude_iplists" in *"$list_id"*)
+		add2list excl_list_ids "$list_id"
+		continue
+	esac
+	add2list lists "$list_id"
 done
-lists_arg="$lists"
+san_lists="$lists"
+
+[ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
+
 
 tolower source_arg
 dl_src="${source_arg:-"$default_source"}"
@@ -560,6 +576,12 @@ set -- $dl_src
 # debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
 subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
 case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
+
+# groups lists by registry
+# populates $registries, fetch_lists_arr
+group_lists_by_registry
+
+[ ! "$registries" ] && die "$FAIL determine relevant regions."
 
 case "$dl_src" in
 	ripe) dl_srv="${ripe_url_api%%/*}"
@@ -581,12 +603,6 @@ done
 
 
 #### Main
-
-# groups lists by registry
-# populates $registries, fetch_lists_arr
-group_lists_by_registry
-
-[ ! "$registries" ] && die "$FAIL determine relevant regions."
 
 for list_id in $valid_lists; do
 	unset "prev_ips_cnt_${list_id}"
