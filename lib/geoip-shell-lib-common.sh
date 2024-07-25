@@ -463,6 +463,12 @@ setconfig() {
 	:
 }
 
+set_all_config() {
+	setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+		nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
+		_fw_backend max_attempts reboot_sleep
+}
+
 sc_failed() {
 	oldifs sc
 	echolog -err "setconfig: $1"
