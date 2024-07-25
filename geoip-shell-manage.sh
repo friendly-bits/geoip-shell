@@ -161,18 +161,18 @@ restore_from_config() {
 		return 1
 	}
 
-	restore_msg="Restoring $p_name from config... "
-	restore_ok_msg="Successfully restored $p_name from config."
+	restore_msg="Restoring $p_name from ${_prev}config... "
+	restore_ok_msg="Successfully restored $p_name from ${_prev}config."
 	[ "$conf_act" = reset ] && {
-		restore_msg="Applying config... "
-		restore_ok_msg="Successfully applied config."
+		restore_msg="Applying ${_prev}config... "
+		restore_ok_msg="Successfully applied ${_prev}config."
 	}
 	echolog "$restore_msg"
 	case "$iplists" in
 		'') echolog -err "No ip lists registered in the config." ;;
 		*) [ ! "$in_install" ] && [ ! "$first_setup" ] && { rm_iplists_rules || return 1; }
-			setconfig iplists
-			[ ! "$first_setup" ] && rm_data
+			[ ! "$prev_config_try" ] && setconfig iplists
+			rm -f "$datadir/status"
 			call_script -l "$run_command" add -l "$iplists" -o
 			check_reapply && {
 				setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die
@@ -183,8 +183,17 @@ restore_from_config() {
 
 	[ "$in_install" ] || [ "$first_setup" ] && die
 
+	[ "$prev_config" ] && [ ! "$prev_config_try" ] && {
+		prev_config_try=1
+		main_config="$prev_config"
+		export_conf=1 get_config_vars
+		_prev="previous "
+		set_all_config
+		restore_from_config && return 0
+	}
+
 	# call the *backup script to initiate recovery from fault
-	call_script -l "$i_script-backup.sh" restore && check_reapply && return 0
+	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && check_reapply && return 0
 
 	die "$FAIL restore $p_name state from backup. If it's a bug then please report it."
 }
@@ -440,10 +449,9 @@ case "$action" in
 			}
 		}
 		export datadir status_file="$datadir/status"
+		prev_config="$main_config"
 
-		setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-			nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
-			_fw_backend max_attempts reboot_sleep
+		set_all_config
 
 		[ "$_fw_backend_change" ] && {
 			_fw_be_new="$_fw_backend"
@@ -547,18 +555,25 @@ check_for_lockout
 
 ### Call the *run script
 
+prev_iplists="$iplists"
 debugprint "Writing new config to file: 'iplists=$planned_lists'"
 setconfig "iplists=$planned_lists"
 
-call_script -l "$run_command" "$action" -l "$lists_to_change"; rv=$?
+call_script -l "$run_command" "$action" -l "$lists_to_change"; run_rv=$?
 
-# positive return code means apply failure or another permanent error, except for 254
-case "$rv" in 0|254) ;; *)
-	echolog -err "$FAIL perform action '$action' for lists '$lists_to_change_str'."
-	[ ! "$iplists" ] && die "Can not restore previous ip lists because they are not found in the config file."
-	# write previous config lists
-	setconfig iplists
-	restore_from_config
+case "$run_rv" in
+	0) ;;
+	*)
+		echolog -err "$FAIL perform action '$action' for lists '$lists_to_change'." "Restoring previous config..."
+		setconfig "iplists=$prev_iplists"
+		case "$run_rv" in
+			254) check_lists_coherence && { report_lists; die 254; }
+				call_script -l "$i_script-backup.sh" restore
+				die $? ;;
+			*)
+				[ ! "$prev_iplists" ] && die "Can not restore previous ip lists because they are not found in the config file."
+				restore_from_config
+		esac
 esac
 
 get_active_iplists new_verified_lists
