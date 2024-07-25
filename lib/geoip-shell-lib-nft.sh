@@ -545,10 +545,6 @@ rstr_failed() {
 	die
 }
 
-rm_bk_tmp() {
-	rm -f "$tmp_file" "$bk_dir/"*.new
-}
-
 bk_failed() {
 	rm_bk_tmp
 	die "$FAIL back up $p_name ip sets."
@@ -560,7 +556,7 @@ create_backup() {
 	printf %s "Creating backup of $p_name ip sets... "
 	getstatus "$status_file" || bk_failed
 	for list_id in $iplists; do
-		bk_file="${bk_dir}/${list_id}.${bk_ext:-bak}"
+		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
 		eval "list_date=\"\$prev_date_${list_id}\""
 		[ -z "$list_date" ] && bk_failed
 		ipset="${list_id}_${list_date}_${geotag}"
@@ -574,14 +570,10 @@ create_backup() {
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $bk_len"
 
-		$compr_cmd < "$tmp_file" > "${bk_file}.new"; rv=$?
-		[ "$rv" != 0 ] || [ ! -s "${bk_file}.new" ] && bk_failed
+		$compr_cmd < "$tmp_file" > "$bk_file"; rv=$?
+		[ "$rv" != 0 ] || [ ! -s "$bk_file" ] && bk_failed
 	done
 
-	for f in "${bk_dir}"/*.new; do
-		case "$f" in *'*.new'*) break; esac
-		mv -- "$f" "${f%.new}" || bk_failed
-	done
 	OK
 
 	bk_geocounters
@@ -591,7 +583,7 @@ create_backup() {
 # backup up rule counters
 bk_geocounters() {
 	geochain_cont="$(nft_get_chain "$geochain")" &&
-	get_geocounters "$geochain_cont" > "$bk_dir/counters.bak"
+	get_geocounters "$geochain_cont" > "$bk_dir_new/counters.bak"
 }
 
 geotable="$geotag"
