@@ -575,10 +575,6 @@ rstr_failed() {
 	die
 }
 
-rm_bk_tmp() {
-	rm -f "$tmp_file" "${bk_file}.new"
-}
-
 bk_failed() {
 	rm_bk_tmp
 	die "$1"
@@ -609,11 +605,10 @@ create_backup() {
 	done ) >> "$tmp_file" || bk_failed "$FAIL back up ipset '$ipset'."
 
 	printf %s "Compressing backup... "
-	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
-	$compr_cmd < "$tmp_file" > "${bk_file}.new" &&  [ -s "${bk_file}.new" ] ||
-		bk_failed "$FAIL compress firewall backup to file '${bk_file}.new'."
+	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
+	$compr_cmd < "$tmp_file" > "$bk_file" &&  [ -s "$bk_file" ] ||
+		bk_failed "$FAIL compress firewall backup to file '$bk_file'."
 
-	mv "${bk_file}.new" "$bk_file" || bk_failed "$FAIL overwrite file '$bk_file'."
 	OK
 
 	:
