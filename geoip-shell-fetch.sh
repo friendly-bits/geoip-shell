@@ -210,6 +210,7 @@ group_lists_by_registry() {
 		die "Invalid country codes: '$invalid_ccodes'."
 	}
 	[ ! "$valid_lists" ] && die "No applicable ip list id's found in '$lists_arg'."
+	failed_lists="$valid_lists"
 }
 
 # checks vars set in the status file
@@ -297,7 +298,6 @@ rm_tmp_f() {
 
 list_failed() {
 	rm_tmp_f
-	add2list failed_lists "$list_id"
 	[ "$1" ] && echolog -err "$1"
 }
 
@@ -310,7 +310,6 @@ process_ccode() {
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
 		case "$exclude_iplists" in *"$list_id"*)
-			add2list excl_list_ids "$list_id"
 			continue
 		esac
 		case "$dl_src" in
@@ -539,7 +538,7 @@ default_source="ripe"
 
 #### VARIABLES
 
-unset lists exclude_iplists excl_list_ids
+unset lists exclude_iplists excl_list_ids failed_lists fetched_lists
 [ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
 
 for list_id in $lists_arg; do
@@ -614,7 +613,6 @@ else
 	debugprint "Status file '$status_file' either doesn't exist or is empty."
 	:
 fi
-unset failed_lists fetched_lists
 
 trap 'rm_tmp_f; rm -f "$server_html_file"
 	for family in $families; do
@@ -646,6 +644,7 @@ if [ "$status_file" ]; then
 		list_dates_str="${list_dates_str}prev_date_${list_id}=$prev_date$_nl"
 	done
 
+	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
 	setstatus "$status_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
 		"failed_lists=$failed_lists" "$ips_cnt_str" "$list_dates_str" ||
 			die "$FAIL write to the status file '$status_file'."
