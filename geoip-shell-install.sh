@@ -189,9 +189,9 @@ pick_shell() {
 		"Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
 	pick_opt "y|n|a"
 	case "$REPLY" in
-		a|A) exit 0 ;;
-		y|Y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$me\" $*"; exit ;;
-		n|N) if [ -n "$bad_sh" ]; then exit 1; fi
+		a) exit 0 ;;
+		y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$me\" $*"; exit ;;
+		n) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
 
@@ -279,6 +279,7 @@ all_fw_libs="ipt nft"
 		4) _fw_backend=nft ;;
 		all) _fw_backend=all
 	esac
+	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt-common.sh\" || die"
 	eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
 } || {
 	check_compat="check-compat"
@@ -312,6 +313,12 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 [ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
 
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
+
+if [ -s "$conf_file"  ] && nodie=1 get_config_vars; then
+	export datadir
+	tolower nobackup_arg
+	[ "$nobackup_arg" != true ] && [ "$nobackup" != true ] && { call_script "$p_script-backup.sh" create-backup || rm_data; }
+fi
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
 [ ! "$inst_root_gs" ] && {
@@ -356,23 +363,27 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	# github.com/friendly-bits
 
 	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
-		excl_file="$conf_dir/iplist-exclusions.conf"
-	export conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
+	excl_file="$conf_dir/iplist-exclusions.conf"
+	export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
 	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 \$_nl"
 
 	$init_check_compat_pt1
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
+	$set_owrt_install
 	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 	[ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
 		{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
-	[ ! -s "\$conf_file" ] && return 0
-	nodie=1 getconfig _fw_backend ||
-		{
-			[ ! "\$in_uninstall" ] && die "\$FAIL read value for '_fw_backend' from config."
-			detect_fw_backend || die
-		}
+
+	[ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
+	if [ ! "\$_fw_backend" ]; then
+		rm -f "\$conf_dir/setupdone"
+		[ "\$in_install" ] || [ "\$first_setup" ] && return 0
+		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
+		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
+		detect_fw_backend || die
+	fi
 
 	$init_check_compat_pt2
 	export fwbe_ok=1 _fw_backend
@@ -390,8 +401,6 @@ cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_fai
 	init_script="/etc/init.d/${p_name}-init"
 	fw_include="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
-
-	echo "export _OWRT_install=1" >> "$inst_root_gs$conf_dir/${p_name}.const"
 
 	if [ "$no_persist_arg" ]; then
 		echolog -warn "Installed without persistence functionality."
