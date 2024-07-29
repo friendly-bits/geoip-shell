@@ -482,7 +482,7 @@ for util in curl wget uclient-fetch; do
 	case "$util" in
 		curl)
 			secure_util="curl"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s --head"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 10 -s --head"
 			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
 			fetch_cmd_q="$curl_cmd -s"
@@ -500,7 +500,7 @@ for util in curl wget uclient-fetch; do
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
-			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider"
+			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=10 --spider"
 			wget_cmd="$wget_cmd$wget_tries --timeout=16"
 			fetch_cmd="$wget_cmd$wget_show_progress -O -"
 			fetch_cmd_q="$wget_cmd -O -"
@@ -508,7 +508,7 @@ for util in curl wget uclient-fetch; do
 		uclient-fetch)
 			fetch_cmd="$ucl_f_cmd -T 16 -O -"
 			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
-			con_check_cmd="$ucl_f_cmd -T 7 -q -s"
+			con_check_cmd="$ucl_f_cmd -T 10 -q -s"
 			[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="uclient-fetch"; break; }
 	esac
 done
@@ -526,8 +526,8 @@ if [ -z "$secure_util" ] && [ -z "$http" ]; then
 		pick_opt "y|n"
 	fi
 	case "$REPLY" in
-		n|N) die "No fetch utility available." ;;
-		y|Y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
+		n) die "No fetch utility available." ;;
+		y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
 	esac
 elif [ -n "$secure_util" ]; then http="https"
 fi
