@@ -129,6 +129,7 @@ bk_dir="$datadir/backup"
 bk_dir_new="${bk_dir}.new"
 config_file="$conf_file"
 config_file_bak="${p_name}.conf.bak"
+status_file="$datadir/status"
 status_file_bak="status.bak"
 
 checkvars _fw_backend datadir
