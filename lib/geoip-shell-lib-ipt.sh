@@ -86,7 +86,7 @@ get_ipset_iplists() {
 }
 
 critical() {
-	echo "Failed." >&2
+	FAIL
 	echolog -err "Removing geoip rules..."
 	rm_all_georules
 	set +f; rm -f "$iplist_dir/"*.iplist; set -f
@@ -100,12 +100,13 @@ destroy_tmp_ipsets() {
 	done
 }
 
-# saves current counter values for rule tagged $1
+# saves current counter values for rules tagged $1
 save_counter() {
 	newifs "$_nl" cnt
 	for rm_rule in $curr_ipt; do
 		case "$rm_rule" in *"$1"*) ;; *) continue; esac
 		counter_val="${rm_rule%%\]*}]"
+		case "$counter_val" in '['*:*']') ;; *) continue; esac
 		rm_rule="${rm_rule#*" -A "}"
 		rule_md5="$(get_md5 "$rm_rule")"
 		[ ! "$rule_md5" ] && continue
