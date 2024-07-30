@@ -26,10 +26,12 @@ check_shell
 [ "$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok=1; }
 . "${_lib}-common.sh" || exit 1
 
-if check_fw_backend nft; then
+if check_fw_backend nft 2>/dev/null; then
 	_fw_backend=nft
-elif check_fw_backend ipt; then
+elif check_fw_backend ipt 2>/dev/null; then
 	_fw_backend=ipt
-fi 2>/dev/null
+elif [ ! "$inst_root_gs" ]; then
+	die "Neither nftables nor iptables+ipset found."
+fi
 
 :
