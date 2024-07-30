@@ -383,6 +383,7 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
 		detect_fw_backend || die
+		_fw_backend="\$_fw_backend_def"
 	fi
 
 	$init_check_compat_pt2
