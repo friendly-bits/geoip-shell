@@ -108,9 +108,9 @@ pick_geomode() {
 	printf '\n%s\n' "${blue}Select geoip blocking mode:$n_c [w]hitelist or [b]lacklist, or [a] to abort."
 	pick_opt "w|b|a"
 	case "$REPLY" in
-		w|W) geomode=whitelist ;;
-		b|B) geomode=blacklist ;;
-		a|A) die 0
+		w) geomode=whitelist ;;
+		b) geomode=blacklist ;;
+		a) die 0
 	esac
 }
 
@@ -139,8 +139,8 @@ pick_ifaces() {
 		printf '%s\n' "[c]onfirm, c[h]ange, or [a]bort?"
 		pick_opt "c|h|a"
 		case "$REPLY" in
-			c|C) ifaces="$auto_ifaces"; return ;;
-			a|A) die 0
+			c) ifaces="$auto_ifaces"; return ;;
+			a) die 0
 		esac
 	}
 
@@ -234,10 +234,10 @@ pick_lan_ips() {
 				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
-				c|C) confirm_ips; continue ;;
-				s|S) continue ;;
-				h|H) autodetect_off=1 ;;
-				a|A) die 0
+				c) confirm_ips; continue ;;
+				s) continue ;;
+				h) autodetect_off=1 ;;
+				a) die 0
 			esac
 		}
 
@@ -268,7 +268,7 @@ pick_lan_ips() {
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
 	printf '\n%s\n' "${blue}A[u]to-detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
-	case "$REPLY" in u|U) autodetect="1"; esac
+	[ "$REPLY" = u ] && autodetect=1
 }
 
 invalid_str() { echolog -err "Invalid string '$1'."; }
@@ -514,9 +514,9 @@ get_prefs() {
 			"It is important to answer this question correctly."
 		pick_opt "y|n|a"
 		case "$REPLY" in
-			a|A) die 0 ;;
-			y|Y) pick_ifaces ;;
-			n|N) ifaces=all; [ "$geomode" = whitelist ] && { warn_lockout; pick_lan_ips; }
+			a) die 0 ;;
+			y) pick_ifaces ;;
+			n) ifaces=all; [ "$geomode" = whitelist ] && { warn_lockout; pick_lan_ips; }
 		esac
 	elif [ "$ifaces_arg" ]; then
 		ifaces=
