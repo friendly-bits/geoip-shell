@@ -232,8 +232,8 @@ check_for_lockout() {
 		printf '\n%s\n\n%s\n' "$WARN $lo_msg" "Proceed?"
 		pick_opt "y|n"
 		case "$REPLY" in
-			y|Y) printf '\n%s\n' "Proceeding..." ;;
-			n|N)
+			y) printf '\n%s\n' "Proceeding..." ;;
+			n)
 				[ "$geomode_change" ] && geomode="$geomode_prev"
 				[ ! "$in_install" ] && [ ! "$first_setup" ] && report_lists
 				echo
@@ -254,7 +254,7 @@ get_wrong_ccodes() {
 
 changeact="Changing action to 'configure'."
 
-conf_act=
+unset conf_act rm_conf
 
 [ ! -f "$conf_dir/setupdone" ] && {
 	[ "$action" != configure ] && {
@@ -273,28 +273,30 @@ conf_act=
 		pick_opt "$keep_opt|f|a"
 		case "$REPLY" in
 			a) exit 0 ;;
-			f) rm -f "$conf_file"
+			f) rm_conf=1
 		esac
 	}
 }
 
-[ -s "$conf_file" ] && {
-	nodie=1 get_config_vars 2>/dev/null || echolog "Config file not found or failed to get config."
-}
+[ -s "$conf_file" ] && [ ! "$rm_conf" ] && { nodie=1 export_conf=1 get_config_vars || rm_conf=1; }
+[ ! -s "$conf_file" ] || [ "$rm_conf" ] && { rm -f "$conf_file"; rm_data; unset datadir; rm_setupdone; }
 
 [ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
 	[ "$action" != configure ] && echolog "Firewall backend is not set. $changeact"
 	action=configure conf_act=reset
 }
 
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || die; }
-
 case "$geomode" in
 	whitelist|blacklist) ;;
-	'') [ "$action" != configure ] && echolog "Geoip mode is not set. $changeact"
+	*)
+		case "$geomode" in
+			'') [ "$action" != configure ] && echolog "Geoip mode is not set. $changeact" ;;
+			*) echolog -err "Unexpected geoip mode '$geomode'!"
+				[ "$action" != configure ] && echolog "$changeact"
+				geomode=
+		esac
 		rm_setupdone
 		action=configure conf_act=reset ;;
-	*) die "Unexpected geoip mode '$geomode'!"
 esac
 
 san_str ccodes_arg
@@ -348,7 +350,12 @@ case "$action" in
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
-	reset) rm_iplists_rules; rm_data; rm -f "$conf_file"; rm_setupdone; die 0 ;;
+	reset)
+		rm_iplists_rules
+		rm_data
+		[ -f "$conf_file" ] && { printf '%s\n' "Deleting the config file '$conf_file'..."; rm -f "$conf_file"; }
+		rm_setupdone
+		die 0 ;;
 	restore) restore_from_config; die $?
 esac
 
@@ -426,10 +433,11 @@ case "$action" in
 
 		# logic for action 'configure'. careful: processing order matters!
 		[ ! "$conf_act" ] && [ "$nobackup_change" ] && [ "$nobackup" = false ] && conf_act=backup
-		[ "$conf_act" != reset ] &&
-			{ [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } || [ "$nft_perf_change" ] && conf_act=restore
 
+		{ [ "$ifaces_change" ] && [ "$_fw_backend" = nft ]; } ||
 		[ "$geomode_change" ] || [ "$geosource_change" ] || [ "$lists_change" ] || [ "$_fw_backend_change" ] && conf_act=reset
+
+		[ "$conf_act" != reset ] && [ "$nft_perf_change" ] && conf_act=restore
 
 		[ "$geomode_change" ] || [ "$lists_change" ] && check_for_lockout
 		iplists="$lists_req"
@@ -443,22 +451,23 @@ case "$action" in
 		}
 
 		case "$conf_act" in ''|backup) ! check_lists_coherence 2>/dev/null && conf_act=restore; esac
-		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -d "$bk_dir" ]; } && conf_act=reset
+		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -s "$datadir_prev/backup/$p_name.conf.bak" ]; } &&
+			conf_act=reset
 
 		debugprint "config action: '$conf_act'"
 		[ "$datadir_change" ] && {
-			printf %s "Creating the data dir '$datadir'... "
+			printf %s "Creating the data directory '$datadir'... "
 			rm -rf "$datadir"
 			mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
 			OK
 			[ -d "$datadir_prev" ] && {
 				printf %s "Moving data to the new path... "
 				set +f
-				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data."; }
+				mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data directory."; }
 				set -f
 				OK
-				printf %s "Removing the old data dir '$datadir_prev'..."
-				rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data dir."; }
+				printf %s "Removing the old data directory '$datadir_prev'..."
+				rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data directory."; }
 				OK
 			}
 		}
@@ -502,7 +511,6 @@ case "$action" in
 		[ "$rv_conf" = 0 ] && [ "$first_setup" ] && {
 			touch "$conf_dir/setupdone"
 			[ "$_OWRTFW" ] && {
-				.  "$_lib-owrt-common.sh" || die
 				rm_lock
 				enable_owrt_init; rv_conf=$?
 				[ -f "$lock_file" ] && {
@@ -573,20 +581,27 @@ prev_iplists="$iplists"
 debugprint "Writing new config to file: 'iplists=$planned_lists'"
 setconfig "iplists=$planned_lists"
 
-call_script -l "$run_command" "$action" -l "$lists_to_change"; run_rv=$?
-
-case "$run_rv" in
+call_script -l "$run_command" "$action" -l "$lists_to_change"; act_rv=$?
+case "$act_rv" in
 	0) ;;
 	*)
 		echolog -err "$FAIL perform action '$action' for lists '$lists_to_change'." "Restoring previous config..."
 		setconfig "iplists=$prev_iplists"
-		case "$run_rv" in
-			254) check_lists_coherence && { report_lists; die 254; }
-				call_script -l "$i_script-backup.sh" restore
-				die $? ;;
-			*)
-				[ ! "$prev_iplists" ] && die "Can not restore previous ip lists because they are not found in the config file."
-				restore_from_config
+		case "$act_rv" in
+			254) act_rv=1
+				if check_lists_coherence; then
+					OK; act_rv=254
+				else
+					[ "$nobackup" = false ] && [ -s "$datadir/backup/$p_name.conf.bak" ] &&
+						call_script -l "$i_script-backup.sh" restore && act_rv=254 &&
+						{ restore_from_config && act_rv=254; }
+				fi ;;
+			*)	act_rv=1
+				if [ ! "$prev_iplists" ]; then
+					echolog -err "Can not restore previous ip lists because they are not found in the config file."
+				else
+					restore_from_config && act_rv=254
+				fi
 		esac
 esac
 
@@ -595,13 +610,10 @@ subtract_a_from_b "$new_verified_lists" "$planned_lists" failed_lists
 if [ "$failed_lists" ]; then
 	debugprint "planned_lists: '$planned_lists', new_verified_lists: '$new_verified_lists', failed_lists: '$failed_lists'."
 	echolog -warn "$FAIL apply new $geomode rules for ip lists: $failed_lists."
-	# if the error encountered during installation, exit with error to fail the installation
-	[ "$in_install" ] && die
-	get_difference "$lists_to_change" "$failed_lists" ok_lists
-	[ ! "$ok_lists" ] && die "All actions failed."
+	[ ! "$new_verified_lists" ] && die
 fi
 
 report_lists
 statustip
 
-die 0
+die $act_rv
