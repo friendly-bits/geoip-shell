@@ -770,23 +770,25 @@ detect_ifaces() {
 }
 
 detect_fw_backend() {
-	detect_fw_be_failed() { echolog -err "Neither nftables nor iptables+ipset found."; return 1; }
+	detect_fw_be_failed() { echolog -err "Neither nftables nor iptables+ipset found."; }
 	if [ "$_OWRTFW" ]; then
 		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
 		case "$_OWRTFW" in
 			3) _fw_backend=ipt ;;
 			4) _fw_backend=nft ;;
-			*) detect_fw_be_failed
+			*) detect_fw_be_failed; return 1
 		esac
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
-		. "$_lib-check-compat.sh" || detect_fw_be_failed
+		. "$_lib-check-compat.sh" || { echolog -err "Failed to source '$_lib-check-compat.sh'."; return 1; }
 		[ ! "$_fw_backend_arg" ] && {
 			if check_fw_backend nft 2>/dev/null; then
 				_fw_backend_def=nft
 			elif check_fw_backend ipt 2>/dev/null; then
 				_fw_backend_def=ipt
-			else detect_fw_be_failed
+			else
+				detect_fw_be_failed
+				return 1
 			fi
 		}
 	fi
