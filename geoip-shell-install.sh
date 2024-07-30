@@ -284,7 +284,7 @@ all_fw_libs="ipt nft"
 } || {
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die \"\$_fw_backend not found.\""
+	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die"
 	fw_libs="$all_fw_libs"
 }
 
