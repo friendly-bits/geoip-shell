@@ -116,14 +116,13 @@ unknownact() {
 # $1 - input in the format 'a|b|c'
 # output via the $REPLY var
 pick_opt() {
-	toupper U_1 "$1"
-	_opts="$1|$U_1"
 	while true; do
 		printf %s "$1: "
 		read -r REPLY
 		is_alphanum "$REPLY" || { printf '\n%s\n\n' "Please enter $1"; continue; }
+		tolower REPLY
 		eval "case \"$REPLY\" in
-				$_opts) return ;;
+				$1) return ;;
 				*) printf '\n%s\n\n' \"Please enter $1\"
 			esac"
 	done
@@ -771,7 +770,7 @@ detect_ifaces() {
 }
 
 detect_fw_backend() {
-	detect_fw_be_failed() { echolog -err "$FAIL detect firewall backend."; return 1; }
+	detect_fw_be_failed() { echolog -err "Neither nftables nor iptables+ipset found."; return 1; }
 	if [ "$_OWRTFW" ]; then
 		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
 		case "$_OWRTFW" in
@@ -783,13 +782,13 @@ detect_fw_backend() {
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
 		. "$_lib-check-compat.sh" || detect_fw_be_failed
 		[ ! "$_fw_backend_arg" ] && {
-			if check_fw_backend nft; then
+			if check_fw_backend nft 2>/dev/null; then
 				_fw_backend_def=nft
-			elif check_fw_backend ipt; then
+			elif check_fw_backend ipt 2>/dev/null; then
 				_fw_backend_def=ipt
 			else detect_fw_be_failed
 			fi
-		} 2>/dev/null
+		}
 	fi
 }
 
