@@ -9,7 +9,6 @@
 # github.com/friendly-bits
 
 . "$_lib-$_fw_backend.sh" || die
-[ "$_OWRT_install" ] && { . "$_lib-owrt-common.sh" || die; }
 
 #### FUNCTIONS
 
