@@ -31,9 +31,9 @@ kill_geo_pids() {
 			done
 		done
 		oldifs kgp
-		[ ! "$_killed" ] || [ $i_kgp -gt 10 ] && break
+		[ ! "$_killed" ] && return 0
+		[ $i_kgp -gt 10 ] && { unisleep; return 0; }
 	done
-	unisleep
 }
 
 rm_iplists_rules() {
