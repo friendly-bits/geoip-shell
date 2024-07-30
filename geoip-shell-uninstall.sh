@@ -116,8 +116,7 @@ rm_iplists_rules
 rm_cron_jobs
 
 # For OpenWrt
-[ "$_OWRT_install" ] && [ -f "$_lib-owrt-common.sh" ] && {
-	. "$_lib-owrt-common.sh"
+[ "$_OWRT_install" ] && {
 	rm_owrt_init
 	rm_owrt_fw_include
 	restart_owrt_fw
