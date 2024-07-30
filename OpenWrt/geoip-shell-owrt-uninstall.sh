@@ -24,7 +24,6 @@ geoinit_path="/usr/bin/$geoinit"
 for lib_f in owrt-common uninstall; do
 	[ -f "$_lib-$lib_f.sh" ] && . "$_lib-$lib_f.sh"
 done
-[ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh"
 
 [ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" ||
 echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules." \
