@@ -26,10 +26,10 @@ After installing the ipk package, geoip-shell will be inactive until you configu
 
 ## Resources management on OpenWrt
 Because OpenWrt typically runs on embedded devices with limited memory and very small flash storage, geoip-shell implements some techniques to conserve these resources as much as possible:
-- During installation on OpenWrt, comments and the debug code are stripped from the scripts to reduce their size.
+- During installation on OpenWrt via the install script, comments and the debug code are stripped from the scripts to reduce their size. The ipk packages already come with comments and debug removed.
 - Only the required modules are installed, depending on the system (iptables- or nftables- based).
 - I've researched the most memory-efficient way for loading ip lists into nftables sets. Currently, nftables has some bugs related to this process which may cause unnecessarily high memory consumption. geoip-shell works around these bugs as much as possible.
-- To avoid unnecessary flash storage wear, all filesystem-related tasks geoip-shell does which do not require permanent storage are done in the /tmp directory which in the typical OpenWrt installation is mounted on the ramdisk.
+- To avoid unnecessary flash storage wear, all filesystem-related tasks geoip-shell does which do not require permanent storage are done in the /tmp directory which in the typical OpenWrt installation is mounted on the ramdisk. Besides the scripts, by default geoip-shell only stores a tiny config file in permanent storage and that config file gets overwritten only when you change the config.
 - Some defaults on OpenWrt are different to further minimize flash storage wear (read below).
 
 ### Scripts size
@@ -57,10 +57,10 @@ Generally the defaults are the same as for other systems, except:
 - the default ip lists source for OpenWrt is ipdeny (rather than ripe). While ipdeny is a 3rd party, they provide aggregated lists which consume less memory (on nftables-based systems the ip lists are automatically optimized after loading into memory, so there the source does not matter, but a smaller initial ip lists size will cause a smaller memory consumption spike while loading the ip list).
 
 ## Building an OpenWrt package
-The repository includes the _mk-owrt-package.sh_ script which automates creation of geoip-shell ipk packages. It uses _makefile.tpl_ as the base template for the Makefile. If for you want to build geoip-shell ipk package, read the comments inside that script for instructions.
+The repository includes the _mk-owrt-package.sh_ and _prep-owrt-package_ scripts which automate creation of geoip-shell ipk packages. The _makefile.tpl_ file is used as the base template for the Makefile. If you want to build the ipk package by yourself, read the comments inside the _mk-_ script for instructions.
 
 This is about it for this document. Much more information is available in the main [README.md](/README.md) and in the extra _.md_ files inside the Documentation directory. If you have any questions, go ahead and use the Discussions tab, or contact me in this thread:
-https://forum.openwrt.org/t/geoip-shell-flexible-geoip-blocker-for-linux-now-supports-openwrt/189611
+https://forum.openwrt.org/t/geoip-shell-flexible-geoip-blocker-for-linux/189611
 
 If you use this project, I will be happy to hear about your experience in the above thread or via the Discussions tab on Github. If for some reason geoip-shell is not working for you, I will want to know that as well so I can improve it.
 
