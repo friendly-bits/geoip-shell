@@ -15,7 +15,7 @@ Installation is possible either via the -install script (as described in the mai
    `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell-iptables_.*\.ipk')"`
 </details>
 
-A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is via a command line (but my goal is to make this an easy experience regardless). If this discourages you from using geoip-shell, please let me know. A few people asking for this feature may motivate me to prioritize it.
+A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is via a command line (but my goal is to make this an easy experience).
 
 ## Usage after installation via ipk
 After installing the ipk package, geoip-shell will be inactive until you configure it. To do so, run `geoip-shell configure` and follow the interactive setup. You can also run `geoip-shell -h` before that to find out about configuration options and then append certain options after the `configure` action, for example: `geoip-shell configure -c "de nl" -m whitelist` to configure geoip-shell in whitelist mode for countries Germany and Netherlands. The interactive setup will ask you about all the important options but some niche options are only available non-interactively (for example if you want to configure geoblocking for certain selection of ports). You can always change these settings after initial configuration via the same `geoip-shell configure` command.
