@@ -428,6 +428,19 @@ cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_fai
 	fi
 }
 
+# openrc local.d cron reboot replacement
+[ "$initsys" = "openrc" ] && {
+	local_d_script="/etc/local.d/90-geoip-shell-restore.start"
+	if [ ! -f "$local_d_script" ]; then
+		echo "Creating local.d startup script..."
+        touch "$local_d_script" || install_failed "$FAIL create the local.d script."
+        chmod +x "$local_d_script"
+		{
+			echo "#!/bin/sh"
+			echo "\"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence"
+		} > "$local_d_script"
+	fi
+}
 
 [ ! "$inst_root_gs" ] && {
 	# only allow root to read the $conf_dir and files inside it
