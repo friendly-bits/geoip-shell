@@ -45,7 +45,7 @@ cat <<EOF
 Usage: $me [-V] [-h]
 
 1) Removes geoip firewall rules
-2) Removes geoip cron jobs
+2) Removes geoip cron jobs (and local.d script on openrc)
 3) Deletes scripts' data folder (/var/lib/geoip-shell or /etc/geoip-shell/data on OpenWrt)
 4) Deletes the scripts from /usr/sbin
 5) Deletes the config folder /etc/geoip-shell
@@ -72,6 +72,14 @@ rm_scripts() {
 	:
 }
 
+rm_local_d_script() {
+	local_d_script="/etc/local.d/90-geoip-shell-restore.start"
+	[ -f "$local_d_script" ] && {
+		printf '%s\n' "Deleting $p_name local.d persistence script...";
+		rm -f "$local_d_script"
+	}
+	:
+}
 
 #### PARSE ARGUMENTS
 
@@ -114,6 +122,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 rm_setupdone
 rm_iplists_rules
 rm_cron_jobs
+rm_local_d_script
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
