@@ -875,9 +875,13 @@ check_cron_compat() {
 				}
 			done 1>/dev/null 2>/dev/null
 		done
-		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
+		if [ ! "$cron_reboot" ] && [ "$initsys" = "openrc" ]; then
+			printf '\n%s' "Attempting to enable local.d service..."
+			/sbin/rc-update add local default
+		elif [ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ]; then
 			die "cron-based persistence doesn't work with Busybox cron." \
 			"If you want to use $p_name without persistence support, install/configure with option '-n'."
+		fi
 	fi
 }
 
