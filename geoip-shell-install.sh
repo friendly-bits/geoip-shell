@@ -211,6 +211,7 @@ detect_init() {
 			done
 		}
 	case "$initsys" in
+        busybox) grep 'sysinit:/sbin/openrc sysinit' /etc/inittab 1>/dev/null 2>/dev/null && initsys="openrc" ;;
 		initctl) initsys=sysvinit ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
 		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1
