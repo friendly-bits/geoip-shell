@@ -197,19 +197,21 @@ pick_shell() {
 
 # detects the init system and sources the OWRT -common script if needed
 detect_init() {
-	[ "$_OWRTFW" ] && return 0
+	[ "$_OWRTFW" ] && { initsys=procd; [ "$inst_root_gs" ] && return 0; }
 	# check /run/systemd/system/
 	[ -d "/run/systemd/system/" ] && { initsys=systemd; return 0; }
-	# check /sbin/init strings
-	initsys="$(awk 'match($0, /(upstart|systemd|procd|sysvinit|busybox)/) \
-		{ print substr($0, RSTART, RLENGTH);exit; }' /sbin/init 2>/dev/null | grep .)" ||
-		# check process with pid 1
-		{
-			_pid1="$(ls -l /proc/1/exe)"
-			for initsys in systemd procd busybox upstart initctl unknown; do
-					case "$_pid1" in *"$initsys"* ) break; esac
-			done
-		}
+	if [ ! "$initsys" ]; then
+		# check /sbin/init strings
+		initsys="$(awk 'match($0, /(upstart|systemd|procd|sysvinit|busybox)/) \
+			{ print substr($0, RSTART, RLENGTH);exit; }' /sbin/init 2>/dev/null | grep .)" ||
+			# check process with pid 1
+			{
+				_pid1="$(ls -l /proc/1/exe)"
+				for initsys in systemd procd busybox upstart initctl unknown; do
+						case "$_pid1" in *"$initsys"* ) break; esac
+				done
+			}
+	fi
 	case "$initsys" in
 		initctl) initsys=sysvinit ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
@@ -311,7 +313,7 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 #### MAIN
 
 [ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
-
+: "${curr_sh_g:=/bin/sh}"
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
 if [ -s "$conf_file"  ] && nodie=1 get_config_vars; then
