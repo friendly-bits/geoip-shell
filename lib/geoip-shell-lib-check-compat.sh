@@ -17,7 +17,7 @@ check_common_deps() {
 
 check_shell() {
 	if [ -n "$curr_sh_g" ]; then return 0; fi
-	fast_sh="dash|ash|yash|ksh93|busybox sh|busybox"
+	fast_sh="dash|ash|yash|ksh93|ksh|busybox sh|busybox"
 	slow_sh="mksh|lksh|bash"
 	compat_sh="${fast_sh}|${slow_sh}"
 	incompat_sh="zsh|csh|posh"
@@ -56,7 +56,7 @@ check_shell() {
 			done
 			exit 1
 		else
-			echo "Warning: whether $p_name works with your shell $curr_sh_g is currently unknown. Please test and notify the developer." >&2
+			echo "Warning: whether $p_name works with your shell $blue$curr_sh_g$n_c is currently unknown. Please test and notify the developer." >&2
 		fi
 	fi
 	case "$curr_sh_g" in *busybox*) curr_sh_g="$curr_sh_g sh"; esac
