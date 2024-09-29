@@ -161,59 +161,68 @@ pick_shell() {
 	unset sh_msg f_shs_avail s_shs_avail
 	curr_sh_g_b="${curr_sh_g##*"/"}"
 	is_included "$curr_sh_g_b" "$fast_sh" "|" && return 0
+	[ -z "$ok_sh" ] && {
+		printf '\n%s\n%s\n\n' "${yellow}NOTE:${n_c} I'm running under an untested/unsupported shell '$blue$curr_sh_g_b$n_c'." \
+		"Consider runing $p_name-install.sh from a supported shell, such as ${blue}dash${n_c} or ${blue}bash${n_c}."
+		return 0
+	}
+
 	newifs "|" psh
 	for ___sh in $fast_sh; do
 		checkutil "$___sh" && add2list f_shs_avail "$___sh"
 	done
 	oldifs psh
-	[ -z "$f_shs_avail" ] && [ -n "$ok_sh" ] && return 0
-	newifs "|" psh
-	for ___sh in $slow_sh; do
-		checkutil "$___sh" && add2list s_shs_avail "$___sh"
-	done
-	oldifs psh
-	[ -z "$s_shs_avail" ] && return 0
-	is_included "$curr_sh_g_b" "$slow_sh" "|" &&
-		sh_msg="${blue}Your shell '$curr_sh_g_b' is supported by $p_name" msg_nc="$n_c" ||
-		sh_msg="I'm running under an unsupported/unknown shell '$curr_sh_g_b'"
-	if [ -n "$f_shs_avail" ]; then
-		recomm_sh="${f_shs_avail%% *}"
-		rec_sh_type="faster"
-	elif [ -n "$s_shs_avail" ]; then
-		recomm_sh="${s_shs_avail%% *}"
-		rec_sh_type="supported"
-	fi
+	[ -z "$f_shs_avail" ] && {
+		is_included "$curr_sh_g_b" "$slow_sh" "|" && printf '\n%s\n%s\n\n' \
+			"${yellow}NOTE:${n_c} You are running $p_name in '$curr_sh_g_b' which makes it run slower than necessary." \
+			"Consider installing a faster shell, such as ${blue}dash${n_c}, and running $p_name-install again."
+		return 0
+	}
+
+	recomm_sh="${f_shs_avail%% *}"
+	[ -z "$recomm_sh" ] && return 0
 	[ "$recomm_sh" = busybox ] && recomm_sh="busybox sh"
-	printf '\n%s\n%s\n' \
-		"$sh_msg but a $rec_sh_type shell '$recomm_sh' is available in this system, using it instead is recommended.$msg_nc" \
+	printf '\n%s\n%s\n%s\n' \
+		"${blue}Your shell '$curr_sh_g_b' is supported by $p_name but a faster shell '$recomm_sh'" \
+		"is available in this system, using it instead is recommended.$n_c" \
 		"Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
 	pick_opt "y|n|a"
 	case "$REPLY" in
 		a) exit 0 ;;
-		y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$me\" $*"; exit ;;
+		y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$script_dir/$p_name-install.sh\" $*"; exit ;;
 		n) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
 
 # detects the init system and sources the OWRT -common script if needed
 detect_init() {
+	check_openrc() { grep 'sysinit:/.*/openrc sysinit' /etc/inittab 1>/dev/null 2>/dev/null && initsys=openrc; }
+	check_strings() {
+		awk 'BEGIN{IGNORECASE=1; rv=1} match($0, /(upstart|systemd|procd|sysvinit|busybox|openrc)/) \
+			{ print substr($0, RSTART, RLENGTH); rv=0; exit; } END{exit rv}' "$1"
+	}
+
 	[ "$_OWRTFW" ] && { initsys=procd; [ "$inst_root_gs" ] && return 0; }
 	# check /run/systemd/system/
 	[ -d "/run/systemd/system/" ] && { initsys=systemd; return 0; }
 	if [ ! "$initsys" ]; then
 		# check /sbin/init strings
-		initsys="$(awk 'match($0, /(upstart|systemd|procd|sysvinit|busybox)/) \
-			{ print substr($0, RSTART, RLENGTH);exit; }' /sbin/init 2>/dev/null | grep .)" ||
+		initsys="$(check_strings /sbin/init 2>/dev/null)" ||
 			# check process with pid 1
 			{
-				_pid1="$(ls -l /proc/1/exe)"
-				for initsys in systemd procd busybox upstart initctl unknown; do
-						case "$_pid1" in *"$initsys"* ) break; esac
+				_pid1="$(ls -l /proc/1/exe | awk '{print $NF}')"
+				_pid1_lc="$(printf %s "$_pid1" | tr 'A-Z' 'a-z')"
+				for initsys in systemd procd busybox openrc upstart initctl unknown; do
+					case "$_pid1_lc" in *"$initsys"* ) break; esac
 				done
+				if [ "$initsys" = unknown ]; then
+					[ -n "$_pid1" ] && [ -f "$_pid1" ] && initsys="$(check_strings "$_pid1")" || initsys=unknown
+				fi
 			}
 	fi
 	case "$initsys" in
-		initctl) initsys=sysvinit ;;
+		busybox) check_openrc ;;
+		initctl|sysvinit) initsys=sysvinit; check_openrc ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
 		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1
 	esac
@@ -357,6 +366,9 @@ EOF
 
 . "$inst_root_gs$conf_dir/${p_name}.const"
 
+posix_o=
+set -o | grep -q '^posix[ \t]' && posix_o="set -o posix"
+
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
 	#!$curr_sh_g
@@ -368,8 +380,8 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 	excl_file="$conf_dir/iplist-exclusions.conf"
 	export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
-	export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 \$_nl"
-
+	export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
+	$posix_o
 	$init_check_compat_pt1
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
