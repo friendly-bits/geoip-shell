@@ -213,7 +213,7 @@ debugentermsg
 # 2 - <[schedule]|@reboot>
 check_cron_job() {
 	get_matching_line "$curr_cron" "*" "${p_name}-$1" "" curr_job
-	case "$curr_job" in "$2 \"$run_cmd\""*) return 0; esac
+	case "$curr_job" in "$2 $run_cmd"*) return 0; esac
 	return 1
 }
 
@@ -243,20 +243,20 @@ create_cron_job() {
 			# Remove existing update cron job before creating new one
 			rm_cron_job update
 			curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
-			cron_cmd="$schedule \"$run_cmd\" update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
+			cron_cmd="$schedule $run_cmd update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
 			w_sch=" with schedule '$schedule'" ;;
 		persistence)
 			check_cron_job persistence "@reboot" && return 0
 
 			# using the restore action for the *run script
-			cron_cmd="@reboot \"$run_cmd\" restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
+			cron_cmd="@reboot $run_cmd restore -a 1>/dev/null 2>/dev/null # ${p_name}-persistence" ;;
 		*) die "Unrecognized type of cron job: '$job_type'."
 	esac
 
 	#### Create new cron job
 
 	debugprint "Creating $job_type cron job$w_sch... "
-	printf '%s\n' "${curr_cron#"$_nl"}$_nl$cron_cmd" | crontab -u root - ||
+	printf '%s\n' "${curr_cron#"$_nl"}$_nl$cron_cmd" | crontab -u root - 1>/dev/null 2>/dev/null ||
 		die "$FAIL create $job_type cron job."
 }
 
@@ -272,7 +272,7 @@ rm_cron_job() {
 
 	debugprint "Removing $job_type cron job for $p_name... "
 	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
-	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root - ||
+	printf '%s\n' "$curr_cron" | grep -v "${p_name}-${job_type}" | crontab -u root - 1>/dev/null 2>/dev/null ||
 		die "$FAIL remove $job_type cron job."
 }
 
