@@ -439,13 +439,13 @@ get_prefs() {
 	[ "$datadir_arg" ] && {
 		datadir_new="${datadir_arg%/}"
 		[ ! "$datadir_new" ] && die "Invalid directory '$datadir_arg'."
-		case "$datadir_new" in */*) ;; *) die "Invalid directory '$datadir_arg'."; esac
+		case "$datadir_new" in /*) ;; *) die "Invalid directory '$datadir_arg'."; esac
 		[ "$datadir_new" != "$datadir" ] && {
-			{ find "$datadir_new" -mindepth 1 -maxdepth 1 | grep .; } 1>/dev/null 2>/dev/null &&
-				die "Can not create '$datadir_arg': it exists and is not empty."
+			{ find "$datadir_new" | head -n2 | grep -v "^$datadir_new\$"; } 1>/dev/null 2>/dev/null &&
+				die "Can not use directory '$datadir_arg': it exists and is not empty."
 		}
 		parent_dir="${datadir_new%/*}/"
-		[ ! -d "$parent_dir" ] && die "Can not create '$datadir_arg': parent directory '$parent_dir' doesn't exist."
+		[ ! -d "$parent_dir" ] && die "Can not create directory '$datadir_arg': parent directory '$parent_dir' doesn't exist."
 	}
 	datadir="${datadir_new:-"$datadir"}"
 
