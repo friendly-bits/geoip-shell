@@ -223,6 +223,13 @@ check_deps() {
 	:
 }
 
+check_libs() {
+	missing_libs=
+	for lib; do [ ! -s "$lib" ] && missing_lib="${missing_libs}'$lib', "; done
+	[ "$missing_libs" ] && { echolog -err "Missing libraries: ${missing_libs%, }"; return 1; }
+	:
+}
+
 get_json_lines() {
 	sed -n -e /"$1"/\{:1 -e n\;/"$2"/q\;p\;b1 -e \}
 }
@@ -803,8 +810,8 @@ check_cron() {
 	unset cron_reboot cron_path
 	cron_rv=1
 	# check for cron or crond in running processes
-	for cron_cmd in cron crond; do
-		pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")" && {
+	for cron_cmd in cron crond fcron; do
+		cron_path="$(pgrep -a "$cron_cmd" | awk -F' ' 'BEGIN{rv=1} {print $2; rv=0} END{exit rv}')" && {
 			cron_rl_path="$(ls -l "$cron_path" 2>/dev/null)" || continue
 			# check for busybox cron
 			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
@@ -813,6 +820,7 @@ check_cron() {
 			break
 		}
 	done
+
 	export cron_rv
 	return "$cron_rv"
 }
@@ -855,7 +863,7 @@ check_cron_compat() {
 			cron_rv=
 			check_cron && continue
 			# try to enable and start cron service
-			for cron_cmd in cron crond; do
+			for cron_cmd in cron crond fcron; do
 				case "$initsys" in
 					systemd) systemctl status $cron_cmd; [ $? = 4 ] && continue
 							systemctl is-enabled "$cron_cmd" || systemctl enable "$cron_cmd"
@@ -866,7 +874,8 @@ check_cron_compat() {
 							checkutil chkconfig && {
 								chkconfig $cron_cmd on
 								service $cron_cmd start; } ;;
-					upstart) rm -f "/etc/init/$cron_cmd.override"
+					upstart) rm -f "/etc/init/$cron_cmd.override" ;;
+					openrc) rc-update add $cron_cmd default
 				esac
 
 				[ -f "/etc/init.d/$cron_cmd" ] && {
@@ -979,8 +988,8 @@ export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|
 	ipv6_regex='([0-9a-f]{0,4})(:[0-9a-f]{0,4}){2,7}' \
 	maskbits_regex_ipv4='(3[0-2]|([1-2][0-9])|[6-9])' \
 	maskbits_regex_ipv6='(12[0-8]|((1[0-1]|[1-9])[0-9])|[6-9])'
-export subnet_regex_ipv4="${ipv4_regex}\/${maskbits_regex_ipv4}" \
-	subnet_regex_ipv6="${ipv6_regex}\/${maskbits_regex_ipv6}"
+export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
+	subnet_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"
 
 set -f
 
