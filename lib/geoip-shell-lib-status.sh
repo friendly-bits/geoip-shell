@@ -151,7 +151,7 @@ if check_cron; then
 	get_matching_line "$cron_jobs" "*" "${p_name}-update" "" update_job
 	case "$update_job" in
 		'') upd_job_status="$_X"; upd_schedule=''; incr_issues ;;
-		*) upd_job_status="$_V"; upd_schedule="${update_job%%\"*}"
+		*) upd_job_status="$_V"; upd_schedule="${update_job%%\/*}"
 	esac
 	printf '%s\n' "Update cron job: $upd_job_status"
 	[ "$upd_schedule" ] && printf '%s\n' "Update schedule: '${blue}${upd_schedule% }${n_c}'"
