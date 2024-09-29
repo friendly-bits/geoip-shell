@@ -107,7 +107,8 @@ failed_lists_cnt=0
 #### CHECKS
 
 checkvars i_script iplist_dir geomode _fw_backend _lib
-check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" "$_lib-$_fw_backend.sh" || die
+check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || die
+check_libs "$_lib-$_fw_backend.sh" || die
 
 # check that the config file exists
 [ ! -f "$conf_file" ] && die "Config file '$conf_file' doesn't exist! Please run '$p_name configure'."
