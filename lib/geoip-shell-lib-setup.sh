@@ -356,7 +356,7 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	detect_fw_backend || die
+	_fw_backend_def="$(detect_fw_backend)" || die
 
 	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=2048MiB
 	[ ! "$nft_perf" ] && {
@@ -379,6 +379,12 @@ set_defaults() {
 		def_sch_minute=$((10+rand_int))
 	}
 
+	if [ "$_OWRTFW" ]; then
+		geosource_def=ipdeny datadir_def="/tmp/$p_name" nobackup_def=true
+	else
+		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
+	fi
+
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${schedule:="$def_sch_minute 4 * * *"}"
@@ -396,14 +402,17 @@ set_defaults() {
 
 get_prefs() {
 	set_defaults
-
 	# firewall backend
-	[ "$_fw_backend_arg" ] && [ "$_OWRTFW" ] && die "Changing the firewall backend is unsupported on OpenWrt."
-	[ ! "$_OWRTFW" ] && {
-		_fw_backend="${_fw_backend_arg:-$_fw_backend}"
-		[ ! "$_fw_backend" ] && die "Neither nftables nor iptables+ipset found."
-		check_fw_backend "$_fw_backend" || die
+	[ "$_fw_backend_arg" ] && {
+		[ "$_OWRTFW" ] && die "Changing the firewall backend is unsupported on OpenWrt."
+		check_fw_backend "$_fw_backend_arg" ||
+		case $? in
+			1) die ;;
+			2) die "Firewall backend '${_fw_backend_arg}ables' not found." ;;
+			3) die "Utility 'ipset' not found."
+		esac
 	}
+	_fw_backend="${_fw_backend_arg:-$_fw_backend}"
 
 	# nft_perf
 	[ "$nft_perf_arg" ] && {
@@ -440,6 +449,7 @@ get_prefs() {
 		datadir_new="${datadir_arg%/}"
 		[ ! "$datadir_new" ] && die "Invalid directory '$datadir_arg'."
 		case "$datadir_new" in /*) ;; *) die "Invalid directory '$datadir_arg'."; esac
+		case "$datadir_new" in "$iplist_dir"|"$conf_dir") die "Directory '$datadir_new' is reserved. Please pick another one."; esac
 		[ "$datadir_new" != "$datadir" ] && {
 			{ find "$datadir_new" | head -n2 | grep -v "^$datadir_new\$"; } 1>/dev/null 2>/dev/null &&
 				die "Can not use directory '$datadir_arg': it exists and is not empty."
