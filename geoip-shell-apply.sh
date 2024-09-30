@@ -120,4 +120,5 @@ case "$action" in
 	off) geoip_off; exit
 esac
 
+[ -n "$iplist_dir" ] && mkdir -p "$iplist_dir"
 apply_rules
