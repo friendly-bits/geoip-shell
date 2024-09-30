@@ -106,7 +106,12 @@ install_dir="${old_install_dir:-"$install_dir"}"
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -s "$conf_file" ] && nodie=1 getconfig datadir
+[ -s "$conf_file" ] && nodie=1 getconfig datadir ||
+	{
+		[ ! "$in_install" ] && [ ! "$first_setup" ] && [ "$in_uninstall" ] &&
+			echolog -warn "Config file doesn't exist or failed to read config." \
+				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
+	}
 : "${datadir:="/var/lib/geoip-shell"}"
 
 #### MAIN
