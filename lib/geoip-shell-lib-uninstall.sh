@@ -81,7 +81,9 @@ rm_geodir() {
 }
 
 rm_data() {
-	rm_geodir "$datadir" data
+	rm_geodir "$datadir"/backup backup
+	rm -f "$datadir"/status
+	{ find "$datadir" | head -n2 | grep -v "^$datadir\$"; } 1>/dev/null 2>/dev/null || rm_geodir "$datadir" data
 	:
 }
 
