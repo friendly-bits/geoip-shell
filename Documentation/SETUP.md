@@ -2,11 +2,7 @@
 
 ### **'Your shell 'A' is supported by geoip-shell but a faster shell 'B' is available in this system, using it instead is recommended. Would you like to use 'B' with geoip-shell?'**
 
-geoip-shell will work with the shell A you ran it from, but it will work faster with a shell B which is also installed in your system. Your call - type in `y` or `n`. The recommendation is clear. If you type in `y`, geoip-shell installer will launch itself using shell B and configure geoip-shell to always use shell B.
-
-### **'I'm running under an unsupported/unknown shell shell 'A' but a supported shell 'B' is available in this system, using it instead is recommended. Would you like to use 'B' with geoip-shell?'**
-
-Whether geoip-shell will work correctly or at all with the shell A you ran it from is unknown, but a supported shell B is available in your system. You can try to run geoip-shell with A but the recommendation is clear. Generally, geoip-shell works best with shells `ash` and `dash`. If you type in `y`, geoip-shell installer will launch itself using shell B and configure geoip-shell to always use shell B.
+geoip-shell will work with the shell A you ran it from, but it will work faster with a shell B which is also installed in your system. If you type in `y`, geoip-shell installer will launch itself using shell B and configure geoip-shell to always use shell B. Otherwise your current shell will be used.
 
 ### **'Please enter your country code':**
 
