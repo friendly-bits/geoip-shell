@@ -367,7 +367,7 @@ EOF
 . "$inst_root_gs$conf_dir/${p_name}.const"
 
 posix_o=
-set -o | grep -q '^posix[ \t]' && posix_o="set -o posix"
+[ ! "$inst_root_gs" ] && set -o | grep -q '^posix[ \t]' && posix_o="set -o posix"
 
 # create the -geoinit script
 cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
