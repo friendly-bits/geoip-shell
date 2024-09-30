@@ -56,7 +56,9 @@ rm_iplists_rules() {
 	esac
 
 	### Remove geoip firewall rules
-	[ "$_fw_backend" ] && { rm_all_georules || return 1; }
+	[ "$_fw_backend" ] && rm_all_georules || {
+		[ "$in_uninstall" ] && echolog -err "$FAIL remove $p_name firewall rules. Please restart the machine after uninstallation."
+	}
 
 	:
 }
