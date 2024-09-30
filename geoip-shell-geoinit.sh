@@ -11,13 +11,13 @@
 # the install script makes a new version of this file
 
 
-curr_ver="0.5.6"
+curr_ver="0.5.7"
 export install_dir="/usr/bin" lib_dir="$script_dir/lib" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
 	excl_file="$script_dir/iplist-exclusions.conf"
 
 export _lib="$lib_dir/$p_name-lib" p_script="$script_dir/${p_name}" i_script="$inst_root_gs$install_dir/${p_name}" _nl='
 '
-export LC_ALL=C POSIXLY_CORRECT=yes default_IFS="	 $_nl"
+export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 $_nl"
 set -o | grep -q '^posix[ \t]' && set -o posix
 
 . "${_lib}-check-compat.sh" || exit 1
@@ -27,12 +27,6 @@ check_shell
 [ "$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok=1; }
 . "${_lib}-common.sh" || exit 1
 
-if check_fw_backend nft 2>/dev/null; then
-	_fw_backend=nft
-elif check_fw_backend ipt 2>/dev/null; then
-	_fw_backend=ipt
-elif [ ! "$inst_root_gs" ]; then
-	die "Neither nftables nor iptables+ipset found."
-fi
+[ ! "$inst_root_gs" ] && { _fw_backend="$(detect_fw_backend)" || die; }
 
 :
