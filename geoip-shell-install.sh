@@ -152,9 +152,18 @@ install_failed() {
 	printf '%s\n\n%s\n' "$*" "Installation failed." >&2
 	[ ! "$inst_root_gs" ] && {
 		echo "Uninstalling ${p_name}..." >&2
-		call_script "$p_script-uninstall.sh"
+		call_script "$p_script-uninstall.sh" -r
+		rm_data
 	}
 	exit 1
+}
+
+manage_interr() {
+	rv=$?
+	printf '\n\n%s\n' "${yellow}Configuration was interrupted.${n_c} Please configure geoip-shell by running '${blue}geoip-shell configure${n_c}'." >&2
+	rm -f "$status_file"
+	trap -  INT TERM HUP QUIT
+	exit $rv
 }
 
 pick_shell() {
@@ -326,9 +335,10 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
 if [ -s "$conf_file"  ] && nodie=1 get_config_vars; then
-	export datadir
+	export datadir status_file="$datadir/status"
 	tolower nobackup_arg
-	[ "$nobackup_arg" != true ] && [ "$nobackup" != true ] && { call_script "$p_script-backup.sh" create-backup || rm_data; }
+	[ "$nobackup_arg" != true ] && [ "$nobackup" != true ] && [ -s "$status_file" ] &&
+		{ call_script "$p_script-backup.sh" create-backup || rm_data; }
 fi
 
 ## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
@@ -447,8 +457,9 @@ cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_fai
 	chmod -R 600 "$conf_dir" && chown -R root:root "$conf_dir" ||
 		install_failed "$FAIL set permissions for '$conf_dir'."
 
-	### Add iplist(s) for $ccodes to managed iplists, then fetch and apply the iplist(s)
+	trap 'manage_interr' INT TERM HUP QUIT
 	call_script "$i_script-manage.sh" configure || die "$p_name-manage.sh exited with error code $?."
 }
 
 echo "Install done."
+trap -  INT TERM HUP QUIT
