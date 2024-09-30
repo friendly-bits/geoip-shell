@@ -451,11 +451,8 @@ case "$action" in
 		}
 
 		case "$conf_act" in ''|backup) ! check_lists_coherence 2>/dev/null && conf_act=restore; esac
-		[ "$conf_act" = restore ] && { [ "$nobackup_prev" = true ] || [ ! -s "$datadir_prev/backup/$p_name.conf.bak" ]; } &&
-			conf_act=reset
 
-		debugprint "config action: '$conf_act'"
-		[ "$datadir_change" ] && {
+		[ "$datadir_change" ] && [ -n "${datadir_prev}" ] && {
 			printf %s "Creating the data directory '$datadir'... "
 			rm -rf "$datadir"
 			mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
@@ -473,6 +470,12 @@ case "$action" in
 		}
 		export datadir status_file="$datadir/status"
 		prev_config="$main_config"
+
+		[ "$conf_act" = restore ] && {
+			[ "$nobackup_prev" = true ] || [ ! -s "$datadir/backup/$p_name.conf.bak" ] || [ ! -s "$status_file" ]; } &&
+				conf_act=reset
+
+		debugprint "config action: '$conf_act'"
 
 		set_all_config
 
@@ -522,6 +525,7 @@ case "$action" in
 					[ $i = 30 ] && { echolog -warn "Lock file '$lock_file' is still in place. Please check system log."; }
 				}
 			}
+			printf '\n%s\n' "Successfully configured $p_name for firewall backend: ${blue}${_fw_backend}ables${n_c}."
 		}
 
 		report_lists; statustip
