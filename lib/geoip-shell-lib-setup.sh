@@ -380,7 +380,7 @@ set_defaults() {
 	}
 
 	if [ "$_OWRTFW" ]; then
-		geosource_def=ipdeny datadir_def="/tmp/$p_name" nobackup_def=true
+		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
 	fi
