@@ -304,7 +304,13 @@ all_fw_libs="ipt nft"
 } || {
 	check_compat="check-compat"
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	init_check_compat_pt2="check_fw_backend \"\$_fw_backend\" || die"
+	init_check_compat_pt2="else
+	check_fw_backend \"\$_fw_backend\" ||
+		case $? in
+			1) [ ! \"\$in_uninstall\" ] && die ;;
+			2) [ ! \"\$in_uninstall\" ] && die \"Firewall backend '\${_fw_backend}ables' not found.\" ;;
+			3) [ ! \"\$in_uninstall\" ] && die \"Utility 'ipset' not found.\"
+		esac"
 	fw_libs="$all_fw_libs"
 }
 
@@ -406,11 +412,9 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 		[ "\$in_install" ] || [ "\$first_setup" ] && return 0
 		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-		detect_fw_backend || die
-		_fw_backend="\$_fw_backend_def"
+		_fw_backend="\$(detect_fw_backend)"
+		$init_check_compat_pt2
 	fi
-
-	$init_check_compat_pt2
 	export fwbe_ok=1 _fw_backend
 	:
 EOF
