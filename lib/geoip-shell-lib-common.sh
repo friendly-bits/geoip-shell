@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2254,SC2086,SC2015,SC2046,SC2016
+# shellcheck disable=SC2034,SC2154,SC2254,SC2086,SC2015,SC2046,SC2016,SC1090
 
 # geoip-shell-lib-common.sh
 
@@ -777,28 +777,30 @@ detect_ifaces() {
 }
 
 detect_fw_backend() {
-	detect_fw_be_failed() { echolog -err "Neither nftables nor iptables+ipset found."; }
 	if [ "$_OWRTFW" ]; then
-		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
 		case "$_OWRTFW" in
-			3) _fw_backend=ipt ;;
-			4) _fw_backend=nft ;;
-			*) detect_fw_be_failed; return 1
+			3) printf ipt ;;
+			4) printf nft ;;
+			*) echolog -err "Invalid OpenWrt firewall version '$_OWRTFW'."; return 1
 		esac
-	else
-		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
-		. "$_lib-check-compat.sh" || { echolog -err "Failed to source '$_lib-check-compat.sh'."; return 1; }
-		[ ! "$_fw_backend_arg" ] && {
-			if check_fw_backend nft 2>/dev/null; then
-				_fw_backend_def=nft
-			elif check_fw_backend ipt 2>/dev/null; then
-				_fw_backend_def=ipt
-			else
-				detect_fw_be_failed
-				return 1
-			fi
-		}
+		return 0
 	fi
+
+	[ ! "$_fw_backend_arg" ] && {
+		. "$_lib-check-compat.sh" || { echolog -err "Failed to source '$_lib-check-compat.sh'."; return 1; }
+		if check_fw_backend nft 2>/dev/null; then
+			printf nft
+		else
+			check_fw_backend ipt 2>/dev/null
+			case $? in
+				0) printf ipt ;;
+				1) return 1 ;;
+				2) echolog -err "Neither nftables nor iptables not found."; return 1 ;;
+				3) echolog -err "Found iptables but utility 'ipset' not found."; return 1
+			esac
+		fi
+	}
+	:
 }
 
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
