@@ -63,10 +63,16 @@ check_shell() {
 	export curr_sh_g
 }
 
+# return codes:
+# 0 - backend found
+# 1 - error
+# 2 - main backend not found (for ipt, iptables not found)
+# 3 - for ipt, ipset not found
 check_fw_backend() {
 	case "$1" in
-		nft) check_deps nft ;;
-		ipt) check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore ipset ;;
+		nft) check_deps nft || return 2 ;;
+		ipt) check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore || return 2
+			check_deps ipset || return 3 ;;
 		*) echolog -err "Unsupported firewall backend '$1'."; return 1
 	esac
 }
