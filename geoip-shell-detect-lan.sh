@@ -55,7 +55,7 @@ generate_mask() {
 
 	octets=$((maskbits / 8))
 	frac=$((maskbits % 8))
-	while true; do
+	while :; do
 		case ${#bytes_done} in "$octets") break; esac
 		case $((${#bytes_done}%chunk_len_bytes==0)) in 1) printf ' 0x'; esac
 		printf %s "ff"
@@ -63,7 +63,7 @@ generate_mask() {
 	done
 
 	[ ${#bytes_done} != $ip_len_bytes ] && {
-		while true; do
+		while :; do
 			case ${#i} in "$frac") break; esac
 			sum=$((sum + cur))
 			cur=$((cur / 2))
@@ -73,7 +73,7 @@ generate_mask() {
 		printf "%02x" "$sum" || { printf '%s\n' "generate_mask: Error: failed to convert byte '$sum' to hex." >&2; return 1; }
 		bytes_done="${bytes_done}1"
 
-		while true; do
+		while :; do
 			case ${#bytes_done} in "$ip_len_bytes") break; esac
 			case "$((${#bytes_done}%chunk_len_bytes))" in 0) printf ' 0x'; esac
 			printf %s "00"
@@ -94,7 +94,7 @@ ip_to_hex() {
 			case "$ip" in *::*)
 				zeroes=":0:0:0:0:0:0:0:0:0"
 				ip_tmp="$ip"
-				while true; do
+				while :; do
 					case "$ip_tmp" in *:*) ip_tmp="${ip_tmp#*:}";; *) break; esac
 					zeroes="${zeroes#??}"
 				done
@@ -158,13 +158,13 @@ get_local_subnets() {
 
 	subnets_hex="$(
 		if [ "$family" = inet ]; then
-			ip -f inet route show table local scope link |
-			grep -v "[[:space:]]lo[[:space:]]" | grep -oE "dev[[:space:]]+[^[:space:]]+" | sed 's/^dev[[:space:]]*//g' | sort -u |
-			while read -r iface; do
-				ip -o -f inet addr show "$iface" | grep -oE "$subnet_regex_ipv4"
-			done
+			ifaces="dummy_123|$(
+				ip -f inet route show table local scope link |
+				sed -n '/[ 	]lo[ 	]/d;/[ 	]dev[ 	]/{s/.*[ 	]dev[ 	][ 	]*//;s/[ 	].*//;p}' | tr '\n' '|')"
+			ip -o -f inet addr show | grep -E "${ifaces%|}" | grep -oE "$subnet_regex_ipv4"
 		else
-			ip -o -f inet6 addr show | grep -oE "inet6[[:space:]]+(fd[0-9a-f]{0,2}:|fe80:)(([[:alnum:]:/])+)" | grep -oE "$subnet_regex_ipv6$"
+			ip -o -f inet6 addr show |
+				grep -oE 'inet6[ 	]+(fd[0-9a-f]{0,2}:|fe80:)[0-9a-f:/]+' | grep -oE "$subnet_regex_ipv6\$"
 		fi |
 
 		while read -r subnet; do
@@ -178,7 +178,7 @@ get_local_subnets() {
 		{ printf '%s\n' "get_local_subnets(): Failed to detect local subnets for family $family." >&2; return 1; }
 
 	subnets_hex="$subnets_hex$_nl"
-	while true; do
+	while :; do
 		case "$subnets_hex" in ''|"$_nl") break; esac
 
 		## trim the 1st (largest) subnet on the list to its mask bits
@@ -202,10 +202,10 @@ get_local_subnets() {
 
 		# generate mask if it's not been generated yet
 		eval "mask=\"\$mask_${family}_${maskbits}\""
-		[ ! "$mask" ] && {
+		case "$mask" in '')
 			mask="$(generate_mask "$maskbits" "$ip_len_bytes")" || return 1
 			eval "mask_${family}_${maskbits}=\"$mask\""
-		}
+		esac
 
 		# calculate ip & mask
 
@@ -229,7 +229,8 @@ get_local_subnets() {
 			}
 
 			# repeat 00 for every missing byte
-			while [ $bits_done != $ip_len_bits ]; do
+			while :; do
+				case $((bits_done>=ip_len_bits)) in 1) break; esac
 				[ $((bits_done%chunk_len_bits)) = 0 ] && printf ' 0x'
 				printf %s "00"
 				bits_done=$((bits_done + 8))
@@ -255,7 +256,7 @@ get_local_subnets() {
 			# compare ~ $maskbits bits of ip1 and ip2
 			IFS=' '
 			for ip1_chunk in $ip1_hex; do
-				[ $((bits_done + chunk_len_bits < maskbits)) = 0 ] && break
+				case $((bits_done + chunk_len_bits < maskbits)) in 0) break; esac
 				bits_done=$((bits_done + chunk_len_bits))
 				chunks_done="${chunks_done}1"
 
@@ -264,7 +265,7 @@ get_local_subnets() {
 
 				bytes_diff=$((ip1_chunk - ip2_chunk))
 				# if there is any difference, no need to calculate further
-				[ "$bytes_diff" != 0 ] && break
+				case "$bytes_diff" in 0) ;; *) break; esac
 			done
 
 			# if needed, calculate the next ip2 chunk and compare to ip1 chunk
