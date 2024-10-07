@@ -806,15 +806,20 @@ detect_fw_backend() {
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
 # sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
-	[ "$cron_rv" ] && return "$cron_rv"
+	[ "$cron_rv" = 0 ] && return 0
 	# check reading crontab
-	crontab -u root -l 1>/dev/null 2>/dev/null || return 1
+	crontab -u root -l 1>/dev/null 2>/dev/null || {
+		debugprint "check_cron: Reading crontab failed."
+		return 1
+	}
 	unset cron_reboot cron_path
 	cron_rv=1
 	# check for cron or crond in running processes
-	for cron_cmd in cron crond fcron; do
+	for cron_cmd in crond fcron cron; do
+		debugprint "check_cron: Checking '$cron_cmd'"
 		cron_path="$(pgrep -a "$cron_cmd" | awk -F' ' 'BEGIN{rv=1} {print $2; rv=0} END{exit rv}')" && {
 			cron_rl_path="$(ls -l "$cron_path" 2>/dev/null)" || continue
+			debugprint "check_cron: Found '$cron_cmd'"
 			# check for busybox cron
 			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
 			cron_rv=0
@@ -841,7 +846,8 @@ check_cron_compat() {
 				[ $i = 2 ] && {
 					OK
 					printf '%s\n%s\n%s' "Please restart the device after setup." \
-						"Then run '$p_name configure' and $p_name will check the cron service again." "Press Enter to continue "
+						"Then run '$p_name configure' and $p_name will check the cron service again." \
+						"Press Enter to continue "
 					read -r dummy
 				}
 				break
@@ -861,11 +867,14 @@ check_cron_compat() {
 			[ "$REPLY" = n ] && die
 			printf '\n%s' "Attempting to enable and start cron... "
 			# try to create an empty crontab
+			debugprint "check_cron_compat: trying to create empty crontab"
 			crontab -u root -l 1>/dev/null 2>/dev/null || printf '' | crontab -u root -
 			cron_rv=
 			check_cron && continue
+			debugprint "check_cron_compat: initsys is '$initsys'"
 			# try to enable and start cron service
-			for cron_cmd in cron crond fcron; do
+			for cron_cmd in crond fcron cron; do
+				debugprint "check_cron_compat: trying '$cron_cmd'"
 				case "$initsys" in
 					systemd) systemctl status $cron_cmd; [ $? = 4 ] && continue
 							systemctl is-enabled "$cron_cmd" || systemctl enable "$cron_cmd"
@@ -884,7 +893,8 @@ check_cron_compat() {
 					/etc/init.d/$cron_cmd enable
 					/etc/init.d/$cron_cmd start
 				}
-			done 1>/dev/null 2>/dev/null
+			done 2>&1 1>/dev/null |
+			if [ -n "$debugmode" ]; then cat 1>&2; else cat 1>/dev/null; fi
 		done
 		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
 			die "cron-based persistence doesn't work with Busybox cron." \
