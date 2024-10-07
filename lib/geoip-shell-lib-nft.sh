@@ -96,7 +96,7 @@ get_nft_list() {
 	[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
 	case "$1" in
 		'{')
-			while true; do
+			while :; do
 				shift; n=$((n+1))
 				[ "$1" = '}' ] && break
 				_res="$_res$1"
@@ -507,9 +507,7 @@ restorebackup() {
 		# extract elements and write to $iplist_file
 		$extract_cmd "$bk_file" > "$iplist_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
 		[ ! -s "$iplist_file" ] && rstr_failed "$FAIL extract ip list for $list_id."
-		# count lines in the iplist file
-		line_cnt=$(wc -l < "$iplist_file")
-		debugprint "\nLines count in $list_id backup: $line_cnt"
+		[ "$debugmode" ] && debugprint "\nLines count in $list_id backup: $(wc -c < "$iplist_file")"
 	done
 	OK
 

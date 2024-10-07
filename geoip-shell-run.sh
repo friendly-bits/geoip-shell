@@ -177,7 +177,7 @@ unset echolists ok_lists missing_lists lists_fetch fetched_lists
 case "$action_run" in add|update) lists_fetch="$apply_lists" ;; *) max_attempts=1; esac
 
 attempt=0 secs=5
-while true; do
+while :; do
 	attempt=$((attempt+1))
 	secs=$((secs+5))
 	[ $attempt -gt $max_attempts ] && die "Giving up."

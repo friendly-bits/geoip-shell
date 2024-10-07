@@ -140,7 +140,7 @@ incoherence_detected() {
 	printf '%s\n\n%s\n' "Re-apply the rules from the config file to fix this?" \
 		"'Y' to re-apply the config rules. 'N' to exit the script. 'S' to show configured ip lists."
 
-	while true; do
+	while :; do
 		printf %s "[y|n|s] "
 		read -r REPLY
 		case "$REPLY" in
@@ -243,12 +243,6 @@ check_for_lockout() {
 	:
 }
 
-get_wrong_ccodes() {
-	for list_id in $wrong_lists; do
-		wrong_ccodes="$wrong_ccodes${list_id%_*} "
-	done
-	san_str wrong_ccodes
-}
 
 #### VARIABLES
 
@@ -384,7 +378,6 @@ if [ "$action" = configure ]; then
 	ccodes_arg="$ccodes"
 
 	[ "$families_change" ] && [ ! "$ccodes_arg" ] && {
-		lists_req=
 		for list_id in $iplists; do
 			add2list ccodes_arg "${list_id%_*}"
 		done
@@ -393,7 +386,6 @@ if [ "$action" = configure ]; then
 	for opt_ch in datadir nobackup geomode geosource ifaces schedule _fw_backend; do
 		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
 	done
-
 else
 	check_lists_coherence || incoherence_detected
 fi
@@ -402,9 +394,7 @@ checkvars _fw_backend datadir geomode
 
 unset lists_req excl_list_ids
 
-[ "$ccodes_arg" ] && {
-	validate_arg_ccodes
-}
+[ "$ccodes_arg" ] && validate_arg_ccodes
 
 for ccode in $ccodes_arg; do
 	for f in $families; do
@@ -537,11 +527,7 @@ case "$action" in
 		if [ ! "$force_action" ]; then
 			get_difference "$iplists" "$requested_lists" lists_to_change
 			get_intersection "$lists_req" "$iplists" wrong_lists
-
-			[ "$wrong_lists" ] && {
-				get_wrong_ccodes
-				echolog "NOTE: country codes '$wrong_ccodes' have already been added to the $geomode."
-			}
+			wrong_l_str="already been added to the $geomode"
 		else
 			lists_to_change="$lists_req"
 		fi
@@ -554,15 +540,21 @@ case "$action" in
 		if [ ! "$force_action" ]; then
 			get_intersection "$iplists" "$lists_req" lists_to_change
 			subtract_a_from_b "$iplists" "$lists_req" wrong_lists
-			[ "$wrong_lists" ] && {
-				get_wrong_ccodes
-				echolog "NOTE: country codes '$wrong_ccodes' have not been added to the $geomode, so can not remove."
-			}
+			wrong_l_str="not been added to the $geomode, so can not remove"
 		else
 			lists_to_change="$lists_req"
 		fi
 		# remove any entries found in lists_to_change from iplists and assign to planned_lists
 		subtract_a_from_b "$lists_to_change" "$iplists" planned_lists
+esac
+
+case "$action" in add|remove)
+	[ "$wrong_lists" ] && {
+		for list_id in $wrong_lists; do
+			add2list wrong_ccodes "${list_id%_*}"
+		done
+		echolog "NOTE: country codes '$wrong_ccodes' have $wrong_l_str."
+	}
 esac
 
 if [ ! "$lists_to_change" ] && [ ! "$force_action" ]; then

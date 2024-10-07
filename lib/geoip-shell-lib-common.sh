@@ -80,7 +80,7 @@ extra_args() {
 }
 
 checkutil() {
-	command -v "$1" 1>/dev/null
+	hash "$1" 2>/dev/null
 }
 
 checkvars() {
@@ -116,7 +116,7 @@ unknownact() {
 # $1 - input in the format 'a|b|c'
 # output via the $REPLY var
 pick_opt() {
-	while true; do
+	while :; do
 		printf %s "$1: "
 		read -r REPLY
 		is_alphanum "$REPLY" || { printf '\n%s\n\n' "Please enter $1"; continue; }

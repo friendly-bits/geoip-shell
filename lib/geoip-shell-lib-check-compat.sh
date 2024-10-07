@@ -11,7 +11,7 @@
 # check for common deps
 check_common_deps() {
 	for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
-		if ! command -v "$dep" 1>/dev/null; then echo "Error: missing dependency: '$dep'"; exit 1; fi
+		hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'"; exit 1; }
 	done
 }
 
@@ -59,7 +59,7 @@ check_shell() {
 			echo "Warning: whether $p_name works with your shell $blue$curr_sh_g$n_c is currently unknown. Please test and notify the developer." >&2
 		fi
 	fi
-	case "$curr_sh_g" in *busybox*) curr_sh_g="$curr_sh_g sh"; esac
+	case "$curr_sh_g" in *busybox*) curr_sh_g="busybox sh"; esac
 	export curr_sh_g
 }
 

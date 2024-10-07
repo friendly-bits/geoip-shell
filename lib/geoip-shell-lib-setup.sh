@@ -30,7 +30,7 @@ pick_user_ccode() {
 	[ ! "$user_ccode_arg" ] && printf '\n%s\n%s\n' "${blue}Please enter your country code.$n_c" \
 		"It will be used to check if your geoip settings may block your own country and warn you if so."
 	REPLY="$user_ccode_arg"
-	while true; do
+	while :; do
 		[ ! "$REPLY" ] && {
 			printf %s "Country code (2 letters)/Enter to skip: "
 			read -r REPLY
@@ -62,7 +62,7 @@ pick_ccodes() {
 	[ "$nointeract" ] && [ ! "$ccodes_arg" ] && die "Specify country codes with '-c <\"country_codes\">'."
 	[ ! "$ccodes_arg" ] && printf '\n%s\n' "${blue}Please enter country codes to include in geoip $geomode.$n_c"
 	REPLY="$ccodes_arg"
-	while true; do
+	while :; do
 		unset bad_ccodes ok_ccodes
 		[ ! "$REPLY" ] && {
 			printf %s "Country codes (2 letters) or [a] to abort: "
@@ -145,7 +145,7 @@ pick_ifaces() {
 	}
 
 	REPLY="$ifaces_arg"
-	while true; do
+	while :; do
 		u_ifaces=
 		printf '\n%s\n' "All found network interfaces: $all_ifaces"
 		[ ! "$REPLY" ] && {
@@ -241,7 +241,7 @@ pick_lan_ips() {
 			esac
 		}
 
-		while true; do
+		while :; do
 			unset REPLY u_ips
 			ipset_type=ip
 			[ ! "$nointeract" ] && {

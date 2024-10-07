@@ -601,9 +601,9 @@ create_backup() {
 		cat "${tmp_file}_1" &&
 		[ -s "${tmp_file}_1" ]; rv=$?
 		rm -f "${tmp_file}_1"
-		[ $rv != 0 ] && exit 1
+		[ $rv != 0 ] && { printf '%s\n' "$FAIL back up ipset '$ipset'." >&2; exit 1; }
 		OK >&2
-	done ) >> "$tmp_file" || bk_failed "$FAIL back up ipset '$ipset'."
+	done ) >> "$tmp_file" || bk_failed
 
 	printf %s "Compressing backup... "
 	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
