@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2034,SC2154,SC2254,SC2086,SC2015,SC2046,SC2016,SC1090
+# shellcheck disable=SC2034,SC2154,SC2254,SC2086,SC2015,SC2046,SC2016,SC1090,SC2317
 
 # geoip-shell-lib-common.sh
 
@@ -806,6 +806,38 @@ detect_fw_backend() {
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
 # sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
+	check_cron_path() {
+		cron_rl_path="$(ls -l "$1" 2>/dev/null)" || {
+			debugprint "Path '$1' not found"
+			return 1
+		}
+		debugprint "check_cron: Found real path: '/${cron_rl_path#*/}'."
+		# check for busybox cron
+		case "$cron_rl_path" in
+			*busybox*)
+				debugprint "Detected Busybox cron."
+				;;
+			*)
+				debugprint "Detected non-Busybox cron."
+				cron_reboot=1
+		esac
+		[ "$force_cron_persist" = true ] && {
+			debugprint "\$force_cron_persist is true."
+			cron_reboot=1
+		}
+		cron_rv=0
+		:
+	}
+
+	try_pidof() {
+		pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")"
+	}
+
+	try_pgrep() {
+		cron_path="$(pgrep -af "/$cron_cmd" |
+			awk -F' ' "BEGIN{rv=1} \$2 ~ /\/${cron_cmd}([ \t]|\$)/ {print \$2; rv=0; exit} END{exit rv}")"
+	}
+
 	debugprint "check_cron: \$no_persist is '$no_persist'. \$cron_rv is '$cron_rv'."
 	[ "$cron_rv" = 0 ] && return 0
 	# check reading crontab
@@ -813,31 +845,28 @@ check_cron() {
 		debugprint "check_cron: Reading crontab failed."
 		return 1
 	}
+
 	unset cron_reboot cron_path
 	export cron_reboot cron_rv=1
+
 	# check for cron or crond in running processes
-	for cron_cmd in crond fcron cron; do
-		debugprint "check_cron: Checking '$cron_cmd'"
-		cron_path="$(pgrep -a "$cron_cmd" | awk -F' ' 'BEGIN{rv=1} {print $2; rv=0} END{exit rv}')" && {
-			cron_rl_path="$(ls -l "$cron_path" 2>/dev/null)" || continue
-			debugprint "check_cron: Found '$cron_cmd', path: '/${cron_rl_path#*/}'."
-			# check for busybox cron
-			case "$cron_rl_path" in
-				*busybox*)
-					debugprint "Detected Busybox cron."
-					;;
-				*)
-					debugprint "Detected non-Busybox cron."
-					cron_reboot=1
-			esac
-			[ "$force_cron_persist" = true ] && {
-				debugprint "\$force_cron_persist is true."
-				cron_reboot=1
-			}
-			cron_rv=0
-			[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$no_cr_persist" ] && continue
-			break
-		}
+	for try_cmd in try_pidof try_pgrep; do
+		try_cmd_n="${try_cmd#try_}"
+		debugprint "check_cron: Trying with '${try_cmd_n}'..."
+		for cron_cmd in crond fcron cron; do
+			debugprint "Checking '$cron_cmd'"
+			if $try_cmd; then
+				debugprint "${try_cmd_n} found '$cron_cmd', path: '$cron_path'"
+				check_cron_path "$cron_path"
+				case $? in
+					0) break 2 ;;
+					1) continue
+				esac
+			else
+				debugprint "${try_cmd_n} didn't find '$cron_cmd'"
+				continue
+			fi
+		done
 	done
 
 	debugprint "check_cron: returning '$cron_rv'"
@@ -853,7 +882,6 @@ check_cron_compat() {
 	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ] ; then
 		for i in 1 2; do
 			# check if cron is running
-			cron_rv=
 			check_cron && {
 				[ $i = 2 ] && {
 					OK
@@ -878,16 +906,17 @@ check_cron_compat() {
 			pick_opt "y|n"
 			[ "$REPLY" = n ] && die
 			printf '\n%s' "Attempting to enable and start cron... "
+
 			# try to create an empty crontab
 			crontab -u root -l 1>/dev/null 2>/dev/null || {
 				debugprint "check_cron_compat: trying to create empty crontab"
 				printf '' | crontab -u root -
+				check_cron && continue
 			}
-			cron_rv=
-			check_cron && continue
-			debugprint "check_cron_compat: initsys is '$initsys'"
+
 			# try to enable and start cron service
-			for cron_cmd in crond fcron cron; do
+			debugprint "check_cron_compat: initsys is '$initsys'"
+			for cron_cmd in crond cron cronie fcron dcron; do
 				debugprint "check_cron_compat: trying '$cron_cmd'"
 				case "$initsys" in
 					systemd) systemctl status $cron_cmd; [ $? = 4 ] && continue
@@ -900,16 +929,18 @@ check_cron_compat() {
 								chkconfig $cron_cmd on
 								service $cron_cmd start; } ;;
 					upstart) rm -f "/etc/init/$cron_cmd.override" ;;
-					openrc) rc-update add $cron_cmd default
+					openrc) rc-update add $cron_cmd default || continue
 				esac
 
 				[ -f "/etc/init.d/$cron_cmd" ] && {
 					/etc/init.d/$cron_cmd enable
 					/etc/init.d/$cron_cmd start
 				}
-			done 2>&1 1>/dev/null |
+				check_cron && break
+			done 2>&1 |
 			if [ -n "$debugmode" ]; then cat 1>&2; else cat 1>/dev/null; fi
 		done
+
 		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
 			die "Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device." \
 			"If you want to use $p_name without persistence support, install with option '-n true'." \
