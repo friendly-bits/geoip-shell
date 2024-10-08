@@ -368,7 +368,7 @@ set_defaults() {
 		esac
 	}
 
-	noblock_def=false no_persist_def=false
+	noblock_def=false no_persist_def=false force_cron_persist_def=false
 
 	# randomly select schedule minute between 10 and 19
 	[ ! "$schedule" ] && {
@@ -398,6 +398,7 @@ set_defaults() {
 	: "${max_attempts:=30}"
 	: "${noblock:=$noblock_def}"
 	: "${no_persist:=$no_persist_def}"
+	: "${force_cron_persist:=$force_cron_persist_def}"
 }
 
 get_prefs() {
@@ -425,8 +426,8 @@ get_prefs() {
 	esac
 	nft_perf="${nft_perf_arg:-$nft_perf}"
 
-	# nobackup, noblock, no_persist
-	for _par in "nobackup o" "noblock N" "no_persist n"; do
+	# nobackup, noblock, no_persist, force_cron_persist
+	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F"; do
 		par_name="${_par% *}" par_opt="${_par#* }"
 		eval "par_val=\"\${${par_name}_arg}\""
 		[ "$par_val" ] && tolower par_val
@@ -437,9 +438,11 @@ get_prefs() {
 		eval "$par_name=\"\${${par_name}_arg:-\$$par_name}\""
 		eval "par_val=\"\$$par_name\""
 		case "$par_val" in
-			''|true|false) ;;
+			true|false) ;;
 			*) eval "def_val=\"\$${par_name}_def\""
-				echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
+				[ ! "$first_setup" ] && [ ! "$in_install" ] &&
+					echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
+				debugprint "Setting '$par_name' to default: '$def_val'."
 				eval "$par_name=\"$def_val\""
 		esac
 	done
