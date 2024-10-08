@@ -72,6 +72,7 @@ Core Options:
   -O $nft_perf_usage
 
   -n <true|false> : No persistence. Geoip blocking may not work after reboot. Default is false.
+  -F <true|false> : Force cron-based persistence even when the system may not support it. Default is false.
   -N <true|false> : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
         Everything will be installed and configured but geoip blocking will not be enabled. Default is false.
 
@@ -86,7 +87,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:n:N:zdVh" opt; do
+while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:n:N:F:zdVh" opt; do
 	case $opt in
 		c) ccodes_arg=$OPTARG ;;
 		m) geomode_arg=$OPTARG ;;
@@ -104,6 +105,7 @@ while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:n:N:zdVh" opt; do
 		O) nft_perf_arg=$OPTARG ;;
 		n) no_persist_arg=$OPTARG ;;
 		N) noblock_arg=$OPTARG ;;
+		F) force_cron_persist_arg=$OPTARG ;;
 
 		z) nointeract_arg=1 ;;
 		d) debugmode=1 ;;
@@ -275,11 +277,13 @@ prep_script() {
 
 #### Detect the init system
 detect_init
+debugprint "Detected init: '$initsys'."
 
 #### Variables
 
 export ccodes_arg geomode_arg schedule_arg families_arg geosource_arg ifaces_arg lan_ips_arg trusted_arg ports_arg \
 	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist_arg noblock_arg nointeract_arg \
+	force_cron_persist_arg force_cron_persist="$force_cron_persist_arg" \
 	debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name"
 export conf_file="$conf_dir/$p_name.conf"
 
