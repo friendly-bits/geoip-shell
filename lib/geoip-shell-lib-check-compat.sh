@@ -59,7 +59,7 @@ check_shell() {
 			echo "Warning: whether $p_name works with your shell $blue$curr_sh_g$n_c is currently unknown. Please test and notify the developer." >&2
 		fi
 	fi
-	case "$curr_sh_g" in *busybox*) curr_sh_g="busybox sh"; esac
+	case "$curr_sh_g" in *busybox*) curr_sh_g="/bin/busybox sh"; esac
 	export curr_sh_g
 }
 
