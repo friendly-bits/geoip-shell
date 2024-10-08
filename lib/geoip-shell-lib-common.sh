@@ -472,7 +472,7 @@ setconfig() {
 set_all_config() {
 	setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 		nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
-		_fw_backend max_attempts reboot_sleep
+		_fw_backend max_attempts reboot_sleep force_cron_persist
 }
 
 sc_failed() {
@@ -806,6 +806,7 @@ detect_fw_backend() {
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
 # sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
+	debugprint "check_cron: \$no_persist is '$no_persist'. \$cron_rv is '$cron_rv'."
 	[ "$cron_rv" = 0 ] && return 0
 	# check reading crontab
 	crontab -u root -l 1>/dev/null 2>/dev/null || {
@@ -813,22 +814,33 @@ check_cron() {
 		return 1
 	}
 	unset cron_reboot cron_path
-	cron_rv=1
+	export cron_reboot cron_rv=1
 	# check for cron or crond in running processes
 	for cron_cmd in crond fcron cron; do
 		debugprint "check_cron: Checking '$cron_cmd'"
 		cron_path="$(pgrep -a "$cron_cmd" | awk -F' ' 'BEGIN{rv=1} {print $2; rv=0} END{exit rv}')" && {
 			cron_rl_path="$(ls -l "$cron_path" 2>/dev/null)" || continue
-			debugprint "check_cron: Found '$cron_cmd'"
+			debugprint "check_cron: Found '$cron_cmd', path: '/${cron_rl_path#*/}'."
 			# check for busybox cron
-			case "$cron_rl_path" in *busybox*) ;; *) export cron_reboot=1; esac
+			case "$cron_rl_path" in
+				*busybox*)
+					debugprint "Detected Busybox cron."
+					;;
+				*)
+					debugprint "Detected non-Busybox cron."
+					cron_reboot=1
+			esac
+			[ "$force_cron_persist" = true ] && {
+				debugprint "\$force_cron_persist is true."
+				cron_reboot=1
+			}
 			cron_rv=0
 			[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$no_cr_persist" ] && continue
 			break
 		}
 	done
 
-	export cron_rv
+	debugprint "check_cron: returning '$cron_rv'"
 	return "$cron_rv"
 }
 
@@ -897,8 +909,9 @@ check_cron_compat() {
 			if [ -n "$debugmode" ]; then cat 1>&2; else cat 1>/dev/null; fi
 		done
 		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
-			die "cron-based persistence doesn't work with Busybox cron." \
-			"If you want to use $p_name without persistence support, install/configure with option '-n'."
+			die "Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device." \
+			"If you want to use $p_name without persistence support, install with option '-n'." \
+			"If you want to force installing with cron-based persistence support, install with option '-F'. Reboot after installation and check if geoip-shell is running."
 	fi
 }
 
