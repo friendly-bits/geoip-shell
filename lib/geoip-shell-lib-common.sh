@@ -879,8 +879,10 @@ check_cron_compat() {
 			[ "$REPLY" = n ] && die
 			printf '\n%s' "Attempting to enable and start cron... "
 			# try to create an empty crontab
-			debugprint "check_cron_compat: trying to create empty crontab"
-			crontab -u root -l 1>/dev/null 2>/dev/null || printf '' | crontab -u root -
+			crontab -u root -l 1>/dev/null 2>/dev/null || {
+				debugprint "check_cron_compat: trying to create empty crontab"
+				printf '' | crontab -u root -
+			}
 			cron_rv=
 			check_cron && continue
 			debugprint "check_cron_compat: initsys is '$initsys'"
