@@ -56,6 +56,9 @@ If you type in 'c' then whatever subnets have been detected during installation 
 
 Generally if automatic detection worked as expected during initial setup, most likely it will work correctly every time, so it is a good idea to allow auto-detection with each update. If not then, well, not.
 
+### **'Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device.'**
+You will see this message when installing geoip-shell on Busybox-based systems which use the built-in Busybox cron daemon. geoip-shell implements cron-based persistence via the `@reboot` crontab string which may or may not be supported by the specific Busybox installed on your device. geoip-shell has no way to detect whether the specific Busybox system does or does not support `@reboot`. If you would like to test whether your specific Busybox system supports it, run geoip-shell-install.sh with option `-F` to force cron-based persistence, then reboot your machine and `geoip-shell status` - then geoip-shell will check whether the cron daemon is running and print a warning if it's not.
+
 ### **Extra options**
 
 - geoip-shell supports an additional setting: trusted ip's or subnets. Currently this is only configurable by running the -install script with the option `-t <"[trusted_ips]">` (or after installation via the `geoip-shell configure -t <"[trusted_ips]">` command). You can specify trusted ip addresses or subnets anywhere on the LAN or on the Internet. To remove this setting later, run `geoip-shell configure -t none`.
