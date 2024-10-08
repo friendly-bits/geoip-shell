@@ -944,7 +944,7 @@ check_cron_compat() {
 		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
 			die "Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device." \
 			"If you want to use $p_name without persistence support, install with option '-n true'." \
-			"If you want to force installing with cron-based persistence support, install with option '-F true'. Reboot after installation and check if geoip-shell is running."
+			"If you want to force installing with cron-based persistence support, install with option '-F true'. Reboot after installation and run 'geoip-shell status'."
 	fi
 }
 
