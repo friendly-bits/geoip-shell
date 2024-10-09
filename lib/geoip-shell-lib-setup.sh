@@ -437,8 +437,11 @@ get_prefs() {
 		esac
 		eval "$par_name=\"\${${par_name}_arg:-\$$par_name}\""
 		eval "par_val=\"\$$par_name\""
+		eval "par_val_arg=\"\${${par_name}_arg}\""
 		case "$par_val" in
-			true|false) ;;
+			true) [ "$in_install" ] || [ "$first_setup" ] && [ "$par_val_arg" != true ] &&
+				echolog -warn "option '$par_name' is set to 'true' in config." ;;
+			false) ;;
 			*) eval "def_val=\"\$${par_name}_def\""
 				[ ! "$first_setup" ] && [ ! "$in_install" ] &&
 					echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
