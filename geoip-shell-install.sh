@@ -36,7 +36,7 @@ cat <<EOF
 Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn]
 ${sp8}[-s $sch_syn] [-i $if_syn] [-l $lan_syn] [-t $tr_syn]
 ${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
-${sp8}[-O $nft_p_syn] [-n] [-N] [-z] [-d] [-V] [-h]
+${sp8}[-O $nft_p_syn] [-F <true|false>] [-n] [-N] [-z] [-d] [-V] [-h]
 
 Installer for $p_name.
 Supports interactive setup which doesn't require any options.
