@@ -607,7 +607,7 @@ ${sp8}Default is nftables if present in the system."
 nft_p_syn="<memory|performance>"
 nft_perf_usage="$nft_p_syn :
 ${sp8}Optimization policy for nftables sets.
-${sp8}By default optimizes for memory if the machine has less than 2GiB or RAM, otherwise for performance.
+${sp8}By default optimizes for memory if the machine has less than 2GiB of RAM, otherwise for performance.
 ${sp8}Doesn't work with iptables."
 
 nointeract_usage="Non-interactive setup. Will not ask any questions. Will fail if required options are not specified or invalid."
