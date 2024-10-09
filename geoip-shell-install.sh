@@ -282,6 +282,8 @@ debugprint "Detected init: '$initsys'."
 #### Variables
 
 : "${force_cron_persist_arg:=false}"
+: "${noblock_arg:=false}"
+: "${no_persist_arg:=false}"
 export ccodes_arg geomode_arg schedule_arg families_arg geosource_arg ifaces_arg lan_ips_arg trusted_arg ports_arg \
 	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist_arg noblock_arg nointeract_arg \
 	force_cron_persist_arg force_cron_persist="$force_cron_persist_arg" \
