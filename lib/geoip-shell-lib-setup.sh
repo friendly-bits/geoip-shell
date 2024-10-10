@@ -439,8 +439,8 @@ get_prefs() {
 		eval "par_val=\"\$$par_name\""
 		eval "par_val_arg=\"\${${par_name}_arg}\""
 		case "$par_val" in
-			true) [ "$in_install" ] || [ "$first_setup" ] && [ "$par_val_arg" != true ] &&
-				echolog -warn "option '$par_name' is set to 'true' in config." ;;
+			true) { [ "$in_install" ] || [ "$first_setup" ]; } && [ "$par_val_arg" != true ] && [ "$par_name" != nobackup ] &&
+						echolog -warn "option '$par_name' is set to 'true' in config." ;;
 			false) ;;
 			*) eval "def_val=\"\$${par_name}_def\""
 				[ ! "$first_setup" ] && [ ! "$in_install" ] &&
