@@ -358,13 +358,13 @@ warn_lockout() {
 set_defaults() {
 	_fw_backend_def="$(detect_fw_backend)" || die
 
-	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=2048MiB
+	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=1840MiB
 	[ ! "$nft_perf" ] && {
 		nft_perf_def=memory
 		IFS=': ' read -r _ memTotal _ < /proc/meminfo 2>/dev/null
 		case "$memTotal" in
 			''|*![0-9]*) ;;
-			*) [ $memTotal -ge 2097152 ] && nft_perf_def=performance
+			*) [ $memTotal -ge 1884160 ] && nft_perf_def=performance
 		esac
 	}
 
