@@ -107,15 +107,16 @@ get_nft_list() {
 
 get_fwrules_iplists() {
 	nft_get_geotable "$force_read" |
-		sed -n "/saddr[[:space:]]*@.*${geotag}.*$nft_verdict/{s/.*@//;s/_.........._${geotag}.*//p}"
+		sed -n "/saddr[[:space:]]*@[A-Z][A-Z]_[0-9]_.*$nft_verdict/{s/.*@//;s/_[0-9][0-9][0-9][0-9].*//;s/_/_ipv/;p;}"
 }
 
 ### (ip)sets
 
 get_ipset_id() {
-	list_id="${1%_"$geotag"}"
-	list_id="${list_id%_*}"
-	family="${list_id#*_}"
+	list_id_temp="${1%_*}"
+	ipv="${list_id_temp#???}"
+	family="ipv${ipv}"
+	list_id="${1%%_*}_${family}"
 	case "$family" in
 		ipv4|ipv6) return 0 ;;
 		*) echolog -err "ip set name '$1' has unexpected format."
@@ -125,11 +126,11 @@ get_ipset_id() {
 }
 
 get_ipsets() {
-	nft -t list sets inet | grep -o "[a-zA-Z0-9_-]*_$geotag"
+	nft_get_geotable -f | sed -n '/^[[:blank:]]*set[[:blank:]]/{s/^[[:blank:]]*set[[:blank:]][[:blank:]]*//;s/[[:blank:]].*//;p;}'
 }
 
 get_ipset_iplists() {
-	nft -t list sets inet | sed -n "/$geotag/{s/.*set[[:space:]]*//;s/_.........._${geotag}.*//p}"
+	get_ipsets | sed -n '/[A-Z][A-Z]_[46]_..........$/{s/_..........$//;s/_/_ipv/;p;}'
 }
 
 # 1 - ipset tag
@@ -137,7 +138,7 @@ get_ipset_iplists() {
 get_ipset_elements() {
     get_matching_line "$ipsets" "" "$1" "*" ipset
     [ "$ipset" ] && nft list set inet "$geotable" "$ipset" |
-        sed -n -e /"elements[[:space:]]*=/{s/elements[[:space:]]*=[[:space:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
+        sed -n -e /"elements[[:blank:]]*=/{s/elements[[:blank:]]*=[[:blank:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
 }
 
 # 1 - ipset tag
@@ -262,7 +263,7 @@ apply_rules() {
 
 	# generate lists of $new_ipsets and $old_ipsets
 	unset old_ipsets new_ipsets
-	curr_ipsets="$(nft -t list sets inet | grep "$geotag")"
+	curr_ipsets="$(get_ipsets)"
 
 	getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
 
@@ -272,14 +273,13 @@ apply_rules() {
 		iplist_file="${iplist_dir}/${list_id}.iplist"
 		eval "list_date=\"\$prev_date_${list_id}\""
 		[ ! "$list_date" ] && die "$FAIL read value for 'prev_date_${list_id}' from file '$status_file'."
-		ipset="${list_id}_${list_date}_${geotag}"
+		list_id_short="${list_id%%_*}_${list_id##*ipv}"
+		ipset="${list_id_short}_${list_date}"
 		case "$curr_ipsets" in
 			*"$ipset"* ) [ "$action" = add ] && { echo "Ip set for '$list_id' is already up-to-date."; continue; }
 				old_ipsets="$old_ipsets$ipset " ;;
-			*"$list_id"* )
-				get_matching_line "$curr_ipsets" "*" "$list_id" "*" ipset_line
-				n="${ipset_line#*set }"
-				old_ipset="${n%"_$geotag"*}_$geotag"
+			*"$list_id_short"* )
+				get_matching_line "$curr_ipsets" "" "$list_id_short" "*" old_ipset
 				old_ipsets="$old_ipsets$old_ipset "
 		esac
 		[ "$action" = "add" ] && new_ipsets="$new_ipsets$ipset "
@@ -302,7 +302,8 @@ apply_rules() {
 
 		# read $iplist_file into new set
 		{
-			printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $nft_perf; "
+			printf %s "add set inet $geotable $new_ipset \
+				{ type ${family}_addr; flags interval; auto-merge; policy $nft_perf; "
 			sed '/\}/{s/,*[[:blank:]]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
 		} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$new_ipset'."
 		OK
@@ -346,8 +347,9 @@ apply_rules() {
 
 		# trusted subnets/ips
 		for family in $families; do
-			nft_get_geotable | grep "trusted_${family}_${geotag}" >/dev/null &&
-				printf '%s\n' "delete set inet $geotable trusted_${family}_${geotag}"
+			ipset_name="trusted_${family#ipv}"
+			nft_get_geotable | grep "$ipset_name" >/dev/null &&
+				printf '%s\n' "delete set inet $geotable $ipset_name"
 			eval "trusted=\"\$trusted_$family\""
 			interval=
 			case "${trusted%%":"*}" in net|ip)
@@ -357,17 +359,18 @@ apply_rules() {
 
 			[ -n "$trusted" ] && {
 				get_nft_family
-				printf %s "add set inet $geotable trusted_${family}_${geotag} \
+				printf %s "add set inet $geotable $ipset_name \
 					{ type ${family}_addr; $interval elements={ "
 				printf '%s,' $trusted
 				printf '%s\n' " }; }"
-				printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @trusted_${family}_${geotag} accept comment ${geotag_aux}_trusted"
+				printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @$ipset_name accept comment ${geotag_aux}_trusted"
 			}
 		done
 
 		# LAN subnets/ips
-		if [ "$geomode" = "whitelist" ]; then
+		if [ "$geomode" = whitelist ]; then
 			for family in $families; do
+				ipset_name="lan_ips_${family#ipv}"
 				if [ ! "$autodetect" ]; then
 					eval "lan_ips=\"\$lan_ips_$family\""
 				else
@@ -378,18 +381,18 @@ apply_rules() {
 					eval "lan_ips_$family=\"$lan_ips\""
 				fi
 
-				nft_get_geotable | grep "lan_ips_${family}_${geotag}" >/dev/null &&
-					printf '%s\n' "delete set inet $geotable lan_ips_${family}_${geotag}"
+				nft_get_geotable | grep "$ipset_name" >/dev/null &&
+					printf '%s\n' "delete set inet $geotable $ipset_name"
 				interval=
 				[ "${lan_ips%%":"*}" = net ] && interval="flags interval; auto-merge;"
 				lan_ips="${lan_ips#*":"}"
 				[ -n "$lan_ips" ] && {
 					get_nft_family
-					printf %s "add set inet $geotable lan_ips_${family}_${geotag} \
+					printf %s "add set inet $geotable $ipset_name \
 						{ type ${family}_addr; $interval elements={ "
 					printf '%s,' $lan_ips
 					printf '%s\n' " }; }"
-					printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @lan_ips_${family}_${geotag} accept comment ${geotag_aux}_lan"
+					printf '%s\n' "insert rule $geopath$opt_ifaces $nft_family saddr @$ipset_name accept comment ${geotag_aux}_lan"
 				}
 			done
 			[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
@@ -556,7 +559,8 @@ create_backup() {
 		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
 		eval "list_date=\"\$prev_date_${list_id}\""
 		[ -z "$list_date" ] && bk_failed
-		ipset="${list_id}_${list_date}_${geotag}"
+		list_id_short="${list_id%%_*}_${list_id##*ipv}"
+		ipset="${list_id_short}_${list_date}"
 
 		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file

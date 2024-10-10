@@ -79,8 +79,13 @@ esac
 [ "$ifaces" ] && _ifaces_r="${blue}$ifaces$n_c" || { _ifaces_r="${red}Not set $_X"; incr_issues; }
 printf '%s\n' "Geoip rules applied to network interfaces: $_ifaces_r"
 
-trusted_ipv4="$(print_ipset_elements trusted_ipv4)"
-trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
+for family in $families; do
+	f="$family"
+	[ "$_fw_backend" = nft ] && f="${f#ipv}"
+	trusted_ips="$(print_ipset_elements "trusted_$f")"
+	eval "trusted_$family=\"$trusted_ips\""
+done
+
 [ "$trusted_ipv4$trusted_ipv6" ] && {
 	printf '\n%s\n' "Trusted ip's:"
 	for f in $families; do
@@ -90,10 +95,16 @@ trusted_ipv6="$(print_ipset_elements trusted_ipv6)"
 }
 
 [ "$geomode" = whitelist ] && {
-	lan_ips_ipv4="$(print_ipset_elements lan_ips_ipv4)"
-	lan_ips_ipv6="$(print_ipset_elements lan_ips_ipv6)"
+	for family in $families; do
+		f="$family"
+		[ "$_fw_backend" = nft ] && f="${f#ipv}"
+		lan_ips="$(print_ipset_elements "lan_ips_$f")"
+		eval "lan_ips_$family=\"$lan_ips\""
+	done
+
 	[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ "$ifaces" = all ] && {
 		printf '\n%s\n' "Allowed LAN ip's:"
+
 		for f in $families; do
 			eval "lan_ips=\"\$lan_ips_$f\""
 			[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
@@ -119,7 +130,9 @@ report_fw_state
 				printf %s "${purple}${ccode}${n_c}: "
 				for family in $families; do
 					list_id="${ccode}_${family}"
-					el_cnt="$(cnt_ipset_elements "$list_id")"
+					f="$family"
+					[ "$_fw_backend" = nft ] && f="${family#ipv}"
+					el_cnt="$(cnt_ipset_elements "${ccode}_${f}")"
 					[ "$el_cnt" != 0 ] && list_empty='' || {
 						case "$exclude_iplists" in
 							*"$list_id"*) list_empty=" (excluded)" ;;
