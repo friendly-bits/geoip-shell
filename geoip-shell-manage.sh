@@ -259,8 +259,12 @@ unset conf_act rm_conf
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
 		q="[K]eep previous"; keep_opt=k
 		for _par in geomode ccodes families schedule ifaces lan_ips trusted ports user_ccode geosource datadir nobackup \
-			_fw_backend nft_perf no_persist noblock; do
-			eval "[ \"\$${_par}_arg\" ]" && { q="[M]erge previous and new"; keep_opt=m; break; }
+			_fw_backend nft_perf no_persist noblock force_cron_persist; do
+			eval "arg_val=\"\$${_par}_arg\""
+			[ "$arg_val" ] && {
+				nodie=1 getconfig prev_val "$_par" "$conf_file" 2>/dev/null
+				[ "$arg_val" != "$prev_val" ] && { q="[M]erge previous and new"; keep_opt=m; break; }
+			}
 		done
 
 		echo "Existing config file found. $q config or [f]orget the old config? [$keep_opt|f] or [a] to abort setup."
