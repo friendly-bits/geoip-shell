@@ -303,8 +303,7 @@ apply_rules() {
 		# read $iplist_file into new set
 		{
 			printf %s "add set inet $geotable $new_ipset { type ${family}_addr; flags interval; auto-merge; policy $nft_perf; "
-			cat "$iplist_file"
-			printf '%s\n' "; }"
+			sed '/\}/{s/,*[[:blank:]]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
 		} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$new_ipset'."
 		OK
 
@@ -562,7 +561,8 @@ create_backup() {
 		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file
 		nft list set inet "$geotable" "$ipset" |
-			sed -n -e /"elements[[:space:]]*=[[:space:]]*{"/\{ -e p\;/\}/q\;:1 -e n\; -e p\; -e /\}/q\;b1 -e \} > "$tmp_file"
+			sed -n -e /"elements[[:blank:]]*=[[:blank:]]*{"/\{ -e s/[[:blank:]][[:blank:]]*//g\; -e p\;/\}/q\;:1 -e n\; -e s/[[:blank:]][[:blank:]]*//\; -e p\; -e /\}/q\;b1 -e \} \
+				> "$tmp_file"
 		[ ! -s "$tmp_file" ] && bk_failed
 
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
