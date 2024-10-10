@@ -438,7 +438,7 @@ cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_fai
 	fw_include="$install_dir/${p_name}-fw-include.sh"
 	mk_fw_inc="$i_script-mk-fw-include.sh"
 
-	if [ "$no_persist_arg" ]; then
+	if [ "$no_persist_arg" = true ]; then
 		echolog -warn "Installed without persistence functionality."
 	else
 		echo "Adding the init script... "
