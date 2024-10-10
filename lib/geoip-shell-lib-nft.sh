@@ -438,7 +438,7 @@ apply_rules() {
 		printf '%s\n' "insert rule $geopath$opt_ifaces ct state established,related accept comment ${geotag_aux}_est-rel"
 
 		# lo interface
-		[ "$geomode" = "whitelist" ] && [ "$ifaces" = all ] &&
+		[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
 			printf '%s\n' "insert rule $geopath$opt_ifaces iifname lo accept comment ${geotag_aux}-loopback"
 
 		## add iplist-specific rules
