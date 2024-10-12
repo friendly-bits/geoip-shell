@@ -473,7 +473,7 @@ done
 oldifs cca
 
 ucl_f_cmd="uclient-fetch"
-curl_cmd="curl -L -f --fail-early"
+curl_cmd="curl -L -f"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
 unset secure_util fetch_cmd
@@ -482,6 +482,7 @@ for util in curl wget uclient-fetch; do
 	case "$util" in
 		curl)
 			secure_util="curl"
+			curl --help curl 2>/dev/null | grep -q '\-\-fail-early' && curl_cmd="$curl_cmd --fail-early"
 			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 10 -s --head"
 			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
