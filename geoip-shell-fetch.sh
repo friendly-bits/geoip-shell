@@ -86,7 +86,7 @@ debugentermsg
 # 1 - raw date
 # 2 - var name for output
 date_raw_to_compat() {
-	[ -z "$1" ] && return 1
+	[ -z "$1" ] && { unset "$2"; return 1; }
 	mon_temp="${1#????}"
 	eval "$2=\"${1%????}-${mon_temp%??}-${1#??????}\""
 }
@@ -239,10 +239,8 @@ check_prev_list() {
 }
 
 # checks whether any of the ip lists need update
-# and populates $up_to_date_lists, lists_need_update accordingly
+# and populates $up_to_date_lists, $ccodes_need_update accordingly
 check_updates() {
-	unset lists_need_update up_to_date_lists
-
 	time_now="$(date +%s)"
 
 	printf '\n%s\n' "Checking for ip list updates on the $dl_src_cap server..."
@@ -254,13 +252,13 @@ check_updates() {
 		*) die "Unknown source: '$dl_src'."
 	esac
 
-	unset ccodes_need_update families
+	unset up_to_date_lists ccodes_need_update families no_date_lists
 	for list_id in $valid_lists; do
 		get_a_arr_val server_dates_arr "$list_id" date_src_raw
 		date_raw_to_compat "$date_src_raw" date_src_compat
 
 		if [ ! "$date_src_compat" ]; then
-			echolog -warn "$FAIL get the timestamp from the server for list '$list_id'. Will try to fetch anyway."
+			add2list no_date_lists "$list_id"
 			date_src_raw="$(date +%Y%m%d)"; force_update=1
 			date_raw_to_compat "$date_src_raw" date_src_compat
 		fi
@@ -287,6 +285,8 @@ check_updates() {
 		fi
 	done
 
+	[ "$no_date_lists" ] &&
+		echolog -warn "$FAIL get the timestamp from the server for ip lists: '$no_date_lists'. Will try to fetch anyway."
 	[ "$up_to_date_lists" ] &&
 		echolog "Ip lists '${purple}$up_to_date_lists${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
 	:
@@ -342,8 +342,12 @@ process_ccode() {
 			esac
 
 			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_list\""
-			$fetch_cmd "${http}://$dl_url" > "$fetched_list" ||
-				{ list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue; }
+			$fetch_cmd "${http}://$dl_url" > "$fetched_list" || {
+				rv=$?
+				echolog -err "${fetch_cmd%% *} returned error code $rv for command '$fetch_cmd \"${http}://$dl_url\"'."
+				[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
+				list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue;
+			}
 			printf '%s\n\n' "Fetch successful."
 		fi
 
@@ -436,7 +440,7 @@ check_subnets_cnt_drop() {
 }
 
 
-#### Variables
+#### Set output file/s
 
 # check that either $iplist_dir_f or $output_file is set
 [ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
@@ -454,10 +458,8 @@ fast_el_cnt "$lists_arg" " " lists_arg_cnt
 iplist_dir_f="${iplist_dir_f%/}"
 
 
-#### CONSTANTS
-
+#### Load cca2.list
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
-
 newifs "$_nl" cca
 cca2_f="cca2.list"
 for cca2_path in "$script_dir/$cca2_f" "$conf_dir/$cca2_f"; do
@@ -472,27 +474,43 @@ for i in 1 2 3 4 5; do
 done
 oldifs cca
 
+#### Check for valid DL source
+valid_sources="ripe ipdeny"
+default_source="ripe"
+tolower source_arg
+dl_src="${source_arg:-"$default_source"}"
+toupper dl_src_cap "$dl_src"
+checkvars dl_src
+set -- $dl_src
+[ "$2" ] && die "Specify only one download source."
+# debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
+subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
+case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
+
+#### Choose best available DL utility, set options
 ucl_f_cmd="uclient-fetch"
 curl_cmd="curl -L -f"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-unset secure_util fetch_cmd
+unset secure_util fetch_cmd owrt_ssl
+[ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] &&
+	[ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] && checkutil uci && owrt_ssl=1
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
 	case "$util" in
 		curl)
 			secure_util="curl"
 			curl --help curl 2>/dev/null | grep -q '\-\-fail-early' && curl_cmd="$curl_cmd --fail-early"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 10 -s --head"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 10 -s -S --head"
 			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
-			fetch_cmd_q="$curl_cmd -s"
+			fetch_cmd_q="$curl_cmd -s -S"
 			break ;;
 		wget)
 			if ! wget --version | grep -m1 "GNU Wget"; then
 				wget_cmd="wget -q"
 				unset wget_tries wget_tries_con_check wget_show_progress
-				[ -s "/usr/lib/libustream-ssl.so" ] && checkutil uci && secure_util="wget"
+				[ "$owrt_ssl" ] && secure_util="wget"
 			else
 				wget_show_progress=" --show-progress"
 				wget_cmd="wget -q --max-redirect=10"
@@ -510,32 +528,40 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd="$ucl_f_cmd -T 16 -O -"
 			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
 			con_check_cmd="$ucl_f_cmd -T 10 -q -s"
-			[ -s "/usr/lib/libustream-ssl.so" ] && { secure_util="uclient-fetch"; break; }
+			[ "$owrt_ssl" ] && { secure_util="uclient-fetch"; break; }
 	esac
 done
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
-[ -z "$fetch_cmd" ] && die "Compatible download utilites unavailable."
+[ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
 
-if [ -z "$secure_util" ] && [ -z "$http" ]; then
-	if [ "$nointeract" ]; then
-		REPLY=y
-	else
-		[ ! "$manmode" ] && die "no fetch utility with SSL support available."
-		printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
-		pick_opt "y|n"
+owrt_ssl_needed="Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
+
+if [ -z "$secure_util" ]; then
+	[ "$dl_src" = ipdeny ] && {
+		echolog -err "SSL support is required to use the IPDENY source but no utility with SSL support is available."
+		checkutil uci && echolog "$owrt_ssl_needed"
+		die
+	}
+
+	if [ -z "$http" ]; then
+		if [ "$nointeract" ]; then
+			REPLY=y
+		else
+			[ ! "$manmode" ] && die "no fetch utility with SSL support available."
+			printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
+			pick_opt "y|n"
+		fi
+		case "$REPLY" in
+			n) die "No fetch utility available." ;;
+			y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
+		esac
 	fi
-	case "$REPLY" in
-		n) die "No fetch utility available." ;;
-		y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
-	esac
 elif [ -n "$secure_util" ]; then http="https"
 fi
 : "${http:=https}"
 
-valid_sources="ripe ipdeny"
-default_source="ripe"
 
 #### VARIABLES
 
@@ -559,22 +585,8 @@ san_lists="$lists"
 [ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
 
 
-tolower source_arg
-dl_src="${source_arg:-"$default_source"}"
-toupper dl_src_cap "$dl_src"
-
-
 #### Checks
 
-checkvars dl_src
-
-set -- $dl_src
-[ "$2" ] && die "Specify only one download source."
-
-
-# debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
-subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
-case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
 
 # groups lists by registry
 # populates $registries, fetch_lists_arr
@@ -592,8 +604,12 @@ esac
 # check internet connectivity
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 printf '\n%s' "Checking connectivity... "
-$con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null ||
+$con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
+	rv=$?
+	echolog -err "${con_check_cmd%% *} returned error code $rv for command '$con_check_cmd \"${http}://$con_check_url\"'."
+	[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
 	die "Connection attempt to the $dl_src_cap server failed."
+}
 OK
 
 for f in "$status_file" "$output_file"; do
