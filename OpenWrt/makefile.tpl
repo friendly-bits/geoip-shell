@@ -42,7 +42,7 @@ $(call Package/$p_name/Default)
 endef
 
 define Package/$p_name/description/Default
-	Flexible geoip blocker with a user-friendly command line interface (currently no LuCi interface).
+	Flexible geoip blocker with a user-friendly command line interface.
 	For readme, please see
 	https://github.com/openwrt/packages/blob/master/net/$p_name/OpenWrt-README.md
 endef
@@ -57,8 +57,11 @@ endef
 
 define Package/$p_name/postinst/Default
 	#!/bin/sh
-	rm "$install_dir/$p_name" 2>/dev/null
-	ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name"
+	rm -f "$install_dir/$p_name"
+	ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name" ||
+		{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$install_dir/$p_name'."; exit 1; }
+	chmod 555 "$install_dir/$p_name" && chown root:root "$install_dir/$p_name" ||
+		logger -s -t "$p_name" -p err "Error: failed to set permissions for '$install_dir/$p_name'."
 	[ -s "$conf_dir/$p_name.conf" ] && $install_dir/$p_name configure -z && exit 0
 	logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
 	exit 0
