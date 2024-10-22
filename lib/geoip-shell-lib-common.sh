@@ -803,6 +803,10 @@ detect_fw_backend() {
 	:
 }
 
+try_read_crontab() {
+	crontab -u root -l 1>/dev/null 2>/dev/null
+}
+
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
 # sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
@@ -830,24 +834,32 @@ check_cron() {
 	}
 
 	try_pidof() {
-		pidof "$cron_cmd" 1>/dev/null && cron_path="$(command -v "$cron_cmd")"
+		pidof "$1" 1>/dev/null && cron_path="$(command -v "$1")"
 	}
 
 	try_pgrep() {
-		cron_path="$(pgrep -af "/$cron_cmd" |
-			awk -F' ' "BEGIN{rv=1} \$2 ~ /\/${cron_cmd}([ \t]|\$)/ {print \$2; rv=0; exit} END{exit rv}")"
+		cron_path="$(pgrep -af "/$1" | awk "BEGIN{rv=1} \$2 ~ /\/${1}\$/ {print \$2; rv=0; exit} END{exit rv}")"
 	}
 
 	debugprint "check_cron: \$no_persist is '$no_persist'. \$cron_rv is '$cron_rv'."
 	[ "$cron_rv" = 0 ] && return 0
-	# check reading crontab
-	crontab -u root -l 1>/dev/null 2>/dev/null || {
-		debugprint "check_cron: Reading crontab failed."
-		return 1
-	}
 
 	unset cron_reboot cron_path
 	export cron_reboot cron_rv=1
+
+	# check for crontab command
+	checkutil crontab || {
+		debugprint "check_cron: crontab command not found."
+		cron_rv=3
+		return 3
+	}
+
+	# check reading crontab
+	try_read_crontab || {
+		debugprint "check_cron: $FAIL read crontab."
+		cron_rv=2
+		return 2
+	}
 
 	# check for cron or crond in running processes
 	for try_cmd in try_pidof try_pgrep; do
@@ -855,7 +867,7 @@ check_cron() {
 		debugprint "check_cron: Trying with '${try_cmd_n}'..."
 		for cron_cmd in crond fcron cron; do
 			debugprint "Checking '$cron_cmd'"
-			if $try_cmd; then
+			if $try_cmd "$cron_cmd"; then
 				debugprint "${try_cmd_n} found '$cron_cmd', path: '$cron_path'"
 				check_cron_path "$cron_path"
 				case $? in
@@ -877,15 +889,17 @@ check_cron() {
 # if cron service is not running, implements dialog with the user and optional automatic correction
 check_cron_compat() {
 	unset no_cr_persist cr_p1 cr_p2
-	[ ! "$_OWRTFW" ] && { cr_p1="s '-n'"; cr_p2="persistence and "; }
+	[ ! "$_OWRTFW" ] && { cr_p1="s '-n true'"; cr_p2="persistence and "; }
 	[ "$no_persist" = true ] || [ "$_OWRTFW" ] && no_cr_persist=1
 	if [ "$schedule" != disable ] || [ ! "$no_cr_persist" ] ; then
-		for i in 1 2; do
+		i=0
+		while [ $i -le 1 ]; do
+			i=$((i+1))
 			# check if cron is running
 			check_cron && {
 				[ $i = 2 ] && {
 					OK
-					printf '%s\n%s\n%s' "Please restart the device after setup." \
+					printf '%s\n%s\n%s' "Please restart the device after completing setup." \
 						"Then run '$p_name configure' and $p_name will check the cron service again." \
 						"Press Enter to continue "
 					read -r dummy
@@ -893,28 +907,50 @@ check_cron_compat() {
 				break
 			}
 			[ $i = 2 ] && { FAIL; die; }
-			echolog -err "cron is not running." \
-				"The cron service needs to be enabled and started in order for ${cr_p2}automatic ip list updates to work." \
+			case $cron_rv in
+				1)
+					cron_err_msg_1="cron is not running"
+					cron_err_msg_2="The cron service needs to be enabled and started in order for ${cr_p2}automatic ip list updates to work"
+					autosolution_msg="enable and start the cron service" ;;
+				2)
+					cron_err_msg_1="initial crontab file does not exist for user root"
+					cron_err_msg_2="The initial crontab file must exist so geoip-shell can create cron jobs for ${cr_p2}automatic ip list updates"
+					autosolution_msg="create the initial crontab file" ;;
+				3)
+					cron_err_msg_1="'crontab' utility not found. This usually means that cron is not installed."
+					cron_err_msg_2="cron is required for ${cr_p2}automatic ip list updates"
+			esac
+			echo
+			echolog -err "$cron_err_msg_1." "$cron_err_msg_2." \
 				"If you want to use $p_name without ${cr_p2}automatic ip list updates," \
 				"install/configure $p_name with option$cr_p1 '-s disable'."
 			[ "$nointeract" ] && {
-				[ "$_OWRTFW" ] && echolog "Please run '$p_name configure' in order to have $p_name enable the cron service for you."
+				[ ! "$_OWRTFW" ] && without_option=" without the option '-z'"
+				echolog "Please run '$p_name configure'$without_option in order to have $p_name enable the cron service for you."
 				die
 			}
+			[ "$cron_rv" = 3 ] && { echolog "Please install cron, then run '$p_name configure'."; die; }
 
-			printf '\n%s\n' "Would you like $p_name to enable and start the cron service on this device? [y|n]."
+			printf '\n%s\n' "Would you like $p_name to $autosolution_msg? [y|n]."
 			pick_opt "y|n"
 			[ "$REPLY" = n ] && die
-			printf '\n%s' "Attempting to enable and start cron... "
 
-			# try to create an empty crontab
-			crontab -u root -l 1>/dev/null 2>/dev/null || {
-				debugprint "check_cron_compat: trying to create empty crontab"
-				printf '' | crontab -u root -
-				check_cron && continue
+			# if reading crontab fails, try to create an empty crontab
+			try_read_crontab || {
+				printf '\n%s' "Attempting to create a new crontab file for root... "
+				printf '' | crontab -u root - || { FAIL; die "command \"printf '' | crontab -u root -\" returned error code $?."; }
+				try_read_crontab || { FAIL; die "Issued crontab file creation command, still can not read crontab."; }
+				OK
+				if check_cron; then
+					break
+				else
+					i=0
+					continue
+				fi
 			}
 
 			# try to enable and start cron service
+			printf '\n%s' "Attempting to enable and start cron... "
 			debugprint "check_cron_compat: initsys is '$initsys'"
 			for cron_cmd in crond cron cronie fcron dcron; do
 				debugprint "check_cron_compat: trying '$cron_cmd'"
