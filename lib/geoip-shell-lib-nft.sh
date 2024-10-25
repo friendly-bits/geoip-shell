@@ -447,7 +447,7 @@ apply_rules() {
 			get_nft_family
 			rule_ipset="$nft_family saddr @$new_ipset"
 			get_counter_val "$rule_ipset $iplist_verdict"
-			printf '%s\n' "add rule $geopath$opt_ifaces $rule_ipset counter $counter_val $iplist_verdict"
+			printf '%s\n' "add rule $geopath$opt_ifaces $rule_ipset counter $counter_val $iplist_verdict comment ${geotag}"
 		done
 
 		## whitelist blocking rule
