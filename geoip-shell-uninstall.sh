@@ -23,15 +23,7 @@ done
 
 [ ! "$geoinit_path" ] && die "Cannot uninstall $p_name because ${p_name}-geoinit.sh is missing."
 
-. "$geoinit_path" &&
-: "${_fw_backend:=$_fw_backend_def}" &&
-. "$_lib-uninstall.sh" &&
-{
-	[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; } ||
-	echolog -err "Firewall backend is unknown. Cannot remove firewall rules." \
-		"Please restart the machine after uninstalling."
-	:
-} || exit 1
+. "$geoinit_path" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -87,8 +79,13 @@ shift $((OPTIND-1))
 
 is_root_ok || exit 1
 
+. "$_lib-uninstall.sh"  || exit 1
+[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; } ||
+	echolog -err "Firewall backend is unknown. Cannot remove firewall rules."
+
 lib_dir="/usr/lib/$p_name"
 _lib="$lib_dir/$p_name-lib"
+: "${_fw_backend:="$_fw_backend_def"}"
 
 
 ### VARIABLES
