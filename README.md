@@ -5,6 +5,8 @@ The idea of this project is making geoip blocking easy on (almost) any Linux sys
 
 Supports running on OpenWrt. Supports ipv4 and ipv6.
 
+If you like this project, please take a second to give it a star on Github. This helps other people to find it.
+
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/e1a70e9d-a0eb-407b-9372-ddcbe6134d88)](https://github.com/friendly-bits/geoip-shell/assets/134004289/24010da9-a62a-428f-ae4d-cb1d4ae97f73)
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/ef622182-a6cf-49ff-9bed-64fc29653255)](https://github.com/friendly-bits/geoip-shell/assets/134004289/b35e199f-465d-487c-809b-9c5a8f0644be)
 
@@ -213,6 +215,5 @@ If you are using the ipdeny source then note that they are a 3rd party which has
 
 ## **P.s.**
 
-- If you like this project, please take a second to give it a star on Github. This helps other people to find it.
 - I would appreciate a report of whether it works or doesn't work on your system (please specify which). You can use the Github Discussions tab for that.
 - If you find a bug or want to request a feature, please let me know by opening an issue.
