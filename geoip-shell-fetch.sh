@@ -36,13 +36,13 @@ Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-  -l $list_ids_usage
+  -l <"list_ids">  : $list_ids_usage
   -p <path>        : Path to directory where downloaded and compiled subnet lists will be stored.
   -o <output_file> : Path to output file where fetched list will be stored.
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
   -s <status_file> : Path to a status file to register fetch results in.
-  -u $sources_usage
+  -u $srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
@@ -97,7 +97,8 @@ reg_server_date() {
 			set_a_arr_el server_dates_arr "$2=$1"
 			debugprint "Got date from $3 for '$2': '$1'."
 			;;
-		*) debugprint "$FAIL get date from $3 for '$2'."
+		*)
+			debugprint "$FAIL get date from $3 for '$2'."
 			:
 	esac
 }
@@ -344,7 +345,7 @@ process_ccode() {
 			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_list\""
 			$fetch_cmd "${http}://$dl_url" > "$fetched_list" || {
 				rv=$?
-				echolog -err "${fetch_cmd%% *} returned error code $rv for command '$fetch_cmd \"${http}://$dl_url\"'."
+				echolog -err "${fetch_cmd%% *} returned error code $rv for command:" "$fetch_cmd \"${http}://$dl_url\""
 				[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
 				list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue;
 			}
@@ -434,7 +435,9 @@ check_subnets_cnt_drop() {
 				"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
 				"Not updating the list."
 				return 1 ;;
-			*) debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
+			*)
+				debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
+				:
 		esac
 	fi
 }
@@ -501,7 +504,7 @@ for util in curl wget uclient-fetch; do
 		curl)
 			secure_util="curl"
 			curl --help curl 2>/dev/null | grep -q '\-\-fail-early' && curl_cmd="$curl_cmd --fail-early"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 10 -s -S --head"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
 			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
 			fetch_cmd_q="$curl_cmd -s -S"
@@ -519,7 +522,7 @@ for util in curl wget uclient-fetch; do
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
-			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=10 --spider"
+			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider"
 			wget_cmd="$wget_cmd$wget_tries --timeout=16"
 			fetch_cmd="$wget_cmd$wget_show_progress -O -"
 			fetch_cmd_q="$wget_cmd -O -"
@@ -527,7 +530,7 @@ for util in curl wget uclient-fetch; do
 		uclient-fetch)
 			fetch_cmd="$ucl_f_cmd -T 16 -O -"
 			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
-			con_check_cmd="$ucl_f_cmd -T 10 -q -s"
+			con_check_cmd="$ucl_f_cmd -T 7 -q -s"
 			[ "$owrt_ssl" ] && { secure_util="uclient-fetch"; break; }
 	esac
 done
@@ -606,7 +609,7 @@ esac
 printf '\n%s' "Checking connectivity... "
 $con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
 	rv=$?
-	echolog -err "${con_check_cmd%% *} returned error code $rv for command '$con_check_cmd \"${http}://$con_check_url\"'."
+	echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"${http}://$con_check_url\""
 	[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
 	die "Connection attempt to the $dl_src_cap server failed."
 }
