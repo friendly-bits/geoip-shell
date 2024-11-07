@@ -34,7 +34,7 @@ debugentermsg
 
 usage() {
 cat <<EOF
-Usage: $me [-V] [-h]
+Usage: $me [-r] [-V] [-h]
 
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
@@ -80,20 +80,21 @@ shift $((OPTIND-1))
 is_root_ok || exit 1
 
 . "$_lib-uninstall.sh"  || exit 1
+
+: "${_fw_backend:="$_fw_backend_def"}"
+
 [ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; } ||
 	echolog -err "Firewall backend is unknown. Cannot remove firewall rules."
 
+### VARIABLES
 lib_dir="/usr/lib/$p_name"
 _lib="$lib_dir/$p_name-lib"
-: "${_fw_backend:="$_fw_backend_def"}"
 
-
-### VARIABLES
 old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
 install_dir="${old_install_dir:-"$install_dir"}"
 
-[ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually"
+[ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually."
 
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	# prevents infinite loop
@@ -114,14 +115,36 @@ install_dir="${old_install_dir:-"$install_dir"}"
 #### MAIN
 
 rm_setupdone
-rm_iplists_rules
+
+# kill any related processes which may be running in the background
+kill_geo_pids
+
+# remove the lock file
+rm_lock
+
+### Remove geoip firewall rules
+[ "$_fw_backend" ] && rm_all_georules ||
+	echolog -err "$FAIL remove $p_name firewall rules. Please restart the machine after uninstallation."
+
+case "$iplist_dir" in
+	*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
+	*)
+		# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
+		[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
+			echo "Removing $p_name ip lists..."
+			set +f
+			rm -f "${iplist_dir:?}"/*.iplist
+			set -f
+		}
+esac
+
 rm_cron_jobs
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
 	rm_owrt_init
 	rm_owrt_fw_include
-	restart_owrt_fw
+	reload_owrt_fw
 }
 
 rm_symlink
