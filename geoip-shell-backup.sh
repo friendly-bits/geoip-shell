@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2015,SC2034,SC2154,SC2086,SC1090
+# shellcheck disable=SC2015,SC2034,SC2154,SC2086,SC1090,SC2120
 
 # geoip-shell-backup.sh
 
@@ -23,10 +23,10 @@ cat <<EOF
 
 Usage: $me <action> [-n] [-d] [-V] [-h]
 
-Creates a backup of the current firewall state and current ip sets or restores them from backup.
+Creates a backup of the current firewall state and current ipsets or restores them from backup.
 
 Actions:
-  create-backup|restore  : create a backup of, or restore $p_name config, ip sets and firewall rules
+  create-backup|restore  : create a backup of, or restore $p_name config, ipsets and firewall rules
 
 Options:
   -n  : Do not restore config and status files
@@ -66,8 +66,32 @@ is_root_ok
 setdebug
 debugentermsg
 
+bk_failed() {
+	[ "$1" ] && echolog -err "$1"
+	rm_bk_tmp
+	die "$FAIL back up $p_name ipsets."
+}
+
 rm_bk_tmp() {
-	rm -rf "$tmp_file" "$bk_dir_new"
+	set +f
+	rm -rf "$bk_dir_new"
+	rm -f "$tmp_file" "$iplist_dir/"*.iplist
+}
+
+rstr_failed() {
+	rm_rstr_tmp
+	export main_config=
+	[ "$1" ] && echolog -err "$1"
+	[ "$2" = reset ] && {
+		echolog -err "*** Geoblocking is not working. Removing geoblocking firewall rules. ***"
+		rm_all_georules
+	}
+	die
+}
+
+rm_rstr_tmp() {
+	set +f
+	rm -f "$tmp_file" "$iplist_dir/"*.iplist
 }
 
 # detects archive type (if any) of file passed in 1st argument by its extension
@@ -112,7 +136,10 @@ cp_conf() {
 		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" cp_dest=\"$dest_d\$${bak_f}_file$dest_f\""
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
-		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && { debugprint "$cp_src is identical to $cp_dest"; continue; }
+		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && {
+			debugprint "$cp_src is identical to $cp_dest"
+			continue
+		}
 		debugprint "Copying '$cp_src' to '$cp_dest'"
 		printf %s "$cp_act the $bak_f file... "
 		cp "$cp_src" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
@@ -123,7 +150,8 @@ cp_conf() {
 #### VARIABLES
 
 getconfig families
-getconfig iplists
+[ ! "$inbound_iplists" ] && getconfig inbound_iplists
+[ ! "$outbound_iplists" ] && getconfig outbound_iplists
 
 bk_dir="$datadir/backup"
 bk_dir_new="${bk_dir}.new"
@@ -142,10 +170,11 @@ mk_lock
 set +f
 case "$action" in
 	create-backup)
-		trap 'rm_bk_tmp; die' INT TERM HUP QUIT
+		trap 'trap - INT TERM HUP QUIT; rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		set_archive_type
 		mkdir -p "$bk_dir_new"
+		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		create_backup
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
@@ -153,16 +182,48 @@ case "$action" in
 		rm -rf "$bk_dir"
 		mv "$bk_dir_new" "$bk_dir" || bk_failed
 
-		printf '%s\n\n' "Successfully created backup of $p_name config, ip sets and firewall rules." ;;
+		printf '%s\n\n' "Successfully created backup of $p_name state." ;;
 	restore)
-		trap 'rm_rstr_tmp; die' INT TERM HUP QUIT
-		printf '%s\n' "Preparing to restore $p_name from backup..."
+		trap 'trap - INT TERM HUP QUIT; rm_rstr_tmp; die' INT TERM HUP QUIT
+		echolog "Preparing to restore $p_name from backup..."
 		[ "$restore_conf" ] && bk_conf_file="$bk_dir/$config_file_bak" || bk_conf_file="$config_file"
-		[ ! -s "$bk_conf_file" ] && rstr_failed "File '$bk_conf_file' is empty or doesn't exist."
-		getconfig iplists iplists "$bk_conf_file" &&
+		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
+		getconfig inbound_iplists inbound_iplists "$bk_conf_file" &&
+		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
 		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
-		set_extract_cmd "$bk_ext"
-		restorebackup
+		san_str iplists "$inbound_iplists $outbound_iplists" || die
+
+		if [ "$iplists" ]; then
+			get_counters
+			set_extract_cmd "$bk_ext"
+			extract_iplists
+		else
+			echolog "No ip lists registered - skipping iplist extraction."
+		fi
+
+		### Remove geoblocking iptables rules and ipsets
+		rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
+
+		[ "$restore_conf" ] && { cp_conf restore || rstr_failed; }
+
+		export main_config=
+
+		apply_args=
+		for d in inbound outbound; do
+			eval "[ -n \"\${${d}_iplists}\" ] && apply_args=\"\${apply_args}-D $d -l \\\"\${${d}_iplists}\\\" \""
+		done
+
+		if [ -n "$apply_args" ]; then
+			[ "$_fw_backend" = ipt ] && restore_ipsets
+			eval "call_script \"$i_script-apply.sh\" add $apply_args -s"
+			apply_rv=$?
+		else
+			apply_rv=0
+		fi
+
+		rm_rstr_tmp
+		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
+
 		printf '%s\n\n' "Successfully completed action 'restore'."
 esac
 
