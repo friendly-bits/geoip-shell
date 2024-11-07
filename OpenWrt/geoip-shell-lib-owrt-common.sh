@@ -9,27 +9,40 @@
 
 checkutil () { command -v "$1" 1>/dev/null; }
 
-enable_owrt_init() {
-	init_script="/etc/init.d/${p_name}-init"
-	if [ "$no_persist" = true ]; then
+enable_owrt_persist() {
+	[ "$no_persist" = true ] && {
 		printf '%s\n\n' "Installed without persistence functionality."
-	else
-		! check_owrt_init && {
-			echo "Enabling the init script... "
-			$init_script enable
+		return 1
+	}
+
+	rm -f "$conf_dir/no_persist"
+	! check_owrt_init && {
+		[ -s "$init_script" ] || {
+			echolog -err "The init script '$init_script' is missing. Please reinstall $p_name."
+			return 1
 		}
-		printf %s "Checking the init script... "
-		check_owrt_init || { echolog -err "$FAIL enable '$init_script'."; return 1; }
+		printf %s "Enabling the init script... "
+		$init_script enable
+		check_owrt_init || { FAIL; echolog -err "$FAIL enable '$init_script'."; return 1; }
 		OK
-		! check_owrt_include && {
-			$init_script start
-			reload_owrt_fw
-			sleep 1
-		}
-		printf %s "Checking the firewall include... "
-		check_owrt_include || { echolog -err "$FAIL add firewall include."; return 1; }
+	}
+	/bin/sh "$install_dir/${p_name}-mk-fw-include.sh"
+}
+
+disable_owrt_persist() {
+	[ ! -f "$conf_dir/no_persist" ] && touch "$conf_dir/no_persist"
+	[ ! -s "$init_script" ] ||
+	{
+		printf %s "Disabling the init script... "
+		$init_script disable && ! check_owrt_init ||
+			{ echolog -err "$FAIL disable the init script '$init_script'."; return 1; }
 		OK
-	fi
+	} &&
+	{
+		rm_owrt_fw_include
+		reload_owrt_fw
+	}
+	:
 }
 
 check_owrt_init() {
@@ -54,8 +67,9 @@ check_owrt_include() {
 }
 
 rm_owrt_fw_include() {
-	echo "Removing the firewall include..."
-	uci delete firewall."${p_name%%-*}_${p_name#*-}" 1>/dev/null 2>/dev/null
+	uci -q get firewall."$p_name_c" 1>/dev/null || return 0
+	printf %s "Removing the firewall include... "
+	uci -q delete firewall."$p_name_c" 1>/dev/null && OK || FAIL
 
 	echo "Committing fw$_OWRTFW changes..."
 	uci commit firewall
@@ -63,9 +77,9 @@ rm_owrt_fw_include() {
 }
 
 rm_owrt_init() {
+	[ ! -s "$init_script" ] && return 0
 	echo "Deleting the init script..."
-	/etc/init.d/${p_name}-init disable 2>/dev/null && rm -f "/etc/init.d/${p_name}-init"
-	:
+	$init_script disable 2>/dev/null && rm -f "$init_script"
 }
 
 restart_owrt_fw() {
@@ -83,6 +97,8 @@ reload_owrt_fw() {
 me="${0##*/}"
 p_name_c="${p_name%%-*}_${p_name#*-}"
 _OWRTFW=
+init_script="/etc/init.d/${p_name}-init"
+conf_dir="/etc/$p_name"
 
 # check for OpenWrt firewall version
 checkutil uci && checkutil procd && for i in 3 4; do
