@@ -81,6 +81,7 @@ for arg in "$@"; do
 		'') ;;
 		-r) build_from_remote=1 ;;
 		-u) upload=1 ;;
+		-d) export debugmode=1 ;;
 		-t) troubleshoot=1 ;;
 		3|4|all) _OWRTFW="$arg" ;;
 		-v) curr_ver_arg=check ;;
