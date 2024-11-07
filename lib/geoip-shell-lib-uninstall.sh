@@ -37,12 +37,6 @@ kill_geo_pids() {
 }
 
 rm_iplists_rules() {
-	# kill any related processes which may be running in the background
-	kill_geo_pids
-
-	# remove the lock file
-	rm_lock
-
 	case "$iplist_dir" in
 		*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
 		*)
