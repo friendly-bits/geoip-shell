@@ -10,8 +10,7 @@
 
 # Creates system folder structure for scripts, config and data.
 # Copies the required scripts to /usr/sbin.
-# Calls the *manage script to set up geoip-shell and then call the -run script.
-# If an error occurs during installation, calls the uninstall script to revert any changes made to the system.
+# Optionally calls the *manage script to set up geoip-shell and then call additional scripts to set up geoblocking.
 
 #### Initial setup
 p_name="geoip-shell"
@@ -20,7 +19,6 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export manmode=1 in_install=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" &&
-. "$_lib-setup.sh" &&
 . "$_lib-uninstall.sh" || exit 1
 
 san_args "$@"
@@ -33,50 +31,11 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me [-m $mode_syn] [-c $ccodes_syn] [-f $fam_syn] [-u $srcs_syn]
-${sp8}[-s $sch_syn] [-i $if_syn] [-l $lan_syn] [-t $tr_syn]
-${sp8}[-p $ports_syn] [-r $user_ccode_syn] [-o <true|false>] [-a <"path">] [-w $fw_be_syn]
-${sp8}[-O $nft_p_syn] [-F <true|false>] [-n] [-N] [-z] [-d] [-V] [-h]
+Usage: $me [-z] [-d] [-V] [-h]
 
 Installer for $p_name.
-Supports interactive setup which doesn't require any options.
 
-Core Options:
-
-  -m $geomode_usage
-
-  -c $ccodes_usage
-
-  -f $families_usage
-
-  -u $sources_usage
-
-  -s $schedule_usage
-
-  -i $ifaces_usage
-
-  -l $lan_ips_usage
-
-  -t $trusted_ips_usage
-
-  -p $ports_usage
-
-  -r $user_ccode_usage
-
-  -o $nobackup_usage
-
-  -a $datadir_usage
-
-  -w $fw_be_usage
-
-  -O $nft_perf_usage
-
-  -n <true|false> : No persistence. Geoip blocking may not work after reboot. Default is false.
-  -F <true|false> : Force cron-based persistence even when the system may not support it. Default is false.
-  -N <true|false> : No Block: Skip creating the rule which redirects traffic to the geoip blocking chain.
-        Everything will be installed and configured but geoip blocking will not be enabled. Default is false.
-
-Extra Options:
+Options:
   -z : $nointeract_usage
   -d : Debug
   -V : Version
@@ -87,26 +46,8 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":c:m:s:f:u:i:l:t:p:r:a:o:w:O:n:N:F:zdVh" opt; do
+while getopts ":zdVh" opt; do
 	case $opt in
-		c) ccodes_arg=$OPTARG ;;
-		m) geomode_arg=$OPTARG ;;
-		s) schedule_arg=$OPTARG ;;
-		f) families_arg=$OPTARG ;;
-		u) geosource_arg=$OPTARG ;;
-		i) ifaces_arg=$OPTARG ;;
-		l) lan_ips_arg=$OPTARG ;;
-		t) trusted_arg=$OPTARG ;;
-		p) ports_arg="$ports_arg$OPTARG$_nl" ;;
-		r) user_ccode_arg=$OPTARG ;;
-		a) datadir_arg="$OPTARG" ;;
-		o) nobackup_arg=$OPTARG ;;
-		w) _fw_backend_arg=$OPTARG ;;
-		O) nft_perf_arg=$OPTARG ;;
-		n) no_persist_arg=$OPTARG ;;
-		N) noblock_arg=$OPTARG ;;
-		F) force_cron_persist_arg=$OPTARG ;;
-
 		z) nointeract_arg=1 ;;
 		d) debugmode=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
@@ -128,8 +69,7 @@ check_files() {
 	missing_files=
 	err=0
 	for dep_file in $1; do
-		[ ! "$dep_file" ] && continue
-		if [ ! -s "$script_dir/$dep_file" ]; then
+		if [ "$dep_file" ] && [ ! -s "$dep_file" ]; then
 			missing_files="${missing_files}'$dep_file', "
 			err=$((err+1))
 		fi
@@ -138,20 +78,110 @@ check_files() {
 	return "$err"
 }
 
-copyscripts() {
-	[ "$1" = '-n' ] && { _mod=444; shift; } || _mod=555
-	for f in $1; do
-		dest="$inst_root_gs$install_dir/${f##*/}"
-		[ "$2" ] && dest="$inst_root_gs$2/${f##*/}"
-		prep_script "$script_dir/$f" > "$dest" || install_failed "$FAIL install file '$f' in '$dest'."
-		[ ! "$inst_root_gs" ] && {
-			chown root:root "${dest}" && chmod "$_mod" "$dest" || install_failed "$FAIL set permissions for file '${dest}${f}'."
-		}
+compare_files() {
+	if [ -s "$2" ]; then
+		sums="$(md5sum "$1" "$2" 2>/dev/null | cut -d' ' -f1)"
+		i=0
+		for s in $sums; do
+			[ $i = 0 ] && { sum1="$s"; i=1; continue; }
+			[ "$s" = "$sum1" ] && return 0
+		done
+	fi
+	return 1
+}
+
+set_permissions() {
+	update_perm() {
+		chmod "$2" "$1" && chown root:root "$1" || { echolog -err "$FAIL set permissions for file '$1'."; exit 1; }
+	}
+
+	while IFS='' read -r entry; do
+		[ -z "$entry" ] && continue
+		IFS="$delim"
+		set -- $entry
+		f_path="$1" set_perm="$2" wrong_perm=
+		IFS="$default_IFS"
+
+		case "${set_perm%% *}" in [0-9][0-9][0-9]) ;; *)
+			echolog -err "File '$reg_permissions' contains invalid entry."; exit 1
+		esac
+
+		f_perm="$(ls -l "$f_path")"
+		case "${f_perm%% *}" in
+			d*) echolog -err "'$f_path' should be a file but it is a directory."; exit 1 ;;
+			*[!-lxrw]*|'')
+				echolog -err "$FAIL check permissions of file '$f_path' ('${f_perm}')."
+				update_perm "$f_path" "$set_perm" ;;
+			*r-xr-xr-x) [ "$set_perm" != 555 ] && update_perm "$f_path" "$set_perm" ;;
+			*r--r--r--) [ "$set_perm" != 444 ] && update_perm "$f_path" "$set_perm" ;;
+			*rw-------) [ "$set_perm" != 600 ] && update_perm "$f_path" "$set_perm" ;;
+			*) update_perm "$f_path" "$set_perm"
+		esac
+		:
+	done < "$reg_permissions" || install_failed "$FAIL set permissions."
+}
+
+copy_files() {
+	[ ! -s "$cp_files_reg" ] && { printf '%s\n' "All files are up-to-date. Nothing to copy."; return 0; }
+	printf %s "Copying files... "
+	while IFS='' read -r entry; do
+		[ -z "$entry" ] && continue
+		IFS="$delim"
+		set -- $entry
+		src_file="$1" dest_file="$2"
+		IFS="$default_IFS"
+		[ -n "$src_file" ] && [ -s "$src_file" ] && [ -n "$dest_file" ] ||
+			{ echolog -err "File '$cp_files_reg' includes an invalid entry."; exit 1; }
+		cp "$src_file" "$dest_file" || { echolog -err "$FAIL copy file '$src_file' to '$dest_file'."; exit 1; }
+		:
+	done < "$cp_files_reg" || preinstall_failed "$FAIL copy files."
+	OK
+	:
+}
+
+# create processed scripts in $tmp_dir and register them
+# 1 - list of src files, 2 - target directory, 3 - permissions
+add_scripts() {
+	src_files="$1" target_dir="$2" _mod="$3"
+	mkdir -p "$tmp_dir$target_dir"
+
+	for f in $src_files; do
+		f_name="${f##*/}"
+		tmp_dest="$tmp_dir$target_dir/$f_name"
+		dest="$target_dir/$f_name"
+		prep_script "$f" > "$tmp_dest" || preinstall_failed "$FAIL create '$tmp_dest'."
+
+		[ ! "$inst_root_gs" ] && { chmod "$_mod" "$tmp_dest" && chown root:root "${tmp_dest}"; } 2>/dev/null
+
+		add_file "$tmp_dest" "$dest" "$_mod"
 	done
+	:
+}
+
+# register the file in $reg_permissions
+# check whether the file need to be updated and register the result in $cp_files_reg
+# 1 - src, 2 - dest, 3 - permissions
+add_file() {
+	af_src="$1" af_dest="$inst_root_gs$2" _mod="$3"
+	printf '%s\n' "${af_dest}${delim}${_mod}" >> "$reg_permissions" || install_failed "$FAIL to write to file '$reg_permissions'."
+
+	# check if the file changed
+	compare_files "$af_src" "$af_dest" && return 0
+	printf '%s\n' "${af_src}${delim}${af_dest}" >> "$cp_files_reg" || install_failed "$FAIL to write to file '$cp_files_reg'."
+	:
+}
+
+preinstall_failed() {
+	[ "$*" ] && printf '%s\n' "$*" >&2
+	printf '\n%s\n' "Installation failed." >&2
+	rm -rf "$tmp_dir"
+	exit 1
 }
 
 install_failed() {
-	printf '%s\n\n%s\n' "$*" "Installation failed." >&2
+	[ "$*" ] && printf '%s\n' "$*" >&2
+	printf '\n%s\n' "Installation failed." >&2
+	rm -rf "$tmp_dir"
 	[ ! "$inst_root_gs" ] && {
 		echo "Uninstalling ${p_name}..." >&2
 		call_script "$p_script-uninstall.sh" -r
@@ -161,11 +191,11 @@ install_failed() {
 }
 
 manage_interr() {
-	rv=$?
-	printf '\n\n%s\n' "${yellow}Configuration was interrupted.${n_c} Please configure geoip-shell by running '${blue}geoip-shell configure${n_c}'." >&2
+	: "${manage_rv:=$?}"
+	trap - INT TERM HUP QUIT
+	printf '\n\n%s\n' "${yellow}Configuration was interrupted.${n_c} $please_configure" >&2
 	rm -f "$status_file"
-	trap -  INT TERM HUP QUIT
-	exit $rv
+	exit $manage_rv
 }
 
 pick_shell() {
@@ -275,22 +305,25 @@ prep_script() {
 }
 
 
+checkvars install_dir lib_dir p_script i_script _lib lock_file _nl
+
 #### Detect the init system
 detect_init
 debugprint "Detected init: '$initsys'."
 
 #### Variables
 
-: "${force_cron_persist_arg:=false}"
-: "${noblock_arg:=false}"
-: "${no_persist_arg:=false}"
-export ccodes_arg geomode_arg schedule_arg families_arg geosource_arg ifaces_arg lan_ips_arg trusted_arg ports_arg \
-	user_ccode_arg datadir_arg nobackup_arg _fw_backend_arg nft_perf_arg no_persist_arg noblock_arg nointeract_arg \
-	force_cron_persist_arg force_cron_persist="$force_cron_persist_arg" \
-	debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name"
+export nointeract_arg debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name" \
+	tmp_dir="${inst_root_gs}/tmp/${p_name}-install"
 export conf_file="$conf_dir/$p_name.conf"
 
-unset fw_libs ipt_libs nft_libs
+reg_file="$lib_dir/${p_name}-components"
+reg_permissions="$tmp_dir/${p_name}-permissions"
+reg_tmp="$tmp_dir/${p_name}-components"
+cp_files_reg="$tmp_dir/${p_name}-components-replace"
+please_configure="Please run '$p_name configure' to complete the setup."
+
+unset fw_libs ipt_libs nft_libs set_posix init_check_compat_pt1 init_check_compat_pt2
 ipt_fw_libs=ipt
 nft_fw_libs=nft
 all_fw_libs="ipt nft"
@@ -300,7 +333,7 @@ all_fw_libs="ipt nft"
 	owrt_init="$o_script-init.tpl"
 	owrt_fw_include="$o_script-fw-include.tpl"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
-	owrt_comm="OpenWrt/${p_name}-lib-owrt-common.sh"
+	owrt_comm="${script_dir}/OpenWrt/${p_name}-lib-owrt-common.sh"
 	case "$_OWRTFW" in
 		3) _fw_backend=ipt ;;
 		4) _fw_backend=nft ;;
@@ -310,34 +343,46 @@ all_fw_libs="ipt nft"
 	eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
 } || {
 	check_compat="check-compat"
+	set_posix="
+	if [ -z \"\$posix_o_set\" ]; then
+		if set -o | grep -q '^posix[ \t]'; then
+			set -o posix
+			export posix_o_set=1
+		else
+			export posix_o_set=0
+		fi
+	elif [ \"\$posix_o_set\" = 1 ]; then
+		set -o posix
+	fi"
+
 	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	init_check_compat_pt2="else
-	check_fw_backend \"\$_fw_backend\" ||
-		case $? in
-			1) [ ! \"\$in_uninstall\" ] && die ;;
-			2) [ ! \"\$in_uninstall\" ] && die \"Firewall backend '\${_fw_backend}ables' not found.\" ;;
-			3) [ ! \"\$in_uninstall\" ] && die \"Utility 'ipset' not found.\"
+	init_check_compat_pt2="_fw_backend=\"\$(detect_fw_backend)\"
+	else
+		check_fw_backend \"\$_fw_backend\"
+		fw_check_rv=\$?
+		[ ! \"\$in_uninstall\" ] && case \$fw_check_rv in
+			1) die ;;
+			2) die \"Firewall backend '\${_fw_backend}ables' not found.\" ;;
+			3) die \"Utility 'ipset' not found.\"
 		esac"
 	fw_libs="$all_fw_libs"
 }
 
-detect_lan="${p_name}-detect-lan.sh"
-
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup; do
-	script_files="$script_files${p_name}-$f.sh "
+for f in fetch apply manage cronsetup run uninstall backup detect-lan; do
+	script_files="$script_files${script_dir}/${p_name}-$f.sh "
 done
 
 lib_files=
 for f in uninstall common arrays status setup $check_compat $fw_libs; do
-	[ "$f" ] && lib_files="${lib_files}lib/${p_name}-lib-$f.sh "
+	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
 
 
 #### CHECKS
 
-check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
+check_files "$script_files $lib_files cca2.list $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "missing files: $missing_files."
 
 
@@ -347,65 +392,74 @@ check_files "$script_files $lib_files cca2.list $detect_lan $owrt_init $owrt_fw_
 : "${curr_sh_g:=/bin/sh}"
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
-if [ -s "$conf_file"  ] && nodie=1 get_config_vars; then
-	export datadir status_file="$datadir/status"
-	tolower nobackup_arg
-	[ "$nobackup_arg" != true ] && [ "$nobackup" != true ] && [ -s "$status_file" ] &&
-		{ call_script "$p_script-backup.sh" create-backup || rm_data; }
-fi
+[ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
 
-## run the *uninstall script to reset associated cron jobs, firewall rules and ipsets
+rm -rf "$tmp_dir"
+mkdir -p "$tmp_dir" || die "$FAIL to create directory '$tmp_dir'."
+mkdir -p "$inst_root_gs$lib_dir" || preinstall_failed "$FAIL create directory '$inst_root_gs$lib_dir'."
+
 [ ! "$inst_root_gs" ] && {
-	echolog "Cleaning up previous installation (if any)..."
-	call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
+	reg_file_ok=
+	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
+		[ -s "$f" ] && continue
+		reg_file_ok=
+		break
+	done < "$reg_file"
+
+	if [ "$reg_file_ok" ] && [ -s "$conf_file" ] &&
+			nodie=1 getconfig _fw_backend_prev _fw_backend &&
+			[ "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
+			. "${_lib}-$_fw_backend_prev.sh"; then
+		kill_geo_pids
+		rm_lock
+		rm_all_georules
+		prev_reg_file_cont="$(cat "$reg_file")"
+	else
+		echolog "Cleaning up previous installation (if any)..."
+		call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
+	fi
+	rm -f "$conf_dir/setupdone"
 }
 
-## Copy scripts to $install_dir
-printf %s "Copying scripts to $install_dir... "
-copyscripts "$script_files $detect_lan"
-OK
+## add scripts
+printf '%s\n' "Preparing to install $p_name..."
+add_scripts "$script_files" "$install_dir" 555
+add_scripts "$lib_files" "$lib_dir" 444
 
-printf %s "Copying library scripts to $lib_dir... "
-mkdir -p "$inst_root_gs$lib_dir" || install_failed "$FAIL create library directory '$inst_root_gs$lib_dir'."
-copyscripts -n "$lib_files" "$lib_dir"
-OK
-
-## Create a symlink from ${p_name}-manage.sh to ${p_name}
 [ ! "$inst_root_gs" ] && {
-	rm -f "$i_script"
-	ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
 	# add $install_dir to $PATH
 	add2list PATH "$install_dir" ':'
 }
 
-# Create the directory for config
+# Create the config directory
 mkdir -p "$inst_root_gs$conf_dir"
 
 
 # create the .const file
-cat <<- EOF > "$inst_root_gs$conf_dir/${p_name}.const" || install_failed "$FAIL set essential variables."
+cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL to create file '"$tmp_dir/${p_name}.const"'."
 	export PATH="$PATH" initsys="$initsys" use_shell="$curr_sh_g"
 EOF
+add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" "600"
 
-. "$inst_root_gs$conf_dir/${p_name}.const"
-
-posix_o=
-[ ! "$inst_root_gs" ] && set -o | grep -q '^posix[ \t]' && posix_o="set -o posix"
+export PATH initsys use_shell="$curr_sh_g"
 
 # create the -geoinit script
-cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoinit script"
+cat <<- EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create file '$tmp_dir/$p_name-geoinit.sh'."
 	#!$curr_sh_g
 
 	# Copyright: antonk (antonk.d3v@gmail.com)
 	# github.com/friendly-bits
 
-	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
-	excl_file="$conf_dir/iplist-exclusions.conf"
+	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name"
+	export lock_file="/tmp/$p_name.lock" excl_file="$conf_dir/iplist-exclusions.conf"
 	export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 	'
 	export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
-	$posix_o
+
+	$set_posix
+
 	$init_check_compat_pt1
+
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
 	$set_owrt_install
@@ -419,58 +473,107 @@ cat <<- EOF > "${i_script}-geoinit.sh" || install_failed "$FAIL create the -geoi
 		[ "\$in_install" ] || [ "\$first_setup" ] && return 0
 		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-		_fw_backend="\$(detect_fw_backend)"
 		$init_check_compat_pt2
 	fi
 	export fwbe_ok=1 _fw_backend
 	:
 EOF
+add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
 
-# copy cca2.list
-cp "$script_dir/cca2.list" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'cca2.list' to '$conf_dir'."
+# add cca2.list
+add_file "$script_dir/cca2.list" "$conf_dir/cca2.list" 600
 
-# copy iplist-exclusions.conf
-cp "$script_dir/iplist-exclusions.conf" "$inst_root_gs$conf_dir/" || install_failed "$FAIL copy 'iplist-exclusions.conf' to '$conf_dir'."
+# add iplist-exclusions.conf
+add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf" 600
 
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
-	init_script="/etc/init.d/${p_name}-init"
-	fw_include="$install_dir/${p_name}-fw-include.sh"
-	mk_fw_inc="$i_script-mk-fw-include.sh"
+	tmp_init_script="$tmp_dir/$p_name-init"
+	tmp_fw_include="$tmp_dir/$p_name-fw-include.sh"
+	tmp_mk_fw_inc="$tmp_dir/$p_name-mk-fw-include.sh"
 
-	if [ "$no_persist_arg" = true ]; then
-		echolog -warn "Installed without persistence functionality."
-	else
-		echo "Adding the init script... "
-		{
-			echo "#!/bin/sh /etc/rc.common"
-			eval "printf '%s\n' \"$(cat "$script_dir/$owrt_init")\"" | prep_script -n
-		} > "$inst_root_gs$init_script" || install_failed "$FAIL create the init script."
+	echo "Adding the init script... "
+	{
+		printf '%s\n' "#!/bin/sh /etc/rc.common"
+		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_init")\"" | prep_script -n
+	} > "$tmp_init_script" &&
+	add_file "$tmp_init_script" "/etc/init.d/$p_name-init" 555
 
-		echo "Preparing the firewall include... "
-		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$inst_root_gs$fw_include" &&
-		{
-			printf '%s\n%s\n%s\n%s\n%s\n%s\n' "#!/bin/sh" "p_name=$p_name" \
-				"install_dir=\"$install_dir\"" "conf_dir=\"$conf_dir\"" "fw_include_path=\"$fw_include\"" "_lib=\"$_lib\""
-			prep_script "$script_dir/$owrt_mk_fw_inc" -n
-		} > "$mk_fw_inc" || install_failed "$FAIL prepare the firewall include."
-
-		[ ! "$inst_root_gs" ] && {
-			chmod +x "$init_script" && chmod 555 "$fw_include" "$mk_fw_inc" ||
-				install_failed "$FAIL set permissions."
-		}
-	fi
+	echo "Preparing the firewall include... "
+	eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$tmp_fw_include" &&
+	{
+		cat <<- EOF
+			#!/bin/sh
+			p_name=$p_name
+			install_dir="$install_dir"
+			conf_dir="$conf_dir"
+			fw_include_path="$i_script-fw-include.sh"
+			_lib="$_lib"
+		EOF
+		prep_script "$script_dir/$owrt_mk_fw_inc" -n
+	} > "$tmp_mk_fw_inc" || preinstall_failed "$FAIL prepare the firewall include."
+	add_file "$tmp_fw_include" "$i_script-fw-include.sh" 555 &&
+	add_file "$tmp_mk_fw_inc" "$i_script-mk-fw-include.sh" 555
 }
-
 
 [ ! "$inst_root_gs" ] && {
-	# only allow root to read the $conf_dir and files inside it
-	chmod -R 600 "$conf_dir" && chown -R root:root "$conf_dir" ||
-		install_failed "$FAIL set permissions for '$conf_dir'."
-
-	trap 'manage_interr' INT TERM HUP QUIT
-	call_script "$i_script-manage.sh" configure || die "$p_name-manage.sh exited with error code $?."
+	cut -d"$delim" -f1 "$reg_permissions" > "$reg_tmp"
+	add_file "$reg_tmp" "$reg_file" 600
 }
 
+printf %s "Creating directories... "
+mkdir -p "$lib_dir" || preinstall_failed "$FAIL to create directory '$lib_dir'."
+OK
+
+copy_files
+
+[ "$inst_root_gs" ] && {
+	rm -rf "$tmp_dir"
+	exit 0
+}
+
+## Create a symlink from ${p_name}-manage.sh to ${p_name}
+printf %s "Creating symlink... "
+rm -f "$i_script"
+ln -s "$i_script-manage.sh" "$i_script" || install_failed "$FAIL create symlink from ${p_name}-manage.sh to $p_name."
+printf '%s\n' "${i_script}${delim}555" >> "$reg_permissions"
+OK
+
+# set permissions
+printf %s "Setting permissions... "
+set_permissions
+chmod -R 600 "$conf_dir" && chown -R root:root "$conf_dir" || install_failed "$FAIL set permissions for '$conf_dir'."
+OK
+
+# clean up unneeded files
+[ "$prev_reg_file_cont" ] && {
+	rm_files=
+	subtract_a_from_b "$(cat "$reg_tmp")" "$(printf '%s\n' "$prev_reg_file_cont" | grep -v '[^[:alnum:]/.-]' | \
+			grep -E "^${i_script}|${lib_dir}|${conf_dir}|/etc/init.d/${p_name}-init")" rm_files "$_nl" || {
+		printf '%s\n' "Removing files from previous installation..."
+		rm -f $(printf %s "$rm_files" | tr '\n' ' ')
+	}
+}
+
+rm -rf "$tmp_dir"
 echo "Install done."
-trap -  INT TERM HUP QUIT
+
+REPLY=n
+[ -z "$nointeract_arg" ] && {
+	printf '\n%s\n' "Configure $p_name now? [y|n]"
+	pick_opt "y|n"
+}
+[ "$REPLY" = n ] && { echolog "$please_configure"; exit 0; }
+
+trap 'manage_interr' INT TERM HUP QUIT
+call_script "$i_script-manage.sh" configure || {
+	manage_rv=$?
+	case $manage_rv in
+		1) die "$p_name-manage.sh exited with error code $?." ;;
+		*) manage_interr
+	esac
+}
+
+trap - INT TERM HUP QUIT
+
+:
