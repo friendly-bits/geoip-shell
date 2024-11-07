@@ -225,7 +225,12 @@ create_cron_job() {
 
 	job_type="$1" w_sch=
 
-	[ -z "$iplists" ] && die "Countries list in the config file is empty! No point in creating cron jobs."
+	[ -z "$inbound_iplists$outbound_iplists" ] && {
+		rm_cron_job update
+		rm_cron_job persistence
+		echo
+		die 0 "Countries list in the config file is empty! No point in creating cron jobs."
+	}
 
 	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
 	case "$job_type" in
@@ -236,7 +241,9 @@ create_cron_job() {
 			debugprint "\nValidating cron schedule: '$schedule'."
 			val_cron_exp "$schedule"; rv=$?
 			case "$rv" in
-				0) debugprint "Successfully validated cron schedule: '$schedule'." ;;
+				0)
+					debugprint "Successfully validated cron schedule: '$schedule'."
+					;;
 				*) die "$FAIL validate cron schedule '$schedule'."
 			esac
 
@@ -279,7 +286,7 @@ rm_cron_job() {
 
 #### Variables
 
-for entry in schedule no_persist iplists; do
+for entry in schedule no_persist inbound_iplists outbound_iplists; do
 	getconfig "$entry"
 done
 
@@ -292,7 +299,8 @@ printf %s "Processing cron jobs... "
 
 #### Checks
 
-check_cron_compat
+persist_support=1
+check_cron_compat || persist_support=
 checkvars no_persist
 #### Main
 
@@ -305,6 +313,7 @@ esac
 
 # persistence job
 [ ! "$_OWRTFW" ] && {
+	[ ! "$persist_support" ] && { rm_cron_job persistence; exit 0; }
 	case "$no_persist" in
 		false) create_cron_job persistence ;;
 		true) rm_cron_job persistence
