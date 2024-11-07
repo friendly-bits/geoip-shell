@@ -18,6 +18,7 @@ _lib="$lib_dir/$p_name-lib"
 
 geoinit="${p_name}-geoinit.sh"
 geoinit_path="/usr/bin/$geoinit"
+init_script="/etc/init.d/${p_name}-init"
 
 [ -f "$geoinit_path" ] && . "$geoinit_path"
 
@@ -36,8 +37,11 @@ echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall r
 : "${datadir:=/tmp/$p_name-data}"
 
 rm_setupdone
+[ -s "$init_script" ] && $init_script disable
+rm_owrt_fw_include
+kill_geo_pids
+rm_lock
 rm_iplists_rules
 rm_cron_jobs
 rm_data
-rm_owrt_fw_include
 rm_symlink
