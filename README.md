@@ -1,11 +1,9 @@
 # **geoip-shell**
-Geoip blocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
+Powerful geoblocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
 
-The idea of this project is making geoip blocking easy on (almost) any Linux system, no matter which hardware, including desktop, server, VPS or router, while also being reliable and providing flexible configuration options for the advanced users.
+The idea of this project is making geoblocking (i.e. restricting access from or to Internet addresses based on geolocation) easy on (almost) any Linux system, no matter which hardware, including desktop, server, container, VPS or router, while also being reliable and providing flexible configuration options for the advanced users.
 
-Supports running on OpenWrt. Supports ipv4 and ipv6.
-
-If you like this project, please take a second to give it a star on Github. This helps other people to find it.
+If you find this project useful, please take a second to give it a star on Github. This helps other people to find it.
 
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/e1a70e9d-a0eb-407b-9372-ddcbe6134d88)](https://github.com/friendly-bits/geoip-shell/assets/134004289/24010da9-a62a-428f-ae4d-cb1d4ae97f73)
 [![image](https://github.com/friendly-bits/geoip-shell/assets/134004289/ef622182-a6cf-49ff-9bed-64fc29653255)](https://github.com/friendly-bits/geoip-shell/assets/134004289/b35e199f-465d-487c-809b-9c5a8f0644be)
@@ -27,11 +25,21 @@ If you like this project, please take a second to give it a star on Github. This
 
 * ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**. Both sources provide updated ip lists for all regions.
 
-* All firewall rules and ip sets required for geoip blocking to work are created automatically during installation or setup.
+* All firewall rules and ip sets required for geoblocking to work are created automatically during the initial setup.
 
-* Implements optional (enabled by default) persistence of geoip blocking across system reboots and automatic updates of the ip lists.
+* Supports automated interactive setup for easy configuration.
 
-* After installation, a utility is provided to check geoip status and firewall rules or change country codes and geoip-related config.
+* Automates creating auxiliary firewall rules based on user's preferences (for example, when configuring on a host in whitelist mode, geoip-shell will detect LAN subnets and suggest to add them to the whitelist)
+
+* Implements optional (enabled by default) persistence of geoblocking across system reboots and automatic updates of the ip lists.
+
+* After installation, a utility is provided to check geoblocking status and firewall rules or change country codes and geoblocking-related config.
+
+* Supports inbound and outbound geoblocking.
+
+* Supports ipv4 and ipv6.
+
+* Supports running on OpenWrt.
 
 ### **Reliability**:
 - Downloaded ip lists go through validation which safeguards against application of corrupted or incomplete lists to the firewall.
@@ -53,34 +61,36 @@ If you like this project, please take a second to give it a star on Github. This
 
 <details><summary>Read more:</summary>
 
-- With nftables, optimizes geoip blocking for low memory consumption or for performance, depending on the RAM capacity of the machine and on user preference. With iptables, automatic optimization is implemented.
+- With nftables, optimizes geoblocking for low memory consumption or for performance, depending on the RAM capacity of the machine and on user preference. With iptables, automatic optimization is implemented.
 - Ip list parsing and validation are implemented through efficient regex processing which is very quick even on slow embedded CPU's.
 - Implements smart update of ip lists via data timestamp checks, which avoids unnecessary downloads and reconfiguration of the firewall.
-- Uses the "prerouting" hook in kernel's netfilter component which shortens the path unwanted packets travel in the system and may reduce the CPU load if any additional firewall rules process incoming traffic down the line.
+- For inbound geoblocking, uses the "prerouting" hook in kernel's netfilter component which shortens the path unwanted packets travel in the system and may reduce the CPU load if any additional firewall rules process incoming traffic down the line.
 - Supports the 'ipdeny' source which provides aggregated ip lists (useful for embedded devices with limited memory).
 - Scripts are only active for a short time when invoked either directly by the user or by the init script/reboot cron job/update cron job.
 
 </details>
 
 ### **User-friendliness**:
-- Installation is easy and normally takes a very short time.
+- Installation and initial setup are easy and normally take a very short time.
 - Good command line interface and useful console messages.
 
 <details><summary>Read more:</summary>
 
 - Extensive and (usually) up-to-date documentation.
-- Comes with an uninstall script which completely removes the suite and the geoip firewall rules. No restart is required.
+- Comes with an uninstall script which completely removes the suite and the geoblocking firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
 - Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the ip lists fetched from the source (RIPE or ipdeny).
-- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoip config (turn geoip on or off, change country codes, change geoip blocking mode, change ip lists source, change the cron schedule etc).
-- Post-installation, provides a command _('geoip-shell status')_ to check geoip blocking status, which also reports if there are any issues.
+- Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoblocking config (turn geoblocking on or off, configure outbound geoblocking, change country codes, change geoblocking mode, change ip lists source, change the cron schedule etc).
+- Post-installation, provides a command _('geoip-shell status')_ to check geoblocking status, which also reports if there are any issues.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
 - All main scripts display detailed 'usage' info when executed with the '-h' option.
-- The code should be fairly easy to read and includes a healthy amount of comments.
+- Most of the code should be fairly easy to read and includes a healthy amount of comments.
 </details>
 
 ### **Compatibility**:
 - Since the project is written in POSIX-compliant shell code, it is compatible with virtually every Linux system (as long as it has the [pre-requisites](#pre-requisites)). It even works well on simple embedded routers with 8MB of flash storage and 128MB of memory (for nftables, 256MB is recommended if using large ip lists such as the one for US until the nftables team releases a fix reducing memory consumption).
+- The code is regularly tested on Debian, Linux Mint and OpenWrt, and occasionally on Alpine Linux and Gentoo.
+- While not specifically tested by the developer, there have been reports of successful use in LXC containers (if encountering an error with running geoip-shell in LXC container, check out issue #24 for possible solution).
 
 <details><summary>Read more:</summary>
 
@@ -89,17 +99,12 @@ If you like this project, please take a second to give it a star on Github. This
 </details>
 
 ## **Installation**
-NOTE: Installation can be run interactively, which does not require any command line arguments and gathers the important config via dialog with the user. Alternatively, config may be provided via command-line arguments.
-
-Some features are only accessible via command-line arguments.
-_To find out more, use `sh geoip-shell-install.sh -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md)_
-
 _(Note that some commands require root privileges, so you will likely need to run them with `sudo`)_
 
 **1)** If your system doesn't have `curl`, `wget` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager (for Debian and derivatives: `apt-get install curl`). Systems which only have `iptables` also require the `ipset` utility (`apt-get install ipset`).
 
 **2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
-  _<details><summary>Or download using the command line:</summary>_
+  _<details><summary>**Or download using the command line**:</summary>_
   - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
   - or to download the latest release (requires curl):
 
@@ -108,66 +113,109 @@ _(Note that some commands require root privileges, so you will likely need to ru
   - to extract, run: `tar -xvf geoip-shell.tar.gz`
   </details>
 
-
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal.
 
-**4)** For interactive installation, run `sh geoip-shell-install.sh`.
+**4)** For installation followed by interactive setup, run `sh geoip-shell-install.sh`. For non-interactive installation, run `sh geoip-shell-install.sh -z`.
 
   **NOTE:** If the install script says that your shell is incompatible but you have another compatible shell installed, use it instead of `sh` to call the -install script. For example: `dash geoip-shell-install.sh`. Check out [Pre-Requisites](#pre-requisites) for a list of compatible shells. If you don't have one of these installed, use your package manager to install one (you don't need to make it your default shell).
 
-  _<details><summary>Examples for non-interactive installation options:</summary>_
+**5)** Unless you installed in non-interactive mode, the install script will suggest you to configure geoip-shell. If you type in `y`, geoip-shell will ask you several questions, then initiate download and application of the ip lists.
 
-  - installing on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
 
-  `sh geoip-shell-install.sh -m whitelist -c "DE IT" -r DE -i all -l auto -O performance`
+## **Initial setup**
+Once the installation completes, the installer will suggest to automatically start the interactive setup. If you ran the install script non-interactively or interrupted the setup at some point, you can manually (re)start interactive setup by running `geoip-shell configure`.
 
-  - installing on a router located in the US, blacklist Germany and Netherlands and allow all other countries:
+Interactive setup gathers the important config via dialog with the user and does not require any command line arguments. If you are not sure how to answer some of the questions, read [SETUP.md](/Documentation/SETUP.md).
 
-  `sh geoip-shell-install.sh -m blacklist -c "DE NL" -r US -i pppoe-wan`
+Alternatively, some or all of the config options may be provided via command-line arguments.
 
-  - if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where `<source>` is `ripe` or `ipdeny`.
-  - to block or allow specific ports or ports ranges, use `<[tcp|udp]:[allow|block]:[ports]>`. This option may be used twice in one command to specify ports for both tcp and udp _(for examples, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_.
-  - to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
-  - if your machine uses nftables, depending on the RAM capacity of the machine and the number and size of the ip lists, consider installing with the `-O performance` or `-O memory` option. This will create nft sets optimized either for performance or for low memory consumption. By default, when the machine has more than 2GiB of memory, the `performance` option is used, otherwise the `memory` option is used.
-  - if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
-  - if your system has nftables installed and also a package like _xtables-compat_ (utilizing the nft_compat module) which allows to manage the nftables backend using iptables rules, you can override the geoip-shell default to directly utilize the nftables backend with option `-w ipt`. This will create iptables rules and ipsets for geoip-shell rather than nftables rules and sets. You will need the `ipset` utility installed for this.
-  - if for some reason you need to install geoip-shell in strictly non-interactive mode, you can call the install script with the `-z` option which will avoid asking the user any questions. geoip-shell will get installed but initial setup will fail if required config is incomplete or invalid.
-  </details>
+**NOTE:** Some features are only accessible via command-line arguments. In particular, by default, initial setup only configures inbound geoblocking and leaves outbound geoblocking in disabled state. If you want to configure outbound geoblocking, run `geoip-shell configure -D outbound -m <whitelist|blacklist>`.
 
-**5)** The install script will ask you several questions to configure the installation, then initiate download and application of the ip lists. If you are not sure how to answer some of the questions, read [SETUP.md](/Documentation/SETUP.md).
+_To find out more, run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md)_
 
-**6)** That's it! By default, ip lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
+_<details><summary>Examples for non-interactive configuration options:</summary>_
+
+- configuring **inbound** geoblocking on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
+
+`geoip-shell configure -r DE -i all -l auto -m whitelist -c "DE IT"`
+
+- configuring **inbound and outbound** geoblocking on a the same machine, whitelist Germany and Italy and block all other countries for incoming traffic, blacklist France for outgoing traffic:
+
+`geoip-shell configure -r DE -i all -l auto -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
+
+- configuring **inbound** geoblocking on a router located in the US (with has a WAN network interface called `pppoe-wan`), blacklist Germany and Netherlands and allow all other countries:
+
+`geoip-shell configure -m blacklist -c "DE NL" -r US -i pppoe-wan`
+
+- if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where `<source>` is `ripe` or `ipdeny`.
+- to geoblock or allow specific ports or ports ranges, use `<[tcp|udp]:[allow|block]:all|[ports]>`. This option may be used twice in one command (for each geoblocking direction) to specify ports for both tcp and udp _(for examples, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_.
+- to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
+- if your machine uses nftables, depending on the RAM capacity of the machine and the number and size of the ip lists, consider installing with the `-O performance` or `-O memory` option. This will create nft sets optimized either for performance or for low memory consumption. By default, when the machine has more than 2GiB of memory, the `performance` option is used, otherwise the `memory` option is used.
+- if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+- if your system has nftables installed and also a package like _xtables-compat_ (utilizing the nft_compat module) which allows to manage the nftables backend using iptables rules, you can override the geoip-shell default to utilize the nftables backend with option `-w ipt`. This will create iptables rules and ipsets for geoip-shell rather than nftables rules and sets. You will need the `ipset` utility installed for this.
+- if for some reason you need to install or configure geoip-shell in strictly non-interactive mode, you can call the -install or the -manage script with the `-z` option which will avoid asking the user any questions. In non-interactive mode, commands will fail if required config is incomplete or invalid.
+</details>
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
 
-Generally, once the installation completes, you don't have to do anything else for geoip blocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)).
+Generally, once the installation completes, you don't have to do anything else for **inbound** geoblocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)).
 
-If you want to change geoip blocking config or check geoip blocking status, you can do that via the provided utilities.
+By default, ip lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
+
+If you want to change geoblocking config or check geoblocking status, you can do that via the provided utilities.
 A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md)and [DETAILS.md](/Documentation/DETAILS.md).
 
-**To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the geoip chain and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
+**Note** that when using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to the **inbound** geoblocking direction. Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction.
 
-**To add or remove ip lists for countries:** `geoip-shell <add|remove> -c <"country_codes">`
+**To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the main geoblocking chains and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
+
+**To enable and configure outbound geoblocking:**
+
+`geoip-shell configure -D outbound -m <whitelist|blacklist>`.
+
+**To configure geoblocking mode for both inbound and outbound directions:**
+
+`geoip-shell configure -D inbound -m <whitelist|blacklist> -D outbound -m <whitelist|blacklist>`
+
+**To change countries in the geoblocking whitelist/blocklist:**
+
+`geoip-shell configure [-D <inbound|outbound>] -c <"country_codes">`
 
 _<details><summary>Examples:</summary>_
-- example (to add ip lists for Germany and Netherlands): `geoip-shell add -c "DE NL"`
-- example (to remove the ip list for Germany): `geoip-shell remove -c DE`
+- to set Germany and Netherlands as countries for inbound geoblocking: `geoip-shell configure -c "DE NL"`
+- to set Germany and Netherlands as countries for outbound geoblocking: `geoip-shell configure -D outbound -c "DE NL"`
 </details>
 
-**To enable or disable geoip blocking:** `geoip-shell <on|off>`
+**To change protocols and ports geoblocking applies to for inbound traffic:**
+
+`geoip-shell configure [-D <inbound|outbound>] -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+
+_(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
+
+**To enable or disable geoblocking** (only adds or removes the geoblocking enable rules, leaving all other firewall geoblocking rules and ip sets in place):
+
+`geoip-shell <on|off>`
+
+**To disable geoblocking, unload all ip lists and remove firewall geoblocking rules for both directions:**
+
+`geoip-shell configure -D inbound -m disable -D outbound -m disable`
 
 **To change ip lists source:** `geoip-shell configure -u <ripe|ipdeny>`
 
-**To change geoip blocking mode:** `geoip-shell configure -m <whitelist|blacklist>`
+**To configure inbound geoblocking mode:** `geoip-shell configure -m <whitelist|blacklist>`
 
-**To have certain trusted ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -t <["ip_addresses"]|none>`. `none` removes previously set trusted ip addresses.
+**To have certain trusted ip addresses or subnets bypass geoblocking:**
 
-**To have certain LAN ip addresses or subnets bypass geoip blocking:** `geoip-shell configure -l <["ip_addresses"]|auto|none>`. `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoip blocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoip filter.
+`geoip-shell configure -t <["ip_addresses"]|none>`
 
-**To change protocols and ports geoblocking applies to:** `geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+`none` removes previously set trusted ip addresses.
 
-_(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
+**To have certain LAN ip addresses or subnets bypass geoip blocking:**
+
+`geoip-shell configure -l <["ip_addresses"]|auto|none>`
+
+`auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoblocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoblocking filter.
 
 **To enable or change the automatic update schedule:** `geoip-shell configure -s <"schedule_expression">`
 
@@ -179,7 +227,7 @@ _<details><summary>Example</summary>_
 
 **To disable automatic updates of ip lists:** `geoip-shell configure -s disable`
 
-**To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory. It will first run the -uninstall script of the older/existing version, then install the new version.
+**To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory.
 
 **To uninstall:** `geoip-shell-uninstall.sh`
 
