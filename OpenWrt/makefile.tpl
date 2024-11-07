@@ -62,8 +62,11 @@ define Package/$p_name/postinst/Default
 		{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$install_dir/$p_name'."; exit 1; }
 	chmod 555 "$install_dir/$p_name" && chown root:root "$install_dir/$p_name" ||
 		logger -s -t "$p_name" -p err "Error: failed to set permissions for '$install_dir/$p_name'."
-	[ -s "$conf_dir/$p_name.conf" ] && $install_dir/$p_name configure -z && exit 0
-	logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
+	if [ -s "$conf_dir/$p_name.conf" ]; then
+		$install_dir/$p_name configure -z
+	else
+		logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
+	fi
 	exit 0
 endef
 
