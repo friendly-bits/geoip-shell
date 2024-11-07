@@ -76,7 +76,17 @@ is_root_ok() {
 }
 
 extra_args() {
-	[ "$*" ] && die "Invalid arguments. First unexpected argument: '$1'."
+	[ "$*" ] && {
+		[ "$debugmode" ] && {
+			printf %s "${yellow}Debug:${n_c} Args: "
+			newifs "$delim" ea
+			for arg in $_args; do printf %s "'$arg' "; done
+			printf '%s\n' "${n_c}"
+			oldifs ea
+		} >&2
+
+		die "Invalid arguments. First unexpected argument: '$1'."
+	}
 }
 
 checkutil() {
@@ -85,7 +95,7 @@ checkutil() {
 
 checkvars() {
 	for chkvar; do
-		eval "[ \"\$$chkvar\" ]" || die "The '\$$chkvar' variable is unset."
+		eval "[ \"\$$chkvar\" ]" || { printf '%s\n' "Error: The '\$$chkvar' variable is unset."; exit 1; }
 	done
 }
 
@@ -98,9 +108,21 @@ statustip() {
 }
 
 report_lists() {
-	get_active_iplists verified_lists
-	nl2sp verified_lists
-	printf '\n%s\n' "Ip lists in the final $geomode: '${blue}$verified_lists${n_c}'."
+	unset iplists_incoherent lists_reported
+	for direction in inbound outbound; do
+		eval "geomode=\"\$${direction}_geomode\""
+		[ "$geomode" = disable ] && continue
+		get_active_iplists verified_lists "$direction"
+		nl2sp verified_lists
+		if [ -n "$verified_lists" ]; then
+			verified_lists="${blue}$verified_lists${n_c}"
+		else
+			verified_lists="${red}None${n_c}"
+		fi
+		[ ! "$lists_reported" ] && printf '\n'
+		printf '%s\n' "Final ip lists in $direction $geomode: '${blue}$verified_lists${n_c}'."
+		lists_reported=1
+	done
 }
 
 unknownact() {
@@ -140,7 +162,7 @@ add2config_entry() {
 # checks if $1 is alphanumeric (underlines allowed)
 # optional '-n' in $2 silences error messages
 is_alphanum() {
-	case "$1" in *[!A-Za-z0-9_]* )
+	case "$1" in *[!A-Za-z0-9_]*)
 		[ "$2" != '-n' ] && echolog -err "Invalid string '$1'. Use alphanumerics and underlines."
 		return 1
 	esac
@@ -296,6 +318,7 @@ die() {
 	done
 
 	[ "$die_unlock" ] && rm_lock
+	trap - INT TERM HUP QUIT
 
 	[ "$die_args" ] && {
 		newifs "$delim" die
@@ -379,7 +402,8 @@ getallconf() {
 	conf_gac=
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
 	[ -z "$conf_gac" ] && {
-		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2")"
+		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2" \
+			| sed 's/^tcp_ports=/inbound_tcp_ports=/;s/^udp_ports=/inbound_udp_ports=/;s/^geomode=/inbound_geomode=/;s/^iplists=/inbound_iplists=/')"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
 	eval "$1=\"$conf_gac\""
@@ -387,21 +411,28 @@ getallconf() {
 }
 
 # gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
+# 1 - (optional) -v to load from variable $2
 get_config_vars() {
 	inval_e() {
-		echolog -err "Invalid entry '$entry' in config."
+		oldifs gcv
+		echolog -err "Invalid entry '$entry' in file '$target_f_gcv'."
 		[ ! "$nodie" ] && die
 	}
 
-	target_f_gcv="${1:-"$conf_file"}"
 	_exp=
 	[ "$export_conf" ] && _exp="export "
 
-	getallconf all_config "$target_f_gcv" || {
-		echolog -err "$FAIL get config from '$target_f_gcv'."
-		[ ! "$nodie" ] && die
-		return 1
-	}
+	if [ "$1" = '-v' ]; then
+		eval "all_config=\"\$${2}\""
+		[ -z "$all_config" ] && return 1
+	else
+		target_f_gcv="${1:-"$conf_file"}"
+		getallconf all_config "$target_f_gcv" || {
+			echolog -err "$FAIL get config from '$target_f_gcv'."
+			[ ! "$nodie" ] && die
+			return 1
+		}
+	fi
 
 	newifs "$_nl" gcv
 	for entry in $all_config; do
@@ -470,8 +501,10 @@ setconfig() {
 }
 
 set_all_config() {
-	setconfig tcp_ports udp_ports geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-		nft_perf ifaces geomode iplists datadir nobackup no_persist noblock http user_ccode schedule families \
+	setconfig inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
+		inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
+		geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+		nft_perf ifaces datadir nobackup no_persist noblock http user_ccode schedule families \
 		_fw_backend max_attempts reboot_sleep force_cron_persist
 }
 
@@ -559,7 +592,7 @@ add2list() {
 
 # checks if string $1 is safe to use with eval
 is_str_safe() {
-	case "$1" in *'\'*|*'"'*|*\'*) die "Invalid string '$1'"; esac
+	case "$1" in *'\'*|*'"'*|*\'*) echolog -err "Invalid string '$1'"; return 1; esac
 }
 
 # removes duplicate words, removes leading and trailing delimiter, trims in-between extra delimiter characters
@@ -572,7 +605,7 @@ is_str_safe() {
 san_str() {
 	[ "$1" = '-n' ] && { _del="$_nl"; shift; } || _del=' '
 	[ "$2" ] && inp_str="$2" || eval "inp_str=\"\$$1\""
-	is_str_safe "$inp_str"
+	is_str_safe "$inp_str" || { unset "$1"; return 1; }
 	_sid="${3:-"$_del"}"
 	_sod="${4:-"$_del"}"
 	_words=
@@ -583,6 +616,7 @@ san_str() {
 
 	eval "$1"='$_words'
 	oldifs san
+	:
 }
 
 # get intersection of lists $1 and $2, with optional field separator $4 (otherwise uses whitespace)
@@ -668,7 +702,7 @@ nl2sp() {
 san_args() {
 	_args=
 	for arg in "$@"; do
-		is_str_safe "$arg"
+		is_str_safe "$arg" || die
 		trimsp arg
 		[ "$arg" ] && _args="$_args$arg$delim"
 	done
@@ -677,32 +711,61 @@ san_args() {
 # restores the nolog var prev value
 r_no_l() { nolog="$_no_l"; }
 
+is_whitelist_present() {
+	case "$inbound_geomode$outbound_geomode" in *whitelist*) return 0; esac
+	return 1
+}
+
+set_dir_vars() {
+	unset geomode geochain base_geochain iface_chain dir_short
+	case "$1" in
+		inbound|outbound) ;;
+		'') echolog -err "set_dir_vars: direction not specified."; return 1 ;;
+		*) echolog -err "set_dir_vars: invalid direction '$1'."; return 1
+	esac
+	eval "geomode=\"\$${1}_geomode\"
+		geochain=\"\$${1}_geochain\"
+		base_geochain=\"\$${1}_base_geochain\"
+		iface_chain=\"\$${1}_iface_chain\"
+		dir_short=\"\$${1}_dir_short\""
+	:
+}
+
 # checks current ipsets and firewall rules for geoip-shell
 # returns a whitespace-delimited list of active ip lists
 # (optional: 1 - '-f' to force re-read of the table - nft-specific)
 # 1 - var name for output
+# 2 - direction (inbound|outbound)
 get_active_iplists() {
-	unset force_read iplists_incoherent
+	unset force_read
 	[ "$1" = "-f" ] && { force_read="-f"; shift; }
+	[ "$2" ] || die "get_active_iplists: direction not specified"
+	gai_out_var="$1" direction="$2"
+	eval "geomode=\"\$${direction}_geomode\" iplists=\"\$${direction}_iplists\""
 	case "$geomode" in
 		whitelist) ipt_target=ACCEPT nft_verdict=accept ;;
 		blacklist) ipt_target=DROP nft_verdict=drop ;;
-		*) die "get_active_iplists: unexpected geoip mode '$geomode'."
+		*) die "get_active_iplists: unexpected geoblocking mode '$geomode'."
 	esac
 
 	ipset_iplists="$(get_ipset_iplists)"
-	fwrules_iplists="$(get_fwrules_iplists)"
+	fwrules_iplists="$(get_fwrules_iplists "$direction")"
 
-	# debugprint "ipset_iplists: '$ipset_iplists', fwrules_iplists: '$fwrules_iplists'"
+	# debugprint "$2 ipset_iplists: '$ipset_iplists', fwrules_iplists: '$fwrules_iplists'"
 
-	get_difference "$ipset_iplists" "$fwrules_iplists" lists_difference "$_nl"
-	get_intersection "$ipset_iplists" "$fwrules_iplists" "active_iplists_nl" "$_nl"
-	nl2sp "$1" "$active_iplists_nl"
+	nl2sp ipset_iplists_sp "$ipset_iplists"
+	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
-	case "$lists_difference" in
-		'') return 0 ;;
-		*) iplists_incoherent=1; return 1
-	esac
+	inc=0
+	subtract_a_from_b "$ipset_iplists_sp" "$fwrules_iplists_sp" missing_ipsets || inc=1
+
+	subtract_a_from_b "$iplists" "$fwrules_iplists_sp" unexpected_lists || inc=1
+	subtract_a_from_b "$fwrules_iplists_sp" "$iplists" missing_lists || inc=1
+
+	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
+	nl2sp "$gai_out_var" "$active_iplists_nl"
+
+	return $inc
 }
 
 # checks whether current ipsets and iptables rules match ones in the config file
@@ -711,32 +774,29 @@ check_lists_coherence() {
 	[ "$1" = '-n' ] && nolog=1
 	debugprint "Verifying ip lists coherence..."
 
-	# check for a valid list type
-	case "$geomode" in whitelist|blacklist) ;; *) r_no_l; echolog -err "Unexpected geoip mode '$geomode'!"; return 1; esac
+	iplists_incoherent=
+	for direction in inbound outbound; do
+		eval "geomode=\"\$${direction}_geomode\""
+		[ "$geomode" = disable ] && continue
 
-	unset unexp_lists missing_lists
-	getconfig iplists
+		# check for a valid list type
+		case "$geomode" in whitelist|blacklist) ;; *) r_no_l; echolog -err "Unexpected geoblocking mode '$geomode'!"; return 1; esac
 
-	get_active_iplists -f active_lists || {
-		nl2sp ips_l_str "$ipset_iplists"; nl2sp ipr_l_str "$fwrules_iplists"
-		echolog -warn "ip sets ($ips_l_str) differ from iprules lists ($ipr_l_str)."
-		report_incoherence
-		r_no_l
-		return 1
-	}
-
-	get_difference "$active_lists" "$iplists" lists_difference
-	case "$lists_difference" in
-		'') debugprint "Successfully verified ip lists coherence."; rv_clc=0 ;;
-		*)
-			debugprint "$_nl$FAIL verify ip lists coherence." "Config ip lists: '$iplists'" "Firewall ip lists: '$active_lists'"
-			subtract_a_from_b "$iplists" "$active_lists" unexpected_lists
-			subtract_a_from_b "$active_lists" "$iplists" missing_lists
-			report_incoherence
-			rv_clc=1
-	esac
+		getconfig iplists "${direction}_iplists"
+		get_active_iplists -f "${direction}_active_lists" "$direction"; get_a_i_rv=$?
+		subtract_a_from_b "$inbound_iplists $outbound_iplists" "$ipset_iplists_sp" unexpected_ipsets || get_a_i_rv=1
+		[ "$get_a_i_rv" != 0 ] &&
+		{
+			iplists_incoherent=1
+			eval "active_lists=\"\$${direction}_active_lists\""
+			report_incoherence "$direction"
+			debugprint "Config ip lists: '$iplists'" "Firewall ip lists: '$active_lists'" "ipsets: $ipset_iplists_sp"
+		}
+	done
 	r_no_l
-	return $rv_clc
+	[ "$iplists_incoherent" ] && return 1
+	debugprint "Successfully verified ip lists coherence."
+	:
 }
 
 report_excluded_lists() {
@@ -746,12 +806,13 @@ report_excluded_lists() {
 	echolog -nolog "Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
 }
 
+# 1 - direction (inbound|outbound)
 report_incoherence() {
-	discr="Discrepancy detected between"
-	[ "$iplists_incoherent" ] && echolog -warn "$discr geoip ipsets and geoip firewall rules!"
-	echolog -warn "$discr the firewall state and the config file."
+	[ "$1" ] || die "report_incoherence: direction not specified"
+	echolog -warn "${_nl}Discrepancy detected between $1 geoblocking state and the config file."
 	for opt_ri in unexpected missing; do
 		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri ip lists in the firewall: '\$${opt_ri}_lists'\""
+		eval "[ \"\$${opt_ri}_ipsets\" ] && echolog -warn \"$opt_ri ip sets in the firewall: '\$${opt_ri}_ipsets'\""
 	done
 }
 
@@ -977,11 +1038,15 @@ check_cron_compat() {
 			if [ -n "$debugmode" ]; then cat 1>&2; else cat 1>/dev/null; fi
 		done
 
-		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] &&
-			die "Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device." \
-			"If you want to use $p_name without persistence support, install with option '-n true'." \
-			"If you want to force installing with cron-based persistence support, install with option '-F true'. Reboot after installation and run 'geoip-shell status'."
+		[ ! "$cron_reboot" ] && [ "$no_persist" != true ] && [ ! "$_OWRTFW" ] && {
+			echolog -err "Detected Busybox cron service. cron-based persistence may not work with Busybox cron on this device." \
+			"If you want to use $p_name without persistence support, run '$p_name configure -n true'." \
+			"If you want to force cron-based persistence support, run '$p_name configure -n false -P true'." \
+			"Reboot after installation and run 'geoip-shell status' to verify that persistence is working."
+			return 1
+		}
 	fi
+	:
 }
 
 OK() { printf '%s\n' "${green}Ok${n_c}."; }
@@ -1048,6 +1113,22 @@ validate_ip() {
 	:
 }
 
+# Get counters from existing rules and set variables
+get_counters() {
+	[ "$counters_set" ] && {
+		debugprint "get_counters: Counters already set"
+		return 0
+	}
+	unset counter_strings ipt_save_ok
+	export counters_set
+
+	case "$_fw_backend" in
+		ipt) get_counters_ipt ;;
+		nft) get_counters_nft
+	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings && counters_set=1
+	:
+}
+
 # sleeps for 0.1s on systems which support this, or 1s on systems which don't
 unisleep() {
 	sleep 0.1 2>/dev/null || sleep 1
@@ -1065,17 +1146,16 @@ ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
 : "${me:="${0##*/}"}"
 me_short="${me#"${p_name}-"}"
 me_short="${me_short%.sh}"
+p_name_cap=GEOIP-SHELL
 
 # vars for common usage() functions
 sp8="        "
 sp16="$sp8$sp8"
-ccodes_syn="<\"country_codes\">"
-ccodes_usage="$ccodes_syn : 2-letter country codes to include in whitelist/blacklist. If passing multiple country codes, use double quotes."
 srcs_syn="<ripe|ipdeny>"
-sources_usage="$srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny."
-fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
-families_usage="$fam_syn : Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families."
-list_ids_usage="<\"list_ids\">  : iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
+direction_syn="<inbound|outbound>"
+direction_usage="direction (inbound|outbound). Only valid for actions add|remove and in combination with the '-l' option."
+list_ids_usage="iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
+nointeract_usage="Non-interactive setup. Will not ask any questions."
 
 # ip regex
 export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])' \
@@ -1083,7 +1163,10 @@ export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|
 	maskbits_regex_ipv4='(3[0-2]|([1-2][0-9])|[6-9])' \
 	maskbits_regex_ipv6='(12[0-8]|((1[0-1]|[1-9])[0-9])|[6-9])'
 export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
-	subnet_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"
+	subnet_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"\
+	inbound_geochain="${p_name_cap}_IN" outbound_geochain="${p_name_cap}_OUT" \
+	inbound_dir_short=in outbound_dir_short=out
+blanks="[[:blank:]][[:blank:]]*"
 
 set -f
 
@@ -1093,11 +1176,9 @@ if [ -z "$geotag" ]; then
 	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
-		export datadir status_file="$datadir/status"
+		export datadir status_file="$datadir/status" counters_file="$datadir/counters"
 	}
-	geotag="$p_name"
-	toupper geochain "$geotag"
-	export geotag geochain
+	export geotag="$p_name"
 fi
 
 :
