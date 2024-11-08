@@ -139,7 +139,7 @@ _<details><summary>Examples for non-interactive configuration options:</summary>
 
 `geoip-shell configure -r DE -i all -l auto -m whitelist -c "DE IT"`
 
-- configuring **inbound and outbound** geoblocking on a the same machine, whitelist Germany and Italy and block all other countries for incoming traffic, blacklist France for outgoing traffic:
+- configuring **inbound and outbound** geoblocking, whitelist Germany and Italy and block all other countries for incoming traffic, blacklist France for outgoing traffic:
 
 `geoip-shell configure -r DE -i all -l auto -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
 
