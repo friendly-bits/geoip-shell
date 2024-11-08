@@ -90,7 +90,7 @@ If you find this project useful, please take a second to give it a star on Githu
 ### **Compatibility**:
 - Since the project is written in POSIX-compliant shell code, it is compatible with virtually every Linux system (as long as it has the [pre-requisites](#pre-requisites)). It even works well on simple embedded routers with 8MB of flash storage and 128MB of memory (for nftables, 256MB is recommended if using large ip lists such as the one for US until the nftables team releases a fix reducing memory consumption).
 - The code is regularly tested on Debian, Linux Mint and OpenWrt, and occasionally on Alpine Linux and Gentoo.
-- While not specifically tested by the developer, there have been reports of successful use in LXC containers (if encountering an error with running geoip-shell in LXC container, check out issue #24 for possible solution).
+- While not specifically tested by the developer, there have been reports of successful use in LXC containers (if encountering an error with running geoip-shell in LXC container, check out [issue #24](/../../issues/24) for possible solution).
 
 <details><summary>Read more:</summary>
 
