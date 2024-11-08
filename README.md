@@ -143,7 +143,7 @@ _<details><summary>Examples for non-interactive configuration options:</summary>
 
 `geoip-shell configure -r DE -i all -l auto -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
 
-- configuring **inbound** geoblocking on a router located in the US (with has a WAN network interface called `pppoe-wan`), blacklist Germany and Netherlands and allow all other countries:
+- configuring **inbound** geoblocking on a router (which has a WAN network interface called `pppoe-wan`) located in the US, blacklist Germany and Netherlands and allow all other countries:
 
 `geoip-shell configure -m blacklist -c "DE NL" -r US -i pppoe-wan`
 
