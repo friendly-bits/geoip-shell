@@ -164,9 +164,9 @@ Generally, once the installation completes, you don't have to do anything else f
 By default, ip lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
 
 If you want to change geoblocking config or check geoblocking status, you can do that via the provided utilities.
-A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md)and [DETAILS.md](/Documentation/DETAILS.md).
+A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md).
 
-**Note** that when using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to the **inbound** geoblocking direction. Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction.
+**Note** that when using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to **inbound** geoblocking. Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction.
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the main geoblocking chains and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
