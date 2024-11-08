@@ -178,7 +178,7 @@ A selection of options is given here, for additional options run `geoip-shell -h
 
 `geoip-shell configure -D inbound -m <whitelist|blacklist> -D outbound -m <whitelist|blacklist>`
 
-**To change countries in the geoblocking whitelist/blocklist:**
+**To change countries in the geoblocking whitelist/blacklist:**
 
 `geoip-shell configure [-D <inbound|outbound>] -c <"country_codes">`
 
