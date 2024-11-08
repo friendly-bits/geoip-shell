@@ -187,7 +187,7 @@ _<details><summary>Examples:</summary>_
 - to set Germany and Netherlands as countries for outbound geoblocking: `geoip-shell configure -D outbound -c "DE NL"`
 </details>
 
-**To change protocols and ports geoblocking applies to for inbound traffic:**
+**To change protocols and ports geoblocking applies to:**
 
 `geoip-shell configure [-D <inbound|outbound>] -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
