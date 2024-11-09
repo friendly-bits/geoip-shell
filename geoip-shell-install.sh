@@ -411,11 +411,13 @@ mkdir -p "$inst_root_gs$lib_dir" || preinstall_failed "$FAIL create directory '$
 	if [ "$reg_file_ok" ] && [ -s "$conf_file" ] &&
 			nodie=1 getconfig _fw_backend_prev _fw_backend &&
 			[ "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
-			. "${_lib}-$_fw_backend_prev.sh"; then
-		kill_geo_pids
-		rm_lock
-		rm_all_georules
-		prev_reg_file_cont="$(cat "$reg_file")"
+			. "${_lib}-$_fw_backend_prev.sh" &&
+			kill_geo_pids &&
+			rm_lock &&
+			rm_all_georules &&
+			prev_reg_file_cont="$(cat "$reg_file")"
+	then
+		:
 	else
 		echolog "Cleaning up previous installation (if any)..."
 		call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
