@@ -102,11 +102,12 @@ setdebug
 debugentermsg
 
 
-daemon_prep_next() {
-	echolog "Retrying in $secs seconds"
-	sleep $secs
-	add2list ok_lists "$fetched_lists"
-	san_str lists_fetch "$failed_lists $missing_lists" || die
+#### Functions
+
+reg_last_update() {
+	case "$action_run" in update|add)
+		[ ! "$failed_lists" ] && setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)"
+	esac
 }
 
 #### VARIABLES
@@ -153,7 +154,7 @@ mkdir -p "$iplist_dir"
 [ ! -d "$iplist_dir" ] && die "$FAIL create directory '$iplist_dir'."
 
 mk_lock
-trap 'set +f; rm -f \"$iplist_dir/\"*.iplist; die' INT TERM HUP QUIT
+trap 'trap - INT TERM HUP QUIT; set +f; rm -f \"$iplist_dir/\"*.iplist; rm -f \"$fetch_res_file\"; die' INT TERM HUP QUIT
 
 # wait $reboot_sleep seconds after boot, or 0-59 seconds before updating
 [ "$daemon_mode" ] && {
@@ -213,91 +214,97 @@ unset echolists ok_lists missing_lists lists_fetch fetched_lists
 case "$action_run" in add|update) lists_fetch="$all_apply_lists_req" ;; *) max_attempts=1; esac
 
 attempt=0 secs=5
-while :; do
-	attempt=$((attempt+1))
-	secs=$((secs+5))
-	[ $attempt -gt $max_attempts ] && die "Giving up."
+if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
+	while :; do
+		attempt=$((attempt+1))
+		secs=$((secs+5))
+		[ $attempt -gt $max_attempts ] && die "Giving up after $max_attempts fetch attempts."
 
-	### Fetch ip lists
+		### Fetch ip lists
+		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
+		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
 
-	if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
-		# mark all lists as failed in the status file before calling fetch. if fetch completes successfully, it will reset this
-		setstatus "$status_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
-
-		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$status_file" -u "$geosource" "$force_run" "$raw_mode"
+		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" -u "$geosource" "$force_run" "$raw_mode"
 
 		# read *fetch results from the status file
-		getstatus "$status_file" || die "$FAIL read the status file '$status_file'"
+		gs_rv=
+		nodie=1 getstatus "$fetch_res_file" || gs_rv=1
+		rm -f "$fetch_res_file"
+		[ "$gs_rv" = 1 ] && die "$FAIL read the fetch results file '$fetch_res_file'"
 
+		add2list ok_lists "$fetched_lists"
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
+
+			[ "$daemon_mode" ] && {
+				echolog "Retrying in $secs seconds"
+				sleep $secs
+				san_str lists_fetch "$failed_lists $missing_lists" || die
+				continue
+			}
+
 			[ "$action_run" = add ] && {
 				set +f; rm -f "$iplist_dir/"*.iplist; set -f
 				die 254 "Aborting the action 'add'."
 			}
-			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
 		}
 
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
-		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && {
-			[ "$daemon_mode" ] && { daemon_prep_next; continue; }
-			die 254 "All fetch attempts failed."
-		}
-	elif [ "$action_apply" = add ] && [ ! "$lists_fetch" ]; then
-		debugprint "No lists to fetch for action 'add'."
-		:
-	fi
+		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && die 254 "All fetch attempts failed."
+		break
+	done
+elif [ "$action_apply" = add ] && [ ! "$lists_fetch" ]; then
+	debugprint "No lists to fetch for action_apply 'add'."
+	:
+fi
 
 
-	### Apply ip lists
+### Apply ip lists
 
-	lists_fetch=
-	san_str ok_lists "$fetched_lists $ok_lists" || die
+get_intersection "$ok_lists" "$inbound_apply_lists_req" inbound_apply_lists
+get_intersection "$ok_lists" "$outbound_apply_lists_req" outbound_apply_lists
 
-	get_intersection "$ok_lists" "$inbound_apply_lists_req" inbound_apply_lists
-	get_intersection "$ok_lists" "$outbound_apply_lists_req" outbound_apply_lists
+san_str inbound_apply_lists "$inbound_apply_lists $inbound_rm_lists" &&
+san_str outbound_apply_lists "$outbound_apply_lists $outbound_rm_lists" &&
+san_str all_apply_lists "$inbound_apply_lists $outbound_apply_lists" || die
 
-	san_str inbound_apply_lists "$inbound_apply_lists $inbound_rm_lists" &&
-	san_str outbound_apply_lists "$outbound_apply_lists $outbound_rm_lists" &&
-	san_str all_apply_lists "$inbound_apply_lists $outbound_apply_lists" || die
+apply_rv=0
 
-	apply_rv=0
-	case "$action_run" in update|add|remove)
-		[ ! "$all_apply_lists" ] && { echolog "Firewall reconfiguration isn't required."; die 0; }
+case "$action_run" in update|add|remove)
+	[ ! "$all_apply_lists" ] && {
+		echolog "Firewall reconfiguration isn't required."
+		reg_last_update
+		die 0
+	}
 
-		apply_args=
-		for d in inbound outbound; do
-			eval "[ -n \"\${${d}_apply_lists}\" ] && apply_args=\"\${apply_args}-D $d -l \\\"\${${d}_apply_lists}\\\" \""
-		done
+	apply_args=
+	for d in inbound outbound; do
+		eval "[ -n \"\${${d}_apply_lists}\" ] && apply_args=\"\${apply_args}-D $d -l \\\"\${${d}_apply_lists}\\\" \""
+	done
 
-		eval "call_script \"$i_script-apply.sh\" \"$action_apply\" $apply_args"
-		apply_rv=$?
-		set +f; rm -f "$iplist_dir/"*.iplist; set -f
+	eval "call_script \"$i_script-apply.sh\" \"$action_apply\" $apply_args"
+	apply_rv=$?
+	set +f; rm -f "$iplist_dir/"*.iplist; set -f
 
-		case "$apply_rv" in
-			0) ;;
-			254) [ "$in_install" ] && die
-				echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
-			*)
-				debugprint "NOTE: apply exited with code '$apply_rv'."
-				die "$apply_rv"
-		esac
-		[ -n "$inbound_apply_lists" ] && echo_inb=" inbound geoblocking ip lists '$inbound_apply_lists',"
-		[ -n "$outbound_apply_lists" ] && echo_outb=" outbound geoblocking ip lists '$outbound_apply_lists',"
-		echolists=" for${echo_inb}${echo_outb}"
+	case "$apply_rv" in
+		0) ;;
+		254) [ "$in_install" ] && die
+			echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
+		*)
+			debugprint "NOTE: apply exited with code '$apply_rv'."
+			die "$apply_rv"
 	esac
+	[ -n "$inbound_apply_lists" ] && echo_inb=" inbound geoblocking ip lists '$inbound_apply_lists',"
+	[ -n "$outbound_apply_lists" ] && echo_outb=" outbound geoblocking ip lists '$outbound_apply_lists',"
+	echolists=" for${echo_inb}${echo_outb}"
+esac
 
-	if check_lists_coherence; then
-		[ "$failed_lists" ] && [ "$daemon_mode" ] && { daemon_prep_next; continue; }
-		[ "$action_run" = update ] && [ ! "$failed_lists" ] &&
-			{ setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die; }
-		echolog "Successfully executed action '$action_run'${echolists%,}."; echo; break
-	else
-		[ "$daemon_mode" ] && { daemon_prep_next; continue; }
-	fi
-done
+if check_lists_coherence && [ ! "$failed_lists" ]; then
+	reg_last_update
+	echolog "Successfully executed action '$action_run'${echolists%,}.${_nl}"
+fi
 
-if [ "$apply_rv" = 0 ] && [ "$nobackup" = false ]; then
+if [ "$apply_rv" = 0 ] && [ ! "$failed_lists" ] && [ "$nobackup" = false ]; then
 	call_script -l "$i_script-backup.sh" create-backup
 else
 	debugprint "Skipping backup of current firewall state."
