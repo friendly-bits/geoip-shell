@@ -173,7 +173,7 @@ case "$action" in
 		trap 'trap - INT TERM HUP QUIT; rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		set_archive_type
-		mkdir -p "$bk_dir_new"
+		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		create_backup
 		rm -f "$tmp_file"
@@ -181,6 +181,8 @@ case "$action" in
 		cp_conf backup || bk_failed
 		rm -rf "$bk_dir"
 		mv "$bk_dir_new" "$bk_dir" || bk_failed
+		chmod -R 600 "$bk_dir" && chown -R root:root "$bk_dir" ||
+			echolog -err "$FAIL set permissions for the backup directory '$bk_dir'."
 
 		printf '%s\n\n' "Successfully created backup of $p_name state." ;;
 	restore)
