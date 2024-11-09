@@ -28,7 +28,7 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <status_file>] [-u <"source">] [-f] [-d] [-V] [-h]
+Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
 1) Fetches ip lists for given country codes from RIPE API or from ipdeny
 	(supports any combination of ipv4 and ipv6 lists)
@@ -41,7 +41,7 @@ Options:
   -o <output_file> : Path to output file where fetched list will be stored.
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
-  -s <status_file> : Path to a status file to register fetch results in.
+  -s <path>        : Path to a file to register fetch results in.
   -u $srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
@@ -60,7 +60,7 @@ while getopts ":l:p:o:s:u:rfdVh" opt; do
 	case $opt in
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir_f=$OPTARG ;;
-		s) status_file=$OPTARG ;;
+		s) fetch_res_file=$OPTARG ;;
 		o) output_file=$OPTARG ;;
 		u) source_arg=$OPTARG ;;
 
@@ -214,7 +214,7 @@ group_lists_by_registry() {
 	failed_lists="$valid_lists"
 }
 
-# checks vars set in the status file
+# checks vars retrieved from the status file
 # and populates variables $prev_list_reg, $prev_date_raw, $prev_date_compat, $prev_s_cnt
 check_prev_list() {
 	list_id="$1"
@@ -569,7 +569,7 @@ fi
 #### VARIABLES
 
 unset lists exclude_iplists excl_list_ids failed_lists fetched_lists
-[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+[ -s "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
 
 for list_id in $lists_arg; do
 	case "$list_id" in
@@ -615,22 +615,18 @@ $con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
 }
 OK
 
-for f in "$status_file" "$output_file"; do
+for f in "$status_file" "$fetch_res_file" "$output_file"; do
 	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$FAIL create file '$f'."; }
 done
 
 
 #### Main
 
-for list_id in $valid_lists; do
-	unset "prev_ips_cnt_${list_id}"
-done
-
 # read info about previous fetch from the status file
 if [ "$status_file" ] && [ -s "$status_file" ]; then
 	getstatus "$status_file"
 else
-	debugprint "Status file '$status_file' either doesn't exist or is empty."
+	debugprint "Status file '$status_file' is empty or doesn't exist."
 	:
 fi
 
@@ -647,8 +643,21 @@ for ccode in $ccodes_need_update; do
 done
 
 
-### Report fetch results via status file
+### Report fetch results via fetch_res_file
+if [ "$fetch_res_file" ]; then
+	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
+	setstatus "$fetch_res_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
+		"failed_lists=$failed_lists" "$list_dates_str" || die "$FAIL write to file '$fetch_res_file'."
+fi
+
 if [ "$status_file" ]; then
+	list_dates_str=
+	get_a_arr_keys list_date_arr list_ids
+	for list_id in $list_ids; do
+		get_a_arr_val list_date_arr "$list_id" prev_date
+		list_dates_str="${list_dates_str}prev_date_${list_id}=$prev_date$_nl"
+	done
+
 	ips_cnt_str=
 	# convert array contents to formatted multi-line string for writing to the status file
 	get_a_arr_keys subnets_cnt_arr list_ids
@@ -657,17 +666,9 @@ if [ "$status_file" ]; then
 		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}=$subnets_cnt$_nl"
 	done
 
-	list_dates_str=
-	get_a_arr_keys list_date_arr list_ids
-	for list_id in $list_ids; do
-		get_a_arr_val list_date_arr "$list_id" prev_date
-		list_dates_str="${list_dates_str}prev_date_${list_id}=$prev_date$_nl"
-	done
-
-	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
-	setstatus "$status_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
-		"failed_lists=$failed_lists" "$ips_cnt_str" "$list_dates_str" ||
-			die "$FAIL write to the status file '$status_file'."
+	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
+		setstatus "$status_file" "$list_dates_str" "$ips_cnt_str" || die "$FAIL write to file '$status_file'."
+	}
 fi
 
 :
