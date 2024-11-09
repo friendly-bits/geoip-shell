@@ -107,16 +107,18 @@ set_permissions() {
 		esac
 
 		f_perm="$(ls -l "$f_path")"
+		upd_perm=
 		case "${f_perm%% *}" in
 			d*) echolog -err "'$f_path' should be a file but it is a directory."; exit 1 ;;
 			*[!-lxrw]*|'')
 				echolog -err "$FAIL check permissions of file '$f_path' ('${f_perm}')."
-				update_perm "$f_path" "$set_perm" ;;
-			*r-xr-xr-x) [ "$set_perm" != 555 ] && update_perm "$f_path" "$set_perm" ;;
-			*r--r--r--) [ "$set_perm" != 444 ] && update_perm "$f_path" "$set_perm" ;;
-			*rw-------) [ "$set_perm" != 600 ] && update_perm "$f_path" "$set_perm" ;;
-			*) update_perm "$f_path" "$set_perm"
+				upd_perm=1 ;;
+			*r-xr-xr-x) [ "$set_perm" != 555 ] && upd_perm=1 ;;
+			*r--r--r--) [ "$set_perm" != 444 ] && upd_perm=1 ;;
+			*rw-------) [ "$set_perm" != 600 ] && upd_perm=1 ;;
+			*) upd_perm=1
 		esac
+		[ "$upd_perm" ] && update_perm "$f_path" "$set_perm"
 		:
 	done < "$reg_permissions" || install_failed "$FAIL set permissions."
 }
@@ -382,7 +384,7 @@ lib_files="$lib_files $owrt_comm"
 
 #### CHECKS
 
-check_files "$script_files $lib_files cca2.list $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
+check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "missing files: $missing_files."
 
 
@@ -481,10 +483,10 @@ EOF
 add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
 
 # add cca2.list
-add_file "$script_dir/cca2.list" "$conf_dir/cca2.list" 600
+add_file "$script_dir/cca2.list" "$conf_dir/cca2.list" 444
 
 # add iplist-exclusions.conf
-add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf" 600
+add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf" 444
 
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
@@ -541,8 +543,8 @@ OK
 
 # set permissions
 printf %s "Setting permissions... "
+chmod 755 "$conf_dir" && chown -R root:root "$conf_dir" || install_failed "$FAIL set permissions for '$conf_dir'."
 set_permissions
-chmod -R 600 "$conf_dir" && chown -R root:root "$conf_dir" || install_failed "$FAIL set permissions for '$conf_dir'."
 OK
 
 # clean up unneeded files
