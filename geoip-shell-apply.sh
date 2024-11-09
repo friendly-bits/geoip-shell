@@ -49,10 +49,7 @@ die_a() {
 # populates $counter_val for rule $1
 # 2 - family
 get_counter_val() {
-	[ "$counters_set" ] || {
-		debugprint "get_counter_val: counters not set"
-		return 0
-	}
+	[ "$counters_set" ] || return 0
 	enc_rule="$(printf %s "$1" | encode_rules -n "$2")"
 	case "$enc_rule" in
 		*[!A-Za-z0-9_]*)
