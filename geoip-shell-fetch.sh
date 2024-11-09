@@ -668,6 +668,10 @@ if [ "$status_file" ]; then
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
 		setstatus "$status_file" "$list_dates_str" "$ips_cnt_str" || die "$FAIL write to file '$status_file'."
+		[ "$root_ok" ] && [ "$datadir" ] &&
+			case "$status_file" in "$datadir"*)
+				chmod 600 "$status_file" && chown -R root:root "$status_file"
+			esac
 	}
 fi
 
