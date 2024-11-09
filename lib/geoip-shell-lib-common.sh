@@ -1071,7 +1071,8 @@ mk_lock() {
 }
 
 rm_lock() {
-	[ -f "$lock_file" ] && { rm -f "$lock_file"; unset nodie die_unlock; }
+	[ -f "$lock_file" ] && { unset nodie die_unlock; rm -f "$lock_file" || return 1; }
+	:
 }
 
 check_lock() {
@@ -1085,7 +1086,7 @@ check_lock() {
 	esac
 	echolog "Removing stale lock file ${lock_file}."
 	rm_lock
-	return 0
+	:
 }
 
 # 1 - input ip's/subnets
