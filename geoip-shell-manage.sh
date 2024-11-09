@@ -254,12 +254,6 @@ is_root_ok
 # restore iplists from the config file
 # if that fails, restore from backup
 restore_from_config() {
-	check_reapply() {
-		check_lists_coherence && { echolog "$restore_ok_msg"; return 0; }
-		echolog -err "$FAIL apply $p_name config."
-		return 1
-	}
-
 	restore_msg="Restoring $p_name from ${_prev}config... "
 	restore_ok_msg="Successfully restored $p_name from ${_prev}config."
 	[ "$conf_act" = reset ] && {
@@ -269,47 +263,60 @@ restore_from_config() {
 	echolog "$restore_msg"
 
 	rm_iplists_rules || return 1
-	rm -f "$datadir/status"
 
+	# read $last_update and $ips_cnt_* vars from the old status file
+	if [ "$status_file" ] && [ -s "$status_file" ]; then
+		export_conf=1 getstatus "$status_file"
+	else
+		debugprint "Status file '$status_file' is empty or doesn't exist."
+		:
+	fi
+
+	# compile run args
 	run_args=
 	for d in inbound outbound; do
 		eval "[ -n \"\${${d}_iplists}\" ] && run_args=\"\${run_args}-D $d -l \\\"\${${d}_iplists}\\\" \""
 	done
 
 	if [ -n "$run_args" ]; then
+		# set counters vars from old counters file
 		get_counters
-		eval "call_script -l \"$run_command\" add $run_args -o" || {
-			echolog -err "$FAIL create firewall rules."
-			return 1
+
+		rm -f "$status_file"
+
+		# call the -run script
+		eval "call_script -l \"$run_command\" add $run_args -o" && {
+			echolog "$restore_ok_msg"
+			return 0
 		}
 	else
 		echolog "No ip lists registered - skipping firewall rules creation."
+		coherence_req=''
 		return 0
 	fi
 
-	check_reapply && {
-		setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)" || die
-		return 0
-	}
-
+	# Handle failure
 	[ "$in_install" ] || [ "$first_setup" ] && die
 
-	[ "$prev_config" ] && [ ! "$prev_config_try" ] && {
+	[ "$prev_config_try" ] && return 1
+
+	[ "$prev_config" ] && {
 		prev_config_try=1
 		export main_config="$prev_config"
-		export_conf=1 get_config_vars
-		_prev="previous "
+
+		nodie=1 export_conf=1 get_config_vars &&
+		_prev="previous " &&
 		restore_from_config && { set_all_config; return 0; }
 	}
 
-	# call the *backup script to initiate recovery from fault
+	# recover from backup
 	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && {
 		unset main_config
 		get_config_vars
-		check_reapply && return 0
+		check_lists_coherence && return 0
 	}
 
-	die "$FAIL restore $p_name state from backup. If it's a bug then please report it."
+	die "$FAIL restore $p_name state. If it's a bug then please report it."
 }
 
 # tries to prevent the user from locking themselves out
@@ -724,7 +731,7 @@ check_for_lockout
 }
 
 if [ ! "$restore_req" ] && [ ! "$reset_req" ]; then
-	nolog=1 check_lists_coherence || restore_req=1
+	check_lists_coherence || restore_req=1
 fi
 
 [ "$datadir_change" ] && [ -n "${datadir_prev}" ] && {
@@ -778,10 +785,14 @@ fi
 
 set_all_config
 
-case "$conf_act" in reset|restore|apply)
+case "$conf_act" in
+	restore|apply)
 		backup_req=1
 		cron_req=1
-		coherence_req=1
+		coherence_req=1 ;;
+	reset)
+		backup_req=1
+		cron_req=1
 esac
 
 case "$conf_act" in
@@ -798,14 +809,17 @@ case "$conf_act" in
 	'') rv_conf=0 ;;
 esac
 
-iplists_incoherent=
-if [ "$coherence_req" ]; then
-	{ [ "$conf_act" != reset ] && [ "$rv_conf" != 0 ]; } || ! check_lists_coherence &&
-		{ conf_act=reset; restore_from_config; rv_conf=$?; }
+if [ "$coherence_req" ] && [ "$conf_act" != reset ]; then
+	iplists_incoherent=
+	[ "$rv_conf" = 0 ] && check_lists_coherence || {
+		restore_from_config
+		rv_conf=$?
+	}
 fi
 
 [ "$rv_conf" = 0 ] && {
-	[ "$backup_req" ] && [ "$nobackup" = false ] && call_script -l "$i_script-backup.sh" create-backup
+	[ "$backup_req" ] && [ "$nobackup" != true ] && [ "$inbound_iplists$outbound_iplists" ] &&
+		call_script -l "$i_script-backup.sh" create-backup
 
 	[ "$first_setup" ] && touch "$conf_dir/setupdone"
 	if [ "$cron_req" ]; then
