@@ -154,13 +154,15 @@ These options apply to geoblocking in both directions.
 
 
 **geoip-shell-install.sh**
-- Creates directories for config and data.
-- Sets permissions for the data and config directories to be only readable and writable by root.
-- Compiles a list of files which need to be installed.
-- Copies the main scripts to `/usr/bin`, library scripts to `/usr/lib/geoip-shell` config to `/etc/geoip-shell`, and creates a directory for data in `/var/lib/geoip-shell` (or in `/tmp/geoip-shell-data` on OpenWrt).
-- If a previous installation exists, only copies files which have changed.
-- Calls the -manage script to set up geoblocking (which, in turn, calls additional scripts).
-- The -install script does not install itself into the system.
+- Creates directories for config and data
+- Compiles a list of files which need to be installed
+- If prior installation exists, removes its firewall rules and ipsets - either by calling the -uninstall script from older version or by calling the relevant scripts from it (depending on which version was installed)
+- The main scripts go to `/usr/bin`, library scripts to `/usr/lib/geoip-shell` config to `/etc/geoip-shell`
+- If a previous installation exists, only updates files which have changed
+- Creates a directory for data in `/var/lib/geoip-shell` (or in `/tmp/geoip-shell-data` on OpenWrt)
+- Sets restrictive permissions for directories and files
+- Calls the -manage script to set up geoblocking (which, in turn, calls additional scripts)
+- The -install script does not install itself into the system
 
 Options:
 - `-z`: Force non-interactive setup
@@ -177,7 +179,7 @@ Advanced options:
 
 Actions: `add`, `remove`, `update`, `restore`.
 
-The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the the `add|remove` actions.
+The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the `add|remove` actions.
 
 `geoip-shell-run.sh add -D <inbound|outbound> -l <"list_id [list_id] ... [list_id]">` : Fetches ip lists, loads them into ip sets and applies firewall rules for specified list id's.
 List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
@@ -204,7 +206,7 @@ Options:
 
 `-o <output_file>` : Path to output file where fetched list will be stored.
 
-`-s <status_file>` : Path to a status file to register fetch results in.
+`-s <path>`        : Path to a file to register fetch results in.
 
 `-u <ripe|ipdeny>` : Use this ip list source for download. Supported sources: ripe, ipdeny.
 
@@ -219,7 +221,7 @@ Extra options:
 
 Actions: `add`, `remove`, `update`, `on`, `off`
 
-The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the the `add|remove` actions.
+The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the `add|remove` actions.
 
 `geoip-shell-apply.sh add -D <inbound|outbound> -l <"list_ids">` :
 - Loads ip list files for specified list id's into ip sets and applies firewall rules required for geoip blocking.
