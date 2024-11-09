@@ -412,6 +412,7 @@ getallconf() {
 
 # gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
 # 1 - (optional) -v to load from variable $2
+# if $export_conf is set, exports the vars
 get_config_vars() {
 	inval_e() {
 		oldifs gcv
@@ -494,9 +495,18 @@ setconfig() {
 
 	newconfig="$newconfig$args_lines"
 	# don't write to file if config didn't change
-	[ -f "$target_file" ] && compare_file2str "$target_file" "$newconfig" && return 0
-	printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
-	[ "$target_file" = "$conf_file" ] && export main_config="$newconfig"
+	[ -f "$target_file" ] && old_conf_exists=1 || old_conf_exists=
+	if [ ! "$old_conf_exists" ] || ! compare_file2str "$target_file" "$newconfig"; then
+		printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
+	fi
+
+	[ "$target_file" = "$conf_file" ] && {
+		export main_config="$newconfig"
+		[ ! "$old_conf_exists" ] && {
+			chmod 600 "$conf_file" && chown root:root "$conf_file" ||
+				echolog -warn "$FAIL update permissions for file '$conf_file'."
+		}
+	}
 	:
 }
 
@@ -532,9 +542,10 @@ setstatus() {
 	target_file="$1"
 	shift 1
 	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
-	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}"
-	[ ! -f "$target_file" ] && touch "$target_file"
-	[ "$root_ok" ] && chmod -R 600 "${target_file%/*}" "$target_file"
+	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}" &&
+		[ "$root_ok" ] && chmod -R 600 "${target_file%/*}"
+	[ ! -f "$target_file" ] && touch "$target_file" &&
+		[ "$root_ok" ] && chmod 600 "$target_file"
 	setconfig target_file "$@"
 }
 
@@ -1115,10 +1126,7 @@ validate_ip() {
 
 # Get counters from existing rules and set variables
 get_counters() {
-	[ "$counters_set" ] && {
-		debugprint "get_counters: Counters already set"
-		return 0
-	}
+	[ "$counters_set" ] && return 0
 	unset counter_strings ipt_save_ok
 	export counters_set
 
@@ -1166,12 +1174,14 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 	subnet_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"\
 	inbound_geochain="${p_name_cap}_IN" outbound_geochain="${p_name_cap}_OUT" \
 	inbound_dir_short=in outbound_dir_short=out
+
+export fetch_res_file="/tmp/${p_name}-fetch-res"
+
 blanks="[[:blank:]][[:blank:]]*"
 
 set -f
 
-if [ -z "$geotag" ]; then
-	# export some vars
+[ -z "$geotag" ] && {
 	set_ansi
 	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
 	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
@@ -1179,6 +1189,6 @@ if [ -z "$geotag" ]; then
 		export datadir status_file="$datadir/status" counters_file="$datadir/counters"
 	}
 	export geotag="$p_name"
-fi
+}
 
 :
