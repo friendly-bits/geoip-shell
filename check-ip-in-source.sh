@@ -8,10 +8,32 @@
 
 #### Initial setup
 p_name="geoip-shell"
+export manmode=1 nolog=1 LC_ALL=C POSIXLY_CORRECT=YES
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export manmode=1
-. "$script_dir/${p_name}-geoinit.sh" || exit 1
+set_path() {
+	var_name="$1"
+	case "$var_name" in *[a-zA-Z0-9_]*) ;; *) printf '%s\n' "set_path: invalid var name '$var_name'"; exit 1; esac
+	f_name="$2"
+	dir1="$script_dir"
+	dir2="$3"
+	for dir in "$dir1" "$dir2"; do
+		[ -f "$dir/$f_name" ] && {
+			eval "${var_name}_path=\"$dir/$f_name\""
+			break
+		}
+	done || { printf '%s\n' "Error: Can not find '$f_name'."; exit 1; }
+}
+
+# set $geoinit_path, $fetch_path
+for f_opts in "geoinit ${p_name}-geoinit.sh /usr/bin" "fetch ${p_name}-fetch.sh /usr/bin"; do
+	set_path $f_opts
+done
+
+. "$geoinit_path" || exit 1
+
+# set $cca2_path
+set_path cca2 cca2.list "$conf_dir"
 
 
 #### USAGE
@@ -62,7 +84,7 @@ setdebug
 #### Functions
 
 die() {
-	rm -f "$list_file" "$status_file"
+	rm -f "$list_file" "$fetch_res_file"
 	printf '\n%s\n\n' "$*" >&2
 	exit 1
 }
@@ -81,11 +103,6 @@ validate_ip() {
 
 
 #### Constants
-
-export nolog=1
-
-fetch_script="$p_script-fetch.sh"
-
 valid_sources="ripe ipdeny"
 default_source=ripe
 
@@ -105,7 +122,7 @@ check_deps grepcidr || die
 [ -z "$ccode" ] && { usage; die "Specify country code with '-c <country_code>'."; }
 [ "$(printf %s "$ccode" | wc -w)" -gt 1 ] && { usage; die "Specify only one country code."; }
 
-validate_ccode "$ccode" "$script_dir/cca2.list"; rv=$?
+validate_ccode "$ccode" "$cca2_path"; rv=$?
 case "$rv" in
 	1) die ;;
 	2) usage; die "Invalid country code: '$ccode'."
@@ -118,8 +135,6 @@ subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ -n "$invalid_source" ] && { usage; die "Invalid source: $invalid_source"; }
 
 [ -z "$ips" ] && { usage; die "Specify the ip addresses to check with '-i <\"ip_addresses\">'."; }
-
-[ ! -f "$fetch_script" ] && die "Can not find '$fetch_script'."
 
 # remove duplicates etc
 san_str ips || die
@@ -141,14 +156,14 @@ for family in $families; do
 	eval "val_ips=\"\$val_${family}s\""
 
 	list_id="${ccode}_${family}"
-	status_file="/tmp/fetched-status-$list_id.tmp"
+	fetch_res_file="/tmp/fetch-res-$list_id.tmp"
 
 	list_file="/tmp/iplist-$list_id.tmp"
 
-	sh "$fetch_script" -r -l "$list_id" -o "$list_file" -s "$status_file" -u "$dl_source" || die "$FAIL fetch ip lists."
+	/bin/sh "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$fetch_res_file" -u "$dl_source" || die "$FAIL fetch ip lists."
 
-	# read *fetch results from the status file
-	getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
+	# read fetch results from fetch_res_file
+	getstatus "$fetch_res_file" || die "$FAIL read fetch results from file '$fetch_res_file'."
 
 	[ -n "$failed_lists" ] && die "ip list fetch failed."
 
@@ -163,7 +178,7 @@ for family in $families; do
 		[ "$rv" =  1 ] && { no="no"; ip_check_rv=$((ip_check_rv+1)); }
 		add2list "${no}match_ips" "$val_ip" "$_nl"
 	done
-	rm -f "$list_file" "$status_file"
+	rm -f "$list_file" "$fetch_res_file"
 done
 
 match="Included"
