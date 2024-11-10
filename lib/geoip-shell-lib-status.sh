@@ -65,14 +65,14 @@ blocking_disabled=
 	ipsets="$(get_ipsets)"
 
 	for f in $families; do
-		trusted_ips="$(print_ipset_elements "trusted_${f#ipv}" "$ipsets")"
-		eval "trusted_$f=\"$trusted_ips\""
+		t_ips="$(print_ipset_elements "trusted_${f#ipv}" "$ipsets")"
+		eval "t_$f=\"$_ips\""
 	done
 
-	[ "$trusted_ipv4$trusted_ipv6" ] && {
+	[ "$t_ipv4$t_ipv6" ] && {
 		printf '\n%s\n' "Trusted ip's:"
 		for f in $families; do
-			eval "trusted=\"\${trusted_$f}\""
+			eval "trusted=\"\${t_$f}\""
 			[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
 		done
 	}
@@ -83,11 +83,11 @@ blocking_disabled=
 			eval "lan_$f=\"$lan_ips\""
 		done
 
-		[ "$lan_ips_ipv4$lan_ips_ipv6" ] || [ "$ifaces" = all ] && {
+		[ "$lan_ipv4$lan_ipv6" ] || [ "$ifaces" = all ] && {
 			printf '\n%s\n' "Allowed LAN ip's:"
 
 			for f in $families; do
-				eval "lan_ips=\"\$lan_ips_$f\""
+				eval "lan_ips=\"\$lan_$f\""
 				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
 				[ "$lan_ips" ] || [ "$ifaces" = all ] && printf '%s\n' "$f: $lan_ips"
 			done
