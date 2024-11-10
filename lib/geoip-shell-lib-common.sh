@@ -402,8 +402,7 @@ getallconf() {
 	conf_gac=
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
 	[ -z "$conf_gac" ] && {
-		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2" \
-			| sed 's/^tcp_ports=/inbound_tcp_ports=/;s/^udp_ports=/inbound_udp_ports=/;s/^geomode=/inbound_geomode=/;s/^iplists=/inbound_iplists=/')"
+		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2")"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
 	eval "$1=\"$conf_gac\""
@@ -412,23 +411,26 @@ getallconf() {
 
 # gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
 # 1 - (optional) -v to load from variable $2
+# 1 - (optional) path to config/status file
 # if $export_conf is set, exports the vars
 get_config_vars() {
 	inval_e() {
 		oldifs gcv
-		echolog -err "Invalid entry '$entry' in file '$target_f_gcv'."
+		echolog -err "Invalid entry '$entry' in $src_gcv."
 		[ ! "$nodie" ] && die
 	}
 
-	_exp=
+	unset entries_gcv _exp
 	[ "$export_conf" ] && _exp="export "
 
 	if [ "$1" = '-v' ]; then
-		eval "all_config=\"\$${2}\""
-		[ -z "$all_config" ] && return 1
+		eval "entries_gcv=\"\$${2}\""
+		[ "$entries_gcv" ] || return 1
+		src_gcv="variable '$2'"
 	else
 		target_f_gcv="${1:-"$conf_file"}"
-		getallconf all_config "$target_f_gcv" || {
+		src_gcv="file '$2'"
+		getallconf entries_gcv "$target_f_gcv" || {
 			echolog -err "$FAIL get config from '$target_f_gcv'."
 			[ ! "$nodie" ] && die
 			return 1
@@ -436,7 +438,7 @@ get_config_vars() {
 	fi
 
 	newifs "$_nl" gcv
-	for entry in $all_config; do
+	for entry in $entries_gcv; do
 		case "$entry" in
 			'') continue ;;
 			*=*=*) { inval_e; return 1; } ;;
@@ -444,7 +446,7 @@ get_config_vars() {
 			*) { inval_e; return 1; } ;;
 		esac
 		key_conf="${entry%=*}"
-		is_alphanum "$key_conf" || { inval_e; return 1; }
+		! is_alphanum "$key_conf" || [ ${#key_conf} -gt 128 ] && { inval_e; return 1; }
 		eval "$_exp$key_conf"='${entry#${key_conf}=}'
 	done
 	oldifs gcv
