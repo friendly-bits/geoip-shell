@@ -23,7 +23,7 @@ kill_geo_pids() {
 			case "$_pid" in "$$"|"$PPID"|*[!0-9]*) continue; esac
 			[ "$_p" = "$_parent" ] && continue
 			IFS=' '
-			for g in run fetch apply cronsetup backup detect-lan; do
+			for g in run fetch apply cronsetup backup; do
 				case "$_p" in *${p_name}-$g*)
 					kill "$_pid" 2>/dev/null
 					_killed=1
