@@ -187,8 +187,14 @@ case "$action" in
 		printf '%s\n\n' "Successfully created backup of $p_name state." ;;
 	restore)
 		trap 'trap - INT TERM HUP QUIT; rm_rstr_tmp; die' INT TERM HUP QUIT
-		echolog "Preparing to restore $p_name from backup..."
-		[ "$restore_conf" ] && bk_conf_file="$bk_dir/$config_file_bak" || bk_conf_file="$config_file"
+		if [ "$restore_conf" ]; then
+			bk_conf_file="$bk_dir/$config_file_bak"
+			and_config=" and config"
+		else
+			bk_conf_file="$config_file"
+			and_config=
+		fi
+		echolog "Preparing to restore $p_name ip lists$and_config from backup..."
 		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
 		getconfig inbound_iplists inbound_iplists "$bk_conf_file" &&
 		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
@@ -224,9 +230,9 @@ case "$action" in
 		fi
 
 		rm_rstr_tmp
-		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore the firewall state from backup." "reset"
+		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore $p_name ip lists$and_config from backup." "reset"
 
-		printf '%s\n\n' "Successfully completed action 'restore'."
+		[ "$restore_conf" ] && echolog "Successfully completed action 'restore'."
 esac
 
 die 0
