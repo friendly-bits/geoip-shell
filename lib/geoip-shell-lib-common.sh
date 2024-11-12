@@ -104,7 +104,7 @@ unknownopt() {
 }
 
 statustip() {
-	printf '\n%s\n\n' "View geoip status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
+	printf '\n%s\n\n' "View geoblocking status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
 }
 
 report_lists() {
@@ -499,6 +499,7 @@ setconfig() {
 	# don't write to file if config didn't change
 	[ -f "$target_file" ] && old_conf_exists=1 || old_conf_exists=
 	if [ ! "$old_conf_exists" ] || ! compare_file2str "$target_file" "$newconfig"; then
+		[ "$debugmode" ] && [ "$target_file" = "$conf_file" ] && debugprint "${red}*** Updating config file ***${n_c}"
 		printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
 	fi
 
@@ -1137,6 +1138,7 @@ get_counters() {
 		ipt) get_counters_ipt ;;
 		nft) get_counters_nft
 	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings && counters_set=1
+	debugprint "counter strings:${_nl}$counter_strings"
 	:
 }
 
