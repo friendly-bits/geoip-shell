@@ -19,11 +19,6 @@
 **geoip-shell-geoinit.sh**
 - This script is sourced from all main scripts. It sets some essential variables, checks for compatible shell, then sources the -lib-common script, then sources the /etc/geoip-shell/geoip-shell.const file which stores some system-specific constants.
 
-**geoip-shell-detect-lan.sh**
-This script is only used under specific conditions:
-- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
-- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
-
 ### Library Scripts
 - lib/geoip-shell-lib-common.sh
 - lib/geoip-shell-lib-setup.sh
@@ -33,6 +28,8 @@ This script is only used under specific conditions:
 - lib/geoip-shell-lib-check-compat.sh
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
+- lib/geoip-shell-lib-detect-lan.sh
+
 
 The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
 
@@ -47,6 +44,10 @@ The -lib-check-compat script checks for some essential dependencies
 The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 
 The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
+
+The lib-detect-lan script is only used under specific conditions:
+- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
+- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation (when using the install script), or at the time of OpenWrt package preparation.

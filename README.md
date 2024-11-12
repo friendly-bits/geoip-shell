@@ -231,7 +231,7 @@ _<details><summary>Example</summary>_
 
 **To uninstall:** `geoip-shell-uninstall.sh`
 
-On OpenWrt, if installed via an ipk package: `opkg uninstall <geoip-shell|geoip-shell-iptables>`
+On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
