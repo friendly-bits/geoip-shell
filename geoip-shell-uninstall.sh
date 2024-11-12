@@ -52,7 +52,7 @@ EOF
 
 rm_scripts() {
 	printed=
-	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include detect-lan uninstall geoinit; do
+	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include uninstall geoinit; do
 		s_path="${install_dir}/${p_name}-$script_name.sh"
 		[ -f "$s_path" ] && {
 			[ ! "$printed" ] && { printf '%s\n' "Deleting $p_name main scripts from $install_dir..."; printed=1; }
