@@ -69,7 +69,7 @@ get_counter_val() {
 					# debugprint "counter val for rule '$1': '$counter_val'"
 					: ;;
 				*)
-					debugprint "Invalid/empty counter val '$counter_val' for rule '$1'"
+					debugprint "Invalid/empty counter val '$counter_val' for rule '$1', enc_rule '$enc_rule'"
 					counter_val="packets 0 bytes 0"
 			esac ;;
 		ipt)
@@ -78,12 +78,20 @@ get_counter_val() {
 					# debugprint "counter val for rule '$1': '$counter_val'"
 					: ;;
 				*)
-					debugprint "Invalid/empty counter val '$counter_val' for rule '$1'"
+					debugprint "Invalid/empty counter val '$counter_val' for rule '$1', enc_rule '$enc_rule'"
 					counter_val="[0:0]"
 			esac
 	esac
 	:
 }
+
+# 1 - direction
+# 2 - family
+set_allow_ipset_vars() {
+	eval "allow_ipset_name=\"\${allow_ipset_name_${1}_${2}}\""
+	allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+}
+
 
 ## PARSE ARGUMENTS
 
@@ -193,6 +201,122 @@ esac
 
 [ -n "$iplist_dir" ] && mkdir -p "$iplist_dir"
 
+is_whitelist_present && [ "$autodetect" ] &&
+	{ [ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || die "$FAIL source the detect-lan script"; }
+
+
+### compile allowlist ip's and write to file
+for family in $families; do
+	unset autodetected all_allow_ips_prev allow_iplist_file_prev
+	for direction in inbound outbound; do
+		eval "geomode=\"\$${direction}_geomode\""
+		[ "$geomode" = disable ] && continue
+
+		unset all_allow_ips res_subnets trusted lan_ips ll_addr
+
+		allow_ipset_name="allow_${direction%bound}_${family#ipv}"
+		allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+		eval "allow_ipset_name_${direction}_${family}=\"$allow_ipset_name\""
+		eval "allow_iplist_file_${direction}_${family}=\"$allow_iplist_file\""
+		eval "allow_ipset_type_${direction}_${family}=ip"
+		allow_ipset_type=ip
+
+
+		rm -f "$allow_iplist_file"
+
+		[ "$geomode" = whitelist ] && {
+			eval "allow_ipset_type_${direction}_${family}=net"
+			allow_ipset_type=net
+
+			## load or detect lan ip's
+			if [ "$autodetect" ] && [ "$autodetected" ]; then
+				res_subnets=
+				get_lan_subnets "$family" || die
+				autodetected=1
+				[ "$res_subnets" ] && nl2sp "lan_ips_$family" "net:$res_subnets"
+				lan_ips="$res_subnets"
+			else
+				eval "lan_ips=\"\${lan_ips_$family}\""
+				lan_ips="${lan_ips#*":"}"
+				sp2nl lan_ips
+			fi
+
+			## set link-local subnets
+			case "$family" in
+				ipv6) ll_addr="fe80::/10" ;;
+				ipv4) ll_addr="169.254.0.0/16"
+			esac
+		}
+
+		eval "trusted=\"\$trusted_$family\""
+
+		case "$trusted" in net:*|ip:*)
+			ips_type="${trusted%%":"*}"
+			trusted="${trusted#*":"}"
+		esac
+
+		if [ -n "$trusted" ]; then
+			[ "$ips_type" = net ] && {
+				allow_ipset_type=net
+				eval "allow_ipset_type_${direction}_${family}=net"
+			}
+			sp2nl trusted
+		fi
+
+
+		cat_cnt=0
+		for cat in trusted lan_ips ll_addr; do
+			eval "cat_ips=\"\${$cat}\""
+			[ ! "$cat_ips" ] && continue
+			cat_cnt=$((cat_cnt+1))
+			all_allow_ips="$all_allow_ips${cat_ips%"${_nl}"}$_nl"
+		done
+
+		[ "$all_allow_ips" ] || continue
+
+		if [ "$all_allow_ips" != "$all_allow_ips_prev" ]; then
+			all_allow_ips_prev="$all_allow_ips"
+			allow_iplist_file_prev="$allow_iplist_file"
+
+			# aggregate allowed ip's/subnets
+			res_subnets=
+			if [ "$_fw_backend" = ipt ] && [ $cat_cnt -ge 2 ] && [ "$allow_ipset_type" = net ] &&
+				allow_hex="$(printf %s "$all_allow_ips" | ips2hex "$family")" &&
+				[ "$allow_hex" ] &&
+				aggregate_subnets "$family" "$allow_hex" && [ "$res_subnets" ]
+			then
+				:
+			else
+				res_subnets="$all_allow_ips"
+			fi
+
+			[ "$res_subnets" ] && {
+				printf '%s\n' "$res_subnets" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
+				debugprint "res_subnets:${_nl}'$res_subnets'"
+			}
+		else
+			# if allow ip's are identical for inbound and outbound, use same ipset for both
+			allow_ipset_name="allow_${family#ipv}"
+			allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+			for dir in inbound outbound; do
+				eval "allow_ipset_name_${dir}_${family}=\"$allow_ipset_name\"
+					allow_iplist_file_${dir}_${family}=\"$allow_iplist_file\""
+			done
+
+			mv "$allow_iplist_file_prev" "$allow_iplist_file" || die "$FAIL rename file '$allow_iplist_file'"
+		fi
+	done
+done
+
 debugprint "calling apply_rules()"
 
 apply_rules
+rv_apply=$?
+
+[ "$autodetect" ] && {
+	[ "$lan_ips_ipv4" ] && setconf_lan=lan_ips_ipv4
+	[ "$lan_ips_ipv6" ] && setconf_lan="$setconf_lan lan_ips_ipv6"
+	[ "$setconf_lan" ] && setconfig $setconf_lan
+}
+
+exit $rv_apply
