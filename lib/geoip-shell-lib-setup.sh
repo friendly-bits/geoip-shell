@@ -211,11 +211,11 @@ validate_arg_ips() {
 }
 
 pick_lan_ips() {
-	confirm_ips() { eval "lan_ips_$family=\"$ipset_type:$u_ips\""; }
+	confirm_ips() { eval "lan_ips_$family=\"$ipset_type:$res_subnets\""; }
 
 	debugprint "Processing lan ips..."
 	lan_picked=1
-	unset autodetect ipset_type u_ips lan_ips_ipv4 lan_ips_ipv6
+	unset autodetect ipset_type res_subnets lan_ips_ipv4 lan_ips_ipv6
 	case "$lan_ips_arg" in
 		none) return 0 ;;
 		auto) lan_ips_arg=''; autodetect=1
@@ -229,17 +229,21 @@ pick_lan_ips() {
 		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual ip's to allow."
 	}
 
+	[ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || echolog -err "$FAIL source the -detect-lan script"
+
 	for family in $families; do
-		printf '\n%s\n' "Detecting $family LAN subnets..."
-		u_ips="$(call_script "$_script-detect-lan.sh" -s -f "$family")" || {
-			echolog -err "$FAIL detect $family LAN subnets."
+		echo
+		command -v get_lan_subnets 1>/dev/null && {
+			printf %s "Detecting $family LAN subnets..."
+			get_lan_subnets "$family"
+		} || {
 			[ "$nointeract" ] && die
 		}
 
-		[ -n "$u_ips" ] && {
-			nl2sp u_ips
+		[ -n "$res_subnets" ] && {
+			nl2sp res_subnets
 			ipset_type="net"
-			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$u_ips$n_c'."
+			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$res_subnets$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
 			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
 				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
@@ -253,7 +257,7 @@ pick_lan_ips() {
 		}
 
 		while :; do
-			unset REPLY u_ips
+			unset REPLY res_subnets
 			ipset_type=ip
 			[ ! "$nointeract" ] && {
 				printf '\n%s\n' "Type in $family LAN ip addresses and/or subnets, [s] to skip or [a] to abort."
@@ -269,15 +273,16 @@ pick_lan_ips() {
 				[ "$nointeract" ] && die
 				continue
 			esac
-			san_str u_ips "$REPLY"
-			[ -z "$u_ips" ] && { [ "$nointeract" ] && die; continue; }
-			validate_ip "$u_ips" "$family" && break
+			san_str res_subnets "$REPLY"
+			[ -z "$res_subnets" ] && { [ "$nointeract" ] && die; continue; }
+			validate_ip "$res_subnets" "$family" && break
 		done
 		confirm_ips
 	done
+	echo
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '\n%s\n' "${blue}A[u]tomatically detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
+	printf '%s\n' "${blue}A[u]tomatically detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
 	[ "$REPLY" = u ] && autodetect=1
 }
