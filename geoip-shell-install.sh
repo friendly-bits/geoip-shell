@@ -371,12 +371,12 @@ all_fw_libs="ipt nft"
 }
 
 script_files=
-for f in fetch apply manage cronsetup run uninstall backup detect-lan; do
+for f in fetch apply manage cronsetup run uninstall backup; do
 	script_files="$script_files${script_dir}/${p_name}-$f.sh "
 done
 
 lib_files=
-for f in uninstall common arrays status setup $check_compat $fw_libs; do
+for f in uninstall common arrays status setup detect-lan $check_compat $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -573,7 +573,7 @@ trap 'manage_interr' INT TERM HUP QUIT
 call_script "$i_script-manage.sh" configure || {
 	manage_rv=$?
 	case $manage_rv in
-		1) die "$p_name-manage.sh exited with error code $?." ;;
+		1) die "$p_name-manage.sh exited with error code 1." ;;
 		*) manage_interr
 	esac
 }
