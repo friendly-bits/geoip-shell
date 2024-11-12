@@ -61,47 +61,16 @@ printf '%s\n' "Geoblocking rules applied to network interfaces: $_ifaces_r"
 blocking_disabled=
 [ "$inbound_geomode" = disable ] && [ "$outbound_geomode" = disable ] && blocking_disabled=1
 
-[ ! "$blocking_disabled" ] && {
-	ipsets="$(get_ipsets)"
-
-	for f in $families; do
-		t_ips="$(print_ipset_elements "trusted_${f#ipv}" "$ipsets")"
-		eval "t_$f=\"$_ips\""
-	done
-
-	[ "$t_ipv4$t_ipv6" ] && {
-		printf '\n%s\n' "Trusted ip's:"
-		for f in $families; do
-			eval "trusted=\"\${t_$f}\""
-			[ "$trusted" ] && printf '%s\n' "$f: ${blue}$trusted${n_c}"
-		done
-	}
-
-	is_whitelist_present && {
-		for f in $families; do
-			lan_ips="$(print_ipset_elements "lan_${f#ipv}" "$ipsets")"
-			eval "lan_$f=\"$lan_ips\""
-		done
-
-		[ "$lan_ipv4$lan_ipv6" ] || [ "$ifaces" = all ] && {
-			printf '\n%s\n' "Allowed LAN ip's:"
-
-			for f in $families; do
-				eval "lan_ips=\"\$lan_$f\""
-				[ "$lan_ips" ] && lan_ips="${blue}$lan_ips${n_c}" || lan_ips="${red}None${n_c}"
-				[ "$lan_ips" ] || [ "$ifaces" = all ] && printf '%s\n' "$f: $lan_ips"
-			done
-			autodetect_hr=Off
-			[ "$autodetect" ] && autodetect_hr=On
-			printf '%s\n' "LAN subnets automatic detection: $blue$autodetect_hr$n_c"
-		}
-	}
-}
-
 if [ "$_fw_backend" = nft ]; then
 	[ ! "$nft_perf" ] && { nft_perf="${red}Not set $_X"; incr_issues; }
-	printf '\n%s\n' "nftables sets optimization policy: ${blue}$nft_perf$n_c"
+	printf '%s\n' "nftables sets optimization policy: ${blue}$nft_perf$n_c"
 fi
+
+is_whitelist_present && {
+	autodetect_hr=Off
+	[ "$autodetect" ] && autodetect_hr=On
+	printf '%s\n' "LAN subnets automatic detection: $blue$autodetect_hr$n_c"
+}
 
 [ ! "$blocking_disabled" ] && {
 	# check if cron service is enabled
@@ -202,6 +171,29 @@ for direction in inbound outbound; do
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
+	ipsets="$(get_ipsets)"
+
+	for f in $families; do
+		unset allow_ips no_allow_ips "allow_$f"
+		case "$ipsets" in
+			*"allow_${f#ipv}"*) allow_ipset_name="allow_${f#ipv}" ;;
+			*"allow_${direction%bound}_${f#ipv}"*) allow_ipset_name="allow_${direction%bound}_${f#ipv}" ;;
+			*) no_allow_ips=1
+		esac
+
+		[ ! "$no_allow_ips" ] && allow_ips="$(print_ipset_elements "$allow_ipset_name" "$ipsets")"
+		eval "allow_$f=\"$allow_ips\""
+	done
+
+	if [ "$allow_ipv4$allow_ipv6" ] || { [ "$geomode" = whitelist ] && [ "$ifaces" = all ]; }; then
+		printf '\n%s\n' "  Allowed ip's:"
+		for f in $families; do
+			eval "allow_ips=\"\${allow_$f}\""
+			[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
+			[ "$allow_ips" ] || { [ "$geomode" = whitelist ] && [ "$ifaces" = all ]; } && printf '%s\n' "  $f: $allow_ips"
+		done
+	fi
+
 	report_proto "$direction"
 	printf '\n'
 
@@ -211,7 +203,9 @@ for direction in inbound outbound; do
 		printf %s "  Ip ranges count in active $direction geoblocking sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
-			*) echo
+			*)
+				echo
+				[ "$_fw_backend" = ipt ] && ipsets="$(get_ext_ipsets)"
 				dir_total_el_cnt=0
 				for ccode in $active_ccodes; do
 					el_summary=
