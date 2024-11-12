@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2034
+# shellcheck disable=SC2154,SC2034,SC1090
 
 # geoip-shell-lib-ipt.sh
 
@@ -38,13 +38,16 @@ filter_ipt_rules() {
 }
 
 get_ipsets() {
+	ipset list -n | grep "$geotag"
+}
+
+get_ext_ipsets() {
 	ipset list -t
 }
 
 # 1 - ipset tag
-# 2 - ipsets
 print_ipset_elements() {
-	get_matching_line "$2" "*" "$1" "*" ipset &&
+	get_matching_line "$2" "*" "$1" "*" &&
 		ipset list "${geotag}_${1}" | sed -n -e /"Members:"/\{:1 -e n\; -e p\; -e b1\; -e \} | tr '\n' ' '
 }
 
@@ -119,6 +122,7 @@ rm_all_georules() {
 			}
 		done
 	done
+
 	# remove ipsets
 	rm_ipsets_rv=0
 	unisleep
@@ -139,11 +143,11 @@ get_fwrules_iplists() {
 	set_dir_vars "$1"
 	p="$p_name" t="$ipt_target"
 	{ ipt_save ipv4; ipt_save ipv6; } |
-		sed -n "/match-set${blanks}${p}_.*${blanks}${dir_kwrd_ipset}.* -j $t/{s/.*match-set${blanks}${p}_//;s/${blanks}${dir_kwrd_ipset}.*//;p}" | grep -vE "(lan_|trusted_)"
+		sed -n "/match-set${blanks}${p}_.*${blanks}${dir_kwrd_ipset}.* -j $t/{s/.*match-set${blanks}${p}_//;s/${blanks}${dir_kwrd_ipset}.*//;p}" | grep -vE "(dhcp_|allow_)"
 }
 
 get_ipset_iplists() {
-	get_ipsets | sed -n /"$geotag"/\{s/"$geotag"_//\;s/^Name:\ //\;p\} | grep -vE "(lan_|trusted_)"
+	get_ipsets | sed -n /"$geotag"/\{s/"$geotag"_//\;s/^Name:\ //\;p\} | grep -vE "(dhcp_|allow_)"
 }
 
 critical() {
@@ -179,11 +183,12 @@ encode_rules() {
 	[ "$1" ] || { echolog -err "encode_rules: family not set"; return 1; }
 	sed -n "${sed_inc_counter_1}s/${blanks}-A${blanks}//;
 		s/$p_name//g;s/${p_name_cap}//g;s/-m set --match-set//;s/--ctstate//;
-		s/${ipt_comm}[[:blank:]][^[:blank:]]*//g;s/-m conntrack//g;s/-m multiport//g;s/_//g;s~/~W~g;
-		s/-/_/g;s/!/X/g;s/:/Q/g;${sed_colon_res}s/,/Y/g;s/${blanks}/Z/g;s/\$/_${1#ipv}/;/^$/d;p${sed_inc_counter_2}"
+		s/${ipt_comm}[[:blank:]][^[:blank:]]*//g;s/-m conntrack//g;s/-m multiport//g;s/-m udp//;s/_//g;
+		s~/~W~g;s/-/_/g;s/\./_/g;s/!/X/g;s/:/Q/g;${sed_colon_res}s/,/Y/g;
+		s/${blanks}/Z/g;s/\$/_${1#ipv}/;/^$/d;p${sed_inc_counter_2}"
 }
 
-# Get counters from existing rules and store them in vars
+# Get counters from existing rules and store them in $counter_strings
 get_counters_ipt() {
 	for f in $families; do
 		curr_ipt="$(ipt_save "$f" -c)" || return 1
@@ -198,6 +203,7 @@ get_counters_ipt() {
 			encode_rules "$f"
 		done | awk -F "]" '$2 ~ /^[a-zA-Z0-9_]+$/ {print $2 "=" $1 "]"}'
 	)"
+	# [ "$debugmode" ] && printf '%s\n%s\n\n' "Counter strings:" "$counter_strings" >&2
 	:
 }
 
@@ -223,7 +229,7 @@ add_ipset() {
 
 	debugprint "Importing iplist '$iplist_file' into temporary ipset... "
 	# read $iplist_file, transform each line into 'add' command and pipe the result into "ipset restore"
-	sed "s/^/add \"$tmp_ipset\" /" "$iplist_file" | ipset restore -exist ||
+	sed "/^$/d;s/^/add \"$tmp_ipset\" /" "$iplist_file" | ipset restore -exist ||
 		critical "$FAIL import the iplist from '$iplist_file' into ipset '$tmp_ipset'."
 	debugprint "Ok."
 
@@ -239,18 +245,18 @@ add_ipset() {
 # creates new permanent ipset if it doesn't exist
 # 1 - perm ipset name
 # 2 - ipset type
-# 3 - curr ipsets
+# 3 - path to file
+# 4 - family
+# 5 - curr ipsets
 mk_perm_ipset() {
 	tmp_ipset="${1}_temp"
-	case "$3" in *"$1"* ) ;; *)
-		debugprint "Creating permanent ipset '$1'... "
-		ipset create "$1" "hash:$2" family "$family" hashsize 1 maxelem 1 ||
-			die_a "$FAIL create ipset '$1'."
+	case "$5" in
+		*"$1"*) echolog -err "mk_perm_ipset: ipset '$1' already exists." ;;
+		*)
+			debugprint "Creating permanent ipset '$1'... "
+			ipset create "$1" "hash:$2" family "$4" hashsize 1 maxelem 1 || die_a "$FAIL create ipset '$1'."
+			ipsets_to_add="${ipsets_to_add}${2}:${1} ${3}${_nl}"
 	esac
-}
-
-get_curr_ipsets() {
-	ipset list -n | grep "$geotag"
 }
 
 # 1 - ipset name
@@ -351,8 +357,7 @@ geoip_off() {
 }
 
 apply_rules() {
-	#### VARIABLES
-
+	#### Initialize things
 	retval=0
 
 	insert_failed="$FAIL insert a firewall rule."
@@ -363,87 +368,84 @@ apply_rules() {
 		eval "${family}_ipt"='$curr_ipt'
 	done
 
-	#### MAIN
-
-	### remove lan and trusted ipsets and rules
-	curr_ipsets="$(get_curr_ipsets)"
+	curr_ipsets="$(get_ipsets)"
 	for family in $families; do
-		### Read current iptables rules
+		# Read current iptables rules
 		eval "curr_ipt=\"\${${family}_ipt}\""
 		f_short="${family#ipv}"
 
-		t_ipset="${geotag}_trusted_${f_short}"
-		lan_ipset="${geotag}_lan_${f_short}"
+		# remove the enable rule
+		rm_ipt_rules "$curr_ipt" "$family" "${geotag}_enable"
+
+		# remove the ipsets and rules for allowed ips, dhcpv4
+		dhcp_ipset=
+		[ "$family" = ipv4 ] && dhcp_ipset="${geotag}_dhcp_4"
 		[ "$curr_ipt" ] && {
-			rm_ipt_rules "$curr_ipt" "$family" "${geotag_aux}_trusted_${f_short}" "${geotag_aux}_lan_${f_short}"
+			rm_ipt_rules "$curr_ipt" "$family" "${geotag_aux}_allow_${f_short}" "$dhcp_ipset"
 			unisleep
 		}
-		rm_ipset "$t_ipset" "$curr_ipsets" &&
-		rm_ipset "$lan_ipset" "$curr_ipsets" || die_a
+		for allow_ipset_name in "allow_in_${f_short}" "allow_out_${f_short}" "allow_${f_short}"; do
+			rm_ipset "${geotag}_${allow_ipset_name}" "$curr_ipsets"
+		done
+		[ "$dhcp_ipset" ] && rm_ipset "$dhcp_ipset" "$curr_ipsets"
 	done
 
-	curr_ipsets="$(get_curr_ipsets)"
+	curr_ipsets="$(get_ipsets)"
 	for family in $families; do
 		f_short="${family#ipv}"
+
+		case "$f_short" in
+			6)
+				dhcp_addr="fc00::/6"
+				dhcp_dports="546,547"
+				dhcp_suff=v6 ;;
+			4)
+				dhcp_ipset="${geotag}_dhcp_4"
+				dhcp_addr="192.168.0.0/16${_nl}172.16.0.0/12${_nl}10.0.0.0/8"
+				dhcp_dports="67,68"
+				dhcp_suff=
+		esac
+
 		set_ipt_cmds "$family" || die_a
 		eval "curr_ipt=\"\${${family}_ipt}\""
-		t_ipset="${geotag}_trusted_${f_short}"
-		lan_ipset="${geotag}_lan_${f_short}"
 
 		ipsets_to_add=
 
 		### make perm ipsets, assemble $ipsets_to_add and $ipsets_to_rm
-		san_str list_ids "$inbound_list_ids $outbound_list_ids" || die
+		san_str list_ids "$inbound_list_ids $outbound_list_ids" || die_a
 		for list_id in $list_ids; do
 			case "$list_id" in *_*) ;; *) die_a "Invalid iplist id '$list_id'."; esac
 			[ "${list_id#*_}" != "$family" ] && continue
 			perm_ipset="${geotag}_${list_id}"
 			if [ "$action" = add ] && [ ! "$skip_ipsets" ]; then
 				iplist_file="${iplist_dir}/${list_id}.iplist"
-				mk_perm_ipset "$perm_ipset" net "$curr_ipsets"
-				ipsets_to_add="$ipsets_to_add$perm_ipset $iplist_file$_nl"
+				mk_perm_ipset "$perm_ipset" net "${iplist_file}" "$family" "$curr_ipsets"
 			elif [ "$action" = remove ]; then
 				ipsets_to_rm="$ipsets_to_rm$perm_ipset "
 			fi
 		done
 
-		### trusted subnets/ip's
-		eval "trusted=\"\$trusted_$family\""
-		ipset_type=net
-		case "${trusted%%":"*}" in net|ip)
-			ipset_type="${trusted%%":"*}"
-			trusted="${trusted#*":"}"
-		esac
-
-		[ -n "$trusted" ] && {
-			iplist_file="$iplist_dir/$t_ipset.iplist"
-			sp2nl trusted
-			printf '%s\n' "$trusted" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
-			mk_perm_ipset "$t_ipset" "$ipset_type" "$curr_ipsets"
-			ipsets_to_add="$ipsets_to_add$ipset_type:$t_ipset $iplist_file$_nl"
+		# add ipset for dhcpv4 subnets
+		is_whitelist_present && [ "$family" = ipv4 ] && {
+			dhcp_iplist_file="${iplist_dir}/${dhcp_ipset}.iplist"
+			printf '%s\n' "$dhcp_addr" > "$dhcp_iplist_file"
+			mk_perm_ipset "$dhcp_ipset" net "${dhcp_iplist_file}" "$family" "$curr_ipsets"
 		}
 
-		### LAN subnets/ip's
-		is_whitelist_present && {
-			if [ ! "$autodetect" ]; then
-				eval "lan_ips=\"\$lan_ips_$family\""
-				sp2nl lan_ips
-			else
-				a_d_failed=
-				lan_ips="$(call_script "${i_script}-detect-lan.sh" -s -f "$family")" || a_d_failed=1
-				[ ! "$lan_ips" ] || [ "$a_d_failed" ] && { echolog -err "$FAIL detect $family LAN subnets."; exit 1; }
-				lan_ips="net:$lan_ips"
-				nl2sp "lan_ips_$family" "$lan_ips"
-			fi
-			ipset_type="${lan_ips%%":"*}"
-			lan_ips="${lan_ips#*":"}"
-			[ -n "$lan_ips" ] && {
-				iplist_file="$iplist_dir/$lan_ipset.iplist"
-				printf '%s\n' "$lan_ips" > "$iplist_file" || die_a "$FAIL write to file '$iplist_file'"
-				mk_perm_ipset "$lan_ipset" "$ipset_type" "$curr_ipsets"
-				ipsets_to_add="$ipsets_to_add$ipset_type:$lan_ipset $iplist_file$_nl"
-			}
-		}
+		### create ipsets for allowed subnets/ip's
+		allow_iplist_file_prev=
+		for direction in inbound outbound; do
+			eval "geomode=\"\$${direction}_geomode\""
+			set_allow_ipset_vars "$direction" "$family"
+			[ "$allow_iplist_file" = "$allow_iplist_file_prev" ] || [ "$geomode" = disable ] ||
+				[ ! -s "$allow_iplist_file" ] && continue
+
+			allow_iplist_file_prev="$allow_iplist_file"
+			eval "allow_ipset_type=\"\$allow_ipset_type_${direction}_${family}\""
+			: "${allow_ipset_type:=ip}"
+			mk_perm_ipset "${geotag}_${allow_ipset_name}" "$allow_ipset_type" "$allow_iplist_file" "$family" "$curr_ipsets"
+		done
+
 
 		#### Assemble commands for iptables-restore
 		printf %s "Assembling new $family firewall rules... "
@@ -455,7 +457,7 @@ apply_rules() {
 			### Remove existing rules
 
 			## Remove the main blocking rule, the whitelist blocking rule and the auxiliary rules
-			mk_ipt_rm_cmd "$curr_ipt" "${geotag}_enable" "${geotag_aux}" "${geotag}_whitelist_block" "${geotag}_iface_filter" || exit 1
+			mk_ipt_rm_cmd "$curr_ipt" "${geotag_aux}" "${geotag}_whitelist_block" "${geotag}_iface_filter" || exit 1
 
 			## Remove rules for $list_ids
 			[ "$action" != update ] &&
@@ -497,39 +499,23 @@ apply_rules() {
 
 				## Auxiliary rules
 
-				# trusted subnets/ips
-				[ "$trusted" ] && {
-					rule="$geochain -m set --match-set ${geotag}_trusted_${f_short} $dir_kwrd_ipset $ipt_comm ${geotag_aux}_trusted_${f_short} -j ACCEPT"
+				# allowed subnets/ips
+				set_allow_ipset_vars "$direction" "$family"
+				[ -s "$allow_iplist_file" ] && {
+					rule="$geochain -m set --match-set ${geotag}_${allow_ipset_name} $dir_kwrd_ipset $ipt_comm ${geotag_aux}_allow_${f_short} -j ACCEPT"
 					get_counter_val "$rule" "$family"
 					printf '%s\n' "$counter_val -I $rule"
 				}
 
-				# LAN subnets/ips
+				# Allow DHCP
 				[ "$geomode" = whitelist ] && {
-					[ "$lan_ips" ] && {
-						rule="$geochain -m set --match-set ${geotag}_lan_${f_short} $dir_kwrd_ipset $ipt_comm ${geotag_aux}_lan_${f_short} -j ACCEPT"
-						get_counter_val "$rule" "$family"
-						printf '%s\n' "$counter_val -I $rule"
-					}
-
-					if [ "$family" = ipv6 ]; then
-						# Allow DHCPv6
-						[ "$ifaces" != all ] || [ "$direction" = outbound ] && {
-							rule_DHCPv6="$geochain -s fc00::/6 -d fc00::/6 -p udp -m udp --dport 546 $ipt_comm ${geotag_aux}_DHCPv6 -j ACCEPT"
-							get_counter_val "$rule_DHCPv6" "$family"
-							printf '%s\n' "$counter_val -I $rule_DHCPv6"
-						}
-
-						# Allow ipv6 link-local
-						rule_LL="$geochain $dir_kwrd fe80::/10 $ipt_comm ${geotag_aux}_link-local_${f_short} -j ACCEPT"
-						get_counter_val "$rule_LL" "$family"
-						printf '%s\n' "$counter_val -I $rule_LL"
-					fi
-
-					# Allow DHCPv4
-					if [ "$family" = ipv4 ] && { [ "$ifaces" != all ] || [ "$direction" = outbound ]; }; then
-						printf '%s\n' "-A $geochain -p udp -m udp --dport 68 $ipt_comm ${geotag_aux}_DHCP -j ACCEPT"
-					fi
+					case "$family" in
+						ipv4) dhcp_addr_expr="-p udp -m set --match-set $dhcp_ipset $dir_kwrd_ipset" ;;
+						ipv6) dhcp_addr_expr="$dir_kwrd $dhcp_addr -p udp"
+					esac
+					rule_DHCP="$geochain $dhcp_addr_expr -m udp -m multiport --dports $dhcp_dports $ipt_comm ${geotag_aux}_DHCP${dhcp_suff} -j ACCEPT"
+					get_counter_val "$rule_DHCP" "$family"
+					printf '%s\n' "$counter_val -I $rule_DHCP"
 				}
 
 				# ports
@@ -596,19 +582,20 @@ apply_rules() {
 			printf %s "Adding $family ipsets... "
 			newifs "$_nl" apply
 			for entry in ${ipsets_to_add%"$_nl"}; do
+				oldifs apply
 				ipset_type=net
 				case "$entry" in "ip:"*|"net:"*) ipset_type="${entry%%":"*}"; entry="${entry#*":"}"; esac
 				add_ipset "${entry%% *}" "${entry#* }" "$ipset_type"
 				ipsets_to_rm="$ipsets_to_rm${entry%% *}_temp "
 			done
-			oldifs apply
-			OK; echo
+			OK
+			echo
 		}
 	done
 
 	[ -n "$ipsets_to_rm" ] && {
 		printf %s "Removing old ipsets... "
-		curr_ipsets="$(get_curr_ipsets)"
+		curr_ipsets="$(get_ipsets)"
 		unisleep
 		rm_ipsets_rv=0
 		for ipset in $ipsets_to_rm; do
@@ -624,10 +611,6 @@ apply_rules() {
 		false) geoip_on ;;
 		true) echolog -warn "Geoip blocking is disabled via config."
 	esac
-
-	[ "$autodetect" ] && setconfig lan_ips_ipv4 lan_ips_ipv6
-
-	echo
 
 	return "$retval"
 }
