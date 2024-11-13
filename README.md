@@ -129,32 +129,9 @@ Interactive setup gathers the important config via dialog with the user and does
 
 Alternatively, some or all of the config options may be provided via command-line arguments.
 
-**NOTE:** Some features are only accessible via command-line arguments. In particular, by default, initial setup only configures inbound geoblocking and leaves outbound geoblocking in disabled state. If you want to configure outbound geoblocking, run `geoip-shell configure -D outbound -m <whitelist|blacklist>`.
+**NOTE:** Some features are only accessible via command-line arguments. In particular, by default, initial setup only configures inbound geoblocking and leaves outbound geoblocking in disabled state. If you want to configure outbound geoblocking, read the section [Outbound geoblocking](#outbound-geoblocking).
 
 _To find out more, run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md)_
-
-_<details><summary>Examples for non-interactive configuration options:</summary>_
-
-- configuring **inbound** geoblocking on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
-
-`geoip-shell configure -r DE -i all -l auto -m whitelist -c "DE IT"`
-
-- configuring **inbound and outbound** geoblocking on a server located in Germany, whitelist Germany and Italy and block all other countries for incoming traffic, blacklist France for outgoing traffic:
-
-`geoip-shell configure -r DE -i all -l auto -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
-
-- configuring **inbound** geoblocking on a router (which has a WAN network interface called `pppoe-wan`) located in the US, blacklist Germany and Netherlands and allow all other countries:
-
-`geoip-shell configure -m blacklist -c "DE NL" -r US -i pppoe-wan`
-
-- if you prefer to fetch the ip lists from a specific source, add `-u <source>` to the arguments, where `<source>` is `ripe` or `ipdeny`.
-- to geoblock or allow specific ports or ports ranges, use `<[tcp|udp]:[allow|block]:all|[ports]>`. This option may be used twice in one command (for each geoblocking direction) to specify ports for both tcp and udp _(for examples, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_.
-- to exclude certain trusted ip addresses or subnets on the internet from geoip blocking, add `-t <"[trusted_ips]">` to the arguments
-- if your machine uses nftables, depending on the RAM capacity of the machine and the number and size of the ip lists, consider installing with the `-O performance` or `-O memory` option. This will create nft sets optimized either for performance or for low memory consumption. By default, when the machine has more than 2GiB of memory, the `performance` option is used, otherwise the `memory` option is used.
-- if your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
-- if your system has nftables installed and also a package like _xtables-compat_ (utilizing the nft_compat module) which allows to manage the nftables backend using iptables rules, you can override the geoip-shell default to utilize the nftables backend with option `-w ipt`. This will create iptables rules and ipsets for geoip-shell rather than nftables rules and sets. You will need the `ipset` utility installed for this.
-- if for some reason you need to install or configure geoip-shell in strictly non-interactive mode, you can call the -install or the -manage script with the `-z` option which will avoid asking the user any questions. In non-interactive mode, commands will fail if required config is incomplete or invalid.
-</details>
 
 ## **Usage**
 _(Note that all commands require root privileges, so you will likely need to run them with `sudo`)_
@@ -166,30 +143,27 @@ By default, ip lists will be updated daily around 4:15am local time (to avoid ev
 If you want to change geoblocking config or check geoblocking status, you can do that via the provided utilities.
 A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md)and [DETAILS.md](/Documentation/DETAILS.md).
 
-**Note** that when using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to the **inbound** geoblocking direction. Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction.
+**Note** that when using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to the **inbound** geoblocking direction. Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction (for more details, read the section [Outbound geoblocking](#outbound-geoblocking)).
 
 **To check current geoip blocking status:** `geoip-shell status`. For a list of all firewall rules in the main geoblocking chains and for a detailed count of ip ranges in each ip list: `geoip-shell status -v`.
 
-**To enable and configure outbound geoblocking:**
+**To configure geoblocking mode:**
 
-`geoip-shell configure -D outbound -m <whitelist|blacklist>`.
+`geoip-shell configure -m <whitelist|blacklist|disable>`
 
-**To configure geoblocking mode for both inbound and outbound directions:**
-
-`geoip-shell configure -D inbound -m <whitelist|blacklist> -D outbound -m <whitelist|blacklist>`
+(`disable` unloads all ip lists and removes firewall geoblocking rules for both directions)
 
 **To change countries in the geoblocking whitelist/blacklist:**
 
-`geoip-shell configure [-D <inbound|outbound>] -c <"country_codes">`
+`geoip-shell configure -c <"country_codes">`
 
-_<details><summary>Examples:</summary>_
-- to set Germany and Netherlands as countries for inbound geoblocking: `geoip-shell configure -c "DE NL"`
-- to set Germany and Netherlands as countries for outbound geoblocking: `geoip-shell configure -D outbound -c "DE NL"`
+_<details><summary>Example:</summary>_
+- to set countries to Germany and Netherlands: `geoip-shell configure -c "DE NL"`
 </details>
 
-**To change protocols and ports geoblocking applies to:**
+**To geoblock or allow specific ports or ports ranges:**
 
-`geoip-shell configure [-D <inbound|outbound>] -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+`geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
 _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
 
@@ -197,15 +171,9 @@ _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES
 
 `geoip-shell <on|off>`
 
-**To disable geoblocking, unload all ip lists and remove firewall geoblocking rules for both directions:**
-
-`geoip-shell configure -D inbound -m disable -D outbound -m disable`
-
 **To change ip lists source:** `geoip-shell configure -u <ripe|ipdeny>`
 
-**To configure inbound geoblocking mode:** `geoip-shell configure -m <whitelist|blacklist>`
-
-**To have certain trusted ip addresses or subnets bypass geoblocking:**
+**To have certain trusted ip addresses or subnets, either in your LAN or anywhere on the Internet, bypass geoblocking:**
 
 `geoip-shell configure -t <["ip_addresses"]|none>`
 
@@ -215,7 +183,9 @@ _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES
 
 `geoip-shell configure -l <["ip_addresses"]|auto|none>`
 
-`auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses. This is only needed when using geoip-shell in whitelist mode, and typically only if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoblocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoblocking filter.
+LAN addresses can only be configured when geoblocking mode for at least one direction is set to `whitelist`. Otherwise there is no need to whitelist LAN addresses. Also whitelisting LAN addresses is typically only needed if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoblocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoblocking filter without any special rules for that.
+
+`auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN ip addresses.
 
 **To enable or change the automatic update schedule:** `geoip-shell configure -s <"schedule_expression">`
 
@@ -232,6 +202,48 @@ _<details><summary>Example</summary>_
 **To uninstall:** `geoip-shell-uninstall.sh`
 
 On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`
+
+_<details><summary>Examples of using the `configure` command:</summary>_
+
+- configuring **inbound** geoblocking on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
+
+`geoip-shell configure -r DE -i all -l auto -m whitelist -c "DE IT"`
+
+- configuring **inbound** geoblocking on a router (which has a WAN network interface called `pppoe-wan`) located in the US, blacklist Germany and Netherlands and allow all other countries:
+
+`geoip-shell configure -m blacklist -c "DE NL" -r US -i pppoe-wan`
+
+</details>
+
+
+## **Outbound geoblocking**
+
+When using the `geoip-shell configure` command, if direction is not specified, direction-specific options apply to the **inbound** geoblocking direction.
+
+Direction-specific options are `-m <whitelist|blacklist|disable>`, `-c <country_codes>`, `-p <ports>`. To specify direction, add `-D <inbound|outbound>` before specifying options for that direction.
+
+So to configure outbound geoblocking, use same commands as described in the [Usage](#usage) section above, except add the `-D outbound` option before any direction-specific options.
+
+Examples:
+
+**To enable and configure outbound geoblocking:**
+
+`geoip-shell configure -D outbound -m <whitelist|blacklist>`.
+
+**To configure geoblocking mode for both inbound and outbound directions:**
+
+`geoip-shell configure -D inbound -m <whitelist|blacklist> -D outbound -m <whitelist|blacklist>`
+
+**To configure **inbound and outbound** geoblocking, whitelisting Germany and Italy and blocking all other countries for incoming traffic, blacklisting France for outgoing traffic:
+
+`geoip-shell configure -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
+
+**To change protocols and ports outbound geoblocking applies to:**
+
+`geoip-shell configure -D outbound -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+
+
+
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
@@ -265,3 +277,11 @@ If you are using the ipdeny source then note that they are a 3rd party which has
 
 - I would appreciate a report of whether it works or doesn't work on your system (please specify which). You can use the Github Discussions tab for that.
 - If you find a bug or want to request a feature, please let me know by opening an issue.
+
+
+
+
+
+
+
+

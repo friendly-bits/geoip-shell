@@ -1,6 +1,18 @@
 ## **Notes**
 1) Which shell to use with geoip-shell: geoip-shell detects the shell it's running in during installation, verifies that it's compatible and replaces the "shebang" in all of the installed geoip-shell scripts to point to the detected shell. So for example, if you like to use zsh (an incompatible shell), you can install a package which provides a simpler shell like dash and then run the -install script from it. For example: `dash geoip-shell-install.sh`. This way you can continue to use a fancy shell for your other tasks, while geoip-shell will happily use a simple and compatible shell. This also makes sense from the performance perspective since a simpler shell runs 3x to 4x faster.
 
+2) Allow-rules
+
+Depending on the options you specified during interactive setup or via the command line, geoip-shell creates additional firewall rules which are designed to prevent blocking essential traffic. Most of the rules are only created in whitelist mode. Specifics:
+
+- In whitelist and blacklist modes, geoip-shell creates rules to allow related and established connections. This means that if, for example, you configured inbound geoblocking in whitelist mode for only 1 country (your own), you will still be able to connect to servers in other countries and receive a response from them. So this allows connections which were established on your initiative.
+- In whitelist and blacklist modes, if you configured trusted addresses (or subnets), geoip-shell adds rules to allow traffic to or from them.
+- In whitelist mode, geoip-shell adds rules to allow link-local addresses (both ipv4 and ipv6).
+- In whitelist mode, geoip-shell adds rules to allow DHCP-related traffic (limited to private ip ranges and to ports 67, 68 for ipv4 and 546, 547 for ipv6).
+- In whitelist mode, and as long as you configured LAN ip addresses or subnets, geoip-shell creates rules to allow traffic to or from these addresses.
+- geoip-shell combines the trusted addresses, the LAN addresses and the link-local addresses in one ipset and creates one rule for each ip family and enabled geoblocking direction.
+- If both geoblocking directions need the same set of allowed addresses, geoip-shell creates only one ipset per ip family and reuses it for both directions. Otherwise geoip-shell creates separate ipsets for each direction.
+
 2) Firewall rules structure created by geoip-shell:
     <details> <summary>Read more:</summary>
 
@@ -99,7 +111,13 @@
 
 18) If you upgrade your system from iptables to nftables, you can use this command: `geoip-shell configure -w nft`, which will remove all iptables rules and ipsets and re-create nftables rules and sets based on your existing config. If for some reason you prefer to switch from nftables to iptables, you can use this command: `geoip-shell configure -w ipt`. If you are on OpenWrt and installed via an ipk package, this does not apply: instead, you will need to uninstall geoip-shell-iptables package and install the geoip-shell package for nftables-based OpenWrt (or the other way around).
 
-19) To test before deployment:
+19) If your machine uses nftables, depending on the RAM capacity of the machine and the number and size of the ip lists, consider installing with the `-O performance` or `-O memory` option. This will create nft sets optimized either for performance or for low memory consumption. By default, when the machine has more than 2GiB of memory, the `performance` option is used, otherwise the `memory` option is used.
+
+20) If your distro (or you) have enabled automatic nftables/iptables rules persistence, you can disable the built-in cron-based persistence feature by adding the `-n` (for no-persistence) option when running the -install script.
+
+21) If for some reason you need to install or configure geoip-shell in strictly non-interactive mode, you can call the -install or the -manage script with the `-z` option which will avoid asking the user any questions. In non-interactive mode, commands will fail if required config is incomplete or invalid.
+
+22) To test before deployment:
     <details> <summary>Read more:</summary>
 
     - If you prefer to check geoip-shell rules before committing to actual geoblocking, you can install geoip-shell with the `-z` option which will prevent geoip-shell from starting automated setup when installation completes: `sh geoip-shell-install.sh -z`. Then call the -manage script with the `-N true` option (N stands for noblock) to apply all actions and create all firewall rules except the geoblocking enable rule: `geoip-shell configure -N true`.
@@ -107,7 +125,7 @@
 
     </details>
 
-20) How to get yourself locked out of your remote server and how to prevent this:
+23) How to get yourself locked out of your remote server and how to prevent this:
     <details> <summary>Read more:</summary>
 
     There are 4 scenarios where you can lock yourself out of your remote server with geoip-shell:
