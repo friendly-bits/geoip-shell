@@ -267,7 +267,7 @@ detect_init() {
 		busybox) check_openrc ;;
 		initctl|sysvinit) initsys=sysvinit; check_openrc ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
-		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt-common.sh" || exit 1
+		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt.sh" || exit 1
 	esac
 	:
 }
@@ -325,7 +325,7 @@ reg_tmp="$tmp_dir/${p_name}-components"
 cp_files_reg="$tmp_dir/${p_name}-components-replace"
 please_configure="Please run '$p_name configure' to complete the setup."
 
-unset fw_libs ipt_libs nft_libs set_posix init_check_compat_pt1 init_check_compat_pt2
+unset fw_libs ipt_libs nft_libs set_posix non_owrt init_non_owrt_pt1
 ipt_fw_libs=ipt
 nft_fw_libs=nft
 all_fw_libs="ipt nft"
@@ -335,19 +335,19 @@ all_fw_libs="ipt nft"
 	owrt_init="$o_script-init.tpl"
 	owrt_fw_include="$o_script-fw-include.tpl"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
-	owrt_comm="${script_dir}/OpenWrt/${p_name}-lib-owrt-common.sh"
+	owrt_comm="${script_dir}/OpenWrt/${p_name}-lib-owrt.sh"
 	case "$_OWRTFW" in
 		3) _fw_backend=ipt ;;
 		4) _fw_backend=nft ;;
 		all) _fw_backend=all
 	esac
-	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt-common.sh\" || die"
+	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt.sh\" || die"
 	eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
 } || {
-	check_compat="check-compat"
+	non_owrt="non-owrt"
 	set_posix="
 	if [ -z \"\$posix_o_set\" ]; then
-		if set -o | grep -q '^posix[ \t]'; then
+		if set -o | grep '^posix[ \t]' 1>/dev/null; then
 			set -o posix
 			export posix_o_set=1
 		else
@@ -357,16 +357,7 @@ all_fw_libs="ipt nft"
 		set -o posix
 	fi"
 
-	init_check_compat_pt1=". \"\${_lib}-check-compat.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	init_check_compat_pt2="_fw_backend=\"\$(detect_fw_backend)\"
-	else
-		check_fw_backend \"\$_fw_backend\"
-		fw_check_rv=\$?
-		[ ! \"\$in_uninstall\" ] && case \$fw_check_rv in
-			1) die ;;
-			2) die \"Firewall backend '\${_fw_backend}ables' not found.\" ;;
-			3) die \"Utility 'ipset' not found.\"
-		esac"
+	init_non_owrt_pt1=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
 	fw_libs="$all_fw_libs"
 }
 
@@ -376,7 +367,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in uninstall common arrays status setup detect-lan $check_compat $fw_libs; do
+for f in uninstall common arrays status setup detect-lan $non_owrt $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -411,10 +402,12 @@ mkdir -p "$inst_root_gs$lib_dir" || preinstall_failed "$FAIL create directory '$
 	if [ "$reg_file_ok" ] && [ -s "$conf_file" ] &&
 			nodie=1 getconfig _fw_backend_prev _fw_backend &&
 			[ "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
-			. "${_lib}-$_fw_backend_prev.sh" &&
-			kill_geo_pids &&
-			rm_lock &&
-			rm_all_georules &&
+			(
+				. "${_lib}-$_fw_backend_prev.sh" &&
+				kill_geo_pids &&
+				rm_lock &&
+				rm_all_georules
+			) &&
 			prev_reg_file_cont="$(cat "$reg_file")"
 	then
 		:
@@ -443,7 +436,7 @@ mkdir -p "$inst_root_gs$conf_dir"
 cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL to create file '"$tmp_dir/${p_name}.const"'."
 	export PATH="$PATH" initsys="$initsys" use_shell="$curr_sh_g"
 EOF
-add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" "600"
+add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" 600
 
 export PATH initsys use_shell="$curr_sh_g"
 
@@ -462,7 +455,7 @@ cat <<- EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create f
 
 	$set_posix
 
-	$init_check_compat_pt1
+	$init_non_owrt_pt1
 
 	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 	. "\${_lib}-common.sh" || exit 1
@@ -477,7 +470,15 @@ cat <<- EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create f
 		[ "\$in_install" ] || [ "\$first_setup" ] && return 0
 		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-		$init_check_compat_pt2
+		_fw_backend="\$(detect_fw_backend)"
+	else
+		check_fw_backend "\$_fw_backend"
+		fw_check_rv=\$?
+		[ ! "\$in_uninstall" ] && case \$fw_check_rv in
+			1) die ;;
+			2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
+			3) die "Utility 'ipset' not found."
+		esac
 	fi
 	export fwbe_ok=1 _fw_backend
 	:
