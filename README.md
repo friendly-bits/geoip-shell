@@ -166,7 +166,7 @@ _<details><summary>Example:</summary>_
 
 `geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
-_(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 9-11)_
+_(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 10-12)_
 
 **To enable or disable geoblocking** (only adds or removes the geoblocking enable rules, leaving all other firewall geoblocking rules and ip sets in place):
 
@@ -276,11 +276,3 @@ If you are using the ipdeny source then note that they are a 3rd party which has
 
 - I would appreciate a report of whether it works or doesn't work on your system (please specify which). You can use the Github Discussions tab for that.
 - If you find a bug or want to request a feature, please let me know by opening an issue.
-
-
-
-
-
-
-
-
