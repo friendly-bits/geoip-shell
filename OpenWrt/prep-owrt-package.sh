@@ -190,7 +190,7 @@ owrt_prelude="## **Prelude**
 - This document only covers scripts installed on OpenWrt systems and only options available on OpenWrt."
 
 owrt_scripts_details="### OpenWrt-specific scripts
-- geoip-shell-lib-owrt-common.sh
+- geoip-shell-lib-owrt.sh
 - geoip-shell-init
 - geoip-shell-mk-fw-include.sh
 - geoip-shell-fw-include.sh
