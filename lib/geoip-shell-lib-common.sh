@@ -77,13 +77,13 @@ is_root_ok() {
 
 extra_args() {
 	[ "$*" ] && {
-		[ "$debugmode" ] && {
-			printf %s "${yellow}Debug:${n_c} Args: "
-			newifs "$delim" ea
-			for arg in $_args; do printf %s "'$arg' "; done
-			printf '%s\n' "${n_c}"
-			oldifs ea
-		} >&2
+		# [ "$debugmode" ] && {
+		# 	printf %s "${yellow}Debug:${n_c} Args: "
+		# 	newifs "$delim" ea
+		# 	for arg in $_args; do printf %s "'$arg' "; done
+		# 	printf '%s\n' "${n_c}"
+		# 	oldifs ea
+		# } >&2
 
 		die "Invalid arguments. First unexpected argument: '$1'."
 	}
