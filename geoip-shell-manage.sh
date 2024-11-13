@@ -260,7 +260,7 @@ restore_from_config() {
 		restore_msg="Applying ${_prev}config... "
 		restore_ok_msg="Successfully applied ${_prev}config."
 	}
-	echolog "$restore_msg"
+	printf '%s\n' "$restore_msg"
 
 	rm_iplists_rules || return 1
 
@@ -286,11 +286,11 @@ restore_from_config() {
 
 		# call the -run script
 		eval "call_script -l \"$run_command\" add $run_args -o" && {
-			echolog "$restore_ok_msg"
+			printf '%s\n' "$restore_ok_msg"
 			return 0
 		}
 	else
-		echolog "No ip lists registered - skipping firewall rules creation."
+		echo "No ip lists registered - skipping firewall rules creation."
 		coherence_req=''
 		return 0
 	fi
@@ -409,9 +409,8 @@ unset conf_act rm_conf
 	main_conf_path="$conf_file"
 	# update config vars on first setup
 	[ ! -f "$conf_dir/setupdone" ] && {
-		printf %s "Updating config..."
 		sed 's/^tcp_ports=/inbound_tcp_ports=/;s/^udp_ports=/inbound_udp_ports=/;s/^geomode=/inbound_geomode=/;
-				s/^iplists=/inbound_iplists=/' "$conf_file" > "$tmp_conf_file" && OK && conf_file="$tmp_conf_file" ||
+				s/^iplists=/inbound_iplists=/' "$conf_file" > "$tmp_conf_file" && conf_file="$tmp_conf_file" ||
 					{ FAIL; rm_conf=1; }
 	}
 	# load config
