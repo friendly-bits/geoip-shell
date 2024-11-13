@@ -749,10 +749,8 @@ if [ ! "$restore_req" ] && [ ! "$reset_req" ]; then
 fi
 
 [ "$datadir_change" ] && [ -n "${datadir_prev}" ] && {
-	printf %s "Creating the data directory '$datadir'... "
 	rm -rf "$datadir"
-	mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
-	OK
+	mk_datadir
 	[ -d "$datadir_prev" ] && {
 		printf %s "Moving data to the new path... "
 		set +f
@@ -764,6 +762,7 @@ fi
 		OK
 	}
 }
+
 export datadir status_file="$datadir/status" nobackup
 
 [ "$restore_req" ] && {
@@ -808,6 +807,8 @@ case "$conf_act" in
 		backup_req=1
 		cron_req=1
 esac
+
+mk_datadir
 
 case "$conf_act" in
 	reset)
