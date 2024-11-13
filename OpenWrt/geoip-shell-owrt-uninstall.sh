@@ -22,7 +22,7 @@ init_script="/etc/init.d/${p_name}-init"
 
 [ -f "$geoinit_path" ] && . "$geoinit_path"
 
-for lib_f in owrt-common uninstall; do
+for lib_f in owrt uninstall; do
 	[ -f "$_lib-$lib_f.sh" ] && . "$_lib-$lib_f.sh"
 done
 
