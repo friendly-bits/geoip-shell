@@ -321,7 +321,7 @@ apply_rules() {
 		done
 
 		for family in ipv4 ipv6; do
-			for ipset_type in allow dhcp; do
+			for ipset_type in allow allow_in allow_out dhcp; do
 				ipset_name="${ipset_type}_${family#ipv}"
 				case "$curr_ipsets" in *"$ipset_name"*) add2list old_ipsets "$ipset_name"; esac
 			done
