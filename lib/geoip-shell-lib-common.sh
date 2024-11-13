@@ -374,6 +374,14 @@ get_matching_line() {
 	return $_rv
 }
 
+mk_datadir() {
+	[ ! "$datadir" ] && die "\$datadir variable is unset."
+	[ -d "$datadir" ] && return 0
+	printf %s "Creating the data directory '$datadir'... "
+	mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
+	OK
+}
+
 # 1 - var name for output
 # 2 - optional key (otherwise uses var name as key)
 # 3 - optional path to config file
