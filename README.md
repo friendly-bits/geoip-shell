@@ -13,6 +13,7 @@ If you find this project useful, please take a second to give it a star on Githu
 - [Main Features](#main-features)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Outbound geoblocking](#outbound-geoblocking)
 - [Pre-requisites](#pre-requisites)
 - [Notes](#notes)
 - [In detail](#in-detail)
