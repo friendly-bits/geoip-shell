@@ -138,19 +138,23 @@ These options apply to geoblocking in both directions.
 
 `-O <memory|performance>`: Specify optimization policy for nftables sets. By default optimizes for low memory consumption if system RAM is less than 2GiB, otherwise optimizes for performance. This option doesn't work with iptables.
 
-`-o <true|false>` : No backup. If set to 'true', geoip-shell will not create a backup of ip lists and firewall rules after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
+`-o <true|false>` : No backup. If set to 'true', geoip-shell will not create backup of ip lists after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
 
 `-n <true|false>`: No-persistence. When set to `true`, geoip-shell will remove the persistence cron job and will avoid recreating it when processing cron jobs in the future. On OpenWrt, this will disable the init script and remove the firewall include. Default is `false`.
 
-`-N <true|false>`: No-block. When set to `true`, geoip-shell will remove the "geoblocking enable" rules. All other geoip-shell firewall rules will remain in place but traffic will not passing through them. The effect is the same as for the command `geoip-shell off`, except the `-N` option may be useful in combination with other options which you may want to check the resulting rules of without starting to pass the traffic through those rules.
+`-N <true|false>`: No-block. When set to `true`, geoip-shell will remove the "geoblocking enable" rules. All other geoip-shell firewall rules will remain in place but traffic will not be passing through them. The effect is the same as for the command `geoip-shell off`. The `-N` option may be useful in combination with other options when you want to check the resulting rules without starting to pass traffic through those rules.
 
-`-P <true|false>`: Force cron-based persistence on Busybox-based systems. Generally in some cases Busybox crontab supports the `@reboot` string which is used by geoip-shell to implement persistence. In other cases Busybox crontab doesn't support that string. geoip-shell has no way to tell whether the specific Busybox on your device does or does not support it. For this reason by default geoip-shell refuses to create the persistence cron job when Busybox crontab is detected. This option allows you to override that behavior, so the persistence cron job will be created anyway. You will want to check that it works by restarting your machine, waiting for a minute and running `geoip-shell status`.
+`-P <true|false>`: Force cron-based persistence on Busybox-based systems. Depending on compile-time options of Busybox, in some cases Busybox crontab supports the `@reboot` string which is used by geoip-shell to implement persistence and in other cases it doesn't. geoip-shell has no way to tell whether the specific Busybox on your device does or does not support it. For this reason by default geoip-shell refuses to create the persistence cron job when Busybox crontab is detected. This option allows you to override this behavior, so the persistence cron job will be created anyway. You will want to check that it works by restarting your machine, waiting for a minute and running `geoip-shell status`.
 
 ### Other options
 `-v`: Verbose status output
+
 `-z`: Non-interactive setup. Will not ask any questions. Will fail if required options are not specified or invalid.
+
 `-d`: Debug
+
 `-V`: Version
+
 `-h`: Prints 'usage' info
 
 
@@ -166,17 +170,19 @@ These options apply to geoblocking in both directions.
 - The -install script does not install itself into the system
 
 Options:
-- `-z`: Force non-interactive setup
-- `-d`: Print debug messages
+
+`-z`: Force non-interactive setup
+
+`-d`: Print debug messages
 
 **geoip-shell-uninstall.sh**
-- Removes geoip firewall rules, geoip-shell cron jobs, scripts' data and config, deletes the scripts from /usr/bin and /usr/lib/geoip-shell, and on OpenWrt removes the init script
-- If prior installation is found, calls the -uninstall script from the prior installation
+- Removes geoblocking firewall rules, geoip-shell cron jobs, scripts' data and config, deletes the scripts from /usr/bin and /usr/lib/geoip-shell, and on OpenWrt removes the init script and the firewall include
+- If called from the distribution directory (e.g. by the geoip-shell installer), checks whether prior installation exists, and if so then calls the -uninstall script from the prior installation
 
-Advanced options:
-- `-r`: prepares the system for re-installation of geoip-shell: does the same as normal uninstall but keeps the data from previous installation
+Options:
+- `-r`: prepares the system for re-installation of geoip-shell: does the same as normal uninstall but keeps the data and the config from previous installation
 
-**geoip-shell-run.sh**: Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action. Requested actions are executed depending on the config and the command line options. Writes to system log when starting and on action completion (or if any errors encountered). If persistence or autoupdates are enabled, this script is called by the cron jobs (or on OpenWrt, by the firewall include script). If a non-fatal error is encountered during an automatic update function, the script enters sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action (which runs after system reboot) to impelement persistnece, such as missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the ip lists.
+**geoip-shell-run.sh**: Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action. Requested actions are executed depending on the config and the command line options. Writes to system log when starting and on action completion (or if any errors encountered). If persistence or automatic updates are enabled, this script is called by the cron jobs (or on OpenWrt, by the firewall include script). If a non-fatal error is encountered, the script has the facility to enter sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action (which runs after system reboot to impelement persistnece), such as missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the ip lists.
 
 Actions: `add`, `remove`, `update`, `restore`.
 
@@ -191,7 +197,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 `geoip-shell-run.sh restore` : Restore previously downloaded lists from backup (skip fetching). Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence.
 
-`geoip-shell-run.sh <restore|update> -a` : Adding the `-a` option when calling the `-run` script with the `restore` and `update` commands enables the temporary daemon-like behavior where the script will try to re-fetch and re-apply ip lists if initial attempt fails.
+`geoip-shell-run.sh <restore|update> -a` : Adding the `-a` option when calling the `-run` script with the `restore` and `update` actions enables the temporary daemon-like behavior where the script will try to re-fetch and re-apply ip lists if initial attempt fails.
 
 
 **geoip-shell-fetch.sh**
@@ -201,9 +207,9 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 Options:
 
-`-l <"list_ids">`  : ip list id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
+`-l <"list_ids">` : ip list id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
 
-`-p <path>`        : Path to directory where downloaded and compiled subnet lists will be stored.
+`-p <path>` : Path to directory where downloaded and compiled ip lists will be stored.
 
 `-o <output_file>` : Path to output file where fetched list will be stored.
 
@@ -218,14 +224,14 @@ Extra options:
 `-f` : Force using fetched lists even if list timestamp didn't change compared to existing list.
 
 
-**geoip-shell-apply.sh**:  directly interfaces with the firewall. Creates or removes ip sets and firewall rules for specified list id's. Sources the lib-ipt or lib-nft library script.
+**geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes ip sets and firewall rules for specified list id's. Sources the lib-ipt or lib-nft library script.
 
 Actions: `add`, `remove`, `update`, `on`, `off`
 
 The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the `add|remove` actions.
 
 `geoip-shell-apply.sh add -D <inbound|outbound> -l <"list_ids">` :
-- Loads ip list files for specified list id's into ip sets and applies firewall rules required for geoip blocking.
+- Loads ip list files for specified list id's into ip sets and applies firewall rules required for geoblocking.
 
 List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
 
@@ -236,7 +242,7 @@ Calling the `-apply` script with the `-s` option will make it skip creating ip s
 
 **geoip-shell-cronsetup.sh** manages cron-related logic and actions. Called by the -manage script. Cron jobs are created based on the settings stored in the config file. When called with the `-x <expression>` option, validates cron schedule specified by the user.
 
-**geoip-shell-backup.sh**: Creates backup of current geoip-shell ip sets and current geoip-shell config, or restores them from backup. By default (if you didn't configure geoip-shell with the '-o' option), backup will be created after every change to ip sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order: `bzip2`, `xz`, `gzip`, or `cat` as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-ipt or the lib-nft library script.
+**geoip-shell-backup.sh**: Creates backup of current geoip-shell ip sets and current geoip-shell config, or restores them from backup. By default (except on OpenWrt or if you configured geoip-shell with the '-o' option), backup will be created after every change to ip sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order: `bzip2`, `xz`, `gzip`, or `cat` as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-ipt or the lib-nft library script.
 
 `geoip-shell-backup.sh create-backup` : Creates backup of geoip-shell ip sets and config.
 
