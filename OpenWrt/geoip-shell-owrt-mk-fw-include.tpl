@@ -12,7 +12,7 @@
 # the -install script adds values for the required variables
 
 me="${0##*/}"
-. "${_lib}-owrt-common.sh" || exit 1
+. "${_lib}-owrt.sh" || exit 1
 
 die() {
 	logger -s -t "$me" -p user.err "$1"
