@@ -76,7 +76,16 @@ rm -f "${files_dir}${install_dir}/${p_name}-uninstall.sh"
 rm -f "${files_dir}${conf_dir}/${p_name}.conf"
 
 # remove debug stuff
-sed -Ei 's/(\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&[[:blank:]]*)*debugprint.*"(;){0,1}//g;s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;s/ debugmode_arg=1//g' \
+sed -Ei '/\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&/d;
+	/^[[:blank:]]*debugprint[[:blank:]]+.*"[[:blank:]]*[;]{0,1}[[:blank:]]*$/d;
+	/^[[:blank:]]*debugprint[[:blank:]]+.*;[[:blank:]]*[;]{0,1}[[:blank:]]*$/d;
+	/^[[:blank:]]*debugprint[[:blank:]]+.*$/d;
+	s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;
+	s/[[:blank:]]*debugprint[[:blank:]]+.*"[[:blank:]]*[;]{0,1}//g;
+	s/[[:blank:]]*debugprint[[:blank:]]+.*;[[:blank:]]*[;]{0,1}//g;
+	s/[[:blank:]]*debugprint[[:blank:]]+.*$//g;
+	s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;
+	s/ debugmode_arg=1//g;' \
 	$(find -- "$build_dir"/* -print | grep '.sh$')
 sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${lib_dir}/$p_name-lib-common.sh" || exit 1
 
@@ -132,18 +141,18 @@ sed 's/\/OpenWrt\/README.md/OpenWrt-README.md/g' "$src_dir/README.md" | sed 's/\
 sed -n -e /"## \*\*Installation\*\*"/\{:1 -e n\;/"That's\ it"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
 sed 's/Post-installation, provides/Provides/;
 	s/ Except on OpenWrt, persistence.*//;
-	s/\/Documentation\///g' |
-sed -n '/^## \*\*P\.s\.\*\*/q;
-	/- Installation is easy.*/n;
-	/- Comes with an uninstall script.*/n;
-	/.*once the installation completes.*/n;
-	/.*require root privileges.*/n;
-	/\*\*To uninstall:\*\*.*/n;
-	/\*\*To uninstall:\*\*.*/n;
-	/.*shell is incompatible.*/n;
-	/.*Default source for ip lists is RIPE.*/n;
-	/.*check-ip-in-source.sh.*/n;
-	/.*if a pre-requisite is missing.*/n;
+	s/\/Documentation\///g;
+	s/[[:blank:]]`geoip-shell-uninstall.sh`//;' |
+sed -n '/\*\*P\.s\./q;
+	/please take a second to give it a star/n;
+	/- Installation and initial setup are easy/n;
+	/- Comes with an uninstall script/n;
+	/once the installation completes/n;
+	/require root privileges/n;
+	/shell is incompatible/n;
+	/Default source for ip lists is RIPE/n;
+	/check-ip-in-source.sh/n;
+	/if a pre-requisite is missing/n;
 	/- \[Installation\](#installation)/n;
 	/- \[P\.s\.\](#ps)/n;
 	p' |
@@ -152,7 +161,7 @@ grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > "$build_dir/README.md"
 # Prepare SETUP.md
 cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g;
 	s/`sh geoip-shell-install.sh -h`, or after installation //' | \
-	sed -n -e /"### \*\*'Your shell 'A' is supported"/\{:1 -e n\;/"Whether geoip-shell will work correctly"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p > \
+	sed -n -e /"### \*\*'Your shell 'A' is supported"/\{:1 -e n\;/"Generally the simpler shells"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p > \
 	"$build_dir/SETUP.md"
 
 # Prepare OpenWrt-README.md
@@ -191,17 +200,14 @@ For more information about integration with OpenWrt, read [OpenWrt-README.md](Op
 "
 
 cat "$src_dir/Documentation/DETAILS.md" | \
-sed -n '/.*lib-check-compat.*/n;p' | \
 sed -n '/.*-w <ipt|nft>.*/n;p' | \
 sed -n -e /"### OpenWrt-specific scripts"/\{p\;:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n -e /"### Optional script"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
-sed -n -e /"^\*\*geoip-shell-install.sh\*\*"/\{:1 -e n\;/"^\*\*geoip-shell-manage.sh\*\*"/\{:2 -e p\; -e n\;b2 -e \}\;b1 -e \}\;p | \
+sed -n '/^\*\*geoip-shell-install.sh\*\*/{:1 n;/^\*\*geoip-shell-run.sh\*\*/{:2 p;n;b2;};b1;};p' | \
 sed -n '/.*geoip-shell-install.*/n;/.*geoip-shell-uninstall.*/n;p' | \
 awk '{sub(/### OpenWrt-specific scripts/,s); sub(/## \*\*Prelude\*\*/,p)}1' s="$owrt_scripts_details" p="$owrt_prelude" | \
-sed -n -e /"## \*\*Optional script\*\*"/q\;p | \
 sed 's/\/Documentation\///g;
-	s/Scripts intended as user interface .*//;
-	s/-install and -manage scripts/-manage script/' \
+	s/Scripts intended as user interface .*//;' \
 	> "$build_dir/DETAILS.md"
 
 printf '\n%s\n%s\n' "*** The new build is available here: ***" "$build_dir"
