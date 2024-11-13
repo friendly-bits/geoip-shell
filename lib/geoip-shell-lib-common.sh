@@ -231,7 +231,9 @@ call_script() {
 	[ ! "$script_to_call" ] && { echolog -err "call_script: received empty string."; return 1 ; }
 
 	[ "$use_lock" ] && rm_lock
-	$use_shell "$script_to_call" "$@"; call_rv=$?; unset main_config
+	$use_shell "$script_to_call" "$@"
+	call_rv=$?
+	unset main_config
 	debugexitmsg
 	[ "$use_lock" ] && mk_lock -f
 	use_lock=
@@ -250,10 +252,6 @@ check_libs() {
 	for lib; do [ ! -s "$lib" ] && missing_lib="${missing_libs}'$lib', "; done
 	[ "$missing_libs" ] && { echolog -err "Missing libraries: ${missing_libs%, }"; return 1; }
 	:
-}
-
-get_json_lines() {
-	sed -n -e /"$1"/\{:1 -e n\;/"$2"/q\;p\;b1 -e \}
 }
 
 # outputs args to stdout and writes them to syslog
@@ -331,7 +329,7 @@ die() {
 	exit "$die_rv"
 }
 
-# converts unsigned integer to either [x|xK|xM|xT|xQ] or [xB|xKiB|xMiB|xTiB|xPiB], depending on $2
+# converts unsigned integer to either [x|xK|xM|xB|xT] or [xB|xKiB|xMiB|xGiB|xTiB], depending on $2
 # if result is not an integer, outputs up to 2 digits after decimal point
 # 1 - int
 # 2 - (optional) "bytes"
@@ -692,30 +690,33 @@ subtract_a_from_b() {
 	return $rv_su
 }
 
+# 1 - input delimiter
+# 2 - output delimiter
+# 3 - var name for output
+# input via $4, if not specified then uses current value of $3
+conv_delim() {
+    out_del="$2"
+    var_cd="$3"
+    [ $# -ge 4 ] && _inp="$4" || eval "_inp=\"\$$3\""
+    newifs "$1" cd
+    set -- $_inp
+    IFS="$out_del"
+    eval "$var_cd"='$*'
+    oldifs cd
+}
+
 # converts whitespace-separated list to newline-separated list
 # 1 - var name for output
 # input via $2, if not specified then uses current value of $1
 sp2nl() {
-	var_stn="$1"
-	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
-	newifs "$trim_IFS" stn
-	set -- $_inp
-	IFS="$_nl"
-	eval "$var_stn"='$*'
-	oldifs stn
+	conv_delim ' ' "$_nl" "$@"
 }
 
 # converts newline-separated list to whitespace-separated list
 # 1 - var name for output
 # input via $2, if not specified then uses current value of $1
 nl2sp() {
-	var_nts="$1"
-	[ $# = 2 ] && _inp="$2" || eval "_inp=\"\$$1\""
-	newifs "$_nl" nts
-	set -- $_inp
-	IFS=' '
-	eval "$var_nts"='$*'
-	oldifs nts
+	conv_delim "$_nl" ' ' "$@"
 }
 
 # trims extra whitespaces, discards empty args
