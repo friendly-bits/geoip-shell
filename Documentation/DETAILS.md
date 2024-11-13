@@ -51,7 +51,7 @@ The lib-detect-lan script is only used under specific conditions:
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation (when using the install script), or at the time of OpenWrt package preparation.
-- geoip-shell-lib-owrt-common.sh
+- geoip-shell-lib-owrt.sh
 - geoip-shell-owrt-init.tpl
 - geoip-shell-owrt-mk-fw-include.tpl
 - geoip-shell-owrt-fw-include.tpl
