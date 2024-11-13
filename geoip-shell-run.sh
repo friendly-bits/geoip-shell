@@ -213,6 +213,8 @@ unset echolists ok_lists missing_lists lists_fetch fetched_lists
 [ ! "$daemon_mode" ] && max_attempts=1
 case "$action_run" in add|update) lists_fetch="$all_apply_lists_req" ;; *) max_attempts=1; esac
 
+mk_datadir
+
 attempt=0 secs=5
 if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 	while :; do
