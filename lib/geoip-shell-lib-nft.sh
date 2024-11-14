@@ -292,7 +292,7 @@ apply_rules() {
 	unset old_ipsets new_ipsets
 
 	for direction in inbound outbound; do
-		unset "new_ipsets_$direction"
+		unset "new_iplists_$direction"
 		eval "list_ids=\"\$${direction}_list_ids\"
 			geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && {
@@ -300,7 +300,7 @@ apply_rules() {
 			continue
 		}
 
-		# generate lists of $new_ipsets and $old_ipsets
+		# generate lists of $new_ipsets, $new_ipsets_*, $new_iplists_*, $old_ipsets, $old_ipset_rules_*
 		for list_id in $list_ids; do
 			case "$list_id" in *_*) ;; *) die "Invalid iplist id '$list_id'."; esac
 			family="${list_id#*_}"
@@ -308,7 +308,7 @@ apply_rules() {
 			[ ! "$list_date" ] && die "$FAIL read value for 'prev_date_${list_id}' from file '$status_file'."
 			list_id_short="${list_id%%_*}_${list_id##*ipv}"
 			ipset="${list_id_short}_${list_date}"
-			case "$action" in add|update) add2list "new_ipsets_$direction" "$ipset"; esac
+			case "$action" in add|update) add2list "new_iplists_$direction" "$ipset"; esac
 			case "$curr_ipsets" in
 				*"$ipset"*)
 					case "$action" in add|update) printf '%s\n' "Ip set for '$list_id' is already up-to-date."; continue; esac
@@ -317,7 +317,7 @@ apply_rules() {
 					get_matching_line "$curr_ipsets" "" "$list_id_short" "*" old_ipset
 					add2list old_ipsets "$old_ipset"
 			esac
-			case "$action" in add|update) add2list new_ipsets "$ipset"; esac
+			case "$action" in add) add2list new_ipsets "$ipset"; esac
 		done
 
 		for family in ipv4 ipv6; do
@@ -508,10 +508,10 @@ apply_rules() {
 			[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
 				printf '%s\n' "insert rule $geopath $iface_keyword lo accept comment ${geotag_aux}-loopback"
 
-			## add iplist-specific rules
-			eval "new_ipsets_direction=\"\${new_ipsets_${direction}}\""
-			debugprint "$direction new ipsets: '$new_ipsets_direction'"
-			for new_ipset in $new_ipsets_direction; do
+			## replace iplist-specific rules
+			eval "new_iplists_direction=\"\${new_iplists_${direction}}\""
+			debugprint "$direction new ipset rules: '$new_iplists_direction'"
+			for new_ipset in $new_iplists_direction; do
 				get_ipset_id "$new_ipset" || exit 1
 				get_nft_family
 				rule_ipset="$opt_ifaces$nft_family $addr_type @$new_ipset"
