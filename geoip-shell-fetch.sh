@@ -271,7 +271,7 @@ check_updates() {
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
 			msg1="Newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
-			msg2="Either your clock is incorrect, or '$dl_src_cap' is not updating the list for '$list_id'."
+			msg2="Either your clock is incorrect, or $dl_src_cap is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
 			echolog -warn "$msg1" "$msg2" "$msg3"
 		fi
@@ -347,7 +347,7 @@ process_ccode() {
 				rv=$?
 				echolog -err "${fetch_cmd%% *} returned error code $rv for command:" "$fetch_cmd \"${http}://$dl_url\""
 				[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
-				list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server."; continue;
+				list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server.$_nl"; continue;
 			}
 			printf '%s\n\n' "Fetch successful."
 		fi
@@ -422,7 +422,7 @@ validate_list() {
 check_subnets_cnt_drop() {
 	list_id="$1"
 	if [ "$valid_s_cnt" = 0 ]; then
-		echolog -err "$WARN validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?" >&2
+		echolog -warn "validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?${_nl}"
 		return 1
 	fi
 
@@ -431,7 +431,7 @@ check_subnets_cnt_drop() {
 		# compare fetched subnets count to old subnets count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
 		case $((s_percents < 90)) in
-			1) echolog -err "$WARN validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
+			1) echolog -warn "validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
 				"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
 				"Not updating the list."
 				return 1 ;;
