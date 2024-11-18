@@ -154,8 +154,9 @@ for direction in inbound outbound; do
 	eval "active_lists=\"\$${direction}_active_lists\""
 	unset active_ccodes active_families
 	for list_id in $active_lists; do
+		case "$list_id" in allow_*|dhcp*) continue; esac
 		active_ccodes="$active_ccodes${list_id%_*} "
-		active_families="$active_families${list_id#*_} "
+		active_families="$active_families${list_id##*_} "
 	done
 	san_str active_ccodes &&
 	san_str active_families || die
@@ -185,14 +186,12 @@ for direction in inbound outbound; do
 		eval "allow_$f=\"$allow_ips\""
 	done
 
-	if [ "$allow_ipv4$allow_ipv6" ] || { [ "$geomode" = whitelist ] && [ "$ifaces" = all ]; }; then
-		printf '\n%s\n' "  Allowed ip's:"
-		for f in $families; do
-			eval "allow_ips=\"\${allow_$f}\""
-			[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
-			[ "$allow_ips" ] || { [ "$geomode" = whitelist ] && [ "$ifaces" = all ]; } && printf '%s\n' "  $f: $allow_ips"
-		done
-	fi
+	printf '\n%s\n' "  Allowed ip's:"
+	for f in $families; do
+		eval "allow_ips=\"\${allow_$f}\""
+		[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
+		[ "$allow_ips" ] || { [ "$geomode" = whitelist ] && [ "$ifaces" = all ]; } && printf '%s\n' "  $f: $allow_ips"
+	done
 
 	report_proto "$direction"
 	printf '\n'
@@ -212,9 +211,8 @@ for direction in inbound outbound; do
 					printf %s "  ${purple}${ccode}${n_c}: "
 					for family in $families; do
 						list_id="${ccode}_${family}"
-						f="$family"
+						f="${family#ipv}"
 						el_cnt=0
-						[ "$_fw_backend" = nft ] && f="${family#ipv}"
 						if eval "[ -n \"\${${list_id}_el_cnt}\" ]"; then
 							eval "el_cnt=\"\${${list_id}_el_cnt}\""
 						else
