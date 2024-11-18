@@ -32,7 +32,7 @@ debugentermsg() {
 	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
 	{
 		toupper me_short_cap "$me_short"
-		printf %s "${yellow}Started *$me_short_cap* with args: "
+		printf %s "${yellow}Started *$blue$me_short_cap$yellow* with args: "
 		newifs "$delim" dbn
 		for arg in $_args; do printf %s "'$arg' "; done
 		printf '%s\n' "${n_c}"
@@ -43,9 +43,14 @@ debugentermsg() {
 debugexitmsg() {
 	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
 	toupper me_short_cap "$me_short"
-	printf '%s\n' "${yellow}Back to *$me_short_cap*...${n_c}" >&2
+	printf '%s\n' "${yellow}Back to *$blue$me_short_cap$yellow*...${n_c}" >&2
 }
 #@
+
+printf_s() {
+	printf %s "$1"
+	case "$debugmode" in '') ;; *) echo >&2; esac
+}
 
 get_md5() {
 	printf %s "$1" | md5sum | cut -d' ' -f1
@@ -115,12 +120,12 @@ report_lists() {
 		get_active_iplists verified_lists "$direction"
 		nl2sp verified_lists
 		if [ -n "$verified_lists" ]; then
-			verified_lists="${blue}$verified_lists${n_c}"
+			verified_lists="${blue}$(printf %s "$verified_lists" | sed "s/allow_[^[:blank:]]*//g;s/dhcp_[^[:blank:]]*//g;s/^${blanks}//;s/${blanks}$//;s/${blanks}/ /g;")${n_c}"
 		else
 			verified_lists="${red}None${n_c}"
 		fi
 		[ ! "$lists_reported" ] && printf '\n'
-		printf '%s\n' "Final ip lists in $direction $geomode: '${blue}$verified_lists${n_c}'."
+		printf '%s\n' "Final ip lists in $direction $geomode: '$verified_lists'."
 		lists_reported=1
 	done
 }
@@ -743,7 +748,8 @@ is_whitelist_present() {
 set_dir_vars() {
 	unset geomode geochain base_geochain iface_chain dir_short
 	case "$1" in
-		inbound|outbound) ;;
+		inbound) dir_cap=IN ;;
+		outbound) dir_cap=OUT ;;
 		'') echolog -err "set_dir_vars: direction not specified."; return 1 ;;
 		*) echolog -err "set_dir_vars: invalid direction '$1'."; return 1
 	esac
@@ -769,6 +775,26 @@ check_fw_backend() {
 	esac
 }
 
+ignore_allow() {
+	inc_ia=0
+	var1_ia="$1"
+	eval "list1_ia=\"\${$var1_ia}\""
+	eval "list2_ia=\"\${$2}\""
+	res_ia="$list1_ia"
+	for entry_ia in $list1_ia; do
+		for f_ia in $families; do
+			case "$entry_ia" in allow*"${f_ia}")
+				case "$list2_ia" in *allow_"${f_ia}"*|*allow_"${3%bound}_${f_ia}"*)
+					subtract_a_from_b "$entry_ia" "$res_ia" res_ia; continue 2
+				esac ;;
+			esac
+		done
+		inc_ia=1
+	done
+	eval "$var1_ia=\"$res_ia\""
+	return $inc_ia
+}
+
 # checks current ipsets and firewall rules for geoip-shell
 # returns a whitespace-delimited list of active ip lists
 # (optional: 1 - '-f' to force re-read of the table - nft-specific)
@@ -779,14 +805,21 @@ get_active_iplists() {
 	[ "$1" = "-f" ] && { force_read="-f"; shift; }
 	[ "$2" ] || die "get_active_iplists: direction not specified"
 	gai_out_var="$1" direction="$2"
-	eval "geomode=\"\$${direction}_geomode\" iplists=\"\$${direction}_iplists\""
-	case "$geomode" in
-		whitelist) ipt_target=ACCEPT nft_verdict=accept ;;
-		blacklist) ipt_target=DROP nft_verdict=drop ;;
-		*) die "get_active_iplists: unexpected geoblocking mode '$geomode'."
-	esac
+	eval "geomode=\"\$${direction}_geomode\" iplists_gai=\"\$${direction}_iplists\""
+	for family in $families; do
+		case "$geomode" in
+			whitelist)
+				ipt_target=ACCEPT nft_verdict=accept
+				iplists_gai="${iplists_gai} allow_$family"
+				[ "$family" = ipv4 ] && iplists_gai="${iplists_gai} dhcp_ipv4" ;;
+			blacklist)
+				ipt_target=DROP nft_verdict=drop
+				eval "[ \"\${trusted_$family}\" ]" && iplists_gai="${iplists_gai} allow_$family" ;;
+			*) die "get_active_iplists: unexpected geoblocking mode '$geomode'."
+		esac
+	done
 
-	ipset_iplists="$(get_ipset_iplists)"
+	ipset_iplists="$(get_ipsets | sed "s/${geotag}_//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/_4/_ipv4/;s/_6/_ipv6/;p")"
 	fwrules_iplists="$(get_fwrules_iplists "$direction")"
 
 	# debugprint "$2 ipset_iplists: '$ipset_iplists', fwrules_iplists: '$fwrules_iplists'"
@@ -795,10 +828,14 @@ get_active_iplists() {
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
 	inc=0
-	subtract_a_from_b "$ipset_iplists_sp" "$fwrules_iplists_sp" missing_ipsets || inc=1
+	subtract_a_from_b "$ipset_iplists_sp" "$iplists_gai" missing_ipsets ||
+		ignore_allow missing_ipsets ipset_iplists_sp "$direction" || inc=1
 
-	subtract_a_from_b "$iplists" "$fwrules_iplists_sp" unexpected_lists || inc=1
-	subtract_a_from_b "$fwrules_iplists_sp" "$iplists" missing_lists || inc=1
+	subtract_a_from_b "$iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
+		ignore_allow unexpected_lists iplists_gai "$direction" || inc=1
+
+	subtract_a_from_b "$fwrules_iplists_sp" "$iplists_gai" missing_lists ||
+		ignore_allow missing_lists fwrules_iplists_sp "$direction" || inc=1
 
 	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
 	nl2sp "$gai_out_var" "$active_iplists_nl"
@@ -817,31 +854,41 @@ check_lists_coherence() {
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 
-		# check for a valid list type
-		case "$geomode" in whitelist|blacklist) ;; *) r_no_l; echolog -err "Unexpected geoblocking mode '$geomode'!"; return 1; esac
+		getconfig exp_iplists "${direction}_iplists"
+		for family in $families; do
+			case "$geomode" in
+				whitelist)
+					exp_iplists="${exp_iplists} allow_$family"
+					[ "$family" = ipv4 ] && exp_iplists="${exp_iplists} dhcp_ipv4" ;;
+				blacklist) eval "[ \"\${trusted_$family}\" ]" && exp_iplists="${exp_iplists} allow_$family" ;;
+				*) r_no_l; echolog -err "Unexpected geoblocking mode '$geomode'!"; return 1
+			esac
+		done
 
-		getconfig iplists "${direction}_iplists"
+		eval "${direction}_exp_iplists=\"$exp_iplists\""
+
 		get_active_iplists -f "${direction}_active_lists" "$direction"; get_a_i_rv=$?
-		subtract_a_from_b "$inbound_iplists $outbound_iplists" "$ipset_iplists_sp" unexpected_ipsets || get_a_i_rv=1
 		[ "$get_a_i_rv" != 0 ] &&
 		{
 			iplists_incoherent=1
 			eval "active_lists=\"\$${direction}_active_lists\""
 			report_incoherence "$direction"
-			debugprint "Config ip lists: '$iplists'" "Firewall ip lists: '$active_lists'" "ipsets: $ipset_iplists_sp"
+			debugprint "$direction $geomode expected ip lists: '$exp_iplists'"
+			debugprint "Firewall ip lists: '$active_lists'"
+			debugprint "ipsets: $ipset_iplists_sp"
 		}
 	done
+
+	all_exp_iplists="$inbound_exp_iplists $outbound_exp_iplists"
+	subtract_a_from_b "$all_exp_iplists" "$ipset_iplists_sp" unexpected_ipsets ||
+		ignore_allow unexpected_ipsets all_exp_iplists "$direction"
+
+	[ "$unexpected_ipsets" ] && { echolog -warn "Unexpected ipsets detected: '$unexpected_ipsets'."; iplists_incoherent=1; }
+
 	r_no_l
 	[ "$iplists_incoherent" ] && return 1
 	debugprint "Successfully verified ip lists coherence."
 	:
-}
-
-report_excluded_lists() {
-	fast_el_cnt "$1" ' ' excl_cnt
-	excl_list="list" excl_verb="is"
-	[ "$excl_cnt" != 1 ] && excl_list="lists" excl_verb="are"
-	echolog -nolog "Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
 }
 
 # 1 - direction (inbound|outbound)
@@ -852,6 +899,13 @@ report_incoherence() {
 		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri ip lists in the firewall: '\$${opt_ri}_lists'\""
 		eval "[ \"\$${opt_ri}_ipsets\" ] && echolog -warn \"$opt_ri ip sets in the firewall: '\$${opt_ri}_ipsets'\""
 	done
+}
+
+report_excluded_lists() {
+	fast_el_cnt "$1" ' ' excl_cnt
+	excl_list="list" excl_verb="is"
+	[ "$excl_cnt" != 1 ] && excl_list="lists" excl_verb="are"
+	echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
 }
 
 # validates country code in $1 against cca2.list
@@ -954,7 +1008,7 @@ get_counters() {
 		ipt) get_counters_ipt ;;
 		nft) get_counters_nft
 	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings && counters_set=1
-	debugprint "counter strings:${_nl}$counter_strings"
+	# debugprint "counter strings:${_nl}$counter_strings"
 	:
 }
 
