@@ -423,7 +423,7 @@ set_defaults() {
 	: "${outbound_udp_ports:=skip}"
 	: "${nft_perf:=$nft_perf_def}"
 	: "${reboot_sleep:=30}"
-	: "${max_attempts:=30}"
+	: "${max_attempts:=5}"
 	: "${noblock:=$noblock_def}"
 	: "${no_persist:=$no_persist_def}"
 	: "${force_cron_persist:=$force_cron_persist_def}"
