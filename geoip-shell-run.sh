@@ -19,18 +19,17 @@ set -- $_args; oldifs
 usage() {
 cat <<EOF
 
-Usage: $me [action] [-D $direction_syn -l <"list_ids">] [-o] [-d] [-V] [-h]
+Usage: $me [action] [-l <"list_ids">] [-o] [-d] [-V] [-h]
 
 Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action.
 
 Actions:
-  add|remove :  Add or remove ip lists to/from geoip firewall rules, for specified direction(s)
-  update     :  Fetch updated ip lists and activate them via the -apply script.
-  restore    :  Restore previously downloaded lists from backup (falls back to fetch if fails).
+  add     :  Add ip lists to firewall rules, for specified direction(s)
+  update  :  Fetch updated ip lists and activate them via the -apply script.
+  restore :  Restore previously downloaded lists from backup (falls back to fetch if fails).
 
 Options:
-  -D $direction_syn : $direction_usage
-  -l <"list_ids">       : $list_ids_usage
+  -l <"list_ids"> :  $list_ids_usage
 
   -o : No backup: don't create backup of ip lists and firewall rules after the action.
   -f : Force action
@@ -44,42 +43,22 @@ EOF
 
 #### PARSE ARGUMENTS
 
-parse_iplist_args() {
-	case "$action_run" in add|remove) ;; *) usage; die "Option '-l' can only be used with the 'add' and 'remove' actions."; esac
-	case "$direction" in
-		inbound|outbound)
-			eval "[ -n \"\$${direction}_lists_arg\" ]" && die "Option '-l' can not be used twice for direction '$direction'."
-			eval "${direction}_lists_arg"='$OPTARG' ;;
-		*) usage; die "Specify direction (inbound|outbound) to use with the '-l' option."
-	esac
-	req_direc_opt=
-}
-
 daemon_mode=
 
 # check for valid action
 tolower action_run "$1"
 case "$action_run" in
-	add|remove|update|restore) shift ;;
+	add|update|restore) shift ;;
 	*) action="$1"; unknownact
 esac
 
 # process the rest of the args
-req_direc_opt=
-while getopts ":D:l:faodVh" opt; do
+while getopts ":l:faodVh" opt; do
 	case $opt in
-		D) case "$OPTARG" in
-				inbound|outbound)
-					case "$action_run" in add|remove) ;; *)
-						usage
-						die "Action is '$action_run', but direction-dependent options require the action to be 'add|remove'."
-					esac
-					[ "$req_direc_opt" ] && { usage; die "Provide valid options for the '$direction' direction."; }
-					direction="$OPTARG"
-					req_direc_opt=1 ;;
-				*) usage; die "Invalid string '$OPTARG'. Use 'inbound|outbound' with the '-D' option"
-			esac ;;
-		l) parse_iplist_args ;;
+		l)
+			[ "$action_run" = add ] || { usage; die "Option '-l' can only be used with the 'add' action."; }
+			[ "$lists_arg" ] && die "Option '-l' can not be used twice."
+			lists_arg="$OPTARG" ;;
 		f) force_run="-f" ;;
 		a) export daemon_mode=1 ;;
 		o) nobackup_arg=true ;;
@@ -90,8 +69,6 @@ while getopts ":D:l:faodVh" opt; do
 	esac
 done
 shift $((OPTIND-1))
-
-[ "$req_direc_opt" ] && { usage; die "Provide valid options for direction '$direction'."; }
 
 extra_args "$@"
 
@@ -112,25 +89,19 @@ reg_last_update() {
 
 #### VARIABLES
 
-for entry in inbound_iplists outbound_iplists inbound_geomode outbound_geomode nobackup geosource max_attempts reboot_sleep; do
-	getconfig "$entry"
-done
-export inbound_iplists outbound_iplists inbound_geomode outbound_geomode
+export_conf=1 get_config_vars
 
 nobackup="${nobackup_arg:-$nobackup}"
 
-inbound_apply_lists_req="$inbound_lists_arg"
-outbound_apply_lists_req="$outbound_lists_arg"
-san_str all_apply_lists_req "$inbound_lists_arg $outbound_lists_arg" || die
-[ ! "$all_apply_lists_req" ] &&
-	case "$action_run" in update|restore)
-		inbound_apply_lists_req="$inbound_iplists" outbound_apply_lists_req="$outbound_iplists"
-		san_str all_apply_lists_req "$inbound_iplists $outbound_iplists" || die
+san_str apply_lists_req "$lists_arg" || die
+[ ! "$apply_lists_req" ] &&
+	case "$action_run" in
+		add) die "no list id's were specified for actioin 'add'." ;;
+		update|restore)
+			san_str apply_lists_req "$inbound_iplists $outbound_iplists" || die
 	esac
 
-trimsp inbound_apply_lists_req
-trimsp inbound_apply_lists_req
-fast_el_cnt "$all_apply_lists_req" " " lists_cnt
+fast_el_cnt "$apply_lists_req" " " lists_cnt
 
 failed_lists_cnt=0
 
@@ -174,33 +145,25 @@ trap 'trap - INT TERM HUP QUIT; set +f; rm -f \"$iplist_dir/\"*.iplist; rm -f \"
 	}
 }
 
-# check for valid action and translate *run action to *apply action
-# *apply does the same thing whether we want to update, apply(refresh) or to add a new ip list, which is why this translation is needed
 case "$action_run" in
-	add) action_apply=add; [ ! "$all_apply_lists_req" ] && die "no list id's were specified!"
-		get_counters ;;
-	# if firewall rules don't match the config, force re-fetch
-	update) action_apply=add; check_lists_coherence || force_run="-f"
-		get_counters ;;
-	remove) action_apply=remove; inbound_rm_lists="$inbound_apply_lists_req" outbound_rm_lists="$outbound_apply_lists_req" ;;
+	update)
+		# if firewall rules don't match the config, force re-fetch
+		check_lists_coherence || force_run="-f" ;;
 	restore)
 		[ ! "$force_run" ] && check_lists_coherence -n 2>/dev/null &&
-			{ echolog "Geoip firewall rules and sets are Ok. Exiting."; die 0; }
-		get_counters
+			{ echolog "Geoblocking firewall rules and sets are Ok. Exiting."; die 0; }
 		if [ "$nobackup" = true ]; then
 			echolog "$p_name was configured with 'nobackup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
-			action_run=update action_apply=add force_run="-f"
+			action_run=update force_run="-f"
 		else
-			call_script -l "$i_script-backup.sh" restore; rv_cs=$?
-			getconfig inbound_apply_lists_req inbound_iplists
-			getconfig outbound_apply_lists_req outbound_iplists
-			if [ "$rv_cs" = 0 ]; then
+			get_counters
+			if call_script -l "$i_script-backup.sh" restore -n; then
 				nobackup=true
 			else
-				echolog -err "Restore from backup failed. Changing action to 'update'."
 				# if restore failed, force re-fetch
-				action_run=update action_apply=add force_run="-f"
+				echolog -err "Restore from backup failed. Changing action to 'update'."
+				action_run=update force_run="-f"
 			fi
 		fi
 esac
@@ -208,15 +171,15 @@ esac
 
 #### Daemon loop
 
-unset echolists ok_lists missing_lists lists_fetch fetched_lists
+unset echolists all_fetched_lists missing_lists lists_fetch fetched_lists
 
 [ ! "$daemon_mode" ] && max_attempts=1
-case "$action_run" in add|update) lists_fetch="$all_apply_lists_req" ;; *) max_attempts=1; esac
+case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
 
 mk_datadir
 
 attempt=0 secs=5
-if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
+if [ "$lists_fetch" ]; then
 	while :; do
 		attempt=$((attempt+1))
 		secs=$((secs+5))
@@ -234,7 +197,7 @@ if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 		rm -f "$fetch_res_file"
 		[ "$gs_rv" = 1 ] && die "$FAIL read the fetch results file '$fetch_res_file'"
 
-		add2list ok_lists "$fetched_lists"
+		add2list all_fetched_lists "$fetched_lists"
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 
@@ -255,55 +218,47 @@ if [ "$action_apply" = add ] && [ "$lists_fetch" ]; then
 		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && die 254 "All fetch attempts failed."
 		break
 	done
-elif [ "$action_apply" = add ] && [ ! "$lists_fetch" ]; then
-	debugprint "No lists to fetch for action_apply 'add'."
+else
+	debugprint "No lists to fetch."
 	:
 fi
 
 
 ### Apply ip lists
 
-get_intersection "$ok_lists" "$inbound_apply_lists_req" inbound_apply_lists
-get_intersection "$ok_lists" "$outbound_apply_lists_req" outbound_apply_lists
-
-san_str inbound_apply_lists "$inbound_apply_lists $inbound_rm_lists" &&
-san_str outbound_apply_lists "$outbound_apply_lists $outbound_rm_lists" &&
-san_str all_apply_lists "$inbound_apply_lists $outbound_apply_lists" || die
-
 apply_rv=0
 
-case "$action_run" in update|add|remove)
+case "$action_run" in update|add)
+	get_intersection "$all_fetched_lists" "$apply_lists_req" all_apply_lists
+
 	[ ! "$all_apply_lists" ] && {
 		echolog "Firewall reconfiguration isn't required."
 		reg_last_update
 		die 0
 	}
 
-	apply_args=
-	for d in inbound outbound; do
-		eval "[ -n \"\${${d}_apply_lists}\" ] && apply_args=\"\${apply_args}-D $d -l \\\"\${${d}_apply_lists}\\\" \""
-	done
-
-	eval "call_script \"$i_script-apply.sh\" \"$action_apply\" $apply_args"
+	call_script "$i_script-apply.sh" "$action_run"
 	apply_rv=$?
 	set +f; rm -f "$iplist_dir/"*.iplist; set -f
 
 	case "$apply_rv" in
 		0) ;;
-		254) [ "$in_install" ] && die
-			echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_apply'." ;;
+		254) [ "$in_install" ] || [ "$first_setup" ] && die
+			echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_run'." ;;
 		*)
 			debugprint "NOTE: apply exited with code '$apply_rv'."
 			die "$apply_rv"
 	esac
-	[ -n "$inbound_apply_lists" ] && echo_inb=" inbound geoblocking ip lists '$inbound_apply_lists',"
-	[ -n "$outbound_apply_lists" ] && echo_outb=" outbound geoblocking ip lists '$outbound_apply_lists',"
-	echolists=" for${echo_inb}${echo_outb}"
+
+	[ "$apply_lists_req" ] && echolists="for ip lists ${apply_lists_req}"
 esac
 
-if check_lists_coherence && [ ! "$failed_lists" ]; then
+if [ ! "$failed_lists" ] && check_lists_coherence; then
 	reg_last_update
-	echolog "Successfully executed action '$action_run'${echolists%,}.${_nl}"
+	echolog "Successfully executed action '$action_run'${echolists%,}."
+	echo
+else
+	apply_rv=1
 fi
 
 if [ "$apply_rv" = 0 ] && [ ! "$failed_lists" ] && [ "$nobackup" = false ]; then
@@ -312,6 +267,8 @@ else
 	debugprint "Skipping backup of current firewall state."
 	:
 fi
+
+[ "$apply_rv" != 0 ] && die "$apply_rv"
 
 case "$failed_lists_cnt" in
 	0) rv=0 ;;
