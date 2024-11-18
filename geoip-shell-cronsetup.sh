@@ -229,7 +229,7 @@ create_cron_job() {
 		rm_cron_job update
 		rm_cron_job persistence
 		echo
-		die 0 "Countries list in the config file is empty! No point in creating cron jobs."
+		die 0 "Configured countries list is empty. Not creating cron jobs."
 	}
 
 	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
@@ -295,7 +295,7 @@ run_cmd="$i_script-run.sh"
 schedule="${schedule:-$default_schedule}"
 
 
-printf %s "Processing cron jobs... "
+printf_s "Processing cron jobs... "
 
 #### Checks
 
