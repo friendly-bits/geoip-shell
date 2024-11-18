@@ -25,7 +25,7 @@
 - lib/geoip-shell-lib-ipt.sh
 - lib/geoip-shell-lib-nft.sh
 - lib/geoip-shell-lib-status.sh
-- lib/geoip-shell-lib-check-compat.sh
+- lib/geoip-shell-lib-non-owrt.sh
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
 - lib/geoip-shell-lib-detect-lan.sh
@@ -39,7 +39,7 @@ The -lib-status script implements the status report which you can get by issuing
 
 The -lib-ipt and -lib-nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
 
-The -lib-check-compat script checks for some essential dependencies
+The -lib-non-owrt script includes some functions which are not needed for OpenWrt
 
 The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 
@@ -71,6 +71,8 @@ After installation, the user interface is provided by running "geoip-shell", whi
 **geoip-shell-manage.sh**: serves as the main user interface to configure geoip-shell after installation. You can also call it by simply typing `geoip-shell`. As most scripts in this suite, it requires root privileges because it needs to interact with the netfilter kernel component and access the data folder which is only readable and writable by root. Since it serves as the main user interface, it contains a lot of logic to parse, validate and initiate actions requested by the user (by calling other scripts as required), check for possible remote machine lockout and warn the user about it, check actions result, update the config and take corrective actions in case of an error. Describing all this is beyond the scope of this document but you can read the code. Sources the lib-status script when generating a status report. Sources lib-setup for some of the arguments parsing logic and interactive dialogs implementation.
 
 `geoip-shell <on|off>` : Enable or disable the main geoblocking chain (via a rule in the base geoip chain)
+
+`geoip-shell stop` : Kill any running geoip-shell processes, remove geoip-shell firewall rules and disable the geoblocking chain
 
 `geoip-shell status`
 * Displays information on the current state of geoip blocking
@@ -184,18 +186,14 @@ Options:
 
 **geoip-shell-run.sh**: Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action. Requested actions are executed depending on the config and the command line options. Writes to system log when starting and on action completion (or if any errors encountered). If persistence or automatic updates are enabled, this script is called by the cron jobs (or on OpenWrt, by the firewall include script). If a non-fatal error is encountered, the script has the facility to enter sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action (which runs after system reboot to impelement persistnece), such as missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the ip lists.
 
-Actions: `add`, `remove`, `update`, `restore`.
+Actions: `add`, `update`, `restore`.
 
-The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the `add|remove` actions.
-
-`geoip-shell-run.sh add -D <inbound|outbound> -l <"list_id [list_id] ... [list_id]">` : Fetches ip lists, loads them into ip sets and applies firewall rules for specified list id's.
+`geoip-shell-run.sh add -l <"list_id [list_id] ... [list_id]">` : Fetches ip lists, loads them into ip sets and applies firewall rules for specified list id's.
 List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
-
-`geoip-shell-run.sh remove -D <inbound|outbound> -l <"list_ids">` : Removes iplists and firewall rules for specified list id's.
 
 `geoip-shell-run.sh update` : Updates the ip sets for list id's that had been previously configured. Intended for triggering from periodic cron jobs.
 
-`geoip-shell-run.sh restore` : Restore previously downloaded lists from backup (skip fetching). Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence.
+`geoip-shell-run.sh restore` : Restore previously downloaded lists from backup. Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence. If restore from backup fails, automatically changes the action to `update`, fetches the ip lists and tries to apply them.
 
 `geoip-shell-run.sh <restore|update> -a` : Adding the `-a` option when calling the `-run` script with the `restore` and `update` actions enables the temporary daemon-like behavior where the script will try to re-fetch and re-apply ip lists if initial attempt fails.
 
@@ -226,19 +224,16 @@ Extra options:
 
 **geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes ip sets and firewall rules for specified list id's. Sources the lib-ipt or lib-nft library script.
 
-Actions: `add`, `remove`, `update`, `on`, `off`
+Actions: `add`, `update`, `restore`, `on`, `off`
 
-The `-D <inbound|outbound>` option serves as a modifier to set direction like in the `-manage` script, except here specifying direction is mandatory for the `add|remove` actions.
+`geoip-shell-apply.sh add` :
+- Recreate geoblocking rules based on config and add missing ipsets, loading them from files
 
-`geoip-shell-apply.sh add -D <inbound|outbound> -l <"list_ids">` :
-- Loads ip list files for specified list id's into ip sets and applies firewall rules required for geoblocking.
+`geoip-shell-apply.sh update` :
+- Recreate geoblocking rules based on config, loading ipsets from files
 
-List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
-
-`geoip-shell-apply.sh remove -D <inbound|outbound> -l <"list_ids">` :
-- removes ip sets and geoip firewall rules for specified list id's.
-
-Calling the `-apply` script with the `-s` option will make it skip creating ip sets and attempt to create firewall rules with the assumption that the required ipsets have already been loaded. This option is used by the `-backup` script when it's called with the `restore` command and the firewall backend is `iptables`. This option does nothing with the `nftables` backend.
+`geoip-shell-apply.sh restore` :
+- Recreate geoblocking rules based on config, re-using existing (previously loaded) ipsets
 
 **geoip-shell-cronsetup.sh** manages cron-related logic and actions. Called by the -manage script. Cron jobs are created based on the settings stored in the config file. When called with the `-x <expression>` option, validates cron schedule specified by the user.
 
