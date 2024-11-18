@@ -21,7 +21,7 @@ oldifs
 usage() {
 cat <<EOF
 
-Usage: $me <action> [-n] [-d] [-V] [-h]
+Usage: $me <action> [-n] [-s] [-d] [-V] [-h]
 
 Creates a backup of the current firewall state and current ipsets or restores them from backup.
 
@@ -30,6 +30,7 @@ Actions:
 
 Options:
   -n  : Do not restore config and status files
+  -s  : Only restore or create backup of config and status files
   -d  : Debug
   -V  : Version
   -h  : This help
@@ -47,10 +48,11 @@ case "$action" in
 esac
 
 # process the rest of the args
-restore_conf=1
-while getopts ":ndVh" opt; do
+restore_conf=1 only_conf_status=
+while getopts ":nsdVh" opt; do
 	case $opt in
 		n) restore_conf= ;;
+		s) only_conf_status=1 ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
@@ -172,6 +174,12 @@ case "$action" in
 	create-backup)
 		trap 'trap - INT TERM HUP QUIT; rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="/tmp/${p_name}_backup.tmp"
+		[ "$only_conf_status" ] && {
+			bk_dir_new="$bk_dir"
+			mkdir -p "$bk_dir" && chmod -R 600 "$bk_dir" && chown -R root:root "$bk_dir" &&
+			cp_conf backup || die "$FAIL create backup of the config and status files."
+			die 0
+		}
 		set_archive_type
 		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
@@ -194,7 +202,11 @@ case "$action" in
 			bk_conf_file="$config_file"
 			and_config=
 		fi
-		echolog "Preparing to restore $p_name ip lists$and_config from backup..."
+		[ "$only_conf_status" ] && {
+			cp_conf restore || die "$FAIL restore the config and status files."
+			die 0
+		}
+		echolog "${_nl}Preparing to restore $p_name ip lists$and_config from backup..."
 		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
 		getconfig inbound_iplists inbound_iplists "$bk_conf_file" &&
 		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
@@ -216,18 +228,9 @@ case "$action" in
 
 		export main_config=
 
-		apply_args=
-		for d in inbound outbound; do
-			eval "[ -n \"\${${d}_iplists}\" ] && apply_args=\"\${apply_args}-D $d -l \\\"\${${d}_iplists}\\\" \""
-		done
-
-		if [ -n "$apply_args" ]; then
-			[ "$_fw_backend" = ipt ] && restore_ipsets
-			eval "call_script \"$i_script-apply.sh\" add $apply_args -s"
-			apply_rv=$?
-		else
-			apply_rv=0
-		fi
+		[ "$_fw_backend" = ipt ] && { restore_ipsets || rstr_failed "$FAIL restore $p_name ipsets from backup." reset; }
+		call_script "$i_script-apply.sh" restore
+		apply_rv=$?
 
 		rm_rstr_tmp
 		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore $p_name ip lists$and_config from backup." "reset"
