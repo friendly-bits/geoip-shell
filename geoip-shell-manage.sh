@@ -106,6 +106,13 @@ ${sp8}This option is independent from the above LAN ip's option.
 ${sp8}Works both in whitelist and blacklist mode.
 ${sp8}'none' removes previously set trusted ip's
 
+  ${blue}-U <auto|pause|none|"[ip_addresses]">${n_c} :
+${sp8}Policy for allowing automatic ip list updates when outbound geoblocking is enabled.
+${sp8}Use 'auto' to detect ip addresses automatically once and always allow outbound connection to detected addresses.
+${sp8}Or use 'pause' to always temporarily pause outbound geoblocking before fetching ip list updates.
+${sp8}Or specify ip addresses for ip lists source (ripe or ipdeny) to allow - for multiple addresses, use double quotes.
+${sp8}Or use 'none' to remove previously assigned server ip addresses and disable this feature.
+
   ${blue}-r $user_ccode_syn${n_c} :
 ${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
 ${sp8}'none' disables this feature.
@@ -198,18 +205,16 @@ esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:a:o:w:O:n:N:P:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:U:a:o:w:O:n:N:P:zvdVh" opt; do
 	case $opt in
-		D) case "$OPTARG" in
-				inbound|outbound)
-					[ "$action" != configure ] && {
-						usage; die "Action is '$action', but direction-dependent options require the action to be 'configure'."
-					}
-					[ "$req_direc_opt" ] && { usage; die "Provide valid options for the '$direction' direction."; }
-					direction="$OPTARG"
-					req_direc_opt=1 ;;
-				*) usage; die "Invalid direction '$OPTARG'. Use 'inbound|outbound' with the '-D' option"
-			esac ;;
+		D) tolower OPTARG
+			case "$OPTARG" in inbound|outbound) ;; *)
+				usage; die "Invalid geoblocking direction '$OPTARG'. Use '-D inbound' or '-D outbound'."
+			esac
+			[ "$action" != configure ] && { usage; die "Action is '$action', but specifying geoblocking direction is only valid for action 'configure'."; }
+			[ "$req_direc_opt" ] && { usage; die "Provide valid options for the '$direction' direction."; }
+			direction="$OPTARG"
+			req_direc_opt=1 ;;
 		m) set_opt geomode_arg ;;
 		c) set_opt ccodes_arg ;;
 		p) set_opt ports_arg ;;
@@ -221,6 +226,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:a:o:w:O:n:N:P:zvdVh" opt; do
 		t) set_opt trusted_arg ;;
 		r) set_opt user_ccode_arg ;;
 		u) set_opt geosource_arg ;;
+		U) set_opt source_ips_arg ;;
 		a) set_opt datadir_arg ;;
 		w) set_opt _fw_backend_arg ;;
 		O) set_opt nft_perf_arg ;;
@@ -274,13 +280,14 @@ restore_from_config() {
 
 	if [ -n "$run_args" ]; then
 		# call the -run script
-		eval "call_script -l \"$run_command\" add -l \"$run_args\" -o" && {
+		eval "call_script -l \"$run_command\" add -l \"$run_args\" -o" && nodie=1 check_lists_coherence && {
 			printf '%s\n' "$restore_ok_msg"
+			coherence_req=
 			return 0
 		}
 	else
 		echo "No ip lists registered - skipping firewall rules creation."
-		coherence_req=''
+		coherence_req=
 		return 0
 	fi
 
@@ -367,6 +374,10 @@ changeact() {
 }
 
 
+#### showconfig
+[ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0; }
+
+
 #### VARIABLES
 
 unset conf_act rm_conf
@@ -378,7 +389,8 @@ unset conf_act rm_conf
 	}
 
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
-		q="[K]eep previous"; keep_opt=k
+		q="[K]eep previous"
+		keep_opt=k
 		for _par in inbound_geomode outbound_geomode inbound_ccodes outbound_ccodes inbound_ports outbound_ports \
 			families ifaces lan_ips trusted user_ccode geosource datadir nobackup \
 			_fw_backend nft_perf schedule no_persist noblock force_cron_persist; do
@@ -455,13 +467,13 @@ erract="action '$action'"
 incompat="$erract is incompatible with option"
 
 case "$action" in
-	status|restore|reset|on|off|stop|showconfig) [ "$inbound_ccodes_arg$outbound_ccodes_arg" ] && die "$incompat '-c'."
+	status|restore|reset|on|off|stop) [ "$inbound_ccodes_arg$outbound_ccodes_arg" ] && die "$incompat '-c'."
 esac
 
 [ "$action" != configure ] && {
 	for i_opt in "inbound_ccodes c" "outbound_ccodes c" "inbound_geomode m" "outbound_geomode m" \
 			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" \
-			"geosource u" "datadir a" "nobackup o" "schedule s" \
+			"geosource u" "source_ips U" "datadir a" "nobackup o" "schedule s" \
 			"families f" "user_ccode r" "nft_perf O" "nointeract z"; do
 		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
@@ -470,10 +482,7 @@ esac
 
 #### MAIN
 
-case "$action" in
-	status) . "$_lib-status.sh"; die $? ;;
-	showconfig) printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0
-esac
+[ "$action" = status ] && { . "$_lib-status.sh"; die $?; }
 
 [ "$action" != stop ] && mk_lock
 trap 'die' INT TERM HUP QUIT
@@ -519,7 +528,7 @@ first_setup=
 debugprint "first_setup: '$first_setup'"
 
 for var_name in datadir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf user_ccode \
-	lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6; do
+	lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6; do
 	eval "${var_name}_prev=\"\$$var_name\""
 done
 
@@ -540,6 +549,23 @@ unset ccodes_arg_unset iplists_unset geomode_set ports_change geomode_change_g
 [ ! "$inbound_ccodes_arg$outbound_ccodes_arg" ] && ccodes_arg_unset=1
 [ ! "$inbound_iplists$outbound_iplists" ] && iplists_unset=1
 
+# determine if interactive geomode dialog is needed
+for direction in inbound outbound; do
+	[ -n "$geomode" ] && geomode_set=1
+	eval "geomode_arg=\"\$${direction}_geomode_arg\"
+			geomode=\"\$${direction}_geomode\""
+
+	[ "$geomode" ] && geomode_set=1
+
+	[ "$geomode_arg" ] && {
+		tolower geomode_arg
+		case "$geomode_arg" in whitelist|blacklist|disable)
+			geomode_set=1
+			eval "${direction}_geomode_arg=\"$geomode_arg\""
+		esac
+	}
+done
+
 # set *_ccodes *_ports *_iplists *_geomode
 for direction in inbound outbound; do
 	unset ccodes process_args geomode_change
@@ -558,14 +584,14 @@ for direction in inbound outbound; do
 	[ -n "$ccodes_arg" ] || [ -n "$ports_arg" ] && process_args=1
 
 	# geoblocking mode
-	tolower geomode_arg
-	[ -n "$geomode" ] && geomode_set=1
-
 	[ "$geomode_arg" ] && {
 		case "$geomode_arg" in
-			whitelist|blacklist|disable) geomode="$geomode_arg" geomode_set=1 ;;
+			whitelist|blacklist|disable) geomode="$geomode_arg" ;;
 			'') ;;
-			*) echolog -err "Invalid geoblocking mode '$geomode_arg'."; [ "$nointeract" ] && die; pick_geomode
+			*)
+				echolog -err "Invalid geoblocking mode '$geomode_arg'."
+				[ "$nointeract" ] && die
+				pick_geomode
 		esac
 	}
 
@@ -615,8 +641,7 @@ for direction in inbound outbound; do
 
 	# country codes
 	[ "$ccodes_arg" ] && validate_ccodes "$ccodes_arg"
-	if { [ "$ccodes_arg_unset" ] && [ "$iplists_unset" ]; } || [ "$ccodes_arg" ] ||
-	{ [ "$geomode_change" ] && [ "$geomode" != disable ]; }; then
+	if { [ "$ccodes_arg_unset" ] && [ "$iplists_unset" ]; } || [ "$ccodes_arg" ] || [ "$geomode_change" ]; then
 		if [ "$nointeract" ]; then
 			[ "$direction" = outbound ] && {
 				san_str all_ccodes_arg "$inbound_ccodes_arg $outbound_ccodes_arg" || die
@@ -701,12 +726,29 @@ for direction in inbound outbound; do
 done
 
 [ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
-for opt_ch in lan_ips_ipv4 lan_ips_ipv6; do
-	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ]" && lan_ips_change=1
+
+[ "$geosource_change" ] && unset source_ips_ipv4 source_ips_ipv6
+
+# source ip's
+if [ "$source_ips_arg" ] || {
+		[ "$outbound_geomode" != disable ] &&
+		[ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] && {
+			[ ! "$source_ips_policy" ] ||
+			[ "$geosource_change" ] ||
+			{ [ "$outbound_geomode_change" ] && [ "$outbound_geomode_prev" = disable ]; }
+		}
+	}
+then
+	pick_source_ips
+fi
+
+for opt_ch in lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6; do
+	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ]" && eval "${opt_ch%_ipv*}_change=1"
 done
-for opt_ch in trusted_ipv4 trusted_ipv6; do
-	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ]" && trusted_change=1
-done
+
+[ "$source_ips_policy" != "$source_ips_policy_prev" ] && source_ips_policy_change=1
+[ "$source_ips_policy_change" ] && [ "$source_ips_policy" = true ] && source_ips_change=1
+
 
 unset lists_change all_iplists all_iplists_prev all_add_iplists
 for direction in inbound outbound; do
@@ -736,8 +778,9 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 
 [ "$nobackup_change" ] && [ "$nobackup" = false ] && backup_req=1
 
-[ "$ports_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] ||
-	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$noblock_change" ] || [ "$lists_change" ] && apply_req=1
+[ "$ports_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] || [ "$source_ips_policy_change" ] ||
+	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] ||
+	[ "$noblock_change" ] || [ "$lists_change" ] && apply_req=1
 
 [ "$nft_perf_change" ] && run_restore_req=1
 
@@ -815,13 +858,10 @@ fi
 set_all_config
 
 case "$conf_act" in
-	apply)
+	apply|reset|run_restore|run_add)
 		backup_req=1
 		cron_req=1
 		coherence_req=1 ;;
-	reset|run_restore|run_add)
-		backup_req=1
-		cron_req=1 ;;
 	*)
 esac
 
@@ -842,7 +882,10 @@ case "$conf_act" in
 		rv_conf=$? ;;
 	apply)
 		get_counters
-		call_script "$i_script-apply.sh" restore; rv_conf=$? ;;
+		call_script "$i_script-apply.sh" restore; rv_conf=$?
+		main_config=
+		nodie=1 export_conf=1 get_config_vars || rv_conf=1
+		;;
 	'') rv_conf=0 ;;
 esac
 
