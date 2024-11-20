@@ -213,22 +213,23 @@ destroy_tmp_ipsets() {
 	done
 }
 
+# 1 - (optional) direction
 geoip_on() {
-	for direction in inbound outbound; do
+	for direction in ${1:-inbound outbound}; do
 		set_dir_vars "$direction"
 		[ "$geomode" = disable ] && {
 			echo "$direction geoblocking mode is set to 'disable' - skipping."
 			continue
 		}
 		get_nft_geoip_state -f "$direction" || return 1
-		[ -n "$geochain_on" ] && { echo "${direction} geoblocking chain is already enabled."; continue; }
+		[ -n "$geochain_on" ] && { echo "${direction} geoblocking is already enabled."; continue; }
 		if [ -z "$base_chain_cont" ]; then
 			missing_chain="base geoip"
 		elif [ -z "$geochain_cont" ]; then
 			missing_chain=geoip
 		fi
 		[ -n "$missing_chain" ] && {
-			echolog -err "Cannot enable $direction geoblocking on because $direction $missing_chain chain is missing."
+			echolog -err "Cannot enable $direction geoblocking because $direction $missing_chain chain is missing."
 			continue
 		}
 
@@ -239,15 +240,21 @@ geoip_on() {
 	done
 }
 
+# 1 - (optional) direction
 geoip_off() {
-	for direction in inbound outbound; do
+	off_ok=
+	for direction in ${1:-inbound outbound}; do
 		get_nft_geoip_state -f "$direction" || return 1
-		[ -z "$geochain_on" ] && { echo "$direction geoblocking chain is already disabled."; continue; }
-		printf_s "Removing $direction geoblocking enable rule... "
+		[ -z "$geochain_on" ] && { echo "$direction geoblocking is already disabled."; continue; }
+		printf %s "Removing the geoblocking enable rule for direction '$direction'... "
 		mk_nft_rm_cmd "$base_geochain" "$base_chain_cont" "${geotag}_enable" | nft -f - &&
-			! is_geochain_on -f "$direction" || { FAIL; die "$FAIL remove $direction geoblocking enable rule."; }
+			! is_geochain_on -f "$direction" ||
+				{ FAIL; echolog -err "$FAIL remove $direction geoblocking enable rule."; return 1; }
+		off_ok=1
 		OK
 	done
+	[ ! "$off_ok" ] && return 2
+	:
 }
 
 # populates $geomode, $geochain, $base_geochain, $geotable_cont, $geochain_cont, $base_chain_cont, $geochain_on
@@ -397,7 +404,7 @@ apply_rules() {
 
 			# add rule to allow lo interface
 			[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
-				printf '%s\n' "add rule $geopath $iface_keyword lo accept comment ${geotag_aux}-loopback"
+				printf '%s\n' "add rule $geopath $iface_keyword lo accept comment ${geotag_aux}_loopback"
 
 			# add rule to allow established/related
 			printf '%s\n' "add $rule_prefix ${opt_ifaces}ct state established,related accept comment ${geotag_aux}_est-rel"
@@ -495,7 +502,7 @@ apply_rules() {
 		for proto in tcp udp; do
 			eval "ports_exp=\"\$${direction}_${proto}_ports\""
 			case "$ports_exp" in skip|all) continue; esac
-			ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*")"
+			ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*${geotag_aux}_ports")"
 
 			IFS=' 	' set -- $ports_line; shift 2
 			get_nft_list "$@"; ports_exp="$_res"
@@ -506,10 +513,6 @@ apply_rules() {
 		done
 	done
 	[ "$ports_conf" ] && setconfig "${ports_conf%"$_nl"}"
-
-	[ "$noblock" = true ] && echolog -warn "Geoblocking is disabled via config."
-
-	echo
 
 	:
 }
