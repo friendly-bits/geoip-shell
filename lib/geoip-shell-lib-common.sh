@@ -143,14 +143,20 @@ unknownact() {
 # $1 - input in the format 'a|b|c'
 # output via the $REPLY var
 pick_opt() {
+	wrong_opt() {
+		printf '\n%s' "Please enter "
+		printf '%s\n' "$1" | sed "s/^/\'/;s/$/\'./;s/|/\' or \'/g"
+		printf '\n'
+	}
+
 	while :; do
 		printf %s "$1: "
 		read -r REPLY
-		is_alphanum "$REPLY" || { printf '\n%s\n\n' "Please enter $1"; continue; }
+		is_alphanum "$REPLY" || { wrong_opt "$1"; continue; }
 		tolower REPLY
 		eval "case \"$REPLY\" in
 				$1) return ;;
-				*) printf '\n%s\n\n' \"Please enter $1\"
+				*) wrong_opt \"$1\"
 			esac"
 	done
 }
@@ -413,7 +419,7 @@ getallconf() {
 	conf_gac=
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
 	[ -z "$conf_gac" ] && {
-		conf_gac="$(grep -vE '^([[:blank:]]*#.*$|$)' "$2")"
+		conf_gac="$(grep -vE "^(${blank}*#.*\$|\$)" "$2")"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
 	eval "$1=\"$conf_gac\""
@@ -530,7 +536,7 @@ set_all_config() {
 		inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
 		geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 		nft_perf ifaces datadir nobackup no_persist noblock http user_ccode schedule families \
-		_fw_backend max_attempts reboot_sleep force_cron_persist
+		_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy
 }
 
 sc_failed() {
@@ -805,18 +811,21 @@ get_active_iplists() {
 	[ "$1" = "-f" ] && { force_read="-f"; shift; }
 	[ "$2" ] || die "get_active_iplists: direction not specified"
 	gai_out_var="$1" direction="$2"
-	eval "geomode=\"\$${direction}_geomode\" iplists_gai=\"\$${direction}_iplists\""
+	eval "geomode=\"\$${direction}_geomode\" exp_iplists_gai=\"\$${direction}_iplists\""
 	for family in $families; do
 		case "$geomode" in
 			whitelist)
 				ipt_target=ACCEPT nft_verdict=accept
-				iplists_gai="${iplists_gai} allow_$family"
-				[ "$family" = ipv4 ] && iplists_gai="${iplists_gai} dhcp_ipv4" ;;
+				exp_iplists_gai="${exp_iplists_gai} allow_$family"
+				[ "$family" = ipv4 ] && exp_iplists_gai="${exp_iplists_gai} dhcp_ipv4" ;;
 			blacklist)
 				ipt_target=DROP nft_verdict=drop
-				eval "[ \"\${trusted_$family}\" ]" && iplists_gai="${iplists_gai} allow_$family" ;;
+				eval "[ \"\${trusted_$family}\" ]" && exp_iplists_gai="${exp_iplists_gai} allow_$family" ;;
 			*) die "get_active_iplists: unexpected geoblocking mode '$geomode'."
 		esac
+
+		[ "$2" = outbound ] && eval "[ \"\${source_ips_${family}}\" ]" &&
+			exp_iplists_gai="${exp_iplists_gai} allow_$family"
 	done
 
 	ipset_iplists="$(get_ipsets | sed "s/${geotag}_//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/_4/_ipv4/;s/_6/_ipv6/;p")"
@@ -828,13 +837,13 @@ get_active_iplists() {
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
 	inc=0
-	subtract_a_from_b "$ipset_iplists_sp" "$iplists_gai" missing_ipsets ||
+	subtract_a_from_b "$ipset_iplists_sp" "$exp_iplists_gai" missing_ipsets ||
 		ignore_allow missing_ipsets ipset_iplists_sp "$direction" || inc=1
 
-	subtract_a_from_b "$iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
-		ignore_allow unexpected_lists iplists_gai "$direction" || inc=1
+	subtract_a_from_b "$exp_iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
+		ignore_allow unexpected_lists exp_iplists_gai "$direction"|| inc=1
 
-	subtract_a_from_b "$fwrules_iplists_sp" "$iplists_gai" missing_lists ||
+	subtract_a_from_b "$fwrules_iplists_sp" "$exp_iplists_gai" missing_lists ||
 		ignore_allow missing_lists fwrules_iplists_sp "$direction" || inc=1
 
 	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
@@ -849,6 +858,9 @@ check_lists_coherence() {
 	[ "$1" = '-n' ] && nolog=1
 	debugprint "Verifying ip lists coherence..."
 
+	main_config=
+	nodie=1 get_config_vars || return 1
+
 	iplists_incoherent=
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
@@ -856,6 +868,7 @@ check_lists_coherence() {
 
 		getconfig exp_iplists "${direction}_iplists"
 		for family in $families; do
+			[ "$direction" = outbound ] && eval "[ \"\$source_ips_${family}\" ]" && exp_iplists="${exp_iplists} allow_$family"
 			case "$geomode" in
 				whitelist)
 					exp_iplists="${exp_iplists} allow_$family"
@@ -864,6 +877,7 @@ check_lists_coherence() {
 				*) r_no_l; echolog -err "Unexpected geoblocking mode '$geomode'!"; return 1
 			esac
 		done
+
 
 		eval "${direction}_exp_iplists=\"$exp_iplists\""
 
@@ -883,7 +897,11 @@ check_lists_coherence() {
 	subtract_a_from_b "$all_exp_iplists" "$ipset_iplists_sp" unexpected_ipsets ||
 		ignore_allow unexpected_ipsets all_exp_iplists "$direction"
 
-	[ "$unexpected_ipsets" ] && { echolog -warn "Unexpected ipsets detected: '$unexpected_ipsets'."; iplists_incoherent=1; }
+	[ "$unexpected_ipsets" ] && {
+		echolog -warn "Unexpected ipsets detected: '$unexpected_ipsets'."
+		iplists_incoherent=1
+		debugprint "all_exp_iplists: '$all_exp_iplists'${_nl}ipset_iplists: '$ipset_iplists_sp'"
+	}
 
 	r_no_l
 	[ "$iplists_incoherent" ] && return 1
@@ -962,9 +980,63 @@ check_lock() {
 	:
 }
 
+# 1 - family (ipv4|ipv6)
+# 2 - newline-separated domains
+resolve_domain_ips() {
+	res_host() { host -t "$2" "$1" | grep -E "has${blanks}(IPv6${blanks})?address${blanks}${regex}(${blank}|$)" | awk '{print $NF}'; }
+	res_nslookup() { nslookup -q="$2" "$1" | grep -E "^Address:${blanks}${regex}(${blank}|$)" | awk '{print $2}'; }
+	res_dig() { dig "$1" "$2" | sed -n "/^;;${blanks}ANSWER SECTION/{n;:1 /^$/q;/^\;\;/q;s/^.*${blanks}//;p;n;b1;}"; }
+	res_ping() { ipv=4; [ "$2" = AAAA ] && ipv=6; ping -c 1 -w 1  "-$ipv" "$1" | grep -m1 . | grep -oE "\($regex\)" | sed 's/(//;s/)//'; }
+
+	printf_s "Resolving $1 addresses for domains: $(printf %s "$2" | tr '\n' ' ' | sed "s/^${blanks}//;s/${blanks}$//;")... " >&2
+
+	A=A
+	[ "$1" = ipv6 ] && A=AAAA
+	eval "regex=\"\$${1}_regex\""
+
+	req_ips_cnt="$(printf %s "$2" | wc -w)"
+
+	if checkutil host; then
+		ns_cmd="res_host"
+	elif checkutil nslookup; then
+		ns_cmd="res_nslookup"
+	elif checkutil dig; then
+		ns_cmd="res_dig"
+	elif checkutil ping; then
+		ns_cmd="res_ping"
+	else
+		echolog -err "No available supported utility to resolve domain names to ip's. Supported utilities: host, nslookup, dig, ping."
+		return 1
+	fi
+
+	dom_ips="$(
+		IFS="${_nl}"
+		for dom in $2; do
+			$ns_cmd "$dom" "$A"
+		done
+	)"
+
+	rdi_ips_cnt="$(printf %s "$dom_ips" | wc -w)"
+	[ "$debugmode" ] && debugprint "${ns_cmd#res_} resolved $rdi_ips_cnt $1 ip's for domains '$(printf %s "$2" | tr '\n' ' ')': $(printf %s "$dom_ips" | tr '\n' ' ')"
+	[ "$rdi_ips_cnt" = "$req_ips_cnt" ] || { FAIL >&2; return 1; }
+	OK >&2
+	printf '%s\n' "$dom_ips"
+	:
+}
+
+# outpus newline-separated list of ips
+# 1 - family
+resolve_geosource_ips() {
+	case "$geosource" in
+		ripe) src_domains="${ripe_url_api%%/*}${_nl}${ripe_url_stats%%/*}" ;;
+		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}"
+	esac
+	resolve_domain_ips "$family" "$src_domains"
+}
+
 # 1 - input ip's/subnets
 # 2 - output via return code (0: all valid; 1: 1 or more invalid)
-# if a subnet detected in ips of a particular family, sets ipset_type to 'net:', otherwise to 'ip:'
+# if a subnet detected in ips of a particular family, sets ipset_type to 'net', otherwise to 'ip'
 # expects the $family var to be set
 validate_ip() {
 	[ ! "$1" ] && { echolog -err "validate_ip: received an empty string."; return 1; }
@@ -1052,7 +1124,11 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 
 export fetch_res_file="/tmp/${p_name}-fetch-res"
 
-blanks="[[:blank:]][[:blank:]]*"
+blank="[ 	]"
+blanks="${blank}${blank}*"
+export _nl='
+'
+export default_IFS="	 $_nl"
 
 set -f
 
