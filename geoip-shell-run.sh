@@ -87,6 +87,20 @@ reg_last_update() {
 	esac
 }
 
+fetch_failed() {
+	resume_geoblocking
+	die "$@"
+}
+
+resume_geoblocking() {
+	[ "$resume_req" ] && [ "$outbound_geomode" != disable ] && [ "$noblock" = false ] && {
+		echolog "Resuming outbound geoblocking."
+		echo
+		geoip_on outbound
+	}
+}
+
+
 #### VARIABLES
 
 export_conf=1 get_config_vars
@@ -179,23 +193,35 @@ case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attem
 mk_datadir
 
 attempt=0 secs=5
+resume_req=
 if [ "$lists_fetch" ]; then
+	[ "$source_ips_policy" = pause ] && [ "$outbound_geomode" != disable ] && {
+		echolog "${_nl}Pausing outbound geoblocking before ip lists update."
+		geoip_off outbound
+		# 0 - geoip_off success, 2 - already off, 1 - error
+		case $? in
+			0) resume_req=1 ;;
+			1) die ;;
+			2)
+		esac
+	}
+
 	while :; do
 		attempt=$((attempt+1))
 		secs=$((secs+5))
-		[ $attempt -gt $max_attempts ] && die "Giving up after $max_attempts fetch attempts."
+		[ $attempt -gt $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
 
 		### Fetch ip lists
 		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
-		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || die
+		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
 
 		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" -u "$geosource" "$force_run" "$raw_mode"
 
-		# read *fetch results from the status file
+		# read fetch results from the status file
 		gs_rv=
 		nodie=1 getstatus "$fetch_res_file" || gs_rv=1
 		rm -f "$fetch_res_file"
-		[ "$gs_rv" = 1 ] && die "$FAIL read the fetch results file '$fetch_res_file'"
+		[ "$gs_rv" = 1 ] && fetch_failed "$FAIL read the fetch results file '$fetch_res_file'"
 
 		add2list all_fetched_lists "$fetched_lists"
 		[ "$failed_lists" ] && {
@@ -204,20 +230,21 @@ if [ "$lists_fetch" ]; then
 			[ "$daemon_mode" ] && {
 				echolog "Retrying in $secs seconds"
 				sleep $secs
-				san_str lists_fetch "$failed_lists $missing_lists" || die
+				san_str lists_fetch "$failed_lists $missing_lists" || fetch_failed
 				continue
 			}
 
 			[ "$action_run" = add ] && {
 				set +f; rm -f "$iplist_dir/"*.iplist; set -f
-				die 254 "Aborting the action 'add'."
+				fetch_failed 254 "Aborting the action 'add'."
 			}
 		}
 
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
-		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && die 254 "All fetch attempts failed."
+		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && fetch_failed 254 "All fetch attempts failed."
 		break
 	done
+	resume_geoblocking
 else
 	debugprint "No lists to fetch."
 	:
@@ -250,10 +277,10 @@ case "$action_run" in update|add)
 			die "$apply_rv"
 	esac
 
-	[ "$apply_lists_req" ] && echolists="for ip lists ${apply_lists_req}"
+	[ "$apply_lists_req" ] && echolists=" for ip lists ${apply_lists_req}"
 esac
 
-if [ ! "$failed_lists" ] && check_lists_coherence; then
+if [ ! "$failed_lists" ] && { [ "$manmode" ] || check_lists_coherence; }; then
 	reg_last_update
 	echolog "Successfully executed action '$action_run'${echolists%,}."
 	echo
