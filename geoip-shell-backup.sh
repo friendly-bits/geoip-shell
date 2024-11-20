@@ -183,7 +183,8 @@ case "$action" in
 		set_archive_type
 		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
-		create_backup
+		printf_s "Creating backup of $p_name ip sets... "
+		create_backup && OK
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
 		cp_conf backup || bk_failed
