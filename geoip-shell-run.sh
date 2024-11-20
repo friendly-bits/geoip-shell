@@ -95,8 +95,8 @@ fetch_failed() {
 resume_geoblocking() {
 	[ "$resume_req" ] && [ "$outbound_geomode" != disable ] && [ "$noblock" = false ] && {
 		echolog "Resuming outbound geoblocking."
-		echo
 		geoip_on outbound
+		echo
 	}
 }
 
