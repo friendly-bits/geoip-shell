@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2155
+# shellcheck disable=SC2154,SC2155,SC2015
 
 # geoip-shell-lib-ipt.sh
 
@@ -38,7 +38,7 @@ nft_get_geotable() {
 # 1 - chain name
 # 2 - optional '-f' for forced re-read
 nft_get_chain() {
-	_chain_cont="$(nft_get_geotable "$2" | sed -n -e /"chain $1 {"/\{:1 -e n\;/"^[[:blank:]]*}"/q\;p\;b1 -e \})"
+	_chain_cont="$(nft_get_geotable "$2" | sed -n "/chain $1 {/{:1 n;/^${blank}*}/q;p;b1;}")"
 	[ -z "$_chain_cont" ] && return 1 || { printf '%s\n' "$_chain_cont"; return 0; }
 }
 
@@ -72,8 +72,8 @@ encode_rules() {
 get_counters_nft() {
 	counter_strings="$(
 		nft -ta list ruleset inet | \
-		sed -n ":2 /chain $p_name_cap/{:1 n;/^[[:blank:]]*}/b2;s/ # handle.*//;/counter${blanks}packets/{s/counter${blanks}//;p;};b1;}" | \
-		awk 'match($0,/[[:blank:]]packets [0-9]+ bytes [0-9]+/){print substr($0,1,RSTART-1) substr($0,RSTART+RLENGTH) "=" substr($0,RSTART+1,RLENGTH-1)}' | \
+		sed -n ":2 /chain $p_name_cap/{:1 n;/^${blank}*}/b2;s/ # handle.*//;/counter${blanks}packets/{s/counter${blanks}//;p;};b1;}" | \
+		awk 'match($0,/[ 	]packets [0-9]+ bytes [0-9]+/){print substr($0,1,RSTART-1) substr($0,RSTART+RLENGTH) "=" substr($0,RSTART+1,RLENGTH-1)}' | \
 		encode_rules
 	)"
 	:
@@ -115,7 +115,7 @@ get_fwrules_iplists() {
 	esac
 	set_dir_vars "$1"
 	nft_get_chain "$geochain" "$force_read" | {
-		sed -n "/${addr_type}[[:blank:]]*@[a-zA-Z0-9_][a-zA-Z0-9_]*/{s/@dhcp_4.*/@dhcp_4/;s/.*@//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/${blanks}accept.*//;s/${blanks}drop.*//;s/_4/_ipv4/;s/_6/_ipv6/;p;}"
+		sed -n "/${addr_type}${blank}*@[a-zA-Z0-9_][a-zA-Z0-9_]*/{s/@dhcp_4.*/@dhcp_4/;s/.*@//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/${blanks}accept.*//;s/${blanks}drop.*//;s/_4/_ipv4/;s/_6/_ipv6/;p;}"
 	}
 	:
 }
@@ -123,7 +123,7 @@ get_fwrules_iplists() {
 ### (ip)sets
 
 get_ipsets() {
-	nft_get_geotable -f | sed -n '/^[[:blank:]]*set[[:blank:]]/{s/^[[:blank:]]*set[[:blank:]][[:blank:]]*//;s/[[:blank:]].*//;p;}'
+	nft_get_geotable -f | sed -n "/^${blank}*set${blank}/{s/^${blank}*set${blank}${blank}*//;s/${blank}.*//;p;}"
 }
 
 # 1 - ipset tag
@@ -131,7 +131,7 @@ get_ipsets() {
 get_ipset_elements() {
     get_matching_line "$2" "" "$1" "*" ipset
     [ "$ipset" ] && nft list set inet "$geotable" "$ipset" |
-        sed -n -e /"elements[[:blank:]]*=/{s/elements[[:blank:]]*=[[:blank:]]*{//;:1" -e "/}/{s/}//"\; -e p\; -e q\; -e \}\; -e p\; -e n\;b1 -e \}
+        sed -n "/elements${blank}*=/{s/elements${blank}*=${blank}*{//;:1 /}/{s/}//;p;q;};p;n;b1;}"
 }
 
 # 1 - ipset tag
@@ -175,7 +175,7 @@ report_fw_state() {
 		fmt_str="  %-9s%-11s%-5s%-8s%-5s%-24s%-33s%s\n"
 		printf "\n%s\n%s\n${fmt_str}%s\n" "  Firewall rules in the $geochain chain:" \
 			"  $dashes${blue}" packets bytes ipv verdict prot dports interfaces extra "$n_c  $dashes"
-		rules="$(nft_get_chain "$geochain" | sed 's/^[[:blank:]]*//;s/ # handle.*//' | grep .)" ||
+		rules="$(nft_get_chain "$geochain" | sed "s/^${blank}*//;s/ # handle.*//" | grep .)" ||
 			{ printf '%s\n' "${red}None $_X"; incr_issues; }
 		newifs "$_nl" rules
 		for rule in $rules; do
@@ -190,8 +190,8 @@ report_fw_state() {
 					ip6) ipv="ipv6" ;;
 					dport) shift; get_nft_list "$@"; dports="$_res"; shift "$n" ;;
 					udp|tcp) prot="$1 " ;;
-					packets) pkts=$(num2human $2); shift ;;
-					bytes) bytes=$(num2human $2 bytes); shift ;;
+					packets) pkts=$(num2human "$2"); shift ;;
+					bytes) bytes=$(num2human "$2" bytes); shift ;;
 					counter) ;;
 					accept) verd="ACCEPT" ;;
 					drop) verd="DROP  " ;;
@@ -283,11 +283,11 @@ apply_rules() {
 	nft add table inet "$geotable" || die "$FAIL create table '$geotable'"
 
 	### load ipsets
+	printf_s "Loading ip sets... "
 	for load_ipset in $load_ipsets; do
-		printf_s "Loading ip set '$load_ipset'... "
 		get_ipset_id "$load_ipset" || die_a
 		iplist_file="${iplist_dir}/${list_id}.iplist"
-		[ ! -f "$iplist_file" ] && die_a "Can not find the iplist file '$iplist_file'."
+		[ -f "$iplist_file" ] || { FAIL; die_a "Can not find the iplist file '$iplist_file'."; }
 
 		# count ips in the iplist file
 		[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | sed 's/elements = { //;s/ }//' | wc -w)"
@@ -297,12 +297,12 @@ apply_rules() {
 		{
 			printf %s "add set inet $geotable $load_ipset \
 				{ type ${ipset_family}_addr; flags interval; auto-merge; policy $nft_perf; "
-			sed '/\}/{s/,*[[:blank:]]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
-		} | nft -f - || die_a "$FAIL import the iplist from '$iplist_file' into ip set '$load_ipset'."
-		OK
+			sed '/\}/{s/,*[ 	]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
+		} | nft -f - || { FAIL; die_a "$FAIL import the iplist from '$iplist_file' into ip set '$load_ipset'."; }
 
 		[ "$debugmode" ] && debugprint "elements in $load_ipset: $(sp2nl ipsets "$load_ipsets"; cnt_ipset_elements "$load_ipset" "$ipsets")"
 	done
+	OK
 
 	# add allow and dhcp ipsets to $rm_ipsets
 	curr_ipsets="$(get_ipsets)"
@@ -539,7 +539,6 @@ extract_iplists() {
 # Saves current firewall state to a backup file
 create_backup() {
 	# back up current ip sets
-	printf_s "Creating backup of $p_name ip sets... "
 	getstatus "$status_file" || bk_failed
 	for list_id in $iplists; do
 		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
@@ -550,10 +549,11 @@ create_backup() {
 
 		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file
-		nft list set inet "$geotable" "$ipset" |
-			sed -n -e /"elements[[:blank:]]*=[[:blank:]]*{"/\{ -e s/[[:blank:]][[:blank:]]*//g\; -e p\;/\}/q\;:1 -e n\; -e s/[[:blank:]][[:blank:]]*//\; -e p\; -e /\}/q\;b1 -e \} \
-				> "$tmp_file"
-		[ ! -s "$tmp_file" ] && bk_failed "tmp file for '$list_id' is empty or doesn't exist."
+		{ nft list set inet "$geotable" "$ipset" || touch "$bk_failed_file"; } |
+			sed -n "/elements${blank}*=${blank}*{/{s/${blanks}//g;p;/\}/q;:1 n;s/${blanks}//;p;/\}/q;b1;}" \
+				> "$tmp_file" &&
+			[ ! -f "$bk_failed_file" ] && [ -s "$tmp_file" ] ||
+				bk_failed "${_nl}$FAIL create backup of the ipset for iplist id '$list_id'."
 
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $bk_len"
@@ -561,8 +561,6 @@ create_backup() {
 		$compr_cmd < "$tmp_file" > "$bk_file" || bk_failed "$compr_cmd exited with status $? for ip list '$list_id'."
 		[ -s "$bk_file" ] || bk_failed "resulting compressed file for '$list_id' is empty or doesn't exist."
 	done
-
-	OK
 	:
 }
 
