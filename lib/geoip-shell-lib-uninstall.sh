@@ -70,15 +70,15 @@ kill_geo_pids() {
 
 		_geo_ps="$(
 			pgrep -fa "$p_name" | \
-			grep -Ev "(pgrep|^${all_parent_pids}|(/usr/bin/)*$p_name(-manage.sh)*${blanks}stop)([[:blank:]]|$)" | \
-			grep -E "(^[[:blank:]]*[0-9][0-9]*${blanks}(sudo )*${p_name}|/usr/bin/${p_name}([^[:blank:]]*sh)*)([[:blank:]]|$)"
+			grep -Ev "(pgrep|^${all_parent_pids}|(/usr/bin/)*$p_name(-manage.sh)*${blanks}stop)(${blank}|$)" | \
+			grep -E "(^${blank}*[0-9][0-9]*${blanks}(sudo )*${p_name}|/usr/bin/${p_name}(${notblank}*sh)*)(${blank}|$)"
 		)"
 
 		[ "$debugmode" ] && debugprint "_geo_ps:${_nl}$(printf %s "$_geo_ps" | awk '{print $1 " " $2 " " $3 " " $4}')"
 
 		_dl_ps="$(
 			pgrep -fa "($ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | \
-			grep -v pgrep | grep -E '[[:blank:]](curl|wget|uclient-fetch)([[:blank:]]|$)'
+			grep -v pgrep | grep -E "${blank}(curl|wget|uclient-fetch)(${blank}|$)"
 		)"
 
 		[ "$debugmode" ] && debugprint "_dl_ps: '$(printf %s "$_dl_ps" | awk '{print $1 " " $2 " " $3 " " $4}')'"
