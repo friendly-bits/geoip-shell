@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2034,SC1090
+# shellcheck disable=SC2154,SC2034,SC1090,SC2120
 
 # geoip-shell-lib-ipt.sh
 
@@ -392,9 +392,10 @@ print_rules_table() {
 	:
 }
 
+# 1 - (optional) direction
 geoip_on() {
 	unset curr_ipt curr_ipt_ipv4 curr_ipt_ipv6 first_chain
-	for direction in inbound outbound; do
+	for direction in ${1:-inbound outbound}; do
 		set_dir_vars "$direction"
 		[ "$ifaces" != all ] && first_chain="$iface_chain" || first_chain="$geochain"
 		[ "$geomode" = disable ] && {
@@ -412,22 +413,29 @@ geoip_on() {
 					set_ipt_cmds "$family" || die_a
 					printf_s "Inserting the $direction $family geoblocking enable rule... "
 					eval "$ipt_cmd" -I "$base_geochain" -j "$first_chain" $ipt_comm "${geotag}_enable_${dir_short}_${f_short}" ||
-						critical "$FAIL insert the geoblocking enable firewall rule"
+						critical "$FAIL insert the $direction $family geoblocking enable firewall rule"
 					OK
 			esac
 		done
 	done
 }
 
+# 1 - (optional) direction
 geoip_off() {
-	for family in $families; do
-		f_short="${family#ipv}"
-		curr_ipt="$(ipt_save "$family")" || return 1
-		case "$curr_ipt" in
-			*"${geotag}_enable"*) rm_ipt_rules "$curr_ipt" "$family" "${geotag}_enable" || return 1 ;;
-			*) printf '%s\n' "Geoblocking is already off for $family."
-		esac
+	off_ok=
+	for direction in ${1:-inbound outbound}; do
+		dir_short="${direction%bound}"
+		for family in $families; do
+			curr_ipt="$(ipt_save "$family")" || return 1
+			case "$curr_ipt" in
+				*"${geotag}_enable_${dir_short}"*)
+					rm_ipt_rules "$curr_ipt" "$family" "${geotag}_enable_${dir_short}" || return 1
+					off_ok=1 ;;
+				*) printf '%s\n' "${direction} $family geoblocking is already off."
+			esac
+		done
 	done
+	[ ! "$off_ok" ] && return 2
 	:
 }
 
@@ -671,10 +679,7 @@ apply_rules() {
 	done
 
 	# insert the main blocking rules
-	case "$noblock" in
-		false) geoip_on ;;
-		true) echolog -warn "Geoblocking is disabled via config."
-	esac
+	[ "$noblock" = false ] && geoip_on
 
 	return "$retval"
 }
