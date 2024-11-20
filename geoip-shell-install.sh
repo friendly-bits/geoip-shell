@@ -303,7 +303,7 @@ prep_script() {
 	fi
 
 	# apply the filter, condense empty lines
-	if [ "$1" ]; then grep -vxE "$p" "$1"; else grep -vxE "$p"; fi | grep -vA1 '^[[:blank:]]*$' | grep -v '^--$'
+	if [ "$1" ]; then grep -vxE "$p" "$1"; else grep -vxE "$p"; fi | grep -vA1 "^${blank}*$" | grep -v '^--$'
 }
 
 
