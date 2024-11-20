@@ -78,7 +78,7 @@ pick_ccodes() {
 		toupper REPLY
 		trimsp REPLY
 		case "$REPLY" in
-			a|A) die 0 ;;
+			a|A) die 253 ;;
 			*)
 				newifs ' ;,' pcc
 				for ccode in $REPLY; do
@@ -115,7 +115,7 @@ pick_geomode() {
 		w) geomode=whitelist ;;
 		b) geomode=blacklist ;;
 		d) geomode=disable ;;
-		a) die 0
+		a) die 253
 	esac
 }
 
@@ -145,7 +145,7 @@ pick_ifaces() {
 		pick_opt "c|h|a"
 		case "$REPLY" in
 			c) ifaces="$auto_ifaces"; ifaces_picked=1; return ;;
-			a) die 0
+			a) die 253
 		esac
 	}
 
@@ -159,7 +159,7 @@ pick_ifaces() {
 			printf '%s\n%s\n' "All found network interfaces: $all_ifaces" \
 				"Type in WAN network interface names, or [a] to abort."
 			read -r REPLY
-			case "$REPLY" in a|A) die 0; esac
+			case "$REPLY" in a|A) die 253; esac
 		}
 		san_str u_ifaces "$REPLY"
 		[ -z "$u_ifaces" ] && {
@@ -210,8 +210,37 @@ validate_arg_ips() {
 	:
 }
 
+# 1 - var name for output
+# 2 - family
+# 3 - description to print
+pick_ips() {
+	pi_var="$1"
+	pi_family="$2"
+	pi_msg="$3"
+	while :; do
+		unset REPLY pi_ips
+		printf '\n%s\n' "Type in $family addresses for $pi_msg, [s] to skip or [a] to abort."
+		read -r REPLY
+		case "$REPLY" in
+			s|S) unset "$pi_var"; return 1 ;;
+			a|A) die 253
+		esac
+		case "$REPLY" in *[!A-Za-z0-9.:/\ ]*)
+			printf '%s\n' "Invalid ip adresses: '$REPLY'"
+			continue
+		esac
+		san_str pi_ips "$REPLY"
+		[ -z "$pi_ips" ] && continue
+		validate_ip "$pi_ips" "$family" && break
+	done
+	eval "$pi_var=\"$pi_ips\""
+}
+
 pick_lan_ips() {
-	confirm_ips() { eval "lan_ips_$family=\"$ipset_type:$res_subnets\""; }
+	confirm_ips() {
+		unset "lan_ips_$family"
+		[ "$res_subnets" ] && eval "lan_ips_$family=\"$ipset_type:$res_subnets\""
+	}
 
 	debugprint "Processing lan ips..."
 	lan_picked=1
@@ -232,6 +261,7 @@ pick_lan_ips() {
 	[ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || echolog -err "$FAIL source the -detect-lan script"
 
 	for family in $families; do
+		ipset_type=net
 		echo
 		command -v get_lan_subnets 1>/dev/null && {
 			printf %s "Detecting $family LAN subnets..."
@@ -242,7 +272,6 @@ pick_lan_ips() {
 
 		[ -n "$res_subnets" ] && {
 			nl2sp res_subnets
-			ipset_type="net"
 			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$res_subnets$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
 			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
@@ -252,31 +281,11 @@ pick_lan_ips() {
 				c) confirm_ips; continue ;;
 				s) continue ;;
 				h) autodetect_off=1 ;;
-				a) die 0
+				a) die 253
 			esac
 		}
 
-		while :; do
-			unset REPLY res_subnets
-			ipset_type=ip
-			[ ! "$nointeract" ] && {
-				printf '\n%s\n' "Type in $family LAN ip addresses and/or subnets, [s] to skip or [a] to abort."
-				read -r REPLY
-				case "$REPLY" in
-					s|S) break ;;
-					a|A) die 0
-				esac
-			}
-			case "$REPLY" in *[!A-Za-z0-9.:/\ ]*)
-				printf '%s\n' "Invalid ip's '$REPLY'"
-				REPLY=
-				[ "$nointeract" ] && die
-				continue
-			esac
-			san_str res_subnets "$REPLY"
-			[ -z "$res_subnets" ] && { [ "$nointeract" ] && die; continue; }
-			validate_ip "$res_subnets" "$family" && break
-		done
+		pick_ips res_subnets "$family" "LAN ip addresses and/or subnets" || continue
 		confirm_ips
 	done
 	echo
@@ -285,6 +294,70 @@ pick_lan_ips() {
 	printf '%s\n' "${blue}A[u]tomatically detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
 	[ "$REPLY" = u ] && autodetect=1
+}
+
+pick_source_ips() {
+	confirm_ips() {
+		unset "source_ips_$family"
+		[ "$source_ips" ] && eval "source_ips_$family=\"$ipset_type:$source_ips\""
+	}
+
+	debugprint "Processing source ips..."
+	unset source_ips_autodetect source_ips_policy source_ips source_ips_ipv4 source_ips_ipv6 ipset_type
+	tolower source_ips_arg
+	case "$source_ips_arg" in
+		pause|none) source_ips_policy="$source_ips_arg"; source_ips_arg=''; return 0 ;;
+		auto) source_ips_arg=''; source_ips_autodetect=1
+	esac
+
+	[ "$source_ips_arg" ] && {
+		validate_arg_ips "$source_ips_arg" source_ips && return 0
+		[ "$nointeract" ] && die
+	}
+
+
+	if [ ! "$source_ips_autodetect" ]; then
+		[ "$nointeract" ] && return 0
+		printf '\n%s\n%s\n%s\n%s\n' "$WARN outbound geoblocking may prevent $p_name from being able to automatically update ip lists." \
+			"To safeguard automatic ip list updates, either choose ip addresses of the download servers to bypass outbound geoblocking," \
+			"  or enable pausing of outbound geoblocking before each ip lists update." \
+			"[C]hoose ip addresses, [p]ause outbound geoblocking every time before ip list updates, [s]kip or [a]bort?"
+		pick_opt "c|p|s|a"
+		case "$REPLY" in
+			c) source_ips_policy= ;;
+			p) source_ips_policy=pause; return 0 ;;
+			s) source_ips_policy=none; return 0 ;;
+			a) die 253
+		esac
+	fi
+
+	for family in $families; do
+		ipset_type=ip
+		echo
+		source_ips="$(resolve_geosource_ips "$family")"
+
+		if [ -n "$source_ips" ]; then
+			nl2sp source_ips
+			printf '\n%s\n' "Automatically detected $family addresses for source '$geosource': '$blue$source_ips$n_c'."
+			[ "$source_ips_autodetect" ] && { confirm_ips; continue; }
+			printf '%s\n' "[c]onfirm, c[h]ange, [a]bort?"
+			pick_opt "c|h|a"
+			case "$REPLY" in
+				c) confirm_ips; continue ;;
+				h) ;;
+				a) die 253
+			esac
+		elif [ "$geosource" = ipdeny ] && [ "$family" = ipv6 ]; then
+				printf '%s\n' "At this time the 'ipdeny' servers do not have ipv6 addresses - skipping."
+				continue
+		else
+			printf '%s\n' "$FAIL automatically detect $family addresses for source '$geosource'."
+		fi
+
+		pick_ips source_ips "$family" "addresses for source '$geosource'" || continue
+		confirm_ips
+	done
+	echo
 }
 
 invalid_str() { echolog -err "Invalid string '$1'."; }
@@ -468,7 +541,7 @@ get_general_prefs() {
 		eval "par_val_arg=\"\${${par_name}_arg}\""
 		case "$par_val" in
 			true) { [ "$in_install" ] || [ "$first_setup" ]; } && [ "$par_val_arg" != true ] && [ "$par_name" != nobackup ] &&
-						echolog -warn "option '$par_name' is set to 'true' in config." ;;
+						echolog -warn "${_nl}option '$par_name' is set to 'true' in config." ;;
 			false) ;;
 			*) eval "def_val=\"\$${par_name}_def\""
 				[ ! "$first_setup" ] && [ ! "$in_install" ] &&
@@ -522,7 +595,15 @@ get_general_prefs() {
 	case "$trusted_arg" in
 		none) unset trusted_ipv4 trusted_ipv6 ;;
 		'') ;;
-		*) validate_arg_ips "$trusted_arg" trusted || die
+		*)
+			validate_arg_ips "$trusted_arg" trusted && return 0
+			[ "$nointeract" ] && die
+			for family in $families; do
+				ipset_type=net
+				pick_ips trusted "$family" "trusted ip addresses or subnets" || continue
+				unset "trusted_$family"
+				[ "$trusted" ] && eval "trusted_$family=\"$ipset_type:$trusted\""
+			done
 	esac
 
 	[ ! "$user_ccode" ] || [ "$user_ccode_arg" ] && pick_user_ccode
