@@ -186,7 +186,33 @@ for direction in inbound outbound; do
 		eval "allow_$f=\"$allow_ips\""
 	done
 
-	printf '\n%s\n' "  Allowed ip's:"
+
+	[ "$direction" = outbound ] && {
+		src_allow_ips_pr=
+		for f in $families; do
+			eval "src_ips_f=\"\${source_ips_$f}\""
+			for rm_str in ip net; do
+				src_ips_f="${src_ips_f#"${rm_str}:"}"
+			done
+			src_allow_ips_pr="${src_allow_ips_pr}${src_ips_f} "
+		done
+		san_str src_allow_ips_pr
+
+		case "$source_ips_policy" in
+			none) source_ips_policy_pr="${yellow}none${n_c}" ;;
+			pause) source_ips_policy_pr="${blue}pause${n_c}${_nl}    Outbound geoblocking will be paused while fetching ip list updates." ;;
+			'')
+				case "$src_allow_ips_pr" in
+					'') source_ips_policy_pr="${yellow}not set${n_c}" ;;
+					*) source_ips_policy_pr="${blue}Allow specific ip addresses${n_c}${_nl}    Ip's: ${blue}$src_allow_ips_pr${n_c}" ;;
+				esac ;;
+			*) source_ips_policy_pr="${red}${source_ips_policy} ${_X}${n_c} (invalid)"; incr_issues
+		esac
+
+		printf '%s\n' "  Policy for allowing automatic ip list updates: $source_ips_policy_pr"
+	}
+
+	printf '\n%s\n' "  Allowed ip's (includes link-local ip's, trusted ip's, LAN ip's, iplist server ip's):"
 	for f in $families; do
 		eval "allow_ips=\"\${allow_$f}\""
 		[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
