@@ -193,7 +193,7 @@ ips2hex() {
 # 2 - sorted by maskbits subnets hex, with prepended maskbits/
 # output via $res_subnets
 aggregate_subnets() {
-	debugprint "Starting aggregate_subnets for family $1, input '$2'."
+	# debugprint "Starting aggregate_subnets for family $1, input '$2'."
 	convert_family "$1"
 	subnets_hex="$2$_nl"
 	set_conv_vars "$family_dl" || return 1
@@ -263,7 +263,7 @@ aggregate_subnets() {
 
 		# format from hex number back to ip
 		hex_to_ip "$ip1_hex" "$family_dl" res_ip || return 1
-		debugprint "calculated res_ip: '$res_ip'"
+		# debugprint "calculated res_ip: '$res_ip'"
 
 		# append mask bits and add current subnet to resulting list
 		res_subnets="${res_subnets}${res_ip}/${maskbits}${_nl}"
