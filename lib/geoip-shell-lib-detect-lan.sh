@@ -110,8 +110,14 @@ ip_to_hex() {
 	esac
 	IFS_OLD_ith="$IFS"
 	IFS="$_fmt_delim"
+
 	for chunk in $ip; do
-		printf " 0x%0${chunk_len_chars}x" "$hex_flag$chunk" || { echolog -err "ip_to_hex: $FAIL convert chunk '$chunk'."; return 1; }
+		printf " 0x%0${chunk_len_chars}x" "$hex_flag$chunk" ||
+			{
+				IFS="$IFS_OLD_ith"
+				echolog -err "ip_to_hex: $FAIL convert chunk '$chunk'."
+				return 1
+			}
 	done
 	IFS="$IFS_OLD_ith"
 }
@@ -127,27 +133,41 @@ hex_to_ip() {
 		return 1
 	}
 
-	case "$family_dl" in inet6 )
-		## compress ipv6
-
-		case "$ip" in :* ) ;; *) ip=":$ip"; esac
-		# compress 0's across neighbor chunks
-		for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
-			case "$ip" in *$zeroes* )
-				ip="${ip%%"$zeroes"*}::${ip#*"$zeroes"}"
-				break
-			esac
-		done
-
-		# trim leading colon if it's not a double colon
-		case "$ip" in
-			::::*) ip="${ip#::}" ;;
-			:::*) ip="${ip#:}" ;;
-			::*) ;;
-			:*) ip="${ip#:}"
-		esac
+	case "$family_dl" in inet)
+		eval "$out_var"='${ip%$_fmt_delim}'
+		return 0
 	esac
-	eval "$out_var"='${ip%$_fmt_delim}'
+
+	ip="${ip%":"}"
+	# debugprint "hex_to_ip: formatted input: '$ip'"
+
+	## compress ipv6
+
+	# add leading : if needed
+	case "$ip" in :*) ;; *) ip=":$ip"; esac
+
+	# compress 0's across neighbor chunks
+	for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
+		case "$ip" in *$zeroes*)
+			ip="${ip%%"$zeroes"*}::${ip#*"$zeroes"}"
+			break
+		esac
+	done
+
+	# replace ::: with ::
+	case "$ip" in *:::*) ip="${ip%%:::*}::${ip#*:::}"; esac
+
+	# debugprint "hex_to_ip: preliminary commpressed ip: '$ip'"
+
+	# trim leading colon if it's not a double colon
+	case "$ip" in
+		::::*) ip="${ip#::}" ;;
+		:::*) ip="${ip#:}" ;;
+		::*) ;;
+		:*) ip="${ip#:}"
+	esac
+
+	eval "$out_var=\"${ip}\""
 }
 
 # input via stdin
@@ -173,7 +193,7 @@ ips2hex() {
 # 2 - sorted by maskbits subnets hex, with prepended maskbits/
 # output via $res_subnets
 aggregate_subnets() {
-	# debugprint "Starting aggregate_subnets for family $1, input '$2'."
+	debugprint "Starting aggregate_subnets for family $1, input '$2'."
 	convert_family "$1"
 	subnets_hex="$2$_nl"
 	set_conv_vars "$family_dl" || return 1
@@ -243,6 +263,7 @@ aggregate_subnets() {
 
 		# format from hex number back to ip
 		hex_to_ip "$ip1_hex" "$family_dl" res_ip || return 1
+		debugprint "calculated res_ip: '$res_ip'"
 
 		# append mask bits and add current subnet to resulting list
 		res_subnets="${res_subnets}${res_ip}/${maskbits}${_nl}"
@@ -291,7 +312,7 @@ aggregate_subnets() {
 	IFS="$IFS_OLD_ags"
 
 	validate_ip "${res_ips%"$_nl"}" "$family_dl" ||
-		{ echolog -err "get_lan_subnets: $FAIL validate one or more of output addresses."; return 1; }
+		{ echolog -err "aggregate_subnets: $FAIL validate one or more of output addresses."; return 1; }
 	:
 }
 
