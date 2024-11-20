@@ -120,7 +120,7 @@ report_lists() {
 		get_active_iplists verified_lists "$direction"
 		nl2sp verified_lists
 		if [ -n "$verified_lists" ]; then
-			verified_lists="${blue}$(printf %s "$verified_lists" | sed "s/allow_[^[:blank:]]*//g;s/dhcp_[^[:blank:]]*//g;s/^${blanks}//;s/${blanks}$//;s/${blanks}/ /g;")${n_c}"
+			verified_lists="${blue}$(printf %s "$verified_lists" | sed "s/allow_${notblank}*//g;s/dhcp_${notblank}*//g;s/^${blanks}//;s/${blanks}$//;s/${blanks}/ /g;")${n_c}"
 		else
 			verified_lists="${red}None${n_c}"
 		fi
@@ -1125,6 +1125,7 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 export fetch_res_file="/tmp/${p_name}-fetch-res"
 
 blank="[ 	]"
+notblank="[^ 	]"
 blanks="${blank}${blank}*"
 export _nl='
 '
