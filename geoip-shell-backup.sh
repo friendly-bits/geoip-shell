@@ -71,13 +71,13 @@ debugentermsg
 bk_failed() {
 	[ "$1" ] && echolog -err "$1"
 	rm_bk_tmp
-	die "$FAIL back up $p_name ipsets."
+	die "$FAIL create backup of $p_name ipsets."
 }
 
 rm_bk_tmp() {
 	set +f
 	rm -rf "$bk_dir_new"
-	rm -f "$tmp_file" "$iplist_dir/"*.iplist
+	rm -f "$bk_failed_file" "$tmp_file" "$iplist_dir/"*.iplist
 }
 
 rstr_failed() {
@@ -161,6 +161,7 @@ config_file="$conf_file"
 config_file_bak="${p_name}.conf.bak"
 status_file="$datadir/status"
 status_file_bak="status.bak"
+bk_failed_file="/tmp/$p_name-backup-failed"
 
 checkvars _fw_backend datadir
 
@@ -184,6 +185,7 @@ case "$action" in
 		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		printf_s "Creating backup of $p_name ip sets... "
+		rm -f "$bk_failed_file"
 		create_backup && OK
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
