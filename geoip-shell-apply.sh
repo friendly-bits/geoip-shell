@@ -166,7 +166,7 @@ checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock ip
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
 	nl2sp all_ifaces
 	subtract_a_from_b "$all_ifaces" "$ifaces" bad_ifaces
-	[ "$bad_ifaces" ] && die "Network interfaces '$bad_ifaces' do not exist in this system."
+	[ "$bad_ifaces" ] && die "Geoblocking was configured for network interfaces '$ifaces', but interfaces '$bad_ifaces' do not exist."
 }
 
 ## MAIN
@@ -176,23 +176,25 @@ debugprint "loading the $_fw_backend library..."
 
 case "$action" in
 	on) geoip_on; exit ;;
-	off) geoip_off; exit
+	off) geoip_off
+		case $? in
+			0|2) exit 0 ;;
+			1) exit 1
+		esac
 esac
 
 [ -n "$iplist_dir" ] && mkdir -p "$iplist_dir"
 
-is_whitelist_present &&
-	{ [ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || die "$FAIL source the detect-lan script"; }
-
+[ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || die "$FAIL source ${_lib}-detect-lan.sh"
 
 ### compile allowlist ip's and write to file
 for family in $families; do
-	unset autodetected all_allow_ips_prev allow_iplist_file_prev
+	unset lan_autodetected all_allow_ips_prev allow_iplist_file_prev
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 
-		unset all_allow_ips res_subnets trusted lan_ips ll_addr
+		unset all_allow_ips res_subnets trusted lan_ips source_ips ll_addr
 
 		allow_ipset_name="allow_${direction%bound}_${family#ipv}"
 		allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
@@ -204,15 +206,32 @@ for family in $families; do
 
 		rm -f "$allow_iplist_file"
 
+		## load source ip's
+		[ "$direction" = outbound ] && {
+			eval "source_ips=\"\${source_ips_$family}\""
+
+			case "$source_ips" in net:*|ip:*)
+				ips_type="${source_ips%%":"*}"
+				source_ips="${source_ips#*":"}"
+			esac
+			if [ -n "$source_ips" ]; then
+				[ "$ips_type" = net ] && {
+					allow_ipset_type=net
+					eval "allow_ipset_type_${direction}_${family}=net"
+				}
+				sp2nl source_ips
+			fi
+		}
+
 		[ "$geomode" = whitelist ] && {
 			eval "allow_ipset_type_${direction}_${family}=net"
 			allow_ipset_type=net
 
 			## load or detect lan ip's
-			if [ "$autodetect" ] && [ ! "$autodetected" ]; then
+			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
 				res_subnets=
 				get_lan_subnets "$family" || die
-				autodetected=1
+				lan_autodetected=1
 				[ "$res_subnets" ] && nl2sp "lan_ips_$family" "net:$res_subnets"
 				lan_ips="$res_subnets"
 			else
@@ -245,10 +264,10 @@ for family in $families; do
 
 
 		cat_cnt=0
-		for cat in trusted lan_ips ll_addr; do
+		for cat in trusted lan_ips ll_addr source_ips; do
 			eval "cat_ips=\"\${$cat}\""
 			[ ! "$cat_ips" ] && continue
-			cat_cnt=$((cat_cnt+1))
+			[ "$cat" != source_ips ] && cat_cnt=$((cat_cnt+1))
 			all_allow_ips="$all_allow_ips${cat_ips%"${_nl}"}$_nl"
 		done
 
@@ -370,10 +389,17 @@ debugprint "calling apply_rules()"
 apply_rules
 rv_apply=$?
 
-[ "$rv_apply" = 0 ] && [ "$autodetect" ] && {
-	[ "$lan_ips_ipv4" ] && setconf_lan=lan_ips_ipv4
-	[ "$lan_ips_ipv6" ] && setconf_lan="$setconf_lan lan_ips_ipv6"
-	[ "$setconf_lan" ] && setconfig $setconf_lan
+echo
+
+[ "$rv_apply" = 0 ] && {
+	setconf_ips=
+	[ "$autodetect" ] && {
+		[ "$lan_ips_ipv4" ] && setconf_ips=lan_ips_ipv4
+		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6"
+	}
+	[ "$setconf_ips" ] && setconfig $setconf_ips
 }
+
+[ "$noblock" = true ] && { echolog -warn "Geoblocking is disabled via config."; echo; }
 
 exit $rv_apply
