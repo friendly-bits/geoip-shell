@@ -53,14 +53,14 @@ kill_geo_pids() {
 			last_pid="$SPPID"
 			parent_pids="${parent_pids}${SPPID}|"
 		done
-		printf %s "${parent_pids%|}"
+		printf %s "(${parent_pids%|})"
 	}
 
 	all_parent_pids="$(get_parents_pids)"
 
 	printf '\n%s\n' "Killing any running $p_name processes..."
 
-	[ "$debugmode" ] && debugprint "parent pids: '$all_parent_pids'"
+	debugprint "parent pids: '$all_parent_pids'"
 
 	i_kgp=0
 	newifs "$default_IFS" kgp
@@ -70,11 +70,11 @@ kill_geo_pids() {
 
 		_geo_ps="$(
 			pgrep -fa "$p_name" | \
-			grep -Ev "(^${all_parent_pids}|(/usr/bin/)*$p_name(-manage.sh)* stop)[[:blank:]]|pgrep)" | \
+			grep -Ev "(pgrep|^${all_parent_pids}|(/usr/bin/)*$p_name(-manage.sh)*${blanks}stop)([[:blank:]]|$)" | \
 			grep -E "(^[[:blank:]]*[0-9][0-9]*${blanks}(sudo )*${p_name}|/usr/bin/${p_name}([^[:blank:]]*sh)*)([[:blank:]]|$)"
 		)"
 
-		[ "$debugmode" ] && debugprint "_geo_ps: '$(printf %s "$_geo_ps" | awk '{print $1 " " $2 " " $3 " " $4}')'"
+		[ "$debugmode" ] && debugprint "_geo_ps:${_nl}$(printf %s "$_geo_ps" | awk '{print $1 " " $2 " " $3 " " $4}')"
 
 		_dl_ps="$(
 			pgrep -fa "($ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | \
