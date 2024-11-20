@@ -495,15 +495,22 @@ ucl_f_cmd="uclient-fetch"
 curl_cmd="curl -L -f"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-unset secure_util fetch_cmd owrt_ssl
-[ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] &&
-	[ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] && checkutil uci && owrt_ssl=1
+unset secure_util fetch_cmd busybox_ssl
+
+if [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] && {
+	[ -s /usr/bin/ssl_client ] ||
+	{ [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] && checkutil uci; }
+}
+then
+	busybox_ssl=1
+fi
+
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
 	case "$util" in
 		curl)
 			secure_util="curl"
-			curl --help curl 2>/dev/null | grep -q '\-\-fail-early' && curl_cmd="$curl_cmd --fail-early"
+			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
 			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
 			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
 			fetch_cmd="$curl_cmd --progress-bar"
@@ -513,7 +520,7 @@ for util in curl wget uclient-fetch; do
 			if ! wget --version | grep -m1 "GNU Wget"; then
 				wget_cmd="wget -q"
 				unset wget_tries wget_tries_con_check wget_show_progress
-				[ "$owrt_ssl" ] && secure_util="wget"
+				[ "$busybox_ssl" ] && secure_util="wget"
 			else
 				wget_show_progress=" --show-progress"
 				wget_cmd="wget -q --max-redirect=10"
@@ -531,7 +538,7 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd="$ucl_f_cmd -T 16 -O -"
 			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
 			con_check_cmd="$ucl_f_cmd -T 7 -q -s"
-			[ "$owrt_ssl" ] && { secure_util="uclient-fetch"; break; }
+			[ "$busybox_ssl" ] && { secure_util="uclient-fetch"; break; }
 	esac
 done
 
@@ -540,6 +547,8 @@ done
 [ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
 
 owrt_ssl_needed="Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
+
+debugprint "fetch_cmd: '$fetch_cmd', secure_util: '$secure_util'"
 
 if [ -z "$secure_util" ]; then
 	[ "$dl_src" = ipdeny ] && {
