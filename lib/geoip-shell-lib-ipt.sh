@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2034,SC1090,SC2120
+# shellcheck disable=SC2154,SC2034,SC1090,SC2120,SC2015
 
 # geoip-shell-lib-ipt.sh
 
@@ -175,7 +175,7 @@ encode_rules() {
 	if [ "$1" = '-n' ]; then
 		shift
 	else
-		sed_inc_counter_1="/^[[:blank:]]*\\[.*\\]/{"
+		sed_inc_counter_1="/^${blank}*\\[.*\\]/{"
 		sed_inc_counter_2=";}"
 		sed_colon_res="s/Q/:/;"
 	fi
@@ -183,7 +183,7 @@ encode_rules() {
 	[ "$1" ] || { echolog -err "encode_rules: family not set"; return 1; }
 	sed -n "${sed_inc_counter_1}s/${blanks}-A${blanks}//;
 		s/$p_name//g;s/${p_name_cap}//g;s/-m set --match-set//;s/--ctstate//;
-		s/${ipt_comm}[[:blank:]][^[:blank:]]*//g;s/-m conntrack//g;s/-m multiport//g;s/-m udp//;s/_//g;
+		s/${ipt_comm}${blank}${notblank}*//g;s/-m conntrack//g;s/-m multiport//g;s/-m udp//;s/_//g;
 		s~/~W~g;s/-/_/g;s/\./_/g;s/!/X/g;s/:/Q/g;${sed_colon_res}s/,/Y/g;
 		s/${blanks}/Z/g;s/\$/_${1#ipv}/;/^$/d;p${sed_inc_counter_2}"
 }
@@ -213,18 +213,18 @@ load_ipset() {
 	set -- $1
 	oldifs loi
 
-	[ $# -ge 4 ] || { echolog -err "load_ipset: invalid entry '$*'"; return 1; }
+	[ $# -ge 4 ] || { FAIL; echolog -err "load_ipset: invalid entry '$*'"; return 1; }
 
 	case "$2" in
 		ip|net) ;;
-		*) echolog -err "load_ipset: Invalid ipset type '$2' in entry '$*'"; return 1
+		*) FAIL; echolog -err "load_ipset: Invalid ipset type '$2' in entry '$*'"; return 1
 	esac
 
 	l_ipset="$1" ipset_type="$2" family_li="$3"
 	shift 3
 	iplist_file="$*"
 
-	[ -f "$iplist_file" ] || { echolog -err "Can not find the iplist file in path: '$iplist_file'."; return 1; }
+	[ -f "$iplist_file" ] || { FAIL; echolog -err "Can not find the iplist file in path: '$iplist_file'."; return 1; }
 
 	ipset destroy "$l_ipset" 1>/dev/null 2>/dev/null
 
@@ -238,17 +238,16 @@ load_ipset() {
 
 	get_ipset_id "$l_ipset" || return 1
 	debugprint "hashsize for ipset $list_id: $ipset_hs"
-	printf_s "Loading ip list for ${list_id}... "
+	debugprint "Loading ip list for ${list_id}... "
 	ipset create "$l_ipset" "hash:$ipset_type" family "$family_li" hashsize "$ipset_hs" maxelem "$ip_cnt" ||
-		{ echolog -err "$FAIL create ipset '$l_ipset'."; return 1; }
+		{ FAIL; echolog -err "$FAIL create ipset '$l_ipset'."; return 1; }
 
 	# read $iplist_file, transform each line into 'add' command and pipe the result into "ipset restore"
 	sed "/^$/d;s/^/add \"$l_ipset\" /" "$iplist_file" | ipset restore -exist ||
-		{ echolog -err "$FAIL load the iplist from '$iplist_file' into ipset '$l_ipset'."; return 1; }
+		{ FAIL; echolog -err "$FAIL load the iplist from '$iplist_file' into ipset '$l_ipset'."; return 1; }
 
 	[ "$debugmode" ] && debugprint "ip's in the new ipset: $(ipset save "$l_ipset" | grep -c "add $l_ipset")"
 
-	OK
 	rm -f "$iplist_file"
 	:
 }
@@ -324,15 +323,15 @@ print_rules_table() {
 	rules="$(
 		eval "$ipt_save" -c |
 		sed -n "/${geochain}.*geoip-shell/{
-			s/^[[:blank:]]*\[/-K /;
+			s/^${blank}*\[/-K /;
 			s/:/ -B /;
 			s/\]//;
 			s/${geochain}${blanks}//;
 			s/${blanks}-A${blanks}/ /;
-			s/^[[:blank:]]*//;
+			s/^${blank}*//;
 			s/-m set --match-set/-S/;
 			s/-m comment --comment/-c/;
-			s/-m conntrack --ctstate${blanks}[^[:blank:]]*RELATED[^[:blank:]]*/-e \"conntrack RELATED,ESTABLISHED\"/;
+			s/-m conntrack --ctstate${blanks}${notblank}*RELATED${notblank}*/-e \"conntrack RELATED,ESTABLISHED\"/;
 			s/-p udp/-P udp/;
 			s/-m udp//;
 			s/-p tcp/-P tcp/;
@@ -538,13 +537,13 @@ apply_rules() {
 
 	### Load ipsets
 	[ -n "$ipsets_to_add" ] && {
-		printf '%s\n' "Loading ipsets..."
+		printf_s "Loading ipsets... "
 		newifs "$_nl" li
 		for entry in ${ipsets_to_add%"$_nl"}; do
 			oldifs li
 			load_ipset "${entry}" || die_a
 		done
-		echo
+		OK
 	}
 
 	#### Assemble commands for iptables-restore
@@ -721,11 +720,13 @@ create_backup() {
 	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
 	ipsets="$(ipset list -n | grep "$geotag")" || { echolog "create_backup: no ipsets found."; return 0; }
 	for ipset in $ipsets; do
-		printf %s "Creating backup of ipset '$ipset'... " >&2
-		ipset save "$ipset" || { printf '\n%s\n' "$FAIL back up ipset '$ipset'." >&2; exit 1; }
-		OK >&2
-	done | eval "$compr_cmd" > "$bk_file" && [ -s "$bk_file" ] || bk_failed "$FAIL backup $p_name ipsets."
-
+		ipset save "$ipset" || {
+			touch "$bk_failed_file"
+			echolog -err "${_nl}$FAIL create backup of ipset '$ipset'."
+			exit 1
+		}
+	done | eval "$compr_cmd" > "$bk_file" && [ ! -f "$bk_failed_file" ] && [ -s "$bk_file" ] ||
+		bk_failed "${_nl}$FAIL create backup of $p_name ipsets."
 	:
 }
 
