@@ -34,7 +34,7 @@ debugentermsg
 
 usage() {
 cat <<EOF
-Usage: $me [-r] [-V] [-h]
+Usage: $me [-r] [-V] [-d] [-h]
 
 1) Removes geoip firewall rules
 2) Removes geoip cron jobs
@@ -45,6 +45,7 @@ Usage: $me [-r] [-V] [-h]
 Options:
   -r  : Leave the config file and the backup files in place
   -V  : Version
+  -d  : Debug
   -h  : This help
 
 EOF
@@ -67,10 +68,11 @@ rm_scripts() {
 
 #### PARSE ARGUMENTS
 
-while getopts ":rVh" opt; do
+while getopts ":rVdh" opt; do
 	case $opt in
 		r) keepdata="-r" ;;
 		V) echo "$curr_ver"; exit 0 ;;
+		d) debugmode=1 ;;
 		h) usage; exit 0 ;;
 		*) ;;
 	esac
