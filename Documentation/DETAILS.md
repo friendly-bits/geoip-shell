@@ -72,7 +72,7 @@ After installation, the user interface is provided by running "geoip-shell", whi
 
 `geoip-shell <on|off>` : Enable or disable the main geoblocking chain (via a rule in the base geoip chain)
 
-`geoip-shell stop` : Kill any running geoip-shell processes, remove geoip-shell firewall rules and disable the geoblocking chain
+`geoip-shell stop` : Kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets
 
 `geoip-shell status`
 * Displays information on the current state of geoip blocking
@@ -129,6 +129,10 @@ These options apply to geoblocking in both directions.
 `-l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
 
 `-t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+
+`-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic ip list updates when outbound geoblocking is enabled. Use `auto` to detect server ip addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching ip list updates.
+Or specify ip addresses for ip lists source (ripe or ipdeny) to allow - for multiple addresses, use double quotes.
+Or use `none` to remove previously assigned server ip addresses and disable this feature.
 
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 

@@ -201,6 +201,8 @@ _<details><summary>Example</summary>_
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory.
 
+**To temporarily stop geoip-shell:** `geoip-shell stop`. This will kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets.
+
 **To uninstall:** `geoip-shell-uninstall.sh`
 
 On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`
