@@ -54,7 +54,7 @@ ${purple}Actions${n_c}:
   ${blue}restore${n_c}    :  re-apply geoblocking rules from the config
   ${blue}showconfig${n_c} :  print the contents of the config file
   ${blue}on|off${n_c}     :  enable or disable the geoblocking chain (via a rule in the base geoip chain)
-  ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and disable the geoblocking chain
+  ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets
 
 ${purple}'configure' action${n_c}:
   General syntax: ${blue}configure [options] [-D $direction_syn <options>]${n_c}
@@ -498,8 +498,7 @@ case "$action" in
 				kill_geo_pids
 				mk_lock -f
 				rm_iplists_rules
-				setconfig "noblock=true"
-				action=off
+				die
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
