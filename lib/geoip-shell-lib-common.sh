@@ -364,14 +364,14 @@ num2human() {
 	printf "%s.%${fp}d%s\n" "$i" "$d" "$S"
 }
 
-# primitive alternative to grep
+# primitive alternative to grep, may not work correctly if too many lines are provided as input
+# outputs only the 1st match
+# return status is 0 for match, 1 for no match
 # 1 - input
 # 2 - leading '*' wildcard (if required, otherwise use empty string)
 # 3 - filter string
 # 4 - trailing '*' wildcard (if required, otherwise use empty string)
 # 5 - optional var name for output
-# outputs the 1st match
-# return status is 0 for match, 1 for no match
 get_matching_line() {
 	newifs "$_nl" gml
 	_rv=1; _res=
@@ -625,6 +625,7 @@ add2list() {
 # checks if string $1 is safe to use with eval
 is_str_safe() {
 	case "$1" in *'\'*|*'"'*|*\'*) echolog -err "Invalid string '$1'"; return 1; esac
+	:
 }
 
 # removes duplicate words, removes leading and trailing delimiter, trims in-between extra delimiter characters
