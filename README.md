@@ -1,5 +1,5 @@
 # **geoip-shell**
-Powerful geoblocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
+User-friendly and powerful geoblocker for Linux. Supports both **nftables** and **iptables** firewall management utilities.
 
 The idea of this project is making geoblocking (i.e. restricting access from or to Internet addresses based on geolocation) easy on (almost) any Linux system, no matter which hardware, including desktop, server, container, VPS or router, while also being reliable and providing flexible configuration options for the advanced users.
 
