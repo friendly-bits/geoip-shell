@@ -174,6 +174,8 @@ checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock ip
 debugprint "loading the $_fw_backend library..."
 . "$_lib-$_fw_backend.sh" || exit 1
 
+debugprint "Starting action '$action'..."
+
 case "$action" in
 	on) geoip_on; exit ;;
 	off) geoip_off
@@ -189,6 +191,7 @@ esac
 
 ### compile allowlist ip's and write to file
 for family in $families; do
+	debugprint "Compiling the allowlist for $family..."
 	unset lan_autodetected all_allow_ips_prev allow_iplist_file_prev
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
@@ -229,11 +232,9 @@ for family in $families; do
 
 			## load or detect lan ip's
 			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
-				res_subnets=
-				get_lan_subnets "$family" || die
+				lan_ips="$(get_lan_subnets "$family")" || die
 				lan_autodetected=1
-				[ "$res_subnets" ] && nl2sp "lan_ips_$family" "net:$res_subnets"
-				lan_ips="$res_subnets"
+				nl2sp "lan_ips_$family" "net:$lan_ips"
 			else
 				eval "lan_ips=\"\${lan_ips_$family}\""
 				lan_ips="${lan_ips#*":"}"
@@ -282,9 +283,7 @@ for family in $families; do
 			# aggregate allowed ip's/subnets
 			res_subnets=
 			if [ "$_fw_backend" = ipt ] && [ $cat_cnt -ge 2 ] && [ "$allow_ipset_type" = net ] &&
-				allow_hex="$(printf %s "$all_allow_ips" | ips2hex "$family")" &&
-				[ "$allow_hex" ] &&
-				aggregate_subnets "$family" "$allow_hex" && [ "$res_subnets" ]
+				res_subnets="$(printf %s "$all_allow_ips" | aggregate_subnets "$family")" && [ "$res_subnets" ]
 			then
 				:
 			else
