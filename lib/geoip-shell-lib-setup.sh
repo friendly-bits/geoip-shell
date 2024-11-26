@@ -239,12 +239,12 @@ pick_ips() {
 pick_lan_ips() {
 	confirm_ips() {
 		unset "lan_ips_$family"
-		[ "$res_subnets" ] && eval "lan_ips_$family=\"$ipset_type:$res_subnets\""
+		[ "$lan_ips" ] && eval "lan_ips_$family=\"$ipset_type:$lan_ips\""
 	}
 
 	debugprint "Processing lan ips..."
 	lan_picked=1
-	unset autodetect ipset_type res_subnets lan_ips_ipv4 lan_ips_ipv6
+	unset autodetect ipset_type lan_ips lan_ips_ipv4 lan_ips_ipv6
 	case "$lan_ips_arg" in
 		none) return 0 ;;
 		auto) lan_ips_arg=''; autodetect=1
@@ -265,14 +265,14 @@ pick_lan_ips() {
 		echo
 		command -v get_lan_subnets 1>/dev/null && {
 			printf %s "Detecting $family LAN subnets..."
-			get_lan_subnets "$family"
+			lan_ips="$(get_lan_subnets "$family")"
 		} || {
 			[ "$nointeract" ] && die
 		}
 
-		[ -n "$res_subnets" ] && {
-			nl2sp res_subnets
-			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$res_subnets$n_c'."
+		[ -n "$lan_ips" ] && {
+			nl2sp lan_ips
+			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$lan_ips$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
 			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
 				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
@@ -285,7 +285,7 @@ pick_lan_ips() {
 			esac
 		}
 
-		pick_ips res_subnets "$family" "LAN ip addresses and/or subnets" || continue
+		pick_ips lan_ips "$family" "LAN ip addresses and/or subnets" || continue
 		confirm_ips
 	done
 	echo
