@@ -186,7 +186,7 @@ for direction in inbound outbound; do
 		eval "allow_$f=\"$allow_ips\""
 	done
 
-
+	includes_server=
 	[ "$direction" = outbound ] && {
 		src_allow_ips_pr=
 		for f in $families; do
@@ -210,9 +210,10 @@ for direction in inbound outbound; do
 		esac
 
 		printf '%s\n' "  Policy for allowing automatic ip list updates: $source_ips_policy_pr"
+		includes_server=", iplist server ip's"
 	}
 
-	printf '\n%s\n' "  Allowed ip's (includes link-local ip's, trusted ip's, LAN ip's, iplist server ip's):"
+	printf '\n%s\n' "  Allowed ip's (includes link-local ip's, trusted ip's, LAN ip's${includes_server}):"
 	for f in $families; do
 		eval "allow_ips=\"\${allow_$f}\""
 		[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
