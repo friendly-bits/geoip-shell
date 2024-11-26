@@ -201,7 +201,7 @@ _<details><summary>Example</summary>_
 
 **To update or re-install geoip-shell:** run the -install script from the (updated) distribution directory.
 
-**To temporarily stop geoip-shell:** `geoip-shell stop`. This will kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets.
+**To temporarily stop geoip-shell:** `geoip-shell stop`. This will kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets. To reactivate geoblocking, run `geoip-shell configure`.
 
 **To uninstall:** `geoip-shell-uninstall.sh`
 
