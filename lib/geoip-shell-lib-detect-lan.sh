@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2086,SC1090
+# shellcheck disable=SC2154,SC2086,SC2004
 
 # geoip-shell-lib-detect-lan.sh
 
@@ -31,6 +31,7 @@
 hex_to_ipv6() {
 	ip_hti="$1"
 	# compress 0's across neighbor chunks
+	IFS=' '
 	for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
 		case "$ip_hti" in *$zeroes*)
 			ip_hti="${ip_hti%%"$zeroes"*}::${ip_hti#*"$zeroes"}"
@@ -141,6 +142,31 @@ ip_to_int() {
 	:
 }
 
+# Converts input integer into ip address with optional mask bits
+# 1 - input ip address represented as integer
+# 2 - family (ipv4|inet|ipv6|inet6)
+# 3 - optional: mask bits (integer). if specified, appends /[maskbits] to output
+int_to_ip() {
+	maskbits_iti=
+	[ "$3" ] && maskbits_iti="/$3"
+	case "$2" in
+		ipv4|inet)
+			set -- $(( ($1>>24)&255 )) $(( ($1>>16)&255 )) $(( ($1>>8)&255 )) $(($1 & 255))
+			printf '%s\n' "${1}.${2}.${3}.${4}${maskbits_iti}" ;;
+		ipv6|inet6)
+			# convert into 16-bit hex chunks delimited with ':'
+			set -- $1
+			printf ':%x' $* |
+
+			# convert to ipv6 and compress
+			{
+				IFS='' read -r ip_iti_hex
+				hex_to_ipv6 "$ip_iti_hex"
+				printf '%s\n' "${maskbits_iti}"
+			}
+	esac
+}
+
 
 # input via STDIN: newline-separated subnets or ip's
 # output via STDOUT: newline-separated subnets
@@ -150,7 +176,7 @@ aggregate_subnets() {
 	case "$1" in
 		ipv4|inet) ip_len_bits=32 ;;
 		ipv6|inet6) ip_len_bits=128 ;;
-		*) echolog -err "set_conv_vars: invalid family '$1'."; return 1
+		*) echolog -err "aggregate_subnets: invalid family '$1'."; return 1
 	esac
 
 	res_ips_int="${_nl}"
@@ -233,25 +259,7 @@ aggregate_subnets() {
 		esac
 
 		# convert back to ip and print out
-		case "$family_ags" in
-			ipv4|inet)
-				i="$ip1_int"
-				set -- $(( (i>>24)&255 )) $(( (i>>16)&255 )) $(( (i>>8)&255 )) $((i & 255))
-				printf '%s\n' "$1.$2.$3.$4/$maskbits" ;;
-			ipv6|inet6)
-				# convert into 16-bit hex chunks delimited with ':'
-				set -- $ip1_int
-				{
-					printf ':%x' $*
-					printf '\n'
-				} |
-
-				# convert to ipv6 format and compress
-				while IFS="$_nl" read -r ip1_hex; do
-					hex_to_ipv6 "$ip1_hex"
-					printf '%s\n' "/$maskbits"
-				done
-		esac
+		int_to_ip "$ip1_int" "$family_ags" "$maskbits"
 	done
 
 	:
