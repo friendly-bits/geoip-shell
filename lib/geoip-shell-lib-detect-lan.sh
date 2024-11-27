@@ -26,36 +26,6 @@
 
 ## Functions
 
-# 1 - input: 16-bit hex chunks with ':' preceding each
-# output via STDOUT (without newline)
-hex_to_ipv6() {
-	ip_hti="$1"
-	# compress 0's across neighbor chunks
-	IFS=' '
-	for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
-		case "$ip_hti" in *$zeroes*)
-			ip_hti="${ip_hti%%"$zeroes"*}::${ip_hti#*"$zeroes"}"
-			break
-		esac
-	done
-
-	# replace ::: with ::
-	case "$ip_hti" in *:::*) ip_hti="${ip_hti%%:::*}::${ip_hti#*:::}"; esac
-
-	# debugprint "hex_to_ip: preliminary commpressed ip: '$ip_hti'"
-
-	# trim leading colon if it's not a double colon
-	case "$ip_hti" in
-		::::*) ip_hti="${ip_hti#::}" ;;
-		:::*) ip_hti="${ip_hti#:}" ;;
-		::*) ;;
-		:*) ip_hti="${ip_hti#:}"
-	esac
-
-	printf %s "${ip_hti}"
-}
-
-
 # 1 - ipv4 address (delimited with '.') or ipv6 address (delimited with ':')
 # 2 - family (ipv4|inet|ipv6|inet6)
 # 3 - mask bits (integer)
@@ -68,7 +38,7 @@ ip_to_int() {
 
 	# ipv4
 	case "$family_itoint" in ipv4|inet)
-		# number of bits to shift
+		# number of bits to trim
 		bits_trim=$((32-ip2int_maskbits))
 
 		# convert ip to int and trim to mask bits
@@ -142,13 +112,17 @@ ip_to_int() {
 	:
 }
 
-# Converts input integer into ip address with optional mask bits
-# 1 - input ip address represented as integer
+# Converts input integer(s) into ip address with optional mask bits
+# For ipv6, input should be 8 whitespace-separated integer numbers
+# 1 - input ip address represented as integer(s)
 # 2 - family (ipv4|inet|ipv6|inet6)
 # 3 - optional: mask bits (integer). if specified, appends /[maskbits] to output
 int_to_ip() {
-	maskbits_iti=
-	[ "$3" ] && maskbits_iti="/$3"
+	case "$3" in
+		'') maskbits_iti='' ;;
+		*) maskbits_iti="/$3"
+	esac
+
 	case "$2" in
 		ipv4|inet)
 			set -- $(( ($1>>24)&255 )) $(( ($1>>16)&255 )) $(( ($1>>8)&255 )) $(($1 & 255))
@@ -165,6 +139,32 @@ int_to_ip() {
 				printf '%s\n' "${maskbits_iti}"
 			}
 	esac
+}
+
+# 1 - input: 16-bit hex chunks with ':' preceding each
+# output via STDOUT (without newline)
+hex_to_ipv6() {
+	ip_hti="$1"
+	# compress 0's across neighbor chunks
+	IFS=' '
+	for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
+		case "$ip_hti" in *$zeroes*)
+			ip_hti="${ip_hti%%"$zeroes"*}::${ip_hti#*"$zeroes"}"
+			break
+		esac
+	done
+
+	# replace ::: with ::
+	case "$ip_hti" in *:::*) ip_hti="${ip_hti%%:::*}::${ip_hti#*:::}"; esac
+
+	# debugprint "hex_to_ip: preliminary commpressed ip: '$ip_hti'"
+
+	# trim leading colon if it's not a double colon
+	case "$ip_hti" in
+        :[!:]*) ip_hti="${ip_hti#:}"
+	esac
+
+	printf %s "${ip_hti}"
 }
 
 
