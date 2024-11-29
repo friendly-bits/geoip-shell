@@ -1,7 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC2154,SC2086,SC2004
 
-# geoip-shell-lib-detect-lan.sh
+# geoip-shell-lib-ip-tools.sh
 
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
