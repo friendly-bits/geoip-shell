@@ -28,7 +28,7 @@
 - lib/geoip-shell-lib-non-owrt.sh
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
-- lib/geoip-shell-lib-detect-lan.sh
+- lib/geoip-shell-lib-ip-tools.sh
 
 
 The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
@@ -45,7 +45,7 @@ The -lib-arrays script implements a minimal subset of functions emulating the fu
 
 The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
 
-The lib-detect-lan script is only used under specific conditions:
+The lib-ip-tools script is only used under specific conditions:
 - During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
 - At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
 
