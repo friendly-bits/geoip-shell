@@ -79,14 +79,10 @@ check_files() {
 }
 
 compare_files() {
-	if [ -s "$2" ]; then
-		sums="$(md5sum "$1" "$2" 2>/dev/null | cut -d' ' -f1)"
-		i=0
-		for s in $sums; do
-			[ $i = 0 ] && { sum1="$s"; i=1; continue; }
-			[ "$s" = "$sum1" ] && return 0
-		done
-	fi
+	[ -s "$1" ] && [ -s "$2" ] &&
+	md5sum "$1" "$2" 2>/dev/null | \
+		awk 'BEGIN{rv=1} NF==0{next}; {i=i+1} i==2{ if ($1==rec) {rv=0; exit} else {exit}} {rec=$1; next} END{exit rv}' &&
+			return 0
 	return 1
 }
 
@@ -165,11 +161,11 @@ add_scripts() {
 # 1 - src, 2 - dest, 3 - permissions
 add_file() {
 	af_src="$1" af_dest="$inst_root_gs$2" _mod="$3"
-	printf '%s\n' "${af_dest}${delim}${_mod}" >> "$reg_permissions" || install_failed "$FAIL to write to file '$reg_permissions'."
+	printf '%s\n' "${af_dest}${delim}${_mod}" >> "$reg_permissions" || install_failed "$FAIL write to file '$reg_permissions'."
 
 	# check if the file changed
 	compare_files "$af_src" "$af_dest" && return 0
-	printf '%s\n' "${af_src}${delim}${af_dest}" >> "$cp_files_reg" || install_failed "$FAIL to write to file '$cp_files_reg'."
+	printf '%s\n' "${af_src}${delim}${af_dest}" >> "$cp_files_reg" || install_failed "$FAIL write to file '$cp_files_reg'."
 	:
 }
 
@@ -367,7 +363,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in uninstall common arrays status setup detect-lan $non_owrt $fw_libs; do
+for f in uninstall common arrays status setup ip-tools $non_owrt $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -388,7 +384,7 @@ export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 [ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
 
 rm -rf "$tmp_dir"
-mkdir -p "$tmp_dir" || die "$FAIL to create directory '$tmp_dir'."
+mkdir -p "$tmp_dir" || die "$FAIL create directory '$tmp_dir'."
 mkdir -p "$inst_root_gs$lib_dir" || preinstall_failed "$FAIL create directory '$inst_root_gs$lib_dir'."
 
 [ ! "$inst_root_gs" ] && {
@@ -433,7 +429,7 @@ mkdir -p "$inst_root_gs$conf_dir"
 
 
 # create the .const file
-cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL to create file '"$tmp_dir/${p_name}.const"'."
+cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL create file '"$tmp_dir/${p_name}.const"'."
 	export PATH="$PATH" initsys="$initsys" use_shell="$curr_sh_g"
 EOF
 add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" 600
@@ -441,47 +437,47 @@ add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" 600
 export PATH initsys use_shell="$curr_sh_g"
 
 # create the -geoinit script
-cat <<- EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create file '$tmp_dir/$p_name-geoinit.sh'."
-	#!$curr_sh_g
+cat <<EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create file '$tmp_dir/$p_name-geoinit.sh'."
+#!$curr_sh_g
 
-	# Copyright: antonk (antonk.d3v@gmail.com)
-	# github.com/friendly-bits
+# Copyright: antonk (antonk.d3v@gmail.com)
+# github.com/friendly-bits
 
-	export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name"
-	export lock_file="/tmp/$p_name.lock" excl_file="$conf_dir/iplist-exclusions.conf"
-	export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
-	'
-	export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
+export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name"
+export lock_file="/tmp/$p_name.lock" excl_file="$conf_dir/iplist-exclusions.conf"
+export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
+'
+export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
 
-	$set_posix
+$set_posix
 
-	$init_non_owrt_pt1
+$init_non_owrt_pt1
 
-	[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
-	. "\${_lib}-common.sh" || exit 1
-	$set_owrt_install
-	[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
-	[ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
-		{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
+[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
+. "\${_lib}-common.sh" || exit 1
+$set_owrt_install
+[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
+[ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
+	{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
 
-	[ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
-	if [ ! "\$_fw_backend" ]; then
-		rm -f "\$conf_dir/setupdone"
-		[ "\$in_install" ] || [ "\$first_setup" ] && return 0
-		case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
-		[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-		_fw_backend="\$(detect_fw_backend)"
-	else
-		check_fw_backend "\$_fw_backend"
-		fw_check_rv=\$?
-		[ ! "\$in_uninstall" ] && case \$fw_check_rv in
-			1) die ;;
-			2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
-			3) die "Utility 'ipset' not found."
-		esac
-	fi
-	export fwbe_ok=1 _fw_backend
-	:
+[ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
+if [ ! "\$_fw_backend" ]; then
+	rm -f "\$conf_dir/setupdone"
+	[ "\$in_install" ] || [ "\$first_setup" ] && return 0
+	case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
+	[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
+	_fw_backend="\$(detect_fw_backend)"
+else
+	check_fw_backend "\$_fw_backend"
+	fw_check_rv=\$?
+	[ ! "\$in_uninstall" ] && case \$fw_check_rv in
+		1) die ;;
+		2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
+		3) die "Utility 'ipset' not found."
+	esac
+fi
+export fwbe_ok=1 _fw_backend
+:
 EOF
 add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
 
@@ -527,7 +523,7 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 }
 
 printf %s "Creating directories... "
-mkdir -p "$lib_dir" || preinstall_failed "$FAIL to create directory '$lib_dir'."
+mkdir -p "$lib_dir" || preinstall_failed "$FAIL create directory '$lib_dir'."
 OK
 
 copy_files
