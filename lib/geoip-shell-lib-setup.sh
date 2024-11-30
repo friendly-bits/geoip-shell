@@ -258,7 +258,7 @@ pick_lan_ips() {
 		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual ip's to allow."
 	}
 
-	[ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || echolog -err "$FAIL source the -detect-lan script"
+	[ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || echolog -err "$FAIL source ${_lib}-ip-tools.sh"
 
 	for family in $families; do
 		ipset_type=net
