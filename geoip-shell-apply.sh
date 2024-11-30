@@ -187,7 +187,7 @@ esac
 
 [ -n "$iplist_dir" ] && mkdir -p "$iplist_dir"
 
-[ -s "${_lib}-detect-lan.sh" ] && . "${_lib}-detect-lan.sh" || die "$FAIL source ${_lib}-detect-lan.sh"
+[ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || die "$FAIL source ${_lib}-ip-tools.sh"
 
 ### compile allowlist ip's and write to file
 for family in $families; do
