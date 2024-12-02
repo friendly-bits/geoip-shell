@@ -587,9 +587,54 @@ get_general_prefs() {
 	families="${families_arg:-"$families"}"
 
 	# source
-	[ "$geosource_arg" ] && tolower geosource_arg
-	case "$geosource_arg" in ''|ripe|ipdeny) ;; *) die "Unsupported source: '$geosource_arg'."; esac
+	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$valid_sources" "$geosource_arg" ||
+		die "Invalid source: '$geosource_arg'"
 	geosource="${geosource_arg:-$geosource}"
+	if [ "$geosource_arg" = maxmind ]; then
+		checkutil unzip || die "MaxMind source requires the 'unzip' utility but it is not found."
+		[ ! "$mm_license_type" ] && {
+			printf '%s\n' "MaxMind source requires a license. Do you have MaxMind license details?"
+			pick_opt "y|n"
+			printf '%s\n%s\n' "MaxMind source requires a license. You will need account ID and license key." \
+			 "Which MaxMind license do you have: [f]ree (for GeoLite2) or [p]aid (for GeoIP2)? Or [a] to abort."
+			pick_opt "f|p|a"
+			case "$REPLY" in
+				f) mm_license_type=free ;;
+				p) mm_license_type=paid ;;
+				a) die 253
+			esac
+		}
+
+		curr_mm_acc_msg=
+		[ "$mm_acc_id" ] && curr_mm_acc_msg=" or press Enter to use current account ID '$mm_acc_id'"
+		while :; do
+			printf '%s\n' "Type in MaxMind account ID (numerical)${curr_mm_acc_msg}: "
+			read -r REPLY
+			case "$REPLY" in
+				'')
+					[ ! "$mm_acc_id" ] && { printf '%s\n' "Invalid account ID '$REPLY'."; continue; }
+					break ;;
+				*[!0-9]*) printf '%s\n' "Invalid account ID '$REPLY'."; continue
+			esac
+			mm_acc_id="$REPLY"
+			break
+		done
+
+		curr_mm_license_msg=
+		[ "$mm_license_key" ] && curr_mm_license_msg=" or press Enter to use current license key '$mm_license_key'"
+		while :; do
+			printf '%s\n' "Type in MaxMind License key${curr_mm_license_msg}: "
+			read -r REPLY
+			case "$REPLY" in
+				'')
+					[ "$mm_license_key" ] || { printf '%s\n' "Invalid license key '$REPLY'."; continue; }
+					break ;;
+				*[!a-zA-Z_]*) printf '%s\n' "Invalid license key '$REPLY'."; continue
+			esac
+			mm_license_key="$REPLY"
+			break
+		done
+	fi
 
 	# process trusted ip's if specified
 	case "$trusted_arg" in
