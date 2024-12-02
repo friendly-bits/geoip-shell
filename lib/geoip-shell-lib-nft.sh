@@ -283,7 +283,7 @@ apply_rules() {
 	nft add table inet "$geotable" || die "$FAIL create table '$geotable'"
 
 	### load ipsets
-	printf_s "Loading ip sets... "
+	printf_s "${_nl}Loading ip sets... "
 	for load_ipset in $load_ipsets; do
 		get_ipset_id "$load_ipset" || die_a
 		iplist_file="${iplist_dir}/${list_id}.iplist"
