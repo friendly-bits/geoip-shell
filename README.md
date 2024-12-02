@@ -24,7 +24,7 @@ If you find this project useful, please take a second to give it a star on Githu
 ## **Main Features**
 * Core functionality is creating either a whitelist or a blacklist in the firewall using automatically downloaded ip lists for user-specified countries.
 
-* ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**. Both sources provide updated ip lists for all regions.
+* ip lists are fetched either from **RIPE** (regional Internet registry for Europe, the Middle East and parts of Central Asia) or from **ipdeny**, or from **MaxMind**. All 3 sources provide updated ip lists for all regions.
 
 * All firewall rules and ip sets required for geoblocking to work are created automatically during the initial setup.
 
@@ -48,6 +48,7 @@ If you find this project useful, please take a second to give it a star on Githu
 <details> <summary>Read more:</summary>
 
 - Default source for ip lists is RIPE, which allows to avoid dependency on non-official 3rd parties.
+- Supports the 'MaxMind' commercial source which provides more accurate ip lists, both the free GeoLite2 database and the paid GeoIP2 database. Note that in order to use the MaxMind source, you need to have a MaxMind account.
 - With nftables, utilizes nftables atomic rules replacement to make the interaction with the system firewall fault-tolerant and to completely eliminate time when geoip is disabled during an automatic update.
 - All scripts perform extensive error detection and handling.
 - All user input is validated to reduce the chance of accidental mistakes.
@@ -80,7 +81,7 @@ If you find this project useful, please take a second to give it a star on Githu
 - Extensive and (usually) up-to-date documentation.
 - Comes with an uninstall script which completely removes the suite and the geoblocking firewall rules. No restart is required.
 - Sane settings are applied during installation by default, but also lots of command-line options for advanced users or for special corner cases are provided.
-- Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the ip lists fetched from the source (RIPE or ipdeny).
+- Pre-installation, provides a utility _(check-ip-in-source.sh)_ to check whether specific ip addresses you might want to blacklist or whitelist are indeed included in the ip lists fetched from the source (RIPE or ipdeny or MaxMind).
 - Post-installation, provides a utility (symlinked to _'geoip-shell'_) for the user to change geoblocking config (turn geoblocking on or off, configure outbound geoblocking, change country codes, change geoblocking mode, change ip lists source, change the cron schedule etc).
 - Post-installation, provides a command _('geoip-shell status')_ to check geoblocking status, which also reports if there are any issues.
 - In case of an error or invalid user input, provides useful error messages to help with troubleshooting.
@@ -173,7 +174,7 @@ _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES
 
 `geoip-shell <on|off>`
 
-**To change ip lists source:** `geoip-shell configure -u <ripe|ipdeny>`
+**To change ip lists source:** `geoip-shell configure -u <ripe|ipdeny|maxmind>`
 
 **To have certain trusted ip addresses or subnets, either in your LAN or anywhere on the Internet, bypass geoblocking:**
 
@@ -273,7 +274,7 @@ For information about OpenWrt support, read the [OpenWrt README](/OpenWrt/README
 
 ## **Privacy**
 geoip-shell does not share your data with anyone.
-If you are using the ipdeny source then note that they are a 3rd party which has its own data privacy policy.
+If you are using the ipdeny or the maxmind source then note that they are a 3rd party which has its own data privacy policy.
 
 ## **P.s.**
 

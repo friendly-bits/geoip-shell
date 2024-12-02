@@ -122,7 +122,7 @@ These options apply to geoblocking in both directions.
 
 `-f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-`-u [ripe|ipdeny]`: Change ip lists source.
+`-u [ripe|ipdeny|maxmind]`: Change ip lists source.
 
 `-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no dedicated WAN network interfaces. The automatic detection occurs only when manually triggered by the user via this command.
 
@@ -131,7 +131,7 @@ These options apply to geoblocking in both directions.
 `-t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
 `-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic ip list updates when outbound geoblocking is enabled. Use `auto` to detect server ip addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching ip list updates.
-Or specify ip addresses for ip lists source (ripe or ipdeny) to allow - for multiple addresses, use double quotes.
+Or specify ip addresses for ip lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 Or use `none` to remove previously assigned server ip addresses and disable this feature.
 
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
@@ -203,7 +203,7 @@ List id has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 
 **geoip-shell-fetch.sh**
-- Fetches ip lists for given list id's from RIPE or from ipdeny.
+- Fetches ip lists for given list id's from RIPE or from ipdeny or from MaxMind.
 - Parses, validates, compiles the downloaded lists, and saves each one to a separate file.
 - Implements extensive sanity checks at each stage (fetching, parsing, validating and saving) and handles errors if they occur.
 
@@ -217,7 +217,7 @@ Options:
 
 `-s <path>`        : Path to a file to register fetch results in.
 
-`-u <ripe|ipdeny>` : Use this ip list source for download. Supported sources: ripe, ipdeny.
+`-u <ripe|ipdeny|maxmind>` : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
 
 Extra options:
 
@@ -252,6 +252,6 @@ Actions: `add`, `update`, `restore`, `on`, `off`
 
 `sh check-ip-in-source.sh -c <country_code> -i <"ip [ip] [ip] ... [ip]"> [-u <source>]`
 
-- Supported sources are 'ripe' and 'ipdeny'.
+- Supported sources are `ripe`, `ipdeny` and `maxmind`.
 - Any combination of ipv4 and ipv6 addresses is supported.
 - If passing multiple ip addresses, use double quotes around them.
