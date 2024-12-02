@@ -30,7 +30,7 @@ cat <<EOF
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
-1) Fetches ip lists for given country codes from RIPE API or from ipdeny
+1) Fetches ip lists for given country codes from RIPE API, or from ipdeny, or from MaxMind
 	(supports any combination of ipv4 and ipv6 lists)
 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
@@ -42,7 +42,7 @@ Options:
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
   -s <path>        : Path to a file to register fetch results in.
-  -u $srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny.
+  -u $srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
@@ -93,7 +93,7 @@ date_raw_to_compat() {
 
 reg_server_date() {
 	case "$1" in
-		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] )
+		[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
 			set_a_arr_el server_dates_arr "$2=$1"
 			debugprint "Got date from $3 for '$2': '$1'."
 			;;
@@ -141,11 +141,11 @@ get_src_dates_ipdeny() {
 		# matches that to date in format 'dd-Mon-20yy', then converts to 'yyyymmdd'
 		[ -f "$server_plaintext_file" ] && server_date="$(
 			awk -v c="$curr_ccode" '($1==tolower(c)"-aggregated.zone" && $2 ~ /^[0-3][0-9]-...-20[1-9][0-9]$/) {split($2,d,"-");
-				$1 = sprintf("%04d%02d%02d", d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1]); print $1}' \
+				date=sprintf("%04d%02d%02d", d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1]); print date}' \
 				"$server_plaintext_file"
 		)"
 
-		reg_server_date "$server_date" "$list_id" "IPDENY"
+		reg_server_date "$server_date" "$list_id" IPDENY
 	done
 
 	for family in $families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp"; done
@@ -155,12 +155,13 @@ get_src_dates_ipdeny() {
 get_src_dates_ripe() {
 	server_html_file="/tmp/geoip-shell_server_dl_page.tmp"
 
+	[ ! "$ripe_url_stats" ] && { echolog -err "get_src_dates_ripe(): \$ripe_url_stats variable should not be empty!"; return 1; }
+
 	for registry in $registries; do
 		tolower reg_lc "$registry"
 		server_url="$ripe_url_stats/$reg_lc"
 
 		debugprint "getting listing from url '$server_url'..."
-		[ ! "$server_url" ] && { echolog -err "get_src_dates_ripe(): $server_url variable should not be empty!"; return 1; }
 
 		# debugprint "timestamp fetch command: '$fetch_cmd_q \"${server_url}\" > \"$server_html_file\""
 		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
@@ -174,15 +175,79 @@ get_src_dates_ripe() {
 		rm -f "$server_html_file"
 		get_a_arr_val fetch_lists_arr "$registry" list_ids
 		for list_id in $list_ids; do
-			reg_server_date "$server_date" "$list_id" "RIPE"
+			reg_server_date "$server_date" "$list_id" RIPE
 		done
 	done
 }
 
+# get list time based on the filename on the server
+get_src_dates_maxmind() {
+	[ ! "$maxmind_url" ] && { echolog -err "get_src_dates_maxmind(): \$maxmind_url variable should not be empty!"; return 1; }
+
+	case "$mm_license_type" in
+		free) mm_db_name=GeoLite2 ;;
+		paid) mm_db_name=GeoIP2
+	esac
+	server_url="https://${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
+
+	debugprint "getting date from url '$server_url'..."
+
+	case "$fetch_cmd" in
+		curl*) fetch_cmd_date="$fetch_cmd_q --head" ;;
+		wget*) fetch_cmd_date="$fetch_cmd_q -S --method HEAD"
+	esac
+
+	debugprint "timestamp fetch command: $fetch_cmd_date \"${server_url}\""
+
+	server_date="$(
+		$fetch_cmd_date "$server_url" 2>&1 |
+		sed -n "/[Ll]ast-[Mm]odified:.*,/{
+			s/\r//g;
+			s/.*[Ll]ast-[Mm]odified${blank}*:${blank}*//;
+			s/^[A-Z][a-z][a-z],${blanks}//;
+			s/${blanks}GMT${blank}*//;
+			s/${blanks}[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$//;
+			p;q;}" |
+			# matches input to date in format 'dd Mon 20yy', then converts to 'yyyymmdd'
+			awk '
+				BEGIN{rv=1}
+				$0 ~ /^[0-3][0-9] ... 20[1-9][0-9]$/ {
+					split($0,d," ");
+					date=sprintf("%04d%02d%02d",d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1])
+					print date
+					rv=0
+					exit
+				}
+				END{exit rv}
+			'
+	)" || return 1
+
+	for list_id in $valid_lists; do
+		reg_server_date "$server_date" "$list_id" MAXMIND
+	done
+}
+
 parse_ripe_json() {
-	in_list="$1" out_list="$2" family="$3"
-	sed -n -e /"$family"/\{/]/q\;:1 -e n\;/]/q\;p\;b1 -e \} "$in_list" | cut -d\" -f2 > "$out_list"
-	[ -s "$out_list" ]; return $?
+	in_file="$1" out_file="$2" family_parse="$3"
+	sed -n -e /"$family_parse"/\{/]/q\;:1 -e n\;/]/q\;p\;b1 -e \} "$in_file" | cut -d\" -f2 > "$out_file" &&
+		[ -s "$out_file" ] &&
+			return 0
+	return 1
+}
+
+parse_maxmind_csv() {
+	in_file="$1" out_file="$2" ccode_parse="$3" family_parse="$4"
+
+	mm_geoname_id="$(
+		unzip -p "$in_file" "*/GeoLite2-Country-Locations-en.csv" |
+			awk -F ',' -v c="$ccode" '$5==c {print $1}'
+	)"
+
+	unzip -p "$in_file"  "*/GeoLite2-Country-Blocks-IPv${family_parse#ipv}.csv" |
+		awk -F ',' -v m="$mm_geoname_id" '$2==m {print $1}' > "$out_file" &&
+		[ -s "$out_file" ] &&
+			return 0
+	return 1
 }
 
 # populates $registries, "fetch_lists_arr" array)
@@ -250,6 +315,7 @@ check_updates() {
 	case "$dl_src" in
 		ipdeny) get_src_dates_ipdeny ;;
 		ripe) get_src_dates_ripe ;;
+		maxmind) get_src_dates_maxmind ;;
 		*) die "Unknown source: '$dl_src'."
 	esac
 
@@ -294,7 +360,7 @@ check_updates() {
 }
 
 rm_tmp_f() {
-	rm -f "$fetched_list" "$parsed_list" "$valid_list"
+	rm -f "$fetched_file" "$parsed_list" "$valid_list"
 }
 
 list_failed() {
@@ -303,21 +369,35 @@ list_failed() {
 }
 
 process_ccode() {
-
-	curr_ccode="$1"; tolower curr_ccode_lc "$curr_ccode"
-	unset prev_list_reg list_path fetched_list
-	set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
+	curr_ccode="$1"
+	tolower curr_ccode_lc "$curr_ccode"
+	unset prev_list_reg list_path fetched_file
 
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
 		case "$exclude_iplists" in *"$list_id"*)
 			continue
 		esac
+
+		rm_fetched_list_id=
+		rm_fetched_ccode=
 		case "$dl_src" in
-			ripe) dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
+			ripe)
+				fetched_file="/tmp/${p_name}_fetched-$curr_ccode.tmp"
+				rm_fetched_ccode=1
+				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
+			maxmind)
+				fetched_file="/tmp/${p_name}_fetched.tmp"
+				case "$maxmind_license_type" in
+					free) mm_db_name=GeoLite2 ;;
+					paid) mm_db_name=GeoIP2
+				esac
+				dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip" ;;
 			ipdeny)
+				fetched_file="/tmp/${p_name}_fetched-$list_id.tmp"
+				rm_fetched_list_id=1
 				case "$family" in
-					"ipv4" ) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
+					ipv4) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
 					*) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
 				esac ;;
 			*) die "Unsupported source: '$dl_src'."
@@ -326,9 +406,7 @@ process_ccode() {
 		# set list_path to $output_file if it is set, or to $iplist_dir_f/$list_id otherwise
 		list_path="${output_file:-$iplist_dir_f/$list_id.iplist}"
 
-		# temp files
 		parsed_list="/tmp/${p_name}_parsed-${list_id}.tmp"
-		fetched_list="/tmp/${p_name}_fetched-$curr_ccode.tmp"
 
 		valid_s_cnt=0
 		failed_s_cnt=0
@@ -336,29 +414,37 @@ process_ccode() {
 		# checks the status file and populates $prev_list_reg, $prev_date_raw
 		check_prev_list "$list_id"
 
-		if [ ! -s "$fetched_list" ]; then
+		if [ ! -s "$fetched_file" ]; then
 			case "$dl_src" in
-				ripe ) printf '%s\n' "Fetching ip list for country '${purple}$curr_ccode${n_c}' from $dl_src_cap..." ;;
-				ipdeny ) printf '%s\n' "Fetching ip list for '${purple}$list_id${n_c}' from $dl_src_cap..."
+				ripe) fetch_subj="ip list for country '${purple}$curr_ccode${n_c}'" ;;
+				maxmind) fetch_subj=database ;;
+				ipdeny) fetch_subj="ip list for '${purple}$list_id${n_c}'"
 			esac
+			printf '%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
 
-			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_list\""
-			$fetch_cmd "${http}://$dl_url" > "$fetched_list" || {
+			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_file\""
+			$fetch_cmd "${http}://$dl_url" > "$fetched_file" || {
 				rv=$?
 				echolog -err "${fetch_cmd%% *} returned error code $rv for command:" "$fetch_cmd \"${http}://$dl_url\""
 				[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
-				list_failed "$FAIL fetch the ip list for '$list_id' from the $dl_src_cap server.$_nl"; continue;
+				list_failed "$FAIL fetch the $fetch_subj from the $dl_src_cap server.$_nl"; continue;
 			}
 			printf '%s\n\n' "Fetch successful."
 		fi
 
 		case "$dl_src" in
 			ripe)
-				printf %s "Parsing ip list for '${purple}$list_id${n_c}'... "
-				parse_ripe_json "$fetched_list" "$parsed_list" "$family" ||
+				printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
+				parse_ripe_json "$fetched_file" "$parsed_list" "$family" ||
 					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
 				OK ;;
-			ipdeny) mv "$fetched_list" "$parsed_list"
+			maxmind)
+				printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
+				ccode="${list_id%_*}"
+				parse_maxmind_csv "$fetched_file" "$parsed_list" "$ccode" "$family" ||
+					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
+				OK ;;
+			ipdeny) mv "$fetched_file" "$parsed_list"
 		esac
 
 		printf %s "Validating '$purple$list_id$n_c'... "
@@ -372,12 +458,13 @@ process_ccode() {
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
-		{ [ "$raw_mode" ] && cat "$valid_list" || {
-				printf %s "elements={ "
-				tr '\n' ',' < "$valid_list"
-				printf '%s\n' "}"
-			}
-		} > "$list_path" || { list_failed "$FAIL overwrite the file '$list_path'"; continue; }
+		if [ "$raw_mode" ]; then
+			cat "$valid_list"
+		else
+			printf %s "elements={ "
+			tr '\n' ',' < "$valid_list"
+			printf '%s\n' "}"
+		fi > "$list_path" || { list_failed "$FAIL write to file '$list_path'"; continue; }
 
 		touch -d "$date_src_compat" "$list_path"
 		add2list fetched_lists "$list_id"
@@ -385,9 +472,10 @@ process_ccode() {
 		set_a_arr_el list_date_arr "$list_id=$date_src_compat"
 
 		rm -f "$valid_list"
+		[ "$rm_fetched_list_id" ] && rm -f "$fetched_file"
 	done
 
-	rm -f "$fetched_list"
+	[ "$rm_fetched_ccode" ] && rm -f "$fetched_file"
 	:
 }
 
@@ -407,7 +495,7 @@ validate_list() {
 	if [ "$failed_s_cnt" != 0 ]; then
 		failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
 
-		list_failed "${_nl}NOTE: out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
+		list_failed "${_nl}out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
 		if [ $failed_s_cnt -gt 10 ]; then
 				echo "First 10 failed subnets:"
 				printf '%s\n' "$failed_s" | head -n10
@@ -463,82 +551,87 @@ iplist_dir_f="${iplist_dir_f%/}"
 
 #### Load cca2.list
 all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
-newifs "$_nl" cca
-cca2_f="cca2.list"
+cca2_f=cca2.list
 for cca2_path in "$script_dir/$cca2_f" "$conf_dir/$cca2_f"; do
 	[ -f "$cca2_path" ] && break
 done
 
 [ -f "$cca2_path" ] && cca2_list="$(cat "$cca2_path")" || die "$FAIL load the cca2 list."
+newifs "$_nl" cca
 set -- $cca2_list
+oldifs cca
 for i in 1 2 3 4 5; do
 	eval "c=\"\${$i}\""
 	set_a_arr_el registry_ccodes_arr "$c"
 done
-oldifs cca
 
 #### Check for valid DL source
-valid_sources="ripe ipdeny"
-default_source="ripe"
-tolower source_arg
+default_source=ripe
+is_alphanum "$source_arg" && tolower source_arg && subtract_a_from_b "$valid_sources" "$source_arg" ||
+	die "Invalid source: '$source_arg'"
 dl_src="${source_arg:-"$default_source"}"
-toupper dl_src_cap "$dl_src"
 checkvars dl_src
-set -- $dl_src
-[ "$2" ] && die "Specify only one download source."
-# debugprint "valid_sources: '$valid_sources', dl_src: '$dl_src'"
-subtract_a_from_b "$valid_sources" "$dl_src" invalid_source
-case "$invalid_source" in *?*) die "Invalid source: '$invalid_source'"; esac
+toupper dl_src_cap "$dl_src"
 
 #### Choose best available DL utility, set options
-ucl_f_cmd="uclient-fetch"
+ucl_cmd=uclient-fetch
 curl_cmd="curl -L -f"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-unset secure_util fetch_cmd busybox_ssl
+unset fetch_cmd ssl_ok
 
-if [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] && {
-	[ -s /usr/bin/ssl_client ] ||
-	{ [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] && checkutil uci; }
-}
-then
-	busybox_ssl=1
+if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
+	case "$initsys" in
+		procd|busybox)
+			if [ -s /etc/ssl/cert.pem ] && {
+				[ -s /usr/bin/ssl_client ] ||
+				{ [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] && checkutil uci; }
+			}
+			then
+				ssl_ok=1
+			fi ;;
+		*) ssl_ok=1
+	esac
 fi
 
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
+	maxmind_str=
 	case "$util" in
 		curl)
-			secure_util="curl"
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
-			curl_cmd="$curl_cmd --retry 5 --connect-timeout 16"
-			fetch_cmd="$curl_cmd --progress-bar"
-			fetch_cmd_q="$curl_cmd -s -S"
+			[ "$geosource" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head -A Mozilla"
+			fetch_cmd="$curl_cmd$maxmind_str -f --retry 5 --connect-timeout 16"
+			fetch_cmd_q="$fetch_cmd -s -S"
+			fetch_cmd="$fetch_cmd --progress-bar"
 			break ;;
 		wget)
 			if ! wget --version | grep -m1 "GNU Wget"; then
 				wget_cmd="wget -q"
 				unset wget_tries wget_tries_con_check wget_show_progress
-				[ "$busybox_ssl" ] && secure_util="wget"
+				[ "$geosource" = maxmind ] &&
+					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
 			else
 				wget_show_progress=" --show-progress"
 				wget_cmd="wget -q --max-redirect=10"
-				secure_util="wget"
 				wget_tries=" --tries=5"
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
-			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider"
-			wget_cmd="$wget_cmd$wget_tries --timeout=16"
-			fetch_cmd="$wget_cmd$wget_show_progress -O -"
-			fetch_cmd_q="$wget_cmd -O -"
-			[ "$secure_util" ] && break ;;
+			[ "$geosource" = maxmind ] && maxmind_str="--user=$mm_acc_id --password=$mm_license_key"
+			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
+			fetch_cmd="$wget_cmd$wget_tries$maxmind_str --timeout=16"
+			fetch_cmd_q="$fetch_cmd -O -"
+			fetch_cmd="$wget_fetch_cmd$wget_show_progress -O -"
+			break ;;
 		uclient-fetch)
-			fetch_cmd="$ucl_f_cmd -T 16 -O -"
-			fetch_cmd_q="$ucl_f_cmd -T 16 -q -O -"
-			con_check_cmd="$ucl_f_cmd -T 7 -q -s"
-			[ "$busybox_ssl" ] && { secure_util="uclient-fetch"; break; }
+			[ "$geosource" = maxmind ] &&
+				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
+			con_check_cmd="$ucl_cmd -T 7 -q -s -U Mozilla"
+			fetch_cmd_q="$ucl_cmd -T 16 -q -O -"
+			fetch_cmd="$ucl_cmd -T 16 -O -"
+			break
 	esac
 done
 
@@ -548,14 +641,12 @@ done
 
 owrt_ssl_needed="Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
 
-debugprint "fetch_cmd: '$fetch_cmd', secure_util: '$secure_util'"
-
-if [ -z "$secure_util" ]; then
-	[ "$dl_src" = ipdeny ] && {
-		echolog -err "SSL support is required to use the IPDENY source but no utility with SSL support is available."
+if [ -z "$ssl_ok" ]; then
+	case "$dl_src" in ipdeny|maxmind)
+		echolog -err "SSL support is required to use the ${dl_src_cap} source but no utility with SSL support is available."
 		checkutil uci && echolog "$owrt_ssl_needed"
 		die
-	}
+	esac
 
 	if [ -z "$http" ]; then
 		if [ "$nointeract" ]; then
@@ -567,12 +658,13 @@ if [ -z "$secure_util" ]; then
 		fi
 		case "$REPLY" in
 			n) die "No fetch utility available." ;;
-			y) http="http"; [ "$script_dir" = "$install_dir" ] && setconfig http
+			y) http=http; [ "$script_dir" = "$install_dir" ] && setconfig http
 		esac
 	fi
-elif [ -n "$secure_util" ]; then http="https"
 fi
 : "${http:=https}"
+
+debugprint "http: '$http', ssl_ok: '$ssl_ok'"
 
 
 #### VARIABLES
@@ -610,11 +702,14 @@ case "$dl_src" in
 	ripe) dl_srv="${ripe_url_api%%/*}"
 		con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
 	ipdeny) dl_srv="${ipdeny_ipv4_url%%/*}"
-		con_check_url="${ipdeny_ipv4_url}"
+		con_check_url="$ipdeny_ipv4_url" ;;
+	maxmind) con_check_url="${maxmind_url%%/*}"
 esac
 
-# check internet connectivity
+# check connectivity
+debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
+
 printf '\n%s' "Checking connectivity... "
 $con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
 	rv=$?
@@ -646,17 +741,19 @@ trap 'rm_tmp_f; rm -f "$server_html_file"
 
 check_updates
 
-# processes the lists associated with the specific registry
+# process the list id's
+set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
 for ccode in $ccodes_need_update; do
 	process_ccode "$ccode"
 done
+rm -f "$fetched_file"
 
 
 ### Report fetch results via fetch_res_file
 if [ "$fetch_res_file" ]; then
 	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
 	setstatus "$fetch_res_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
-		"failed_lists=$failed_lists" "$list_dates_str" || die "$FAIL write to file '$fetch_res_file'."
+		"failed_lists=$failed_lists" || die "$FAIL write to file '$fetch_res_file'."
 fi
 
 if [ "$status_file" ]; then
