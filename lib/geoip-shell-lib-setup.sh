@@ -591,47 +591,7 @@ get_general_prefs() {
 		die "Invalid source: '$geosource_arg'"
 	geosource="${geosource_arg:-$geosource}"
 	if [ "$geosource_arg" = maxmind ]; then
-		checkutil unzip || die "MaxMind source requires the 'unzip' utility but it is not found."
-
-		[ "$mm_acc_id" ] && [ "$mm_acc_license" ] ||
-			printf '%s\n' "MaxMind requires a license. You will need account ID and license key."
-		printf '%s\n' "Which MaxMind license do you have: [f]ree (for GeoLite2) or [p]aid (for GeoIP2)? Or type in [a] to abort."
-		pick_opt "f|p|a"
-		case "$REPLY" in
-			f) mm_license_type=free ;;
-			p) mm_license_type=paid ;;
-			a) die 253
-		esac
-
-		curr_mm_acc_msg=
-		[ "$mm_acc_id" ] && curr_mm_acc_msg=" or press Enter to use current account ID '$mm_acc_id'"
-		while :; do
-			printf '%s\n' "Type in MaxMind account ID (numerical)${curr_mm_acc_msg}: "
-			read -r REPLY
-			case "$REPLY" in
-				'')
-					[ ! "$mm_acc_id" ] && { printf '%s\n' "Invalid account ID '$REPLY'."; continue; }
-					break ;;
-				*[!0-9]*) printf '%s\n' "Invalid account ID '$REPLY'."; continue
-			esac
-			mm_acc_id="$REPLY"
-			break
-		done
-
-		curr_mm_license_msg=
-		[ "$mm_license_key" ] && curr_mm_license_msg=" or press Enter to use current license key '$mm_license_key'"
-		while :; do
-			printf '%s\n' "Type in MaxMind License key${curr_mm_license_msg}: "
-			read -r REPLY
-			case "$REPLY" in
-				'')
-					[ "$mm_license_key" ] || { printf '%s\n' "Invalid license key '$REPLY'."; continue; }
-					break ;;
-				*[!a-zA-Z0-9_]*) printf '%s\n' "Invalid license key '$REPLY'."; continue
-			esac
-			mm_license_key="$REPLY"
-			break
-		done
+		setup_maxmind || die 253
 	fi
 
 	# process trusted ip's if specified
