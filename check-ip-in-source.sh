@@ -41,22 +41,22 @@ set_path cca2 cca2.list "$conf_dir"
 usage() {
 cat <<EOF
 
-Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u <ripe|ipdeny>] [-d] [-h]
+Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u <ripe|ipdeny|maxmind>] [-d] [-h]
 
 For each of the specified ip addresses, checks whether it belongs to one of the subnets
-    in the list fetched from a source (either RIPE or ipdeny) for a given country code.
+    in the list fetched from a source (RIPE or ipdeny or MaxMind) for a given country code.
 Accepts a mix of ipv4 and ipv6 addresses.
 
 Requires the 'grepcidr' utility
 
 Options:
-  -c <country_code>    : 2-letter country code
-  -i <"ip_addresses">  : ip addresses to check
-                         if specifying multiple addresses, use double quotes
-  -u <ripe|ipdeny>     : Source to check in. By default checks in RIPE.
+  -c <country_code>        : 2-letter country code
+  -i <"ip_addresses">      : ip addresses to check
+                             if specifying multiple addresses, use double quotes
+  -u <ripe|ipdeny|maxmind> : Source to check in. By default checks in RIPE.
 
-  -d                   : Debug
-  -h                   : This help
+  -d                       : Debug
+  -h                       : This help
 
 EOF
 }
@@ -103,7 +103,7 @@ validate_ip() {
 
 
 #### Constants
-valid_sources="ripe ipdeny"
+valid_sources="ripe ipdeny maxmind"
 default_source=ripe
 
 
@@ -149,6 +149,10 @@ done
 
 [ -z "$val_ipv4s$val_ipv6s" ] && die "All ip addresses failed validation."
 [ -z "$families" ] && die "\$families variable is empty."
+
+if [ "$dl_source" = maxmind ]; then
+	setup_maxmind || die
+fi
 
 ### Fetch the ip list file
 
