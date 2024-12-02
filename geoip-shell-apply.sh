@@ -348,11 +348,12 @@ for direction in inbound outbound; do
 		add2list "planned_ipsets_$direction" "$ipset"
 
 		case "$curr_ipsets_sp" in
-			# check for ipset with exactly matching name (for nft - with same list_id and date, for ipt - same list_id)
+			# check for ipset with same list_id and date
 			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "Ip set for '$list_id' is already up-to-date." ;;
-			# check for ipset with different date - for nft only
+			# check for ipset with different date
 			*"$list_id_short"*)
-				case "$action" in add|restore) die "Detected ipset with unexpected name for list id '$list_id'."; esac
+				unexp_ipsets_apply="$(printf %s "$curr_ipsets" | grep "$list_id_short" | tr '\n' ' ')"
+				case "$action" in add|restore) die "Detected ipset(s) with unexpected dates: $unexp_ipsets_apply."; esac
 				add2list rm1_ipsets "$ipset"
 		esac
 
