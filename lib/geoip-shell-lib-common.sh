@@ -1020,7 +1020,7 @@ resolve_domain_ips() {
 
 	rdi_ips_cnt="$(printf %s "$dom_ips" | wc -w)"
 	[ "$debugmode" ] && debugprint "${ns_cmd#res_} resolved $rdi_ips_cnt $1 ip's for domains '$(printf %s "$2" | tr '\n' ' ')': $(printf %s "$dom_ips" | tr '\n' ' ')"
-	[ "$rdi_ips_cnt" = "$req_ips_cnt" ] || { FAIL >&2; return 1; }
+	[ "$rdi_ips_cnt" -ge "$req_ips_cnt" ] || { FAIL >&2; return 1; }
 	OK >&2
 	printf '%s\n' "$dom_ips"
 	:
@@ -1031,7 +1031,8 @@ resolve_domain_ips() {
 resolve_geosource_ips() {
 	case "$geosource" in
 		ripe) src_domains="${ripe_url_api%%/*}${_nl}${ripe_url_stats%%/*}" ;;
-		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}"
+		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}" ;;
+		maxmind) src_domains="download.maxmind.com${_nl}www.maxmind.com${_nl}mm-prod-geoip-databases.a2649acb697e2c09b632799562c076f2.r2.cloudflarestorage.com"
 	esac
 	resolve_domain_ips "$family" "$src_domains"
 }
