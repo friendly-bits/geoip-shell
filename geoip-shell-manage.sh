@@ -83,7 +83,7 @@ ${purple}General options for the 'configure' action${n_c} (affects geoblocking i
 
   ${blue}-f ${fam_syn}${n_c} : Ip families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-  ${blue}-u $srcs_syn${n_c} : Use this ip list source for download. Supported sources: ripe, ipdeny.
+  ${blue}-u $srcs_syn${n_c} : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
 
   ${blue}-i $ifaces_syn${n_c} :
 ${sp8}Changes which network interface(s) geoblocking firewall rules will be applied to.
@@ -110,7 +110,7 @@ ${sp8}'none' removes previously set trusted ip's
 ${sp8}Policy for allowing automatic ip list updates when outbound geoblocking is enabled.
 ${sp8}Use 'auto' to detect ip addresses automatically once and always allow outbound connection to detected addresses.
 ${sp8}Or use 'pause' to always temporarily pause outbound geoblocking before fetching ip list updates.
-${sp8}Or specify ip addresses for ip lists source (ripe or ipdeny) to allow - for multiple addresses, use double quotes.
+${sp8}Or specify ip addresses for ip lists source (ripe, ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 ${sp8}Or use 'none' to remove previously assigned server ip addresses and disable this feature.
 
   ${blue}-r $user_ccode_syn${n_c} :
