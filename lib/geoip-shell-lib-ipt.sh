@@ -537,7 +537,7 @@ apply_rules() {
 
 	### Load ipsets
 	[ -n "$ipsets_to_add" ] && {
-		printf_s "Loading ipsets... "
+		printf_s "${_nl}Loading ipsets... "
 		newifs "$_nl" li
 		for entry in ${ipsets_to_add%"$_nl"}; do
 			oldifs li
