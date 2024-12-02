@@ -536,7 +536,8 @@ set_all_config() {
 		inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
 		geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 		nft_perf ifaces datadir nobackup no_persist noblock http user_ccode schedule families \
-		_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy
+		_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
+		mm_license_type mm_acc_id mm_license_key
 }
 
 sc_failed() {
@@ -1090,13 +1091,14 @@ unisleep() {
 	sleep 0.1 2>/dev/null || sleep 1
 }
 
-valid_sources="ripe ipdeny"
+valid_sources="ripe ipdeny maxmind"
 valid_families="ipv4 ipv6"
 
 ripe_url_stats="ftp.ripe.net/pub/stats"
 ripe_url_api="stat.ripe.net/data/country-resource-list/data.json?"
 ipdeny_ipv4_url="www.ipdeny.com/ipblocks/data/aggregated"
 ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
+maxmind_url="download.maxmind.com/geoip/databases"
 
 # set some vars for debug and logging
 : "${me:="${0##*/}"}"
@@ -1107,7 +1109,7 @@ p_name_cap=GEOIP-SHELL
 # vars for common usage() functions
 sp8="        "
 sp16="$sp8$sp8"
-srcs_syn="<ripe|ipdeny>"
+srcs_syn="<ripe|ipdeny|maxmind>"
 direction_syn="<inbound|outbound>"
 direction_usage="direction (inbound|outbound). Only valid for actions add|remove and in combination with the '-l' option."
 list_ids_usage="iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
