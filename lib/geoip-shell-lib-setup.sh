@@ -150,7 +150,7 @@ pick_ifaces() {
 	}
 
 	[ "$1" = "-a" ] && [ ! "$ifaces_arg" ] && [ ! "$auto_ifaces" ] && [ "$nointeract" ] &&
-		die "$FAIL to automatically detect WAN network interfaces."
+		die "$FAIL automatically detect WAN network interfaces."
 
 	REPLY="$ifaces_arg"
 	while :; do
