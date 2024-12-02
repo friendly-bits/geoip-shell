@@ -619,11 +619,11 @@ for util in curl wget uclient-fetch; do
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
-			[ "$geosource" = maxmind ] && maxmind_str="--user=$mm_acc_id --password=$mm_license_key"
+			[ "$geosource" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
 			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
 			fetch_cmd="$wget_cmd$wget_tries$maxmind_str --timeout=16"
 			fetch_cmd_q="$fetch_cmd -O -"
-			fetch_cmd="$wget_fetch_cmd$wget_show_progress -O -"
+			fetch_cmd="$fetch_cmd$wget_show_progress -O -"
 			break ;;
 		uclient-fetch)
 			[ "$geosource" = maxmind ] &&
