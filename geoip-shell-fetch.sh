@@ -310,7 +310,6 @@ check_updates() {
 	time_now="$(date +%s)"
 
 	printf '\n%s\n' "Checking for ip list updates on the $dl_src_cap server..."
-	echo
 
 	case "$dl_src" in
 		ipdeny) get_src_dates_ipdeny ;;
@@ -368,31 +367,80 @@ list_failed() {
 	[ "$1" ] && echolog -err "$1"
 }
 
+# 1 - fetch cmd
+# 2 - url
+# 3 - output file
+fetch_file() {
+	[ $# = 3 ] || { echolog -err "fetch_file: invalid arguments."; return 1; }
+
+	debugprint "fetch command: $1 \"$2\" > \"$3\""
+	$1 "$2" > "$3" || {
+		fetch_rv=$?
+		echolog -err "${fetch_cmd%% *} returned error code $fetch_rv for command:" "$1 \"$2\""
+		[ $fetch_rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
+		return 1
+	}
+	[ -s "$3" ] || return 1
+
+	printf '%s\n' "Fetch successful."
+	:
+}
+
+fetch_maxmind() {
+	fetched_db_mm="/tmp/${p_name}_fetched-db.tmp"
+	case "$maxmind_license_type" in
+		free) mm_db_name=GeoLite2 ;;
+		paid) mm_db_name=GeoIP2
+	esac
+	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
+
+	printf '%s\n' "Fetching the database from MaxMind..."
+
+	fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || { 
+		list_failed "$FAIL fetch the database from Maxmind"
+		return 1
+	}
+
+	echo
+	for ccode in $ccodes_need_update; do
+		for family in $families; do
+			list_id="${ccode}_${family}"
+			case "$exclude_iplists" in *"$list_id"*) continue; esac
+			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
+			printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
+
+			parse_maxmind_csv "$fetched_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
+				set +f; rm -f "/tmp/${p_name}_fetched"*.tmp; set -f
+				echolog -err "$FAIL parse the ip list for '$list_id'."
+				return 1
+			}
+			OK
+		done
+	done
+	echo
+
+	rm -f "$fetched_db_mm"
+	:
+}
+
 process_ccode() {
 	curr_ccode="$1"
 	tolower curr_ccode_lc "$curr_ccode"
-	unset prev_list_reg list_path fetched_file
+	unset list_path fetched_file
 
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
-		case "$exclude_iplists" in *"$list_id"*)
-			continue
-		esac
+		case "$exclude_iplists" in *"$list_id"*) continue; esac
 
 		rm_fetched_list_id=
-		rm_fetched_ccode=
 		case "$dl_src" in
 			ripe)
 				fetched_file="/tmp/${p_name}_fetched-$curr_ccode.tmp"
-				rm_fetched_ccode=1
 				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
 			maxmind)
-				fetched_file="/tmp/${p_name}_fetched.tmp"
-				case "$maxmind_license_type" in
-					free) mm_db_name=GeoLite2 ;;
-					paid) mm_db_name=GeoIP2
-				esac
-				dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip" ;;
+				fetched_file="/tmp/${p_name}_fetched-$list_id.tmp"
+				rm_fetched_list_id=1
+				dl_url="" ;;
 			ipdeny)
 				fetched_file="/tmp/${p_name}_fetched-$list_id.tmp"
 				rm_fetched_list_id=1
@@ -411,26 +459,21 @@ process_ccode() {
 		valid_s_cnt=0
 		failed_s_cnt=0
 
-		# checks the status file and populates $prev_list_reg, $prev_date_raw
-		check_prev_list "$list_id"
-
 		if [ ! -s "$fetched_file" ]; then
 			case "$dl_src" in
 				ripe) fetch_subj="ip list for country '${purple}$curr_ccode${n_c}'" ;;
-				maxmind) fetch_subj=database ;;
+				maxmind) list_failed "Fetched file '$fetched_file' for list id '$list_id' not found"; return 1 ;;
 				ipdeny) fetch_subj="ip list for '${purple}$list_id${n_c}'"
 			esac
-			printf '%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
+			printf '\n%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
 
-			debugprint "fetch command: $fetch_cmd \"${http}://$dl_url\" > \"$fetched_file\""
-			$fetch_cmd "${http}://$dl_url" > "$fetched_file" || {
-				rv=$?
-				echolog -err "${fetch_cmd%% *} returned error code $rv for command:" "$fetch_cmd \"${http}://$dl_url\""
-				[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
-				list_failed "$FAIL fetch the $fetch_subj from the $dl_src_cap server.$_nl"; continue;
+			fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_file" || {
+				list_failed "$FAIL fetch the $fetch_subj from $dl_src_cap."
+				return 1
 			}
-			printf '%s\n\n' "Fetch successful."
 		fi
+
+		[ -s "$fetched_file" ] || { list_failed "$FAIL fetch the $fetch_subj from $dl_src_cap."; continue; }
 
 		case "$dl_src" in
 			ripe)
@@ -438,23 +481,42 @@ process_ccode() {
 				parse_ripe_json "$fetched_file" "$parsed_list" "$family" ||
 					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
 				OK ;;
-			maxmind)
-				printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
-				ccode="${list_id%_*}"
-				parse_maxmind_csv "$fetched_file" "$parsed_list" "$ccode" "$family" ||
-					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
-				OK ;;
-			ipdeny) mv "$fetched_file" "$parsed_list"
+			maxmind|ipdeny) mv "$fetched_file" "$parsed_list"
 		esac
 
+		# Validate the parsed list, populate the $valid_s_cnt, $failed_s_cnt
 		printf %s "Validating '$purple$list_id$n_c'... "
-		# Validates the parsed list, populates the $valid_s_cnt, failed_s_cnt variables
-		validate_list "$list_id"
-		rm -f "$parsed_list"
+		valid_list="/tmp/validated-${list_id}.tmp"
 
-		[ "$failed_s_cnt" = 0 ] && OK || { FAIL; continue; }
+		case "$family" in
+			ipv4) subnet_regex="$subnet_regex_ipv4" ;;
+			*) subnet_regex="$subnet_regex_ipv6"
+		esac
+		grep -E "^$subnet_regex$" "$parsed_list" > "$valid_list"
 
-		printf '%s\n\n' "Validated subnets for '$purple$list_id$n_c': $valid_s_cnt."
+		parsed_s_cnt=$(wc -w < "$parsed_list")
+		valid_s_cnt=$(wc -w < "$valid_list")
+		failed_s_cnt=$(( parsed_s_cnt - valid_s_cnt ))
+
+		if [ "$failed_s_cnt" != 0 ]; then
+			failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
+
+			list_failed "${_nl}out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
+			if [ $failed_s_cnt -gt 10 ]; then
+					echo "First 10 failed subnets:"
+					printf '%s\n' "$failed_s" | head -n10
+					printf '\n'
+			else
+				printf '%s\n%s\n\n' "Following subnets failed validation:" "$failed_s"
+			fi
+			rm -f "$parsed_list"
+			continue
+		else
+			rm -f "$parsed_list"
+			OK
+		fi
+
+		printf '%s\n' "Validated subnets for '$purple$list_id$n_c': $valid_s_cnt."
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
@@ -475,58 +537,33 @@ process_ccode() {
 		[ "$rm_fetched_list_id" ] && rm -f "$fetched_file"
 	done
 
-	[ "$rm_fetched_ccode" ] && rm -f "$fetched_file"
+	rm -f "$fetched_file"
 	:
-}
-
-validate_list() {
-	list_id="$1"
-	# todo: change to mktemp?
-	valid_list="/tmp/validated-${list_id}.tmp"
-	family="${list_id#*_}"
-
-	case "$family" in ipv4) subnet_regex="$subnet_regex_ipv4" ;; *) subnet_regex="$subnet_regex_ipv6"; esac
-	grep -E "^$subnet_regex$" "$parsed_list" > "$valid_list"
-
-	parsed_s_cnt=$(wc -w < "$parsed_list")
-	valid_s_cnt=$(wc -w < "$valid_list")
-	failed_s_cnt=$(( parsed_s_cnt - valid_s_cnt ))
-
-	if [ "$failed_s_cnt" != 0 ]; then
-		failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
-
-		list_failed "${_nl}out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
-		if [ $failed_s_cnt -gt 10 ]; then
-				echo "First 10 failed subnets:"
-				printf '%s\n' "$failed_s" | head -n10
-				printf '\n'
-		else
-			printf '%s\n%s\n\n' "Following subnets failed validation:" "$failed_s"
-		fi
-	fi
 }
 
 # compares current validated subnets count to previous one
 check_subnets_cnt_drop() {
 	list_id="$1"
+
 	if [ "$valid_s_cnt" = 0 ]; then
 		echolog -warn "validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?${_nl}"
 		return 1
 	fi
 
 	# Check if subnets count decreased dramatically compared to the old list
-	if [ "$prev_list_reg" ]; then
+	check_prev_list "$list_id"
+	if [ "$prev_s_cnt" ] && [ "$prev_s_cnt" != 0 ]; then
 		# compare fetched subnets count to old subnets count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
-		case $((s_percents < 90)) in
-			1) echolog -warn "validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
-				"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
-				"Not updating the list."
-				return 1 ;;
-			*)
-				debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
-				:
-		esac
+		if [ $s_percents -lt 90 ]; then
+			echolog -warn "validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
+			"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
+			"Not updating the list."
+			return 1
+		else
+			debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
+			:
+		fi
 	fi
 }
 
@@ -602,7 +639,7 @@ for util in curl wget uclient-fetch; do
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
 			[ "$geosource" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
 			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head -A Mozilla"
-			fetch_cmd="$curl_cmd$maxmind_str -f --retry 5 --connect-timeout 16"
+			fetch_cmd="$curl_cmd$maxmind_str -f --retry 3 --connect-timeout 16"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
 			break ;;
@@ -615,7 +652,7 @@ for util in curl wget uclient-fetch; do
 			else
 				wget_show_progress=" --show-progress"
 				wget_cmd="wget -q --max-redirect=10"
-				wget_tries=" --tries=5"
+				wget_tries=" --tries=3"
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
@@ -734,19 +771,24 @@ else
 	:
 fi
 
-trap 'rm_tmp_f; rm -f "$server_html_file"
+trap 'rm_tmp_f
+	rm -f "$server_html_file"
+	set +f; rm -f "/tmp/${p_name}_fetched"*.tmp; set -f
 	for family in $families; do
 		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp"
 	done; exit' INT TERM HUP QUIT
 
 check_updates
 
-# process the list id's
+# process list id's
 set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
+if [ "$geosource" = maxmind ] && [ "$ccodes_need_update" ]; then
+	fetch_maxmind || die
+fi
+
 for ccode in $ccodes_need_update; do
 	process_ccode "$ccode"
 done
-rm -f "$fetched_file"
 
 
 ### Report fetch results via fetch_res_file
