@@ -637,7 +637,7 @@ for util in curl wget uclient-fetch; do
 	case "$util" in
 		curl)
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
-			[ "$geosource" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
+			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
 			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head -A Mozilla"
 			fetch_cmd="$curl_cmd$maxmind_str -f --retry 3 --connect-timeout 16"
 			fetch_cmd_q="$fetch_cmd -s -S"
@@ -647,7 +647,7 @@ for util in curl wget uclient-fetch; do
 			if ! wget --version | grep -m1 "GNU Wget"; then
 				wget_cmd="wget -q"
 				unset wget_tries wget_tries_con_check wget_show_progress
-				[ "$geosource" = maxmind ] &&
+				[ "$dl_src" = maxmind ] &&
 					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
 			else
 				wget_show_progress=" --show-progress"
@@ -656,14 +656,14 @@ for util in curl wget uclient-fetch; do
 				wget_tries_con_check=" --tries=2"
 			fi 1>/dev/null 2>/dev/null
 
-			[ "$geosource" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
+			[ "$dl_src" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
 			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
 			fetch_cmd="$wget_cmd$wget_tries$maxmind_str --timeout=16"
 			fetch_cmd_q="$fetch_cmd -O -"
 			fetch_cmd="$fetch_cmd$wget_show_progress -O -"
 			break ;;
 		uclient-fetch)
-			[ "$geosource" = maxmind ] &&
+			[ "$dl_src" = maxmind ] &&
 				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
 			con_check_cmd="$ucl_cmd -T 7 -q -s -U Mozilla"
 			fetch_cmd_q="$ucl_cmd -T 16 -q -O -"
@@ -782,7 +782,7 @@ check_updates
 
 # process list id's
 set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
-if [ "$geosource" = maxmind ] && [ "$ccodes_need_update" ]; then
+if [ "$dl_src" = maxmind ] && [ "$ccodes_need_update" ]; then
 	fetch_maxmind || die
 fi
 
