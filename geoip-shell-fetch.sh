@@ -262,7 +262,7 @@ parse_maxmind_csv() {
 	in_file="$1" out_file="$2" ccode_parse="$3" family_parse="$4"
 
 	gunzip -fc "$in_file" |
-		awk -v m="$ccode_parse" '$1==m {print $2}' > "$out_file" &&
+		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p}" > "$out_file" &&
 		[ -s "$out_file" ] &&
 			return 0
 	return 1
