@@ -651,7 +651,8 @@ toupper dl_src_cap "$dl_src"
 
 #### Choose best available DL utility, set options
 ucl_cmd=uclient-fetch
-curl_cmd="curl -L -f"
+curl_cmd="curl -f"
+wget_cmd="wget -q"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
 unset fetch_cmd ssl_ok
@@ -677,25 +678,25 @@ for util in curl wget uclient-fetch; do
 		curl)
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
 			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head -A Mozilla"
-			fetch_cmd="$curl_cmd$maxmind_str -f --retry 3 --connect-timeout 16"
+			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
+			fetch_cmd="$curl_cmd$maxmind_str -L -f --retry 3 --connect-timeout 16"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
 			break ;;
 		wget)
-			if ! wget --version | grep -m1 "GNU Wget"; then
-				wget_cmd="wget -q"
-				unset wget_tries wget_tries_con_check wget_show_progress
+			if ! wget --version 2>/dev/null | grep -m1 "GNU Wget"; then
+				unset wget_tries wget_tries_con_check wget_show_progress wget_max_redirect
 				[ "$dl_src" = maxmind ] &&
 					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
 			else
 				wget_show_progress=" --show-progress"
-				wget_cmd="wget -q --max-redirect=10"
+				wget_max_redirect=" --max-redirect=10"
 				wget_tries=" --tries=3"
 				wget_tries_con_check=" --tries=2"
-			fi 1>/dev/null 2>/dev/null
+			fi 1>/dev/null
 
 			[ "$dl_src" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
+			wget_cmd="$wget_cmd$wget_max_redirect"
 			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
 			fetch_cmd="$wget_cmd$wget_tries$maxmind_str --timeout=16"
 			fetch_cmd_q="$fetch_cmd -O -"
@@ -704,7 +705,7 @@ for util in curl wget uclient-fetch; do
 		uclient-fetch)
 			[ "$dl_src" = maxmind ] &&
 				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
-			con_check_cmd="$ucl_cmd -T 7 -q -s -U Mozilla"
+			con_check_cmd="$ucl_cmd -T 7 -q -s"
 			fetch_cmd_q="$ucl_cmd -T 16 -q -O -"
 			fetch_cmd="$ucl_cmd -T 16 -O -"
 			break
