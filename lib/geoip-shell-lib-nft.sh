@@ -549,11 +549,10 @@ create_backup() {
 
 		rm -f "$tmp_file"
 		# extract elements and write to $tmp_file
-		{ nft list set inet "$geotable" "$ipset" || touch "$bk_failed_file"; } |
+		nft list set inet "$geotable" "$ipset" |
 			sed -n "/elements${blank}*=${blank}*{/{s/${blanks}//g;p;/\}/q;:1 n;s/${blanks}//;p;/\}/q;b1;}" \
-				> "$tmp_file" &&
-			[ ! -f "$bk_failed_file" ] && [ -s "$tmp_file" ] ||
-				bk_failed "${_nl}$FAIL create backup of the ipset for iplist id '$list_id'."
+				> "$tmp_file" && [ -s "$tmp_file" ] ||
+					bk_failed "${_nl}$FAIL create backup of the ipset for iplist id '$list_id'."
 
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $bk_len"
