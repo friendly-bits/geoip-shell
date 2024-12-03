@@ -1039,6 +1039,8 @@ resolve_geosource_ips() {
 
 setup_maxmind() {
 	checkutil unzip || { echolog -err "MaxMind source requires the 'unzip' utility but it is not found."; return 1; }
+	checkutil gzip && checkutil gunzip ||
+		{ echolog -err "MaxMind source requires the 'gzip' and 'gunzip' utilities but either or both are not found."; return 1; }
 
 	[ "$mm_acc_id" ] && [ "$mm_acc_license" ] ||
 		printf '%s\n' "MaxMind requires a license. You will need account ID and license key."
