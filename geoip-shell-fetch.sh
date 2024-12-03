@@ -235,16 +235,34 @@ parse_ripe_json() {
 	return 1
 }
 
+preparse_maxmind_csv() {
+	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4"
+	mm_countries_tmp_file=/tmp/maxmind_countries.csv
+	san_str ccodes_parse_regex "$ccodes_parse" " " "|"
+
+	unzip -p "$in_file" "*/GeoLite2-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
+		rm -f "$mm_countries_tmp_file"
+		return 1
+	}
+
+	unzip -p "$in_file"  "*/GeoLite2-Country-Blocks-IPv${family_parse#ipv}.csv" |
+		awk -F ',' "
+			NR==FNR { if (\$5~/^($ccodes_parse_regex)$/) {ccodes[\$1]=\$5}; next}
+			\$2 in ccodes {print ccodes[\$2], \$1}
+		" "$mm_countries_tmp_file" - | gzip > "$out_file" &&
+			[ -s "$out_file" ] && {
+				rm -f "$mm_countries_tmp_file"
+				return 0
+			}
+	rm -f "$mm_countries_tmp_file"
+	return 1
+}
+
 parse_maxmind_csv() {
 	in_file="$1" out_file="$2" ccode_parse="$3" family_parse="$4"
 
-	mm_geoname_id="$(
-		unzip -p "$in_file" "*/GeoLite2-Country-Locations-en.csv" |
-			awk -F ',' -v c="$ccode" '$5==c {print $1}'
-	)"
-
-	unzip -p "$in_file"  "*/GeoLite2-Country-Blocks-IPv${family_parse#ipv}.csv" |
-		awk -F ',' -v m="$mm_geoname_id" '$2==m {print $1}' > "$out_file" &&
+	gunzip -fc "$in_file" |
+		awk -v m="$ccode_parse" '$1==m {print $2}' > "$out_file" &&
 		[ -s "$out_file" ] &&
 			return 0
 	return 1
@@ -402,24 +420,45 @@ fetch_maxmind() {
 	}
 
 	echo
-	for ccode in $ccodes_need_update; do
-		for family in $families; do
+
+	printf %s "Pre-parsing the database... "
+	for family in $families; do
+		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
+		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" || {
+			FAIL
+			set +f
+			rm -f "/tmp/${p_name}_fetched"*.tmp
+			rm -f "/tmp/${p_name}_preparsed"*.tmp
+			set -f
+			echolog -err "$FAIL pre-parse the database from MaxMind."
+			return 1
+		}
+	done
+	OK
+	rm -f "$fetched_db_mm"
+
+	for family in $families; do
+		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
+		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
 			case "$exclude_iplists" in *"$list_id"*) continue; esac
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
 
-			parse_maxmind_csv "$fetched_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
-				set +f; rm -f "/tmp/${p_name}_fetched"*.tmp; set -f
+			parse_maxmind_csv "$preparsed_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
+				set +f
+				rm -f "/tmp/${p_name}_fetched"*.tmp
+				rm -f "/tmp/${p_name}_preparsed"*.tmp
+				set -f
 				echolog -err "$FAIL parse the ip list for '$list_id'."
 				return 1
 			}
 			OK
 		done
+		rm -f "$preparsed_db_mm"
 	done
 	echo
 
-	rm -f "$fetched_db_mm"
 	:
 }
 
