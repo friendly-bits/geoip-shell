@@ -260,6 +260,7 @@ Examples:
 - standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, **pgrep**, **pidof** and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
 - **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
 - for the autoupdate functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
+- for the MaxMind source, requires the utilities: `unzip`, `gzip`, `gunzip` (`apt install unzip gzip`)
 
 **Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
