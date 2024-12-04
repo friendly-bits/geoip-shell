@@ -730,8 +730,8 @@ done
 
 # source ip's
 if [ "$source_ips_arg" ] || {
-		[ "$outbound_geomode" != disable ] &&
-		[ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] && {
+		[ "$outbound_geomode" != disable ] && [ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] &&
+		{
 			[ ! "$source_ips_policy" ] ||
 			[ "$geosource_change" ] ||
 			{ [ "$outbound_geomode_change" ] && [ "$outbound_geomode_prev" = disable ]; }
