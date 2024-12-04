@@ -73,7 +73,7 @@ get_counters_nft() {
 	counter_strings="$(
 		nft -ta list ruleset inet | \
 		sed -n ":2 /chain $p_name_cap/{:1 n;/^${blank}*}/b2;s/ # handle.*//;/counter${blanks}packets/{s/counter${blanks}//;p;};b1;}" | \
-		awk 'match($0,/[ 	]packets [0-9]+ bytes [0-9]+/){print substr($0,1,RSTART-1) substr($0,RSTART+RLENGTH) "=" substr($0,RSTART+1,RLENGTH-1)}' | \
+		$awk_cmd 'match($0,/[ 	]packets [0-9]+ bytes [0-9]+/){print substr($0,1,RSTART-1) substr($0,RSTART+RLENGTH) "=" substr($0,RSTART+1,RLENGTH-1)}' | \
 		encode_rules
 	)"
 	:
@@ -145,7 +145,7 @@ cnt_ipset_elements() {
 # 1 - ipset tag
 # 2 - ipsets
 print_ipset_elements() {
-	get_ipset_elements "$1" "$2" | awk '{gsub(",", "");$1=$1};1' ORS=' '
+	get_ipset_elements "$1" "$2" | $awk_cmd '{gsub(",", "");$1=$1};1' ORS=' '
 }
 
 # 1 - direction (inbound|outbound)
