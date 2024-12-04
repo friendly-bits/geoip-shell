@@ -128,7 +128,7 @@ get_src_dates_ipdeny() {
 		debugprint "Processing $family listing on the IPDENY server..."
 
 		# 1st part of awk strips HTML tags, 2nd part trims extra spaces
-		[ -f "$server_html_file" ] && awk '{gsub("<[^>]*>", "")} {$1=$1};1' "$server_html_file" > "$server_plaintext_file" ||
+		[ -f "$server_html_file" ] && $awk_cmd '{gsub("<[^>]*>", "")} {$1=$1};1' "$server_html_file" > "$server_plaintext_file" ||
 			echolog "failed to fetch server dates from the IPDENY server."
 		rm -f "$server_html_file"
 	done
@@ -140,7 +140,7 @@ get_src_dates_ipdeny() {
 		# picks the line for the correct entry, then picks the 2nd field which is the date
 		# matches that to date in format 'dd-Mon-20yy', then converts to 'yyyymmdd'
 		[ -f "$server_plaintext_file" ] && server_date="$(
-			awk -v c="$curr_ccode" '($1==tolower(c)"-aggregated.zone" && $2 ~ /^[0-3][0-9]-...-20[1-9][0-9]$/) {split($2,d,"-");
+			$awk_cmd -v c="$curr_ccode" '($1==tolower(c)"-aggregated.zone" && $2 ~ /^[0-3][0-9]-...-20[1-9][0-9]$/) {split($2,d,"-");
 				date=sprintf("%04d%02d%02d", d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1]); print date}' \
 				"$server_plaintext_file"
 		)"
@@ -186,7 +186,8 @@ get_src_dates_maxmind() {
 
 	case "$mm_license_type" in
 		free) mm_db_name=GeoLite2 ;;
-		paid) mm_db_name=GeoIP2
+		paid) mm_db_name=GeoIP2 ;;
+		*) echolog -err "unexpected MaxMind license type '$mm_license_type'"; return 1
 	esac
 	server_url="https://${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
@@ -236,17 +237,17 @@ parse_ripe_json() {
 }
 
 preparse_maxmind_csv() {
-	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4"
+	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" mm_db_name_parse="$5"
 	mm_countries_tmp_file=/tmp/maxmind_countries.csv
 	san_str ccodes_parse_regex "$ccodes_parse" " " "|"
 
-	unzip -p "$in_file" "*/GeoLite2-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
+	unzip -p "$in_file" "*/${mm_db_name_parse}-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
 		rm -f "$mm_countries_tmp_file"
 		return 1
 	}
 
-	unzip -p "$in_file"  "*/GeoLite2-Country-Blocks-IPv${family_parse#ipv}.csv" |
-		awk -F ',' "
+	unzip -p "$in_file"  "*/${mm_db_name_parse}-Country-Blocks-IPv${family_parse#ipv}.csv" |
+		$awk_cmd -F ',' "
 			NR==FNR { if (\$5~/^($ccodes_parse_regex)$/) {ccodes[\$1]=\$5}; next}
 			\$2 in ccodes {print ccodes[\$2], \$1}
 		" "$mm_countries_tmp_file" - | gzip > "$out_file" &&
@@ -258,7 +259,7 @@ preparse_maxmind_csv() {
 	return 1
 }
 
-parse_maxmind_csv() {
+parse_maxmind_db() {
 	in_file="$1" out_file="$2" ccode_parse="$3" family_parse="$4"
 
 	gunzip -fc "$in_file" |
@@ -380,6 +381,13 @@ rm_tmp_f() {
 	rm -f "$fetched_file" "$parsed_list" "$valid_list"
 }
 
+rm_mm_tmp_f() {
+	set +f
+	rm -f "/tmp/${p_name}_fetched"*.tmp
+	rm -f "/tmp/${p_name}_preparsed"*.tmp
+	set -f
+}
+
 list_failed() {
 	rm_tmp_f
 	[ "$1" ] && echolog -err "$1"
@@ -395,7 +403,6 @@ fetch_file() {
 	$1 "$2" > "$3" || {
 		fetch_rv=$?
 		echolog -err "${fetch_cmd%% *} returned error code $fetch_rv for command:" "$1 \"$2\""
-		[ $fetch_rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
 		return 1
 	}
 	[ -s "$3" ] || return 1
@@ -406,9 +413,10 @@ fetch_file() {
 
 fetch_maxmind() {
 	fetched_db_mm="/tmp/${p_name}_fetched-db.tmp"
-	case "$maxmind_license_type" in
+	case "$mm_license_type" in
 		free) mm_db_name=GeoLite2 ;;
-		paid) mm_db_name=GeoIP2
+		paid) mm_db_name=GeoIP2 ;;
+		*) echolog -err "unexpected MaxMind license type '$mm_license_type'"; return 1
 	esac
 	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
@@ -416,20 +424,16 @@ fetch_maxmind() {
 
 	fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || { 
 		list_failed "$FAIL fetch the database from Maxmind"
+		rm -f "$fetched_db_mm"
 		return 1
 	}
 
-	echo
-
-	printf %s "Pre-parsing the database... "
+	printf '\n%s' "Pre-parsing the database... "
 	for family in $families; do
 		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
-		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" || {
+		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" "$mm_db_name" || {
 			FAIL
-			set +f
-			rm -f "/tmp/${p_name}_fetched"*.tmp
-			rm -f "/tmp/${p_name}_preparsed"*.tmp
-			set -f
+			rm_mm_tmp_f
 			echolog -err "$FAIL pre-parse the database from MaxMind."
 			return 1
 		}
@@ -445,11 +449,8 @@ fetch_maxmind() {
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
 
-			parse_maxmind_csv "$preparsed_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
-				set +f
-				rm -f "/tmp/${p_name}_fetched"*.tmp
-				rm -f "/tmp/${p_name}_preparsed"*.tmp
-				set -f
+			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
+				rm_mm_tmp_f
 				echolog -err "$FAIL parse the ip list for '$list_id'."
 				return 1
 			}
@@ -716,12 +717,10 @@ done
 
 [ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
 
-owrt_ssl_needed="Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
-
 if [ -z "$ssl_ok" ]; then
 	case "$dl_src" in ipdeny|maxmind)
 		echolog -err "SSL support is required to use the ${dl_src_cap} source but no utility with SSL support is available."
-		checkutil uci && echolog "$owrt_ssl_needed"
+		checkutil uci && echolog "Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
 		die
 	esac
 
@@ -773,17 +772,14 @@ san_lists="$lists"
 # populates $registries, fetch_lists_arr
 group_lists_by_registry
 
-[ ! "$registries" ] && die "$FAIL determine relevant regions."
-
-case "$dl_src" in
-	ripe) dl_srv="${ripe_url_api%%/*}"
-		con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
-	ipdeny) dl_srv="${ipdeny_ipv4_url%%/*}"
-		con_check_url="$ipdeny_ipv4_url" ;;
-	maxmind) con_check_url="${maxmind_url%%/*}"
-esac
+[ "$registries" ] || die "$FAIL determine relevant regions."
 
 # check connectivity
+case "$dl_src" in
+	ripe) con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
+	ipdeny) con_check_url="$ipdeny_ipv4_url" ;;
+	maxmind) con_check_url="${maxmind_url%%/*}"
+esac
 debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
@@ -791,7 +787,6 @@ printf '\n%s' "Checking connectivity... "
 $con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
 	rv=$?
 	echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"${http}://$con_check_url\""
-	[ $rv = 8 ] && checkutil uci && echolog "$owrt_ssl_needed"
 	die "Connection attempt to the $dl_src_cap server failed."
 }
 OK
@@ -811,12 +806,9 @@ else
 	:
 fi
 
-trap 'rm_tmp_f
-	rm -f "$server_html_file"
-	set +f; rm -f "/tmp/${p_name}_fetched"*.tmp; set -f
-	for family in $families; do
-		rm -f "${tmp_file_path}_plaintext_${family}.tmp" "${tmp_file_path}_dl_page_${family}.tmp"
-	done; exit' INT TERM HUP QUIT
+trap 'rm_tmp_f;	rm_mm_tmp_f; \
+	set +f;	rm -f "$server_html_file" "/tmp/${p_name}_ipdeny_plaintext_"*.tmp "/tmp/${p_name}_ipdeny_dl_page_"*.tmp; set -f; \
+	trap - INT TERM HUP QUIT; exit' INT TERM HUP QUIT
 
 check_updates
 
