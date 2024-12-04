@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2034,SC1090,SC2120,SC2015
+# shellcheck disable=SC2154,SC2034,SC1090,SC2120,SC2015,SC2016
 
 # geoip-shell-lib-ipt.sh
 
@@ -201,54 +201,55 @@ get_counters_ipt() {
 			eval "curr_ipt=\"\$${f}_ipt\""
 			[ "$curr_ipt" ] && printf '%s\n' "$curr_ipt" |
 			encode_rules "$f"
-		done | awk -F "]" '$2 ~ /^[a-zA-Z0-9_]+$/ {print $2 "=" $1 "]"}'
+		done | $awk_cmd -F "]" '$2 ~ /^[a-zA-Z0-9_]+$/ {print $2 "=" $1 "]"}'
 	)"
 	:
 }
 
-# 1 - entry in the format:
-# <ipset_name> <ipset_type> <family> <path>
-load_ipset() {
-	newifs ' ' loi
-	set -- $1
+load_ipsets() {
+	printf_s "${_nl}Creating new ipsets... "
+
+	newifs "$_nl" loi
+	for entry in ${ipsets_to_add%"${_nl}"}; do
+		IFS=' '
+		set -- $entry
+		oldifs loi
+
+		[ $# -ge 6 ] || { FAIL; echolog -err "load_ipsets: invalid entry '$*'"; return 1; }
+
+		case "$2" in
+			ip|net) ;;
+			*) FAIL; echolog -err "load_ipsets: Invalid ipset type '$2' in entry '$*'"; return 1
+		esac
+
+		ipset_name="$1" ipset_type="$2" family_li="$3" ipset_maxelem="$4" ipset_hs="$5"
+		shift 5
+		get_ipset_id "$ipset_name" || return 1
+		ipset destroy "$ipset_name" 1>/dev/null 2>/dev/null
+
+		debugprint "Creating ipset for ${list_id}, maxelem: $ipset_maxelem, hashsize: $ipset_hs... "
+		ipset create "$ipset_name" "hash:$ipset_type" family "$family_li" hashsize "$ipset_hs" maxelem "$ipset_maxelem" ||
+			{ FAIL; echolog -err "$FAIL create ipset '$ipset_name'."; return 1; }
+	done
+	OK
+
+	printf %s "Loading ipsets... "
+	IFS="$_nl"
+	for entry in ${ipsets_to_add%"${_nl}"}; do
+		IFS=' '
+		set -- $entry
+		oldifs loi
+		ipset_name="$1"
+		shift 5
+		iplist_file="$*"
+		# read $iplist_file, transform each line into 'add' command and pipe the result into "ipset restore"
+		sed "/^$/d;s/^/add \"$ipset_name\" /" "$iplist_file"
+		rm -f "$iplist_file"
+	done | ipset restore -exist ||
+		{ oldifs loi; FAIL; echolog -err "$FAIL load ipsets."; return 1; }
 	oldifs loi
+	OK
 
-	[ $# -ge 4 ] || { FAIL; echolog -err "load_ipset: invalid entry '$*'"; return 1; }
-
-	case "$2" in
-		ip|net) ;;
-		*) FAIL; echolog -err "load_ipset: Invalid ipset type '$2' in entry '$*'"; return 1
-	esac
-
-	l_ipset="$1" ipset_type="$2" family_li="$3"
-	shift 3
-	iplist_file="$*"
-
-	[ -f "$iplist_file" ] || { FAIL; echolog -err "Can not find the iplist file in path: '$iplist_file'."; return 1; }
-
-	ipset destroy "$l_ipset" 1>/dev/null 2>/dev/null
-
-	# count ips in the iplist file
-	ip_cnt=$(wc -w < "$iplist_file")
-#	debugprint "ip count in the iplist file '$iplist_file': $ip_cnt"
-
-	# set hashsize to 1024 or (ip_cnt / 2), whichever is larger
-	ipset_hs=$((ip_cnt / 2))
-	[ $ipset_hs -lt 1024 ] && ipset_hs=1024
-
-	get_ipset_id "$l_ipset" || return 1
-	debugprint "hashsize for ipset $list_id: $ipset_hs"
-	debugprint "Loading ip list for ${list_id}... "
-	ipset create "$l_ipset" "hash:$ipset_type" family "$family_li" hashsize "$ipset_hs" maxelem "$ip_cnt" ||
-		{ FAIL; echolog -err "$FAIL create ipset '$l_ipset'."; return 1; }
-
-	# read $iplist_file, transform each line into 'add' command and pipe the result into "ipset restore"
-	sed "/^$/d;s/^/add \"$l_ipset\" /" "$iplist_file" | ipset restore -exist ||
-		{ FAIL; echolog -err "$FAIL load the iplist from '$iplist_file' into ipset '$l_ipset'."; return 1; }
-
-	[ "$debugmode" ] && debugprint "ip's in the new ipset: $(ipset save "$l_ipset" | grep -c "add $l_ipset")"
-
-	rm -f "$iplist_file"
 	:
 }
 
@@ -260,8 +261,30 @@ load_ipset() {
 reg_ipset() {
 	debugprint "Registering load ipset '$1'... "
 	case "$5" in *"$1"*) echolog -err "reg_ipset: ipset '$1' already exists."; return 1; esac
+
+	[ -s "$4" ] || {
+		FAIL
+		echolog -err "reg_ipset: iplist file '$4' does not exist or is empty."
+		return 1
+	}
+
+	# count ips in the iplist file
+	ip_cnt_ri=$(wc -w < "$4") || {
+		echolog -err "reg_ipset: $FAIL count ip's in file '$4'."
+		return 1
+	}
+	case "$ip_cnt_ri" in ''|0|*[!0-9]*)
+		echolog -err "reg_ipset: unexpected ip count '$ip_cnt_ri' for ipset '$1'."
+		return 1
+	esac
+	debugprint "ip count in the iplist file '$4': $ip_cnt"
+
+	# set hashsize to 1024 or (ip_cnt / 2), whichever is larger
+	ipset_hs_ri=$((ip_cnt_ri / 2))
+	[ $ipset_hs_ri -lt 1024 ] && ipset_hs_ri=1024
+
 	new_ipsets="$new_ipsets$1 "
-	ipsets_to_add="${ipsets_to_add}${1} ${2} ${3} ${4}${_nl}"
+	ipsets_to_add="${ipsets_to_add}${1} ${2} ${3} ${ip_cnt_ri} ${ipset_hs_ri} ${4}${_nl}"
 	:
 }
 
@@ -537,13 +560,7 @@ apply_rules() {
 
 	### Load ipsets
 	[ -n "$ipsets_to_add" ] && {
-		printf_s "${_nl}Loading ipsets... "
-		newifs "$_nl" li
-		for entry in ${ipsets_to_add%"$_nl"}; do
-			oldifs li
-			load_ipset "${entry}" || die_a
-		done
-		OK
+		load_ipsets || die_a
 	}
 
 	#### Assemble commands for iptables-restore
