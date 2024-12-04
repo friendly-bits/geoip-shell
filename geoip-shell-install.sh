@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2086,SC1090,SC2154,SC2034
+# shellcheck disable=SC2086,SC1090,SC2154,SC2034,SC2016
 
 # geoip-shell-install.sh
 
@@ -81,7 +81,7 @@ check_files() {
 compare_files() {
 	[ -s "$1" ] && [ -s "$2" ] &&
 	md5sum "$1" "$2" 2>/dev/null | \
-		awk 'BEGIN{rv=1} NF==0{next}; {i=i+1} i==2{ if ($1==rec) {rv=0; exit} else {exit}} {rec=$1; next} END{exit rv}' &&
+		$awk_cmd 'BEGIN{rv=1} NF==0{next}; {i=i+1} i==2{ if ($1==rec) {rv=0; exit} else {exit}} {rec=$1; next} END{exit rv}' &&
 			return 0
 	return 1
 }
@@ -237,7 +237,7 @@ pick_shell() {
 detect_init() {
 	check_openrc() { grep 'sysinit:/.*/openrc sysinit' /etc/inittab 1>/dev/null 2>/dev/null && initsys=openrc; }
 	check_strings() {
-		awk 'BEGIN{IGNORECASE=1; rv=1} match($0, /(upstart|systemd|procd|sysvinit|busybox|openrc)/) \
+		$awk_cmd 'BEGIN{IGNORECASE=1; rv=1} match($0, /(upstart|systemd|procd|sysvinit|busybox|openrc)/) \
 			{ print substr($0, RSTART, RLENGTH); rv=0; exit; } END{exit rv}' "$1"
 	}
 
