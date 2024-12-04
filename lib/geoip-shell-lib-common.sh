@@ -572,7 +572,7 @@ setstatus() {
 }
 
 awk_cmp() {
-	awk 'NF==0{next} NR==FNR {A[$0]=1;a++;next} {b++} !A[$0]{r=1;exit} END{if(!a&&!b){exit 0};if(!a||!b){exit 1};exit r}' r=0 "$1" "$2"
+	$awk_cmd 'NF==0{next} NR==FNR {A[$0]=1;a++;next} {b++} !A[$0]{r=1;exit} END{if(!a&&!b){exit 0};if(!a||!b){exit 1};exit r}' r=0 "$1" "$2"
 }
 
 # compares lines in files $1 and $2, regardless of order
@@ -1187,6 +1187,14 @@ set -f
 [ -z "$geotag" ] && {
 	set_ansi
 	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
+
+	if checkutil gawk; then
+		awk_cmd="gawk"
+	else
+		awk_cmd="awk"
+	fi
+	export awk_cmd
+
 	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
 		export datadir status_file="$datadir/status" counters_file="$datadir/counters"
