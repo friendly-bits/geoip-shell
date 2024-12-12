@@ -797,10 +797,6 @@ check_for_lockout
 	}
 }
 
-if [ ! "$run_restore_req" ] && [ ! "$reset_req" ] && [ ! "$run_add_req" ] && [ ! "$apply_req" ]; then
-	check_lists_coherence || run_restore_req=1
-fi
-
 [ "$datadir_change" ] && [ -n "${datadir_prev}" ] && {
 	rm -rf "$datadir"
 	mk_datadir
@@ -828,6 +824,8 @@ export datadir status_file="$datadir/status" nobackup
 [ "$run_restore_req" ] && conf_act=run_restore
 [ "$run_add_req" ] && conf_act=run_add
 [ "$reset_req" ] && conf_act=reset
+
+[ -z "$conf_act" ] && { check_lists_coherence -nr || conf_act=run_restore; }
 
 debugprint "config action: '$conf_act'"
 
