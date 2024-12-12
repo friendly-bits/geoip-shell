@@ -857,11 +857,21 @@ get_active_iplists() {
 # checks whether current ipsets and iptables rules match ones in the config file
 check_lists_coherence() {
 	_no_l="$nolog"
-	[ "$1" = '-n' ] && nolog=1
+
+	no_reload_conf=
+	for arg in "$@"; do
+		case "$arg" in
+			-n) nolog=1 ;;
+			-nr) no_reload_conf=1 ;;
+		esac
+	done
+
 	debugprint "Verifying ip lists coherence..."
 
-	main_config=
-	nodie=1 get_config_vars || return 1
+	[ -z "$no_reload_conf" ] && {
+		main_config=
+		nodie=1 get_config_vars || { r_no_l; return 1; }
+	}
 
 	iplists_incoherent=
 	for direction in inbound outbound; do
