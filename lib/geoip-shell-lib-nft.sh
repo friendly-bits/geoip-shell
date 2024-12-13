@@ -489,7 +489,13 @@ apply_rules() {
 	#### Apply new rules
 	[ "$debugmode" ] && printf '\n%s\n%s\n\n' "Rules:" "$nft_cmd_chain" >&2
 	printf_s "Applying new firewall rules... "
-	printf '%s\n' "$nft_cmd_chain" | nft -f - || die_a "$FAIL apply new firewall rules"
+	nft_output="$(printf '%s\n' "$nft_cmd_chain" | nft -f - 2>&1)" || {
+		FAIL
+		echolog -err "$FAIL apply new firewall rules"
+		echolog "nftables errors: '$(printf %s "$nft_output" | head -c 1k | tr '\n' ';')'"
+		die
+	}
+
 	OK
 
 	#### Update ports in config
