@@ -595,7 +595,7 @@ check_subnets_cnt_drop() {
 	if [ "$prev_s_cnt" ] && [ "$prev_s_cnt" != 0 ]; then
 		# compare fetched subnets count to old subnets count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
-		if [ $s_percents -lt 90 ]; then
+		if [ $s_percents -lt 60 ]; then
 			echolog -warn "validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
 			"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
 			"Not updating the list."
