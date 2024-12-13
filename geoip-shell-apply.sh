@@ -352,9 +352,11 @@ for direction in inbound outbound; do
 			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "Ip set for '$list_id' is already up-to-date." ;;
 			# check for ipset with different date
 			*"$list_id_short"*)
-				unexp_ipsets_apply="$(printf %s "$curr_ipsets" | grep "$list_id_short" | tr '\n' ' ')"
-				case "$action" in add|restore) die "Detected ipset(s) with unexpected dates: $unexp_ipsets_apply."; esac
-				add2list rm1_ipsets "$ipset"
+				get_matching_line "$curr_ipsets" "*" "$list_id_short" "*" old_ipset
+				case "$action" in add|restore)
+					die "Detected ipset with unexpected date: $old_ipset."
+				esac
+				add2list rm1_ipsets "$old_ipset"
 		esac
 
 		add2list planned_ipsets "$ipset"
