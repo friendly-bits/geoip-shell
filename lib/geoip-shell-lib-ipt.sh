@@ -503,7 +503,12 @@ apply_rules() {
 
 		### Apply rules removal
 		debugprint "\nRemoval rules: $_nl$rm_rules$_nl"
-		printf '%s\n' "$rm_rules" | eval "$ipt_restore_cmd -c" || die "$FAIL apply remove commands."
+		ipt_output="$(printf '%s\n' "$rm_rules" | eval "$ipt_restore_cmd -c" 2>&1)" || {
+			echolog -err "$FAIL remove firewall rules"
+			echolog "iptables errors: '$(printf %s "$ipt_output" | head -c 1k | tr '\n' ';')'"
+			die
+		}
+
 		OK
 	done
 
@@ -690,6 +695,11 @@ apply_rules() {
 		set_ipt_cmds "$family" || die_a
 		eval "iptr_cmds=\"\${${family}_iptr_cmds}\""
 		printf_s "Applying new $family firewall rules... "
+		ipt_output="$(printf '%s\n' "$iptr_cmds" | eval "$ipt_restore_cmd -c" 2>&1)" || {
+			echolog -err "$FAIL apply new $family iptables rules"
+			echolog "iptables errors: '$(printf %s "$ipt_output" | head -c 1k | tr '\n' ';')'"
+			critical
+		}
 		printf '%s\n' "$iptr_cmds" | eval "$ipt_restore_cmd -c" || critical "$FAIL apply new $family iptables rules"
 		OK
 	done
