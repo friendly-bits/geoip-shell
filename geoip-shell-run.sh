@@ -172,8 +172,9 @@ case "$action_run" in
 			action_run=update force_run="-f"
 		else
 			get_counters
-			if call_script -l "$i_script-backup.sh" restore -n; then
-				nobackup=true
+			if call_script -l "$i_script-backup.sh" restore -n && check_lists_coherence; then
+				echolog "Successfully restored ip lists."
+				die 0
 			else
 				# if restore failed, force re-fetch
 				echolog -err "Restore from backup failed. Changing action to 'update'."
@@ -182,10 +183,19 @@ case "$action_run" in
 		fi
 esac
 
+# From here on, action_run is 'add' or 'update'
+case "$action_run" in
+	add)
+		print_action=Adding
+		print_action_done=added ;;
+	update)
+		print_action=Updating
+		print_action_done=updated ;;
+esac
 
 #### Daemon loop
 
-unset echolists all_fetched_lists missing_lists lists_fetch fetched_lists
+unset all_fetched_lists missing_lists lists_fetch fetched_lists
 
 [ ! "$daemon_mode" ] && max_attempts=1
 case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
@@ -255,51 +265,41 @@ fi
 
 apply_rv=0
 
-case "$action_run" in update|add)
-	get_intersection "$all_fetched_lists" "$apply_lists_req" all_apply_lists
+get_intersection "$all_fetched_lists" "$apply_lists_req" all_apply_lists
 
-	[ ! "$all_apply_lists" ] && {
-		echolog "Firewall reconfiguration isn't required."
+[ ! "$all_apply_lists" ] && {
+	echolog "Firewall reconfiguration isn't required."
+	if check_lists_coherence; then
 		reg_last_update
 		die 0
-	}
+	else
+		die 1
+	fi
+}
 
-	call_script "$i_script-apply.sh" "$action_run"
-	apply_rv=$?
-	set +f; rm -f "$iplist_dir/"*.iplist; set -f
+echolog "${_nl}${print_action} ip lists '$all_apply_lists'."
 
-	case "$apply_rv" in
-		0) ;;
-		254) [ "$in_install" ] || [ "$first_setup" ] && die
-			echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_run'." ;;
-		*)
-			debugprint "NOTE: apply exited with code '$apply_rv'."
-			die "$apply_rv"
-	esac
+call_script "$i_script-apply.sh" "$action_run"
+apply_rv=$?
+set +f; rm -f "$iplist_dir/"*.iplist; set -f
 
-	[ "$apply_lists_req" ] && echolists=" for ip lists ${apply_lists_req}"
+case "$apply_rv" in
+	0) ;;
+	254) [ "$in_install" ] || [ "$first_setup" ] && die
+		echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_run'."
+		die 254 ;;
+	*)
+		debugprint "NOTE: apply exited with code '$apply_rv'."
+		die "$apply_rv"
 esac
 
-if [ ! "$failed_lists" ] && { [ "$manmode" ] || check_lists_coherence; }; then
+if [ ! "$failed_lists" ] && check_lists_coherence; then
 	reg_last_update
-	echolog "Successfully executed action '$action_run'${echolists%,}."
+	echolog "Successfully ${print_action_done} ip lists '$apply_lists_req'."
 	echo
+	[ "$nobackup" = false ] && call_script -l "$i_script-backup.sh" create-backup
 else
-	apply_rv=1
+	die 1
 fi
 
-if [ "$apply_rv" = 0 ] && [ ! "$failed_lists" ] && [ "$nobackup" = false ]; then
-	call_script -l "$i_script-backup.sh" create-backup
-else
-	debugprint "Skipping backup of current firewall state."
-	:
-fi
-
-[ "$apply_rv" != 0 ] && die "$apply_rv"
-
-case "$failed_lists_cnt" in
-	0) rv=0 ;;
-	*) rv=254
-esac
-
-die "$rv"
+die 0
