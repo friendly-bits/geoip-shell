@@ -44,6 +44,18 @@ ip_to_int() {
 		# convert ip to int and trim to mask bits
 		newifs "." itoint
 		set -- $ip_itoint
+
+		IFS=" "
+		for octet in "$1" "$2" "$3" "$4"; do
+			case "$octet" in
+				[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]) ;;
+				*)
+					echolog -err "ip_to_int: invalid octet '$octet'"
+					oldifs itoint
+					return 1
+			esac
+		done
+
 		oldifs itoint
 		ip2int_conv_exp="(($1<<24) + ($2<<16) + ($3<<8) + $4)>>$bits_trim<<$bits_trim"
 		eval "$out_var_itoint=$(( $ip2int_conv_exp ))"
@@ -81,6 +93,19 @@ ip_to_int() {
 				missing_chunks=$((missing_chunks-1))
 			done
 			continue ;;
+		esac
+
+		case "$chunk" in
+			????|???|??|?) ;;
+			*)
+				echolog -err "ip_to_int: invalid chunk '$chunk'"
+				return 1
+		esac
+
+		case "$chunk" in
+			*[!a-f0-9]*)
+				echolog -err "ip_to_int: invalid chunk '$chunk'"
+				return 1
 		esac
 
 		bits_processed=$(( bits_processed + 16 ))
@@ -125,8 +150,7 @@ int_to_ip() {
 
 	case "$2" in
 		ipv4|inet)
-			set -- $(( ($1>>24)&255 )) $(( ($1>>16)&255 )) $(( ($1>>8)&255 )) $(($1 & 255))
-			printf '%s\n' "${1}.${2}.${3}.${4}${maskbits_iti}" ;;
+			printf '%s\n' "$(( ($1>>24)&255 )).$(( ($1>>16)&255 )).$(( ($1>>8)&255 )).$(($1 & 255))${maskbits_iti}" ;;
 		ipv6|inet6)
 			# convert into 16-bit hex chunks delimited with ':'
 			set -- $1
@@ -134,17 +158,17 @@ int_to_ip() {
 
 			# convert to ipv6 and compress
 			{
-				IFS='' read -r ip_iti_hex
-				hex_to_ipv6 "$ip_iti_hex"
+				hex_to_ipv6 || exit 1
 				printf '%s\n' "${maskbits_iti}"
 			}
-	esac
+	esac || return 1
+	:
 }
 
-# 1 - input: 16-bit hex chunks with ':' preceding each
+# input via STDIN: 16-bit hex chunks with ':' preceding each
 # output via STDOUT (without newline)
 hex_to_ipv6() {
-	ip_hti="$1"
+	IFS='' read -r ip_hti
 	# compress 0's across neighbor chunks
 	IFS=' '
 	for zeroes in ":0:0:0:0:0:0:0:0" ":0:0:0:0:0:0:0" ":0:0:0:0:0:0" ":0:0:0:0:0" ":0:0:0:0" ":0:0:0" ":0:0"; do
@@ -172,6 +196,10 @@ hex_to_ipv6() {
 # output via STDOUT: newline-separated subnets
 # 1 - family (ipv4|ipv6|inet|inet6)
 aggregate_subnets() {
+	inv_maskbits() {
+		printf '%s\n' "aggregate_subnets: invalid mask bits '$1'" >&2
+	}
+
 	family_ags="$1"
 	case "$1" in
 		ipv4|inet) ip_len_bits=32 ;;
@@ -181,6 +209,7 @@ aggregate_subnets() {
 
 	res_ips_int="${_nl}"
 	processed_maskbits=' '
+	nonempty_ags=
 
 	while IFS="$_nl" read -r subnet_ags; do
 		# get mask bits
@@ -189,29 +218,49 @@ aggregate_subnets() {
 			*/*) maskbits="${subnet_ags##*/}" ;;
 			*) maskbits=$ip_len_bits
 		esac
-		case "$maskbits" in *[!0-9]*)
-			echolog -err "aggregate_subnets: invalid input '$subnet_ags'"; exit 1
-		esac
 		# print with maskbits prepended
 		printf '%s\n' "${maskbits}/${subnet_ags%/*}"
 	done |
 
-	# sort by mask bits
-	sort -n |
+	# sort by mask bits, add magic string in final line
+	{
+		sort -n
+		printf '%s\n' EOF_AGS
+	} |
 
 	# process subnets
 	while IFS="$_nl" read -r subnet1; do
-		case "$subnet1" in '') continue; esac
+		case "$subnet1" in
+			'') continue ;;
+			EOF_AGS)
+				[ "$nonempty_ags" ] && exit 254 # 254 means OK here
+				exit 1
+		esac
 
 		# get mask bits
 		maskbits="${subnet1%/*}"
+		case "$maskbits" in *[!0-9]*)
+			inv_maskbits "$maskbits"
+			exit 1
+		esac
+
+		case "$maskbits" in ?|??|???) ;; *)
+			inv_maskbits "$maskbits"
+			exit 1
+		esac
+
+		case $((ip_len_bits-maskbits)) in -*)
+			inv_maskbits "$maskbits"
+			exit 1
+		esac
+
 		# chop off mask bits
 		ip1_ags="${subnet1#*/}"
 
 		# convert ip to int and trim to mask bits
-		ip_to_int "$ip1_ags" "$family_ags" "$maskbits" ip1_int
+		ip_to_int "$ip1_ags" "$family_ags" "$maskbits" ip1_int || exit 1
 
-		# skip if trimmed ip int is included in $res_ips_int
+		# don't print if trimmed ip int is included in $res_ips_int
 		IFS=' '
 		bits_processed=0
 		ip1_trim=
@@ -259,10 +308,17 @@ aggregate_subnets() {
 		esac
 
 		# convert back to ip and print out
-		int_to_ip "$ip1_int" "$family_ags" "$maskbits"
+		int_to_ip "$ip1_int" "$family_ags" "$maskbits" || {
+			echolog -err "$FAIL convert '$ip1_int' to ip."
+			exit 1
+		}
+		nonempty_ags=1
 	done
 
-	:
+	case $? in
+		254) return 0 ;;
+		*) cat >/dev/null; return 1
+	esac
 }
 
 # Outputs newline-separated subnets
@@ -287,8 +343,7 @@ detect_lan_subnets() {
 get_lan_subnets() {
 	# debugprint "Starting get_lan_subnets"
 	detect_lan_subnets "$1" |
-	aggregate_subnets "$1" | grep . ||
-		{ echolog -err "$FAIL detect $1 LAN subnets."; return 1; }
+	aggregate_subnets "$1" || { echolog -err "$FAIL detect $1 LAN subnets."; return 1; }
 }
 
 :
