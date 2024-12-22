@@ -280,19 +280,17 @@ restore_from_config() {
 
 	if [ -n "$run_args" ]; then
 		# call the -run script
-		eval "call_script -l \"$run_command\" add -l \"$run_args\" -o" && nodie=1 check_lists_coherence && {
+		eval "call_script -l \"$run_command\" add -l \"$run_args\" -o" && {
 			printf '%s\n' "$restore_ok_msg"
-			coherence_req=
 			return 0
 		}
 	else
 		echo "No ip lists registered - skipping firewall rules creation."
-		coherence_req=
 		return 0
 	fi
 
 	# Handle failure
-	[ "$in_install" ] || [ "$first_setup" ] && die
+	[ "$first_setup" ] && die
 
 	[ ! "$prev_config_try" ] && [ "$prev_config" ] && {
 		prev_config_try=1
@@ -333,8 +331,7 @@ check_for_lockout() {
 			geomode=\"\$${direction}_geomode\"
 			geomode_change=\"\$${direction}_geomode_change\"
 			lists_change=\"\$${direction}_lists_change\""
-		if [ "$in_install" ] || [ "$first_setup" ] || [ "$geomode_change" ] ||
-				[ "$lists_change" ] || [ "$user_ccode_change" ]; then
+		if [ "$first_setup" ] || [ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_change" ]; then
 			ccode_included=
 			inlist="in the planned $direction geoblocking $geomode"
 
@@ -359,7 +356,7 @@ check_for_lockout() {
 			outbound_geomode="$outbound_geomode_prev"
 			inbound_iplists="$inbound_iplists_prev"
 			outbound_iplists="$outbound_iplists_prev"
-			[ ! "$in_install" ] && [ ! "$first_setup" ] && report_lists
+			[ ! "$first_setup" ] && report_lists
 			echo
 			echolog "Aborted action '$action'."
 			die 130
@@ -367,9 +364,10 @@ check_for_lockout() {
 	:
 }
 
-changeact() {
+set_first_setup() {
 	[ "$action" != configure ] && echolog "Changing action to 'configure'."
 	rm_setupdone
+	export first_setup=1
 	action=configure reset_req=1
 }
 
@@ -382,10 +380,11 @@ changeact() {
 
 unset conf_act rm_conf
 
-[ "$action" != stop ] && [ ! -f "$conf_dir/setupdone" ] && {
+[ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$conf_dir/setupdone" ]; } && {
+	export first_setup=1
 	[ "$action" != configure ] && {
 		echolog "${_nl}Setup has not been completed."
-		changeact
+		set_first_setup
 	}
 
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
@@ -413,27 +412,36 @@ unset conf_act rm_conf
 [ -s "$conf_file" ] && [ ! "$rm_conf" ] && {
 	tmp_conf_file="/tmp/${p_name}_upd.conf"
 	main_conf_path="$conf_file"
+
 	# update config vars on first setup
-	[ ! -f "$conf_dir/setupdone" ] && {
+	[ "$first_setup" ] && {
 		sed 's/^tcp_ports=/inbound_tcp_ports=/;s/^udp_ports=/inbound_udp_ports=/;s/^geomode=/inbound_geomode=/;
 				s/^iplists=/inbound_iplists=/' "$conf_file" > "$tmp_conf_file" && conf_file="$tmp_conf_file" ||
 					{ FAIL; rm_conf=1; }
 	}
+
 	# load config
 	nodie=1 export_conf=1 get_config_vars || rm_conf=1
 	conf_file="$main_conf_path"
 	rm -f "$tmp_conf_file"
 }
-[ ! -s "$conf_file" ] || [ "$rm_conf" ] && { rm -f "$conf_file"; rm_data; unset datadir; rm_setupdone; }
+
+[ ! -s "$conf_file" ] || [ "$rm_conf" ] && {
+	rm -f "$conf_file"
+	rm_data
+	unset datadir
+	rm_setupdone
+	export first_setup=1
+}
 
 [ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
 	[ "$action" != configure ] && echolog "Firewall backend is not set."
-	changeact
+	set_first_setup
 }
 
 [ -z "$inbound_geomode$outbound_geomode" ] && {
 	[ "$action" != configure ] && echolog "${_nl}Geoblocking mode is not set for both inbound and outbound connections."
-	changeact
+	set_first_setup
 }
 
 # check for valid geomode
@@ -447,7 +455,7 @@ for direction in inbound outbound; do
 				*) echolog -err "Unexpected $direction geoblocking mode '$dir_geomode'."
 			esac
 			unset "${direction}_geomode"
-			changeact ;;
+			set_first_setup ;;
 	esac
 done
 
@@ -516,18 +524,14 @@ esac
 prev_config="$main_config"
 
 [ ! -s "$conf_file" ] && {
-	rm_setupdone
 	touch "$conf_file" || die "$FAIL create the config file."
 	[ "$_fw_backend" ] && rm_iplists_rules
 }
 
-first_setup=
-[ ! -f "$conf_dir/setupdone" ] && export first_setup=1
-
 debugprint "first_setup: '$first_setup'"
 
 for var_name in datadir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf user_ccode \
-	lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6; do
+	lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
 	eval "${var_name}_prev=\"\$$var_name\""
 done
 
@@ -537,7 +541,8 @@ export nointeract="${nointeract_arg:-$nointeract}"
 #   geosource trusted user_ccode
 get_general_prefs || die
 
-for opt_ch in datadir noblock nobackup schedule no_persist geosource families _fw_backend nft_perf user_ccode; do
+for opt_ch in datadir noblock nobackup schedule no_persist geosource families \
+		_fw_backend nft_perf user_ccode source_ips_policy; do
 	unset "${opt_ch}_change"
 	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
 done
@@ -707,7 +712,7 @@ for direction in inbound outbound; do
 		case "$ifaces_arg" in
 			all) ifaces=all
 				is_whitelist_present && [ ! "$lan_picked" ] &&
-					{ [ "$in_install" ] || [ "$first_setup" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+					{ [ "$first_setup" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
 						{ warn_lockout; pick_lan_ips; } ;;
 			auto) ifaces_arg=''; pick_ifaces -a ;;
 			*) pick_ifaces
@@ -745,9 +750,7 @@ for opt_ch in lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv
 	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ]" && eval "${opt_ch%_ipv*}_change=1"
 done
 
-[ "$source_ips_policy" != "$source_ips_policy_prev" ] && source_ips_policy_change=1
 [ "$source_ips_policy_change" ] && [ "$source_ips_policy" = true ] && source_ips_change=1
-
 
 unset lists_change all_iplists all_iplists_prev all_add_iplists
 for direction in inbound outbound; do
@@ -818,8 +821,6 @@ export datadir status_file="$datadir/status" nobackup
 	{ [ "$nobackup_prev" = true ] || [ ! -s "$datadir/backup/$p_name.conf.bak" ] || [ ! -s "$status_file" ]; } &&
 		reset_req=1
 
-[ "$backup_req" ] && conf_act=
-[ "$cron_req" ] && conf_act=
 [ "$apply_req" ] && conf_act=apply
 [ "$run_restore_req" ] && conf_act=run_restore
 [ "$run_add_req" ] && conf_act=run_add
@@ -855,7 +856,10 @@ fi
 set_all_config
 
 case "$conf_act" in
-	apply|reset|run_restore|run_add)
+	run_add|run_restore|reset)
+		backup_req=
+		cron_req=1 ;;
+	apply)
 		backup_req=1
 		cron_req=1
 		coherence_req=1 ;;
@@ -879,21 +883,26 @@ case "$conf_act" in
 		rv_conf=$? ;;
 	apply)
 		get_counters
-		call_script "$i_script-apply.sh" restore; rv_conf=$?
+		call_script "$i_script-apply.sh" restore
+		rv_conf=$?
 		main_config=
 		nodie=1 export_conf=1 get_config_vars || rv_conf=1
 		;;
 	'') rv_conf=0 ;;
 esac
 
-[ "$rv_conf" = 0 ] && [ "$coherence_req" ] && [ "$conf_act" != reset ] && {
-	check_lists_coherence || restore_from_config || die
-}
+if [ "$rv_conf" = 0 ]; then
+	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
+		check_lists_coherence || restore_from_config || die
+	}
+else
+	backup_req=1
+fi
 
 case "$rv_conf" in
 	0) ;;
 	254)
-		echolog "Restoring previous config... "
+		echolog "Restoring previous config."
 		main_config="$prev_config"
 		nodie=1 export_conf=1 get_config_vars && check_lists_coherence ||
 			{
@@ -926,7 +935,7 @@ esac || die
 						echolog "Countries list in the config file is empty! No point in creating firewall include."
 					else
 						rm -f "$conf_dir/no_persist"
-						! check_owrt_init || ! check_owrt_include && {
+						check_owrt_init && check_owrt_include || {
 							rm_lock
 							enable_owrt_persist
 							rv_conf=$?
