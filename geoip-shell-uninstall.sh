@@ -108,7 +108,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
 [ -s "$conf_file" ] && nodie=1 getconfig datadir ||
 	{
-		[ ! "$in_install" ] && [ ! "$first_setup" ] && [ "$in_uninstall" ] &&
+		[ ! "$first_setup" ] &&
 			echolog -warn "Config file doesn't exist or failed to read config." \
 				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
 	}
