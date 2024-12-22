@@ -285,7 +285,8 @@ set +f; rm -f "$iplist_dir/"*.iplist; set -f
 
 case "$apply_rv" in
 	0) ;;
-	254) [ "$in_install" ] || [ "$first_setup" ] && die
+	254)
+		[ "$first_setup" ] && die
 		echolog -err "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_run'."
 		die 254 ;;
 	*)
