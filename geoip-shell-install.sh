@@ -16,7 +16,7 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export manmode=1 in_install=1 nolog=1
+export manmode=1 first_setup=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" &&
 . "$_lib-uninstall.sh" || exit 1
@@ -463,18 +463,21 @@ $set_owrt_install
 [ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
 if [ ! "\$_fw_backend" ]; then
 	rm -f "\$conf_dir/setupdone"
-	[ "\$in_install" ] || [ "\$first_setup" ] && return 0
+	[ "\$first_setup" ] && return 0
 	case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 	[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
 	_fw_backend="\$(detect_fw_backend)"
-else
-	check_fw_backend "\$_fw_backend"
-	fw_check_rv=\$?
-	[ ! "\$in_uninstall" ] && case \$fw_check_rv in
-		1) die ;;
-		2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
-		3) die "Utility 'ipset' not found."
-	esac
+elif ! check_fw_backend "\$_fw_backend"; then
+	_fw_be_rv=\$?
+	if [ "\$in_uninstall" ]; then
+		_fw_backend=
+	else
+		case \$_fw_be_rv in
+			1) die ;;
+			2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
+			3) die "Utility 'ipset' not found."
+		esac
+	fi
 fi
 export fwbe_ok=1 _fw_backend
 :
