@@ -11,7 +11,7 @@
 # the install script makes a new version of this file
 
 
-curr_ver="0.6.6"
+curr_ver="0.6.7"
 export install_dir="/usr/bin" lib_dir="$script_dir/lib" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
 	excl_file="$script_dir/iplist-exclusions.conf"
 
@@ -27,6 +27,6 @@ check_shell
 [ "$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok=1; }
 . "${_lib}-common.sh" || exit 1
 
-[ ! "$inst_root_gs" ] && { _fw_backend="$(detect_fw_backend)" || die; }
+[ "$root_ok" ] && [ ! "$inst_root_gs" ] && { _fw_backend="$(detect_fw_backend)" || die; }
 
 :
