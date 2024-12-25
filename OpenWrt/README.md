@@ -2,9 +2,11 @@
 
 Currently geoip-shell fully supports OpenWrt, both with firewall3 + iptables and with firewall4 + nftables, while providing the same user interface and features as on any other Linux system. So usage is the same as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
 
-Installation is possible either via the -install script (as described in the main README), or via an ipk package. ipk packages are a new feature and are not yet included in the OpenWrt repository but you can get them from the Releases. They come in 2 flavors: geoip-shell-[...].ipk and geoip-shell-iptables[...].ipk. The _geoip-shell-iptables_ package is for firewall3+iptables OpenWrt systems, while the _geoip-shell_ package is for firewall4+nftables OpenWrt systems.
+Installation is possible either via the -install script (as described in the main [README.md](/README.md)), or via a package. 
 
-  _<details><summary>To download the latest ipk via the command line (using curl):</summary>_
+geoip-shell packages come in 2 flavors: _geoip-shell_ (for firewall4+nftables OpenWrt systems) and _geoip-shell-iptables_ (for firewall3+iptables OpenWrt systems).
+
+  _<details><summary>To download the latest ipk package via the command line (using curl):</summary>_
 
   - For firewall4 + nftables:
 
@@ -15,10 +17,10 @@ Installation is possible either via the -install script (as described in the mai
    `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell-iptables_.*\.ipk')"`
 </details>
 
-A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is via a command line (but my goal is to make this an easy experience).
+A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is provided via the command line (but my goal is to make this an easy experience). Contributions are welcome, and if you are interested in implementing a LuCi interface for geoip-shell, please get in touch.
 
-## Usage after installation via ipk
-After installing the ipk package, geoip-shell will be inactive until you configure it. To do so, run `geoip-shell configure` and follow the interactive setup. You can also run `geoip-shell -h` before that to find out about configuration options and then append certain options after the `configure` action, for example: `geoip-shell configure -c "de nl" -m whitelist` to configure geoip-shell in whitelist mode for countries Germany and Netherlands. The interactive setup will ask you about all the important options but some niche options are only available non-interactively (for example if you want to configure geoblocking for certain selection of ports). You can always change these settings after initial configuration via the same `geoip-shell configure` command.
+## Usage after installation via a package
+After installing the package, geoip-shell will be inactive until you configure it. To do so, run `geoip-shell configure` and follow the interactive setup. You can also run `geoip-shell -h` before that to find out about configuration options and then append certain options after the `configure` action, for example: `geoip-shell configure -c "de nl" -m whitelist` to configure geoip-shell in whitelist mode for countries Germany and Netherlands. The interactive setup will ask you about all the important options but some options are only available non-interactively (for example outbound geoblocking, or configuring geoblocking for certain selection of ports). You can always change these settings after initial configuration via the same `geoip-shell configure` command. Make sure to read the main [README.md](/README.md) for more information and examples.
 
 ## Uninstallation of geoip-shell if installed via ipk
 - For nftables-based systems: `opkg remove geoip-shell`
@@ -33,8 +35,7 @@ Because OpenWrt typically runs on embedded devices with limited memory and very 
 - Some defaults on OpenWrt are different to further minimize flash storage wear (read below).
 
 ### Scripts size
-Typical geoip-shell installation on an OpenWrt system currently consumes around 160KiB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but you can install via an ipk which doesn't remain in storage after installation, or if installing via the -install script, delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
-I have some plans to reduce that size by compressing certain scripts which provide user interface and implementing automatic extraction to /tmp when the user wants to access them, but this is not yet implemented.
+Typical geoip-shell installation on an OpenWrt system currently consumes around 170KiB. The distribution folder itself weighs quite a bit more (mainly because of documentation) but you can install via a package which doesn't remain in storage after installation, or if installing via the -install script, delete the distribution folder and free up space taken by it. geoip-shell does not install its documentation into the system.
 
 To view all installed geoip-shell scripts in your system, run `ls -lh /usr/bin/geoip-shell-* /usr/lib/geoip-shell/* /etc/geoip-shell/*`.
 
@@ -63,7 +64,7 @@ Generally the defaults are the same as for other systems, except:
 - the default ip lists source for OpenWrt is ipdeny (rather than RIPE). While ipdeny is a 3rd party, they provide aggregated lists which consume less memory (on nftables-based systems the ip lists are automatically optimized after loading into memory, so there the source does not matter, but a smaller initial ip lists size will cause a smaller memory consumption spike while loading the ip list).
 
 ## Building an OpenWrt package
-The repository includes the _mk-owrt-package.sh_ and _prep-owrt-package_ scripts which automate creation of geoip-shell ipk packages. The _makefile.tpl_ file is used as the base template for the Makefile. If you want to build the ipk package by yourself, read the comments inside the _mk-_ script for instructions.
+The repository includes the _mk-owrt-package.sh_ and _prep-owrt-package_ scripts which automate creation of geoip-shell packages. The _makefile.tpl_ file is used as the base template for the Makefile. If you want to build the package by yourself, read the comments inside the _mk-_ script for instructions.
 
 This is about it for this document. Much more information is available in the main [README.md](/README.md) and in the extra _.md_ files inside the Documentation directory. If you have any questions, go ahead and use the Discussions tab, or contact me in this thread:
 https://forum.openwrt.org/t/geoip-shell-flexible-geoip-blocker-for-linux/189611

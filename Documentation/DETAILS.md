@@ -98,7 +98,7 @@ The options are divided into 2 categories: direction-specific options and genera
 
 These options apply to geoblocking direction (inbound or outbound) which you can specify via the `-D <direction>` option. When direction is not specified, options apply to the **inbound** direction.
 
-`-m [whitelist|blacklist]`: Change geoblocking mode.
+`-m <whitelist|blacklist|disable>`: Change geoblocking mode.
 
 `-c <"country codes">`: Change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
 

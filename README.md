@@ -239,7 +239,7 @@ Examples:
 
 `geoip-shell configure -D inbound -m <whitelist|blacklist> -D outbound -m <whitelist|blacklist>`
 
-**To configure **inbound and outbound** geoblocking, whitelisting Germany and Italy and blocking all other countries for incoming traffic, blacklisting France for outgoing traffic:
+To configure **inbound and outbound** geoblocking, whitelisting Germany and Italy and blocking all other countries for incoming traffic, blacklisting France for outgoing traffic:
 
 `geoip-shell configure -D inbound -m whitelist -c "DE IT" -D outbound -m blacklist -c FR`
 
