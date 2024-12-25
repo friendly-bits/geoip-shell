@@ -161,7 +161,8 @@ grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > "$build_dir/README.md"
 
 # Prepare SETUP.md
 cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g;
-	s/`sh geoip-shell-install.sh -h`, or after installation //' | \
+	s/`sh geoip-shell-install.sh -h`, or after installation //' |
+	sed -n '/Detected Busybox cron service/q;p' |
 	sed -n -e /"### \*\*'Your shell 'A' is supported"/\{:1 -e n\;/"Generally the simpler shells"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p > \
 	"$build_dir/SETUP.md"
 
