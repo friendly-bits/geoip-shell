@@ -138,11 +138,12 @@ rm -rf "$build_dir/Documentation" "$build_dir/"*.md 2>/dev/null
 
 # Prepare the main README.md
 sed 's/\/OpenWrt\/README.md/OpenWrt-README.md/g' "$src_dir/README.md" | sed 's/\[\!\[image\].*//g' | \
-sed -n -e /"## \*\*Installation\*\*"/\{:1 -e n\;/"That's\ it"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
+sed -n -e /"## \*\*Installation\*\*"/\{:1 -e n\;/"## \*\*Initial setup\*\*"/\{:2 -e p\; -e n\;b2 -e \}\;b1 -e \}\;p |
 sed 's/Post-installation, provides/Provides/;
 	s/ Except on OpenWrt, persistence.*//;
 	s/\/Documentation\///g;
-	s/[[:blank:]]`geoip-shell-uninstall.sh`//;' |
+	s/[[:blank:]]`geoip-shell-uninstall.sh`//;
+	s/ (if encountering an error with running geoip-shell in LXC container.*/./' |
 sed -n '/\*\*P\.s\./q;
 	/please take a second to give it a star/n;
 	/- Installation and initial setup are easy/n;
@@ -165,25 +166,34 @@ cat "$src_dir/Documentation/SETUP.md" | sed 's/\/Documentation\///g;
 	"$build_dir/SETUP.md"
 
 # Prepare OpenWrt-README.md
-cat "$script_dir/README.md" | \
-sed 's/ipk packages are a new feature .* from the Releases. //;
-	s/Installation is possible.*\.ipk\. //;
+cat "$script_dir/README.md" |
+sed 's/Installation is possible.*//;
+	s/The distribution folder.*//;
 	s/ or via the Discussions tab on Github//;
-	s/\/README/README/g' | \
-sed 's/go ahead and use the Discussions tab, or //' | \
-sed -n -e /"  _<details><summary>To download"/\{:1 -e n\;/"<\/details>"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+	s/\/README/README/g;
+	s/go ahead and use the Discussions tab, or //' |
+sed -n -e /"  _<details><summary>To download"/\{:1 -e n\;/"<\/details>"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
 sed -n -e /"## Building an OpenWrt package"/\{:1 -e n\;/"read the comments inside that script for instructions\."/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p |
-sed -n -e /" please consider giving this repository a star"/q\;p | \
+sed -n -e /" please consider giving this repository a star"/q\;p |
 grep -vA1 '^[[:blank:]]*$' | grep -v '^--$' > \
 "$build_dir/OpenWrt-README.md"
 
 
 # Prepare NOTES.md
-cat "$src_dir/Documentation/NOTES.md" | \
-sed 's/Which shell to use with geoip-shell.*/On OpenWrt, geoip-shell expects that the default shell (called by the `sh` command) is _ash_, and the automatic shell detection feature implemented for other platforms is disabled on OpenWrt./' | \
-sed 's/\/Documentation\///g;
-	s/Scripts intended as user interface .*\./The script intended as user interface is \*\*geoip-shell-manage\.sh\*\* (also called by running '\*\*geoip-shell\*\*')\./' \
-	> "$build_dir/NOTES.md"
+{
+	echo "## **Prelude**
+- This document only covers geoip-shell features available on OpenWrt systems.
+- geoip-shell packages available from the OpenWrt repository are not updated as frequently as upstream geoip-shell. You can get the latest geoip-shell version from the official Github page:
+
+    https://github.com/friendly-bits/geoip-shell"
+
+	cat "$src_dir/Documentation/NOTES.md" |
+	sed 's/Which shell to use with geoip-shell.*/On OpenWrt, geoip-shell expects that the default shell is _Busybox ash_. Automatic shell detection feature implemented for other platforms is disabled on OpenWrt./;
+		/[ ]*geoip-shell detects the shell.*/d;
+		s/\/Documentation\///g;
+		s/To verify that cron jobs ran .*/To verify that cron jobs ran successfully, use the command `logread | grep geoip-shell`./;
+		s/Scripts intended as user interface .*\./The user interface is provided by \*\*geoip-shell-manage\.sh\*\* (also called by running `geoip-shell`)\./'
+} > "$build_dir/NOTES.md"
 
 # Prepare DETAILS.md
 owrt_prelude="## **Prelude**
@@ -202,7 +212,7 @@ For more information about integration with OpenWrt, read [OpenWrt-README.md](Op
 cat "$src_dir/Documentation/DETAILS.md" | \
 sed -n '/.*-w <ipt|nft>.*/n;p' | \
 sed -n -e /"### OpenWrt-specific scripts"/\{p\;:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
-sed -n -e /"### Optional script"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
+sed -n -e /"## \*\*Optional script\*\*"/\{:1 -e n\;/"^$"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p | \
 sed -n '/^\*\*geoip-shell-install.sh\*\*/{:1 n;/^\*\*geoip-shell-run.sh\*\*/{:2 p;n;b2;};b1;};p' | \
 sed -n '/.*geoip-shell-install.*/n;/.*geoip-shell-uninstall.*/n;p' | \
 awk '{sub(/### OpenWrt-specific scripts/,s); sub(/## \*\*Prelude\*\*/,p)}1' s="$owrt_scripts_details" p="$owrt_prelude" | \
