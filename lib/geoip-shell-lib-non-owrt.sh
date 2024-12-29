@@ -242,6 +242,7 @@ check_cron_compat() {
 				/etc/init.d/$cron_cmd enable
 				/etc/init.d/$cron_cmd start
 			}
+			unisleep
 			check_cron && break
 		done 2>&1 |
 		if [ -n "$debugmode" ]; then cat 1>&2; else cat 1>/dev/null; fi
