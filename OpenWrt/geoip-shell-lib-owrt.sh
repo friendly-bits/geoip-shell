@@ -174,12 +174,14 @@ check_cron_compat() {
 		# try to enable and start cron service
 		printf '\n%s' "Attempting to enable and start cron... "
 		{
-			crond_path="/etc/init.d/crond"
-			[ -f "$crond_path" ] && {
-				$crond_path enable
-				$crond_path start
+			for f in crond cron; do
+				cron_svc_path="/etc/init.d/$f"
+				[ -f "$cron_svc_path" ] && break
+			done && {
+				$cron_svc_path enable
+				$cron_svc_path start
+				sleep 1
 			}
-			check_cron && break
 		} 1>/dev/null
 	done
 	:
