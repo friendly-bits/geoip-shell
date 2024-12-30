@@ -67,7 +67,7 @@ define Package/$p_name/postinst/Default
 	else
 		logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
 	fi
-	exit 0
+	return 0
 endef
 
 define Package/$p_name/postinst
@@ -81,7 +81,7 @@ endef
 define Package/$p_name/prerm/Default
 	#!/bin/sh
 	sh $lib_dir/$p_name-owrt-uninstall.sh
-	exit 0
+	return 0
 endef
 
 define Package/$p_name/prerm
@@ -97,7 +97,7 @@ define Package/$p_name/postrm
 	sleep 1
 	echo "Reloading the firewall..."
 	fw4 -q reload
-	exit 0
+	return 0
 endef
 
 define Package/$p_name-iptables/postrm
@@ -105,7 +105,7 @@ define Package/$p_name-iptables/postrm
 	sleep 1
 	echo "Reloading the firewall..."
 	fw3 -q reload
-	exit 0
+	return 0
 endef
 
 define Build/Configure
