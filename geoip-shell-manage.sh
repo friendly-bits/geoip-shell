@@ -81,7 +81,7 @@ ${sp8}To specify ports for both tcp and udp in one command, use the '-p' option 
 
 ${purple}General options for the 'configure' action${n_c} (affects geoblocking in both directions):
 
-  ${blue}-f ${fam_syn}${n_c} : Ip families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  ${blue}-f ${fam_syn}${n_c} : IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
   ${blue}-u $srcs_syn${n_c} : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
 
