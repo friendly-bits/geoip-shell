@@ -41,9 +41,9 @@ set_path cca2 cca2.list "$conf_dir"
 usage() {
 cat <<EOF
 
-Usage: $me -c <country_code> -i <"ip [ip ... ip]"> [-u <ripe|ipdeny|maxmind>] [-d] [-h]
+Usage: $me -c <country_code> -i <"IP [IP ... IP]"> [-u <ripe|ipdeny|maxmind>] [-d] [-h]
 
-For each of the specified ip addresses, checks whether it belongs to one of the subnets
+For each of the specified IP addresses, checks whether it belongs to one of the subnets
     in the list fetched from a source (RIPE or ipdeny or MaxMind) for a given country code.
 Accepts a mix of ipv4 and ipv6 addresses.
 
@@ -51,7 +51,7 @@ Requires the 'grepcidr' utility
 
 Options:
   -c <country_code>        : 2-letter country code
-  -i <"ip_addresses">      : ip addresses to check
+  -i <"ip_addresses">      : IP addresses to check
                              if specifying multiple addresses, use double quotes
   -u <ripe|ipdeny|maxmind> : Source to check in. By default checks in RIPE.
 
@@ -134,7 +134,7 @@ checkvars dl_source
 subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
 [ -n "$invalid_source" ] && { usage; die "Invalid source: $invalid_source"; }
 
-[ -z "$ips" ] && { usage; die "Specify the ip addresses to check with '-i <\"ip_addresses\">'."; }
+[ -z "$ips" ] && { usage; die "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
 
 # remove duplicates etc
 san_str ips || die
@@ -147,14 +147,14 @@ for ip in $ips; do
 	validate_ip "$ip" || add2list invalid_ips "$ip"
 done
 
-[ -z "$val_ipv4s$val_ipv6s" ] && die "All ip addresses failed validation."
+[ -z "$val_ipv4s$val_ipv6s" ] && die "All IP addresses failed validation."
 [ -z "$families" ] && die "\$families variable is empty."
 
 if [ "$dl_source" = maxmind ]; then
 	setup_maxmind || die
 fi
 
-### Fetch the ip list file
+### Fetch the IP list file
 
 for family in $families; do
 	eval "val_ips=\"\$val_${family}s\""
@@ -164,16 +164,16 @@ for family in $families; do
 
 	list_file="/tmp/iplist-$list_id.tmp"
 
-	/bin/sh "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$fetch_res_file" -u "$dl_source" || die "$FAIL fetch ip lists."
+	/bin/sh "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$fetch_res_file" -u "$dl_source" || die "$FAIL fetch IP lists."
 
 	# read fetch results from fetch_res_file
 	getstatus "$fetch_res_file" || die "$FAIL read fetch results from file '$fetch_res_file'."
 
-	[ -n "$failed_lists" ] && die "ip list fetch failed."
+	[ -n "$failed_lists" ] && die "IP list fetch failed."
 
 	### Test the fetched list for specified IPs
 
-	printf '\n%s\n' "Checking the ip addresses..."
+	printf '\n%s\n' "Checking the IP addresses..."
 
 	for val_ip in $val_ips; do
 		unset match no
@@ -190,7 +190,7 @@ nomatch="Not included"
 match_color="$green"
 nomatch_color="$red"
 toupper dl_src_uc "$dl_source"
-msg_pt2="in ${dl_src_uc}'s ip list for country '$ccode':"
+msg_pt2="in ${dl_src_uc}'s IP list for country '$ccode':"
 
 printf '\n%s\n' "${purple}Results:${n_c}"
 
@@ -199,7 +199,7 @@ for m in match nomatch; do
 done
 
 [ -n "$invalid_ips" ] && {
-	printf '\n%s\n%s\n' "${red}Invalid${n_c} ip addresses:" "$purple${invalid_ips% }$n_c"
+	printf '\n%s\n%s\n' "${red}Invalid${n_c} IP addresses:" "$purple${invalid_ips% }$n_c"
 	ip_check_rv=$((ip_check_rv+1))
 }
 
