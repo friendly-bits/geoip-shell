@@ -126,9 +126,9 @@ These options apply to geoblocking in both directions.
 
 `-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no dedicated WAN network interfaces. The automatic detection occurs only when manually triggered by the user via this command.
 
-`-l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
+`-l <"[lan_ips]"|auto|none>`: Specify LAN IPs or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom IPs or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
 
-`-t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+`-t <"[trusted_ips]|none">`: Specify trusted IPs or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
 `-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic ip list updates when outbound geoblocking is enabled. Use `auto` to detect server ip addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching ip list updates.
 Or specify ip addresses for ip lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
