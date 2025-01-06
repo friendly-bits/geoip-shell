@@ -120,7 +120,7 @@ get_fwrules_iplists() {
 	:
 }
 
-### (ip)sets
+### (IP)sets
 
 get_ipsets() {
 	nft_get_geotable -f | sed -n "/^${blank}*set${blank}/{s/^${blank}*set${blank}${blank}*//;s/${blank}.*//;p;}"
@@ -283,7 +283,7 @@ apply_rules() {
 	nft add table inet "$geotable" || die "$FAIL create table '$geotable'"
 
 	### load ipsets
-	printf_s "${_nl}Loading ip sets... "
+	printf_s "${_nl}Loading IP sets... "
 	for load_ipset in $load_ipsets; do
 		get_ipset_id "$load_ipset" || die_a
 		iplist_file="${iplist_dir}/${list_id}.iplist"
@@ -298,7 +298,7 @@ apply_rules() {
 			printf %s "add set inet $geotable $load_ipset \
 				{ type ${ipset_family}_addr; flags interval; auto-merge; policy $nft_perf; "
 			sed '/\}/{s/,*[ 	]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
-		} | nft -f - || { FAIL; die_a "$FAIL import the iplist from '$iplist_file' into ip set '$load_ipset'."; }
+		} | nft -f - || { FAIL; die_a "$FAIL import the iplist from '$iplist_file' into IP set '$load_ipset'."; }
 
 		[ "$debugmode" ] && debugprint "elements in $load_ipset: $(sp2nl ipsets "$load_ipsets"; cnt_ipset_elements "$load_ipset" "$ipsets")"
 	done
@@ -523,9 +523,9 @@ apply_rules() {
 	:
 }
 
-# extracts ip lists from backup
+# extracts IP lists from backup
 extract_iplists() {
-	printf_s "Restoring ip lists from backup... "
+	printf_s "Restoring IP lists from backup... "
 	mkdir -p "$iplist_dir"
 	for list_id in $iplists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
@@ -535,7 +535,7 @@ extract_iplists() {
 
 		# extract elements and write to $iplist_file
 		$extract_cmd "$bk_file" > "$iplist_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
-		[ ! -s "$iplist_file" ] && rstr_failed "$FAIL extract ip list for $list_id."
+		[ ! -s "$iplist_file" ] && rstr_failed "$FAIL extract IP list for $list_id."
 		[ "$debugmode" ] && debugprint "\nLines count in $list_id backup: $(wc -c < "$iplist_file")"
 	done
 	OK
@@ -544,12 +544,12 @@ extract_iplists() {
 
 # Saves current firewall state to a backup file
 create_backup() {
-	# back up current ip sets
+	# back up current IP sets
 	getstatus "$status_file" || bk_failed
 	for list_id in $iplists; do
 		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
 		eval "list_date=\"\$prev_date_${list_id}\""
-		[ -z "$list_date" ] && bk_failed "$FAIL get date for ip list '$list_id'."
+		[ -z "$list_date" ] && bk_failed "$FAIL get date for IP list '$list_id'."
 		list_id_short="${list_id%%_*}_${list_id##*ipv}"
 		ipset="${list_id_short}_${list_date}"
 
@@ -563,7 +563,7 @@ create_backup() {
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $bk_len"
 
-		$compr_cmd < "$tmp_file" > "$bk_file" || bk_failed "$compr_cmd exited with status $? for ip list '$list_id'."
+		$compr_cmd < "$tmp_file" > "$bk_file" || bk_failed "$compr_cmd exited with status $? for IP list '$list_id'."
 		[ -s "$bk_file" ] || bk_failed "resulting compressed file for '$list_id' is empty or doesn't exist."
 	done
 	:
