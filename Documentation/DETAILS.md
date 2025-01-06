@@ -28,7 +28,7 @@
 - lib/geoip-shell-lib-non-owrt.sh
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
-- lib/geoip-shell-lib-IP-tools.sh
+- lib/geoip-shell-lib-ip-tools.sh
 
 
 The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
