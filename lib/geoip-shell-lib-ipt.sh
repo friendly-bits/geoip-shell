@@ -270,14 +270,14 @@ reg_ipset() {
 
 	# count ips in the iplist file
 	ip_cnt_ri=$(wc -w < "$4") || {
-		echolog -err "reg_ipset: $FAIL count ip's in file '$4'."
+		echolog -err "reg_ipset: $FAIL count IPs in file '$4'."
 		return 1
 	}
 	case "$ip_cnt_ri" in ''|0|*[!0-9]*)
-		echolog -err "reg_ipset: unexpected ip count '$ip_cnt_ri' for ipset '$1'."
+		echolog -err "reg_ipset: unexpected IP count '$ip_cnt_ri' for ipset '$1'."
 		return 1
 	esac
-	debugprint "ip count in the iplist file '$4': $ip_cnt"
+	debugprint "IP count in the iplist file '$4': $ip_cnt"
 
 	# set hashsize to 1024 or (ip_cnt / 2), whichever is larger
 	ipset_hs_ri=$((ip_cnt_ri / 2))
@@ -468,7 +468,7 @@ apply_rules() {
 
 	new_ipsets=
 
-	#### Determine active ip families
+	#### Determine active IP families
 	active_families=
 	for family in ipv4 ipv6; do
 		set_ipt_cmds "$family"
@@ -533,7 +533,7 @@ apply_rules() {
 		for ipset in $load_ipsets; do
 			[ ! "$ipset" ] && continue
 			get_ipset_id "$ipset"
-			case "$list_id" in *_*) ;; *) die "Invalid iplist id '$list_id'."; esac
+			case "$list_id" in *_*) ;; *) die "Invalid iplist ID '$list_id'."; esac
 			[ "${ipset_family}" != "$family" ] && continue
 			iplist_file="${iplist_dir}/${list_id}.iplist"
 			reg_ipset "$ipset" net "$family" "${iplist_file}" "$curr_ipsets" || die
@@ -548,7 +548,7 @@ apply_rules() {
 			reg_ipset "$dhcp_ipset" net "$family" "${dhcp_iplist_file}" "$curr_ipsets" || die
 		}
 
-		### register ipsets for allowed subnets/ip's
+		### register ipsets for allowed subnets/IPs
 		allow_iplist_file_prev=
 		for direction in inbound outbound; do
 			eval "geomode=\"\$${direction}_geomode\""
@@ -710,9 +710,9 @@ apply_rules() {
 	return "$retval"
 }
 
-# extracts ip lists from backup
+# extracts IP lists from backup
 extract_iplists() {
-	printf '%s\n' "Restoring $p_name ip lists from backup... "
+	printf '%s\n' "Restoring $p_name IP lists from backup... "
 
 	bk_file="${bk_dir}/${p_name}_backup.${bk_ext:-bak}"
 	[ "$bk_file" ] || die "Backup file path is not set in config."
@@ -723,13 +723,13 @@ extract_iplists() {
 	$extract_cmd "$bk_file" > "$tmp_file" && [ -s "$tmp_file" ] ||
 		rstr_failed "Backup file '$bk_file' is empty or backup extraction failed."
 
-	grep -m1 "add .*$p_name" "$tmp_file" 1>/dev/null || rstr_failed "ip lists backup appears to be empty or non-existing."
+	grep -m1 "add .*$p_name" "$tmp_file" 1>/dev/null || rstr_failed "IP lists backup appears to be empty or non-existing."
 
 	printf '%s\n\n' "Successfully read backup file: '$bk_file'."
 	:
 }
 
-# loads extracted ip lists into ipsets
+# loads extracted IP lists into ipsets
 restore_ipsets() {
 	printf_s "Restoring $p_name ipsets... "
 	ipset restore < "$tmp_file"; rv=$?
