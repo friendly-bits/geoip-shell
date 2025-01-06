@@ -189,7 +189,7 @@ esac
 
 [ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || die "$FAIL source ${_lib}-ip-tools.sh"
 
-### compile allowlist ip's and write to file
+### compile allowlist IPs and write to file
 for family in $families; do
 	debugprint "Compiling the allowlist for $family..."
 	unset lan_autodetected all_allow_ips_prev allow_iplist_file_prev
@@ -209,7 +209,7 @@ for family in $families; do
 
 		rm -f "$allow_iplist_file"
 
-		## load source ip's
+		## load source IPs
 		[ "$direction" = outbound ] && {
 			eval "source_ips=\"\${source_ips_$family}\""
 
@@ -230,7 +230,7 @@ for family in $families; do
 			eval "allow_ipset_type_${direction}_${family}=net"
 			allow_ipset_type=net
 
-			## load or detect lan ip's
+			## load or detect lan IPs
 			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
 				lan_ips="$(get_lan_subnets "$family")" || die
 				lan_autodetected=1
@@ -280,7 +280,7 @@ for family in $families; do
 			all_allow_ips_prev="$all_allow_ips"
 			allow_iplist_file_prev="$allow_iplist_file"
 
-			# aggregate allowed ip's/subnets
+			# aggregate allowed IPs/subnets
 			res_subnets=
 			if [ "$_fw_backend" = ipt ] && [ $cat_cnt -ge 2 ] && [ "$allow_ipset_type" = net ] &&
 				res_subnets="$(printf %s "$all_allow_ips" | aggregate_subnets "$family")" && [ "$res_subnets" ]
@@ -292,10 +292,10 @@ for family in $families; do
 
 			[ "$res_subnets" ] && {
 				printf '%s\n' "$res_subnets" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
-				debugprint "allow ip's:${_nl}'$res_subnets'"
+				debugprint "allow IPs:${_nl}'$res_subnets'"
 			}
 		else
-			# if allow ip's are identical for inbound and outbound, use same ipset for both
+			# if allow IPs are identical for inbound and outbound, use same ipset for both
 			allow_ipset_name="allow_${family#ipv}"
 			allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
 			for dir in inbound outbound; do
