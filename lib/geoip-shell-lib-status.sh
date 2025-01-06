@@ -139,7 +139,7 @@ is_whitelist_present && {
 # check automatic backup
 [ "$nobackup" = true ] && backup_st="${yellow}Off" || backup_st="${green}On"
 
-printf '%s\n' "Automatic backup of ip lists: $backup_st$n_c"
+printf '%s\n' "Automatic backup of IP lists: $backup_st$n_c"
 
 for direction in inbound outbound; do
 	printf '\n%s\n' "$purple$direction geoblocking:${n_c}"
@@ -200,20 +200,20 @@ for direction in inbound outbound; do
 
 		case "$source_ips_policy" in
 			none) source_ips_policy_pr="${yellow}none${n_c}" ;;
-			pause) source_ips_policy_pr="${blue}pause${n_c}${_nl}    Outbound geoblocking will be paused while fetching ip list updates." ;;
+			pause) source_ips_policy_pr="${blue}pause${n_c}${_nl}    Outbound geoblocking will be paused while fetching IP list updates." ;;
 			'')
 				case "$src_allow_ips_pr" in
 					'') source_ips_policy_pr="${yellow}not set${n_c}" ;;
-					*) source_ips_policy_pr="${blue}Allow specific ip addresses${n_c}${_nl}    Ip's: ${blue}$src_allow_ips_pr${n_c}" ;;
+					*) source_ips_policy_pr="${blue}Allow specific IP addresses${n_c}${_nl}    Ip's: ${blue}$src_allow_ips_pr${n_c}" ;;
 				esac ;;
 			*) source_ips_policy_pr="${red}${source_ips_policy} ${_X}${n_c} (invalid)"; incr_issues
 		esac
 
-		printf '%s\n' "  Policy for allowing automatic ip list updates: $source_ips_policy_pr"
-		includes_server=", iplist server ip's"
+		printf '%s\n' "  Policy for allowing automatic IP list updates: $source_ips_policy_pr"
+		includes_server=", iplist server IPs"
 	}
 
-	printf '\n%s\n' "  Allowed ip's (includes link-local ip's, trusted ip's, LAN ip's${includes_server}):"
+	printf '\n%s\n' "  Allowed IPs (includes link-local IPs, trusted IPs, LAN IPs${includes_server}):"
 	for f in $families; do
 		eval "allow_ips=\"\${allow_$f}\""
 		[ "$allow_ips" ] && allow_ips="${blue}$allow_ips${n_c}" || allow_ips="${red}None${n_c}"
@@ -257,7 +257,7 @@ for direction in inbound outbound; do
 					done
 					printf '%s\n' "${el_summary%, }"
 				done
-				printf '\n%s\n' "  Total count of $direction geoblocking ip ranges: $blue$dir_total_el_cnt$n_c"
+				printf '\n%s\n' "  Total count of $direction geoblocking IP ranges: $blue$dir_total_el_cnt$n_c"
 		esac
 	}
 done
