@@ -126,7 +126,7 @@ rm_iplists_rules() {
 		*)
 			# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
 			[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
-				echo "Removing $p_name ip lists..."
+				echo "Removing $p_name IP lists..."
 				set +f
 				rm -f "${iplist_dir:?}"/*.iplist
 				set -f
