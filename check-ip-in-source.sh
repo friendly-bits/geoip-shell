@@ -171,7 +171,7 @@ for family in $families; do
 
 	[ -n "$failed_lists" ] && die "ip list fetch failed."
 
-	### Test the fetched list for specified ip's
+	### Test the fetched list for specified IPs
 
 	printf '\n%s\n' "Checking the ip addresses..."
 
