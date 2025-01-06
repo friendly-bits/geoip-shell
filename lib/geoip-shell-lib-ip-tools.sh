@@ -20,7 +20,7 @@
 # Usage for lan subnets detection + aggregation:
 # call get_lan_subnets (requires family as 1st argument - ipv4|inet|ipv6|inet6)
 
-# Usage for subnets/ip's aggregation:
+# Usage for subnets/IPs aggregation:
 # pipe input subnets (newline-separated) into aggregate_subnets (requires family as 1st argument - ipv4|inet|ipv6|inet6)
 
 
@@ -41,7 +41,7 @@ ip_to_int() {
 		# number of bits to trim
 		bits_trim=$((32-ip2int_maskbits))
 
-		# convert ip to int and trim to mask bits
+		# convert IP to int and trim to mask bits
 		newifs "." itoint
 		set -- $ip_itoint
 
@@ -137,9 +137,9 @@ ip_to_int() {
 	:
 }
 
-# Converts input integer(s) into ip address with optional mask bits
+# Converts input integer(s) into IP address with optional mask bits
 # For ipv6, input should be 8 whitespace-separated integer numbers
-# 1 - input ip address represented as integer(s)
+# 1 - input IP address represented as integer(s)
 # 2 - family (ipv4|inet|ipv6|inet6)
 # 3 - optional: mask bits (integer). if specified, appends /[maskbits] to output
 int_to_ip() {
@@ -181,7 +181,7 @@ hex_to_ipv6() {
 	# replace ::: with ::
 	case "$ip_hti" in *:::*) ip_hti="${ip_hti%%:::*}::${ip_hti#*:::}"; esac
 
-	# debugprint "hex_to_ip: preliminary commpressed ip: '$ip_hti'"
+	# debugprint "hex_to_ip: preliminary commpressed IP: '$ip_hti'"
 
 	# trim leading colon if it's not a double colon
 	case "$ip_hti" in
@@ -192,7 +192,7 @@ hex_to_ipv6() {
 }
 
 
-# input via STDIN: newline-separated subnets or ip's
+# input via STDIN: newline-separated subnets or IPs
 # output via STDOUT: newline-separated subnets
 # 1 - family (ipv4|ipv6|inet|inet6)
 aggregate_subnets() {
@@ -257,10 +257,10 @@ aggregate_subnets() {
 		# chop off mask bits
 		ip1_ags="${subnet1#*/}"
 
-		# convert ip to int and trim to mask bits
+		# convert IP to int and trim to mask bits
 		ip_to_int "$ip1_ags" "$family_ags" "$maskbits" ip1_int || exit 1
 
-		# don't print if trimmed ip int is included in $res_ips_int
+		# don't print if trimmed IP int is included in $res_ips_int
 		IFS=' '
 		bits_processed=0
 		ip1_trim=
@@ -299,7 +299,7 @@ aggregate_subnets() {
 			case "$res_ips_int" in *"${_nl}${ip1_trim}${chunk} "*) continue 2; esac
 		done
 
-		# add current ip to $res_ips_int
+		# add current IP to $res_ips_int
 		res_ips_int="${res_ips_int}${ip1_int} ${_nl}"
 
 		# add current maskbits to $processed_maskbits
@@ -307,9 +307,9 @@ aggregate_subnets() {
 			processed_maskbits="${processed_maskbits}${maskbits} "
 		esac
 
-		# convert back to ip and print out
+		# convert back to IP and print out
 		int_to_ip "$ip1_int" "$family_ags" "$maskbits" || {
-			echolog -err "$FAIL convert '$ip1_int' to ip."
+			echolog -err "$FAIL convert '$ip1_int' to IP."
 			exit 1
 		}
 		nonempty_ags=1
