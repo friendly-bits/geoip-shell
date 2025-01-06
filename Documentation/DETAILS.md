@@ -28,7 +28,7 @@
 - lib/geoip-shell-lib-non-owrt.sh
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
-- lib/geoip-shell-lib-ip-tools.sh
+- lib/geoip-shell-lib-IP-tools.sh
 
 
 The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
@@ -193,7 +193,7 @@ Options:
 Actions: `add`, `update`, `restore`.
 
 `geoip-shell-run.sh add -l <"list_id [list_id] ... [list_id]">` : Fetches IP lists, loads them into IP sets and applies firewall rules for specified list IDs.
-List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list IDs.
+List ID has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list IDs.
 
 `geoip-shell-run.sh update` : Updates the IP sets for list IDs that had been previously configured. Intended for triggering from periodic cron jobs.
 
