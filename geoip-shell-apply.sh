@@ -21,7 +21,7 @@ usage() {
 cat <<EOF
 
 Usage: $me <action> [-s] [-d] [-V] [-h]
-Switches geolocking on/off, creates or modifies ipsets and firewall rules for configured ip lists.
+Switches geolocking on/off, creates or modifies ipsets and firewall rules for configured IP lists.
 
 Actions:
   on|off  :  Enable or disable the geoblocking chain (via a rule in the base chain)
@@ -93,7 +93,7 @@ get_ipset_id() {
 	list_id="${i%_*}_${ipset_family}"
 	case "$ipset_family" in
 		ipv4|ipv6) ;;
-		*) echolog -err "ip set name '$1' has unexpected format."
+		*) echolog -err "IP set name '$1' has unexpected format."
 			unset ipset_family list_id
 			return 1
 	esac
@@ -107,7 +107,7 @@ get_ipset_name() {
 	eval "list_date=\"\$prev_date_${list_id}\""
 	case "$1" in *"_dhcp"*|*"_allow"*) ;; *)
 		[ "$list_date" ] || {
-				echolog -err "The status file '$status_file' contains no information for list id '${list_id}'."
+				echolog -err "The status file '$status_file' contains no information for list ID '${list_id}'."
 				return 1
 		}
 		date_suffix="_${list_date}"
@@ -327,7 +327,7 @@ for direction in inbound outbound; do
 		list_ids=\"\$${direction}_list_ids\"
 		geomode=\"\$${direction}_geomode\""
 
-	debugprint "$direction list id's: '$list_ids'"
+	debugprint "$direction list IDs: '$list_ids'"
 
 	unset "planned_ipsets_$direction"
 
@@ -338,7 +338,7 @@ for direction in inbound outbound; do
 
 	# process list_ids
 	for list_id in $list_ids; do
-		case "$list_id" in [A-Z][A-Z]_ipv[46]) ;; *) die "Invalid iplist id '$list_id'."; esac
+		case "$list_id" in [A-Z][A-Z]_ipv[46]) ;; *) die "Invalid iplist ID '$list_id'."; esac
 
 		# set list_id-specific vars
 		family="${list_id#*_}"
@@ -349,7 +349,7 @@ for direction in inbound outbound; do
 
 		case "$curr_ipsets_sp" in
 			# check for ipset with same list_id and date
-			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "Ip set for '$list_id' is already up-to-date." ;;
+			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "IP set for '$list_id' is already up-to-date." ;;
 			# check for ipset with different date
 			*"$list_id_short"*)
 				get_matching_line "$curr_ipsets" "*" "$list_id_short" "*" old_ipset
