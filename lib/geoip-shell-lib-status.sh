@@ -51,7 +51,7 @@ case "$_fw_backend" in
 	*) _fw="${red}Not set $_X"; incr_issues
 esac
 
-printf '\n%s\n%s\n' "Firewall backend: $_fw" "Ip lists source: ${blue}${geosource}${n_c}"
+printf '\n%s\n%s\n' "Firewall backend: $_fw" "IP lists source: ${blue}${geosource}${n_c}"
 
 check_lists_coherence && lists_coherent=" $_V" || { incr_issues; lists_coherent=" $_Q"; }
 
@@ -166,7 +166,7 @@ for direction in inbound outbound; do
 		*) printf '%s\n' "${blue}${active_ccodes}${n_c}${lists_coherent}"
 	esac
 
-	printf %s "  Ip families: "
+	printf %s "  IP families: "
 	case "$active_families" in
 		'') printf '%s\n' "${red}None${n_c} $_X"; incr_issues ;;
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
@@ -204,7 +204,7 @@ for direction in inbound outbound; do
 			'')
 				case "$src_allow_ips_pr" in
 					'') source_ips_policy_pr="${yellow}not set${n_c}" ;;
-					*) source_ips_policy_pr="${blue}Allow specific IP addresses${n_c}${_nl}    Ip's: ${blue}$src_allow_ips_pr${n_c}" ;;
+					*) source_ips_policy_pr="${blue}Allow specific IP addresses${n_c}${_nl}    IPs: ${blue}$src_allow_ips_pr${n_c}" ;;
 				esac ;;
 			*) source_ips_policy_pr="${red}${source_ips_policy} ${_X}${n_c} (invalid)"; incr_issues
 		esac
@@ -226,7 +226,7 @@ for direction in inbound outbound; do
 	report_fw_state "$direction"
 
 	[ "$verb_status" ] && {
-		printf %s "  Ip ranges count in active $direction geoblocking sets: "
+		printf %s "  IP ranges count in active $direction geoblocking sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
 			*)
