@@ -92,19 +92,19 @@ ${sp8}'auto' will automatically detect WAN interfaces (this may cause problems i
 ${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
 
   ${blue}-l $lan_syn${n_c} :
-${sp8}Specifies LAN ip's or subnets to exclude from geoblocking (both ipv4 and ipv6).
+${sp8}Specifies LAN IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
 ${sp8}Only compatible with whitelist mode.
 ${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-${sp8}specify LAN ip's or subnets to avoid blocking them. Otherwise you probably don't need this.
+${sp8}specify LAN IPs or subnets to avoid blocking them. Otherwise you probably don't need this.
 ${sp8}'auto' will automatically detect LAN subnets during the initial setup and at every update of the ip lists.
-${sp8}'none' removes previously set LAN ip's and disables the automatic detection.
+${sp8}'none' removes previously set LAN IPs and disables the automatic detection.
 ${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*
 
   ${blue}-t $tr_syn${n_c} :
-${sp8}Specifies trusted ip's or subnets to exclude from geoblocking (both ipv4 and ipv6).
-${sp8}This option is independent from the above LAN ip's option.
+${sp8}Specifies trusted IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
+${sp8}This option is independent from the above LAN IPs option.
 ${sp8}Works both in whitelist and blacklist mode.
-${sp8}'none' removes previously set trusted ip's
+${sp8}'none' removes previously set trusted IPs
 
   ${blue}-U <auto|pause|none|"[ip_addresses]">${n_c} :
 ${sp8}Policy for allowing automatic ip list updates when outbound geoblocking is enabled.
@@ -629,7 +629,7 @@ for direction in inbound outbound; do
 	[ "$direction" = outbound ] && ! is_whitelist_present && {
 		[ "$lan_ips_arg" ] && die "Option '-l' can only be used in whitelist geoblocking mode."
 		if [ -n "$lan_ips_ipv4$lan_ips_ipv6" ]; then
-			echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing lan ip's from config."
+			echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing lan IPs from config."
 			unset lan_ips_ipv4 lan_ips_ipv6
 		fi
 	}
@@ -733,7 +733,7 @@ done
 
 [ "$geosource_change" ] && unset source_ips_ipv4 source_ips_ipv6
 
-# source ip's
+# source IPs
 if [ "$source_ips_arg" ] || {
 		[ "$outbound_geomode" != disable ] && [ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] &&
 		{
