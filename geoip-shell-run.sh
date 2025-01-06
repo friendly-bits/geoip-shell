@@ -24,14 +24,14 @@ Usage: $me [action] [-l <"list_ids">] [-o] [-d] [-V] [-h]
 Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action.
 
 Actions:
-  add     :  Add ip lists to firewall rules, for specified direction(s)
-  update  :  Fetch updated ip lists and activate them via the -apply script.
+  add     :  Add IP lists to firewall rules, for specified direction(s)
+  update  :  Fetch updated IP lists and activate them via the -apply script.
   restore :  Restore previously downloaded lists from backup (falls back to fetch if fails).
 
 Options:
   -l <"list_ids"> :  $list_ids_usage
 
-  -o : No backup: don't create backup of ip lists and firewall rules after the action.
+  -o : No backup: don't create backup of IP lists and firewall rules after the action.
   -f : Force action
   -a : Daemon mode (will retry actions \$max_attempts times with growing time intervals)
   -d : Debug
@@ -110,7 +110,7 @@ nobackup="${nobackup_arg:-$nobackup}"
 san_str apply_lists_req "$lists_arg" || die
 [ ! "$apply_lists_req" ] &&
 	case "$action_run" in
-		add) die "no list id's were specified for actioin 'add'." ;;
+		add) die "no list IDs were specified for actioin 'add'." ;;
 		update|restore)
 			san_str apply_lists_req "$inbound_iplists $outbound_iplists" || die
 	esac
@@ -173,7 +173,7 @@ case "$action_run" in
 		else
 			get_counters
 			if call_script -l "$i_script-backup.sh" restore -n && check_lists_coherence; then
-				echolog "Successfully restored ip lists."
+				echolog "Successfully restored IP lists."
 				die 0
 			else
 				# if restore failed, force re-fetch
@@ -206,7 +206,7 @@ attempt=0 secs=5
 resume_req=
 if [ "$lists_fetch" ]; then
 	[ "$source_ips_policy" = pause ] && [ "$outbound_geomode" != disable ] && {
-		echolog "${_nl}Pausing outbound geoblocking before ip lists update."
+		echolog "${_nl}Pausing outbound geoblocking before IP lists update."
 		geoip_off outbound
 		# 0 - geoip_off success, 2 - already off, 1 - error
 		case $? in
@@ -221,7 +221,7 @@ if [ "$lists_fetch" ]; then
 		secs=$((secs+5))
 		[ $attempt -gt $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
 
-		### Fetch ip lists
+		### Fetch IP lists
 		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
 		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
 
@@ -261,7 +261,7 @@ else
 fi
 
 
-### Apply ip lists
+### Apply IP lists
 
 apply_rv=0
 
@@ -277,7 +277,7 @@ get_intersection "$all_fetched_lists" "$apply_lists_req" all_apply_lists
 	fi
 }
 
-echolog "${_nl}${print_action} ip lists '$all_apply_lists'."
+echolog "${_nl}${print_action} IP lists '$all_apply_lists'."
 
 call_script "$i_script-apply.sh" "$action_run"
 apply_rv=$?
@@ -296,7 +296,7 @@ esac
 
 if [ ! "$failed_lists" ] && check_lists_coherence; then
 	reg_last_update
-	echolog "Successfully ${print_action_done} ip lists '$apply_lists_req'."
+	echolog "Successfully ${print_action_done} IP lists '$apply_lists_req'."
 	echo
 	[ "$nobackup" = false ] && call_script -l "$i_script-backup.sh" create-backup
 else
