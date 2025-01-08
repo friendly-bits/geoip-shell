@@ -56,18 +56,18 @@ $(call Package/$p_name/description/Default)
 endef
 
 define Package/$p_name/postinst/Default
-	#!/bin/sh
-	rm -f "$install_dir/$p_name"
-	ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name" ||
-		{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$install_dir/$p_name'."; exit 1; }
-	chmod 555 "$install_dir/$p_name" && chown root:root "$install_dir/$p_name" ||
-		logger -s -t "$p_name" -p err "Error: failed to set permissions for '$install_dir/$p_name'."
-	if [ -s "$conf_dir/$p_name.conf" ]; then
-		$install_dir/$p_name configure -z
-	else
-		logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
-	fi
-	return 0
+#!/bin/sh
+rm -f "$install_dir/$p_name"
+ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name" ||
+	{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$install_dir/$p_name'."; exit 1; }
+chmod 555 "$install_dir/$p_name" && chown root:root "$install_dir/$p_name" ||
+	logger -s -t "$p_name" -p err "Error: failed to set permissions for '$install_dir/$p_name'."
+if [ -s "$conf_dir/$p_name.conf" ]; then
+	$install_dir/$p_name configure -z
+else
+	logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
+fi
+return 0
 endef
 
 define Package/$p_name/postinst
@@ -79,9 +79,9 @@ $(call Package/$p_name/postinst/Default)
 endef
 
 define Package/$p_name/prerm/Default
-	#!/bin/sh
-	sh $lib_dir/$p_name-owrt-uninstall.sh
-	return 0
+#!/bin/sh
+sh $lib_dir/$p_name-owrt-uninstall.sh
+return 0
 endef
 
 define Package/$p_name/prerm
@@ -93,19 +93,19 @@ $(call Package/$p_name/prerm/Default)
 endef
 
 define Package/$p_name/postrm
-	#!/bin/sh
-	sleep 1
-	echo "Reloading the firewall..."
-	fw4 -q reload
-	return 0
+#!/bin/sh
+sleep 1
+echo "Reloading the firewall..."
+fw4 -q reload
+return 0
 endef
 
 define Package/$p_name-iptables/postrm
-	#!/bin/sh
-	sleep 1
-	echo "Reloading the firewall..."
-	fw3 -q reload
-	return 0
+#!/bin/sh
+sleep 1
+echo "Reloading the firewall..."
+fw3 -q reload
+return 0
 endef
 
 define Build/Configure
