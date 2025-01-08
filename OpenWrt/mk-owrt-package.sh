@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2046,SC2034,SC2016
+# shellcheck disable=SC2046,SC2034,SC2016,SC2044
 
 # mk-owrt-package.sh
 
@@ -16,11 +16,12 @@
 # 	run: cd ~
 # 3) clone openwrt git repo:
 # run: git clone https://git.openwrt.org/openwrt/openwrt.git
-# 4) run: cd openwrt
-# NOTE: this script expects the openwrt build directory in the above path (~/openwrt).
+# 3a) if building ipk packages, run: mv openwrt openwrt-opkg
+# 4) run: 'cd openwrt' or 'cd openwrt-opkg'
+# NOTE: this script expects the openwrt build directory in the above paths.
 # It won't work if you have it in a different path or under a different name.
 
-# 5) run: git checkout master
+# 5) run: 'git checkout master' to build apk packages, or git 'checkout openwrt-23.05' to build ipk packages
 # 6) update feeds:
 # run: ./scripts/feeds update -a; ./scripts/feeds install -a
 # 7) run: make menuconfig
@@ -30,9 +31,12 @@
 #     don't change Target and Subtarget later to avoid problems
 # 10) Exit and save
 
-# 11) run: make -j9 tools/install; make -j9 toolchain/install; make -j9 target/linux/compile
+# 11) run: make -j9 tools/install && make -j9 toolchain/install && make -j9 target/linux/compile
 #     (assuming your machine has 8 physical or logical cores)
-# If this is the first time you are running these commands, this may take a long while.
+#     If this is the first time you are running these commands, this may take a long while.
+#     If errors are encountered, solve them - all commands should succeed before proceeding
+
+# To build both APK and IPK packages, repeat the steps above twice, for each package type
 
 # 12) now you are ready to run this script
 # 13) cross your fingers
@@ -47,17 +51,18 @@
 # in some cases after updating the master, you will need to rebuild tools and toolchain
 
 # command-line options:
+# -p <apk|ipk> : only build this package type
+# -f <3|4|all>: build only for firewall3+iptables or firewall4+nftables, or both (all)
 # -r : build a specific version fetched from the releases repo (otherwise builds from local source). requies to specify version with '-v'
 # -v : specify version to fetch and build from the releases repo. only use with '-r'
 # -u : upload: only relevant if you are authorized to upload to the geoip-shell releases repo (most likely you are not)
 # -t : troubleshoot: if make fails, use this option to run make with '-j1 V=s'
-# to build only for firewall3+iptables or firewall4+nftables, add '3' or '4' as an argument
 
 die_mk() {
 	# if first arg is a number, assume it's the exit code
 	case "$1" in
-		''|*[!0-9]* ) die_rv="1" ;;
-		* ) die_rv="$1"; shift
+		''|*[!0-9]*) die_rv="1" ;;
+		*) die_rv="$1"; shift
 	esac
 	: "${die_rv:=1}"
 	unset die_args
@@ -72,7 +77,6 @@ die_mk() {
 		done
 	}
 
-	# disable_apk_and_ipk
 	exit "$die_rv"
 }
 
@@ -83,43 +87,41 @@ pkg_ver=r1
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-. "$script_dir/apk_and_ipk.sh" || exit 1
+unset build_from_remote troubleshoot upload pkg_paths extra_args
 
-unset build_from_remote troubleshoot upload pkg_paths
-for arg in "$@"; do
-	case "$arg" in
-		'') ;;
-		-r) build_from_remote=1 ;;
-		-u) upload=1 ;;
-		-d) export debugmode=1 ;;
-		-t) troubleshoot=1 ;;
-		3|4|all) _OWRTFW="$arg" ;;
-		-v) curr_ver_arg=check ;;
-		*) [ "$curr_ver_arg" = check ] && curr_ver_arg="$arg" ||
-			{ printf '%s\n' "Unexpected argument '$arg'."; exit 1; }
+#### PARSE ARGUMENTS
+while getopts ":p:v:f:rudt" opt; do
+	case $opt in
+		p) pkg_types=$OPTARG ;;
+		f) _OWRTFW=$OPTARG ;;
+		v) curr_ver_arg="$OPTARG"; curr_ver="$curr_ver_arg" ;;
+		r) build_from_remote=1 ;;
+		u) upload=1 ;;
+		d) export debugmode=1 ;;
+		t) troubleshoot=1 ;;
+		*) printf '%s\n' "Unexpected argument '$arg'."; exit 1 ;;
 	esac
 done
-[ "$curr_ver_arg" = check ] && die_mk "Specify version with '-v'."
-curr_ver="$curr_ver_arg"
-
+shift $((OPTIND-1))
 
 # validate options
 [ "$build_from_remote" ] && [ "$upload" ] && die_mk "*** Incompatible options: -r and -u. **"
 [ "$curr_ver_arg" ] && { [ "$upload" ] || [ ! "$build_from_remote" ]; } && die_mk "*** Options don't make sense. ***"
-[ "$build_from_remote" ] && [ ! "$curr_ver" ] && die_mk "*** Specify version for build from remote. ***"
+[ "$build_from_remote" ] && [ ! "$curr_ver_arg" ] && die_mk "*** Specify version for build from remote. ***"
 
-### Vars
-: "${_OWRTFW:=all}"
 _nl='
 '
+apk_cap=APK
+ipk_cap=IPK
 
 ### Paths
-owrt_dist_dir="$HOME/openwrt"
-owrt_dist_src_dir="$owrt_dist_dir/geoip_shell_owrt_src/net/network/$p_name"
 gsh_dir="$HOME/geoip-shell"
 build_dir="$gsh_dir/owrt-build"
 files_dir="$build_dir/files"
 owrt_releases_dir="$gsh_dir/geoip-shell-openwrt"
+owrt_dist_dir_apk="$HOME/openwrt"
+owrt_dist_dir_ipk="$HOME/openwrt-opkg"
+: "${pkg_types:=apk ipk}"
 
 releases_url="https://github.com/friendly-bits/geoip-shell-openwrt"
 releases_url_api="https://api.github.com/repos/friendly-bits/geoip-shell-openwrt"
@@ -127,14 +129,14 @@ releases_url_api="https://api.github.com/repos/friendly-bits/geoip-shell-openwrt
 rm -rf "$build_dir" 2>/dev/null
 
 ### prepare the build
-[ ! "$build_from_remote" ] && { . "$script_dir/prep-owrt-package.sh" || exit 1; }
-
-export PATH="$HOME/openwrt/staging_dir/host/bin:$PATH"
-
+case "$pkg_types" in
+	apk) _OWRTFW=4 ;; # OpenWrt systems with apk can not have FW3
+	*) : "${_OWRTFW:=all}"
+esac
 [ "$_OWRTFW" = all ] && _OWRTFW="4 3"
 
-rm -rf "$owrt_dist_src_dir" 2>/dev/null
-mkdir -p "$owrt_dist_src_dir"
+[ ! "$build_from_remote" ] && { . "$script_dir/prep-owrt-package.sh" || exit 1; }
+
 mkdir -p "$files_dir"
 
 if [ "$build_from_remote" ]; then
@@ -155,189 +157,196 @@ if [ "$build_from_remote" ]; then
 	[ $rv != 0 ] && die_mk "Failed to fetch the release from Github."
 
 elif [ ! "$upload" ]; then
-	printf '\n%s\n' "*** Building package from local source. ***"
+	printf '\n%s\n' "*** Building packages from local source. ***"
 	new_makefile="$(grep -vE 'PKG_(SOURCE_PROTO|SOURCE_VERSION|SOURCE_URL|MIRROR_HASH)' "$build_dir/Makefile")"
 	printf '%s\n' "$new_makefile" > "$build_dir/Makefile"
 fi
 
+# Sanity check
+[ -n "$curr_ver" ] || die_mk "\$curr_ver is unset!"
 
-### Checks
-[ ! -d "$owrt_dist_dir" ] && die_mk "*** Openwrt distribution dir '$owrt_dist_dir' doesn't exist. ***"
-[ ! -f "$owrt_dist_dir/feeds.conf.default" ] && die_mk "*** feeds.conf.default not found in '$owrt_dist_dir'. ***"
+for pkg_type in $pkg_types; do
+	eval "pkg_type_cap=\"\${${pkg_type}_cap}\""
+	printf '\n%s\n' "*** Preparing to build $pkg_type_cap packages... ***"
 
+	eval "owrt_dist_dir=\"\${owrt_dist_dir_$pkg_type}\""
+	owrt_dist_src_dir="$owrt_dist_dir/geoip_shell_owrt_src/net/network/$p_name"
+	export PATH="$owrt_dist_dir/staging_dir/host/bin:$PATH"
 
-### Configure owrt feeds
-printf '\n%s\n' "*** Preparing owrt feeds... ***"
+	[ ! -d "$owrt_dist_dir" ] && die_mk "*** Openwrt distribution dir '$owrt_dist_dir' doesn't exist. ***"
+	[ ! -f "$owrt_dist_dir/feeds.conf.default" ] && die_mk "*** feeds.conf.default not found in '$owrt_dist_dir'. ***"
 
-new_feed="src-link local $owrt_dist_dir/geoip_shell_owrt_src"
+	rm -rf "$owrt_dist_src_dir" 2>/dev/null
+	mkdir -p "$owrt_dist_src_dir"
 
-cd "$owrt_dist_dir" || die_mk "*** Failed to cd into '$owrt_dist_dir' ***"
+	### Configure owrt feeds
+	printf '\n%s\n' "*** Preparing owrt feeds... ***"
 
-[ ! "$build_from_remote" ] && {
-	printf '\n%s\n' "*** Copying $p_name build into '$owrt_dist_src_dir'... ***"
-	cp -r "$files_dir" "$owrt_dist_src_dir/" || die_mk "*** Copy failed ***"
-}
+	new_feed="src-link local $owrt_dist_dir/geoip_shell_owrt_src"
 
-printf '\n%s\n' "*** Copying the Makefile into '$owrt_dist_src_dir'... ***"
-cp "$build_dir/Makefile" "$owrt_dist_src_dir/" || die_mk "*** Copy failed ***"
-echo
+	cd "$owrt_dist_dir" || die_mk "*** Failed to cd into '$owrt_dist_dir' ***"
 
-curr_feeds="$(grep -v "$new_feed" "$owrt_dist_dir/feeds.conf.default")" ||
-	die_mk "*** Failed to grep '$owrt_dist_dir/feeds.conf.default' ***"
-echo "*** Prepending entry '$new_feed' to '$owrt_dist_dir/feeds.conf.default'... ***"
-printf '%s\n%s\n' "$new_feed" "$curr_feeds" > "$owrt_dist_dir/feeds.conf.default" || die_mk "*** Failed ***"
-
-printf '\n%s\n' "*** Installing feeds for $p_name... ***"
-./scripts/feeds install $p_name || die_mk "*** Failed to add $p_name to the make config."
-
-# printf '\n%s\n' "*** Updating the $p_name feed... ***"
-# ./scripts/feeds update "$p_name" || die_mk "*** Failed to update owrt feeds."
-
-### menuconfig
-entry_missing=
-rm -f "/tmp/${p_name}-temp-config" 2>/dev/null
-for _fw_ver in $_OWRTFW; do
-	_ipt=
-	[ "$_fw_ver" = 3 ] && _ipt="-iptables"
-	grep "$p_name$_ipt=m" "$owrt_dist_dir/.config" 1>/dev/null || {
-		entry_missing=1
-		printf '%s\n' "CONFIG_PACKAGE_$p_name$_ipt=m" >> "/tmp/${p_name}-temp-config"
+	[ ! "$build_from_remote" ] && {
+		printf '\n%s\n' "*** Copying $p_name build into '$owrt_dist_src_dir'... ***"
+		cp -r "$files_dir" "$owrt_dist_src_dir/" || die_mk "*** Copy failed ***"
 	}
-done
 
-[ "$entry_missing" ] && {
-	printf '\n%s\n' "*** Adding entries to config... ***"
-	printf '%s\n%s\n' m m | make oldconfig "/tmp/${p_name}-temp-config" 1>/dev/null || make_failed=1
-	rm -f "/tmp/${p_name}-temp-config"
-	[ "$make_failed" ] && exit 1
+	printf '\n%s\n' "*** Copying the Makefile into '$owrt_dist_src_dir'... ***"
+	cp "$build_dir/Makefile" "$owrt_dist_src_dir/" || die_mk "*** Copy failed ***"
+	echo
+
+	curr_feeds="$(grep -v "$new_feed" "$owrt_dist_dir/feeds.conf.default")" ||
+		die_mk "*** Failed to grep '$owrt_dist_dir/feeds.conf.default' ***"
+	echo "*** Prepending entry '$new_feed' to '$owrt_dist_dir/feeds.conf.default'... ***"
+	printf '%s\n%s\n' "$new_feed" "$curr_feeds" > "$owrt_dist_dir/feeds.conf.default" || die_mk "*** Failed ***"
+
+	printf '\n%s\n' "*** Installing feeds for $p_name... ***"
+	[ -f ./feeds/local.index ] && grep -q -m1 "$p_name" ./feeds/local.index ||
+		./scripts/feeds update local || die_mk "*** Failed to update local feeds. ***"
+	errors="$(./scripts/feeds install $p_name 2>&1)" && [ -z "$errors" ] ||
+		die_mk "*** Failed to install feeds for $p_name. ***${_nl}Errors:${_nl}$errors${_nl}"
+
+	# printf '\n%s\n' "*** Updating the $p_name feed... ***"
+	# ./scripts/feeds update "$p_name" || die_mk "*** Failed to update owrt feeds."
+
+	### menuconfig
 	for _fw_ver in $_OWRTFW; do
 		_ipt=
 		[ "$_fw_ver" = 3 ] && _ipt="-iptables"
 		grep "$p_name$_ipt=m" "$owrt_dist_dir/.config" 1>/dev/null || {
-			echo "Failed."
-			exit 1
+			printf '\n%s\n' "*** Changing package for $p_name$_ipt to M in .config... ***"
+			grep -m1 "CONFIG_PACKAGE_$p_name$_ipt" "$owrt_dist_dir/.config" 1>/dev/null ||
+				die_mk "*** No entry for package $p_name$_ipt found in '.config'. ***"
+			sed -i "s/^\s*#\s*CONFIG_PACKAGE_$p_name$_ipt\s.*/CONFIG_PACKAGE_$p_name$_ipt=m/" "$owrt_dist_dir/.config" ||
+				die_mk "*** Failed to change package to M in '.config'. ***"
 		}
 	done
-	# printf '\n%s\n' "*** I will now run 'make menuconfig'. ***"
-	# echo "Go to Network --->, scroll down till you see '$p_name' and make sure entries for $p_name are checked with <M>."
-	# echo "Then exit and save."
-	# echo "Press Enter when ready."
-	# read -r dummy
-	# make menuconfig
-}
+
+	### build packages
+
+	printf '\n%s\n\n' "*** Building $pkg_type_cap packages for $p_name... ***"
+	# echo "*** Running: make -j4 package/$p_name/clean ***"
+	# make -j4 "package/$p_name/clean"
+
+	rm -f "$owrt_dist_dir/dl/$p_name"*
 
 
-### make packages
+	### upload to the Github releases repo
+	[ "$upload" ] && {
+		printf '\n%s\n' "*** Building package with upload to Github. ***"
 
-# enable_apk_and_ipk || die_mk
-
-printf '\n%s\n\n' "*** Making packages for $p_name... ***"
-# echo "*** Running: make -j4 package/$p_name/clean ***"
-# make -j4 "package/$p_name/clean"
-
-rm -f "$owrt_dist_dir/dl/$p_name"*
-
-
-### upload to the Github releases repo
-[ "$upload" ] && {
-	printf '\n%s\n' "*** Building package with upload to Github. ***"
-
-	# [ -s "$token_path" ] || die_mk "*** Token file not found. ***"
-	command -v gh 1>/dev/null || die_mk "*** 'gh' utility not found. ***"
-	# printf '\n%s\n' "*** Authenticating to Github... ***"
-	# gh auth login --with-token < "$token_path" || die_mk "*** Failed to authenticate with token. ***"
+		if [ ! "$upload_done" ]; then
+			# [ -s "$token_path" ] || die_mk "*** Token file not found. ***"
+			command -v gh 1>/dev/null || die_mk "*** 'gh' utility not found. ***"
+			# printf '\n%s\n' "*** Authenticating to Github... ***"
+			# gh auth login --with-token < "$token_path" || die_mk "*** Failed to authenticate with token. ***"
 
 
-	# copy files
-	printf '\n%s\n' "*** Copying files to '$owrt_releases_dir/'... ***"
-	mkdir -p "$owrt_releases_dir"
-	rm -rf "${owrt_releases_dir:?}/"*
-	cp -r "$files_dir"/* "$owrt_releases_dir/" || die_mk "*** Failed to copy '$files_dir/*' to '$owrt_releases_dir/'. ***"
-	cd "$owrt_releases_dir" || die_mk "*** Failed to cd into '$owrt_releases_dir'. ***"
-	git push 1>/dev/null 2>/dev/null || die_mk "*** No permissions to push to the github repo. ***"
+			# copy files
+			printf '\n%s\n' "*** Copying files to '$owrt_releases_dir/'... ***"
+			mkdir -p "$owrt_releases_dir"
+			rm -rf "${owrt_releases_dir:?}/"*
+			cp -r "$files_dir"/* "$owrt_releases_dir/" || die_mk "*** Failed to copy '$files_dir/*' to '$owrt_releases_dir/'. ***"
+			cd "$owrt_releases_dir" || die_mk "*** Failed to cd into '$owrt_releases_dir'. ***"
+			git push 1>/dev/null 2>/dev/null || die_mk "*** No permissions to push to the github repo. ***"
 
-	# add all files in release directory
-	printf '\n%s\n' "*** Pushing to Github... ***"
-	git add $(find -- * -type f -print)
-	git commit -a -m "v$curr_ver-$pkg_ver"
+			# add all files in release directory
+			printf '\n%s\n' "*** Pushing to Github... ***"
+			git add $(find -- * -type f -print)
+			git commit -a -m "v$curr_ver-$pkg_ver"
 
-	GH_tag="v$curr_ver-$pkg_ver"
-	# remove existing release and tag with the same name
-	git tag -l | grep "$GH_tag" >/dev/null && {
-		gh release delete "$GH_tag" -y
-		git tag -d "$GH_tag"
-		git push --delete origin "$GH_tag"
+			GH_tag="v$curr_ver-$pkg_ver"
+			# remove existing release and tag with the same name
+			git tag -l | grep "$GH_tag" >/dev/null && {
+				gh release delete "$GH_tag" -y
+				git tag -d "$GH_tag"
+				git push --delete origin "$GH_tag"
+			}
+
+			# add new tag
+			git tag "$GH_tag" &&
+			git push &&
+			git push origin --tags || die_mk "*** Failed to to push to Github. ***"
+			
+			# Update the Makefile with PKG_SOURCE_VERSION etc
+			last_commit="$(git rev-parse HEAD)"
+			sed -i "s/\$pkg_source_version/$last_commit/g;
+				s/\.\/files/\$(PKG_BUILD_DIR)/g" \
+					"$owrt_dist_src_dir/Makefile"
+		else
+			case "$pkg_type" in
+				apk) eval "updated_makefile_path=\"\${owrt_dist_dir_ipk}/geoip_shell_owrt_src/net/network/$p_name\"" ;;
+				ipk) eval "updated_makefile_path=\"\${owrt_dist_dir_ipk}/geoip_shell_owrt_src/net/network/$p_name\""
+			esac
+			# copy updated Makefile
+			# shellcheck disable=SC2154
+			cp "$updated_makefile_path" "$owrt_dist_src_dir/Makefile"
+		fi
+
+		printf '\n%s\n\n' "*** Running: make package/$p_name/download V=s ***"
+		cd "$owrt_dist_dir" || die_mk 1
+		make package/$p_name/download V=s
+
+		# printf '\n%s\n\n' "*** Running: package/$p_name/check FIXUP=1 ***"
+		# make package/$p_name/check FIXUP=1
+
+		# Update the Makefile with PKG_MIRROR_HASH
+		pkg_mirror_hash="$(sha256sum -b "$owrt_dist_dir/dl/$p_name-$curr_ver.tar."*)" &&
+		pkg_mirror_hash="$(printf '%s\n' "$pkg_mirror_hash" | cut -d' ' -f1 | head -n1)"; rv=$?
+		[ $rv != 0 ] || [ ! "$pkg_mirror_hash" ] && die_mk "*** Failed to calculate PKG_MIRROR_HASH. ***"
+		printf '\n%s\n\n' "*** Calculated PKG_MIRROR_HASH: $pkg_mirror_hash ***"
+		sed -i "s/PKG_MIRROR_HASH:=skip/PKG_MIRROR_HASH:=$pkg_mirror_hash/" "$owrt_dist_src_dir/Makefile"
+
+		if [ ! "$upload_done" ]; then
+			# create new release
+			printf '\n%s\n' "*** Creating Github release... ***"
+			cd "$owrt_releases_dir" || die_mk "*** Failed to cd into '$owrt_releases_dir'. ***"
+			gh release create "$GH_tag" --verify-tag --latest --target=main --notes "" ||
+				die_mk "*** Failed to create Github release via the 'gh' utility. ***"
+
+			# upload the Makefile
+			printf '\n%s\n' "*** Attaching the Makefile to the Github release... ***"
+			gh release upload --clobber "$GH_tag" "$owrt_dist_src_dir/Makefile" ||
+				die_mk "*** Failed to upload the Makefile to Github via the 'gh' utility. ***"
+
+			upload_done=1
+		fi
 	}
 
-	# add new tag
-	git tag "$GH_tag" &&
-	git push &&
-	git push origin --tags || die_mk "*** Failed to to push to Github. ***"
-	
-	# Update the Makefile with PKG_SOURCE_VERSION etc
-	last_commit="$(git rev-parse HEAD)"
-	sed -i "s/\$pkg_source_version/$last_commit/g;
-		s/\.\/files/\$(PKG_BUILD_DIR)/g" \
-			"$owrt_dist_src_dir/Makefile"
-
-	printf '\n%s\n\n' "*** Running: make package/$p_name/download V=s ***"
+	# Delete old packages with matching version
 	cd "$owrt_dist_dir" || die_mk 1
-	make package/$p_name/download V=s
+	for _fw_ver in $_OWRTFW; do
+		_ipt=
+		[ "$_fw_ver" = 3 ] && _ipt="-iptables"
+		find ./bin/packages -type f -name "${p_name}${_ipt}[_-]$curr_ver*.$pkg_type" -exec rm -f {} \; 2>/dev/null
+	done
 
-	# printf '\n%s\n\n' "*** Running: package/$p_name/check FIXUP=1 ***"
-	# make package/$p_name/check FIXUP=1
+	make_opts='-j9'
+	[ "$troubleshoot" ] && make_opts='-j1 V=s'
 
-	# Update the Makefile with PKG_MIRROR_HASH
-	pkg_mirror_hash="$(sha256sum -b "$owrt_dist_dir/dl/$p_name-$curr_ver.tar."*)" &&
-	pkg_mirror_hash="$(printf '%s\n' "$pkg_mirror_hash" | cut -d' ' -f1 | head -n1)"; rv=$?
-	[ $rv != 0 ] || [ ! "$pkg_mirror_hash" ] && die_mk "*** Failed to calculate PKG_MIRROR_HASH. ***"
-	printf '\n%s\n\n' "*** Calculated PKG_MIRROR_HASH: $pkg_mirror_hash ***"
-	sed -i "s/PKG_MIRROR_HASH:=skip/PKG_MIRROR_HASH:=$pkg_mirror_hash/" "$owrt_dist_src_dir/Makefile"
-
-	# create new release
-	printf '\n%s\n' "*** Creating Github release... ***"
-	cd "$owrt_releases_dir" || die_mk "*** Failed to cd into '$owrt_releases_dir'. ***"
-	gh release create "$GH_tag" --verify-tag --latest --target=main --notes "" ||
-		die_mk "*** Failed to create Github release via the 'gh' utility. ***"
-
-	# upload the Makefile
-	printf '\n%s\n' "*** Attaching the Makefile to the Github release... ***"
-	gh release upload --clobber "$GH_tag" "$owrt_dist_src_dir/Makefile" ||
-		die_mk "*** Failed to upload the Makefile to Github via the 'gh' utility. ***"
-}
-
-# Delete old packages with matching version
-for _fw_ver in $_OWRTFW; do
-	_ipt=
-	[ "$_fw_ver" = 3 ] && _ipt="-iptables"
-	find ./bin/packages -type f \( -name "${p_name}${_ipt}[_-]$curr_ver*.ipk" -o -name "${p_name}${_ipt}[_-]$curr_ver*.apk" \) -exec rm -f {} \;
+	printf '\n%s\n\n' "*** Running: make $make_opts package/$p_name/compile ***"
+	cd "$owrt_dist_dir" || die_mk 1
+	make $make_opts "package/$p_name/compile" || die_mk "*** Make failed. ***"
 done
 
+### Find, move and report built packages
+for pkg_type in $pkg_types; do
+	eval "pkg_type_cap=\"\${${pkg_type}_cap}\""
+	eval "owrt_dist_dir=\"\${owrt_dist_dir_$pkg_type}\""
+	cd "$owrt_dist_dir" || die_mk 1
 
-make_opts='-j9'
-[ "$troubleshoot" ] && make_opts='-j1 V=s'
+	for _fw_ver in $_OWRTFW; do
+		_ipt=
+		[ "$_fw_ver" = 3 ] && _ipt="-iptables"
 
-printf '\n%s\n\n' "*** Running: make $make_opts package/$p_name/compile ***"
-cd "$owrt_dist_dir" || die_mk 1
-make $make_opts "package/$p_name/compile" || die_mk "*** Make failed. ***"
-
-for _fw_ver in $_OWRTFW; do
-	_ipt=
-	[ "$_fw_ver" = 3 ] && _ipt="-iptables"
-
-	pkg_path=
-	for pkg_path in $(find ./bin/packages -type f \( -name "${p_name}${_ipt}[_-]$curr_ver*.ipk" -o -name "${p_name}${_ipt}[_-]$curr_ver*.apk" \) -exec echo {} \;); do
-		case "$pkg_path" in
-			*ipk) pkg_ext=ipk ;;
-			*apk) pkg_ext=apk ;;
-			*) die_mk "*** Found file '$pkg_path' but the file has unexpected extensioin"
-		esac
-
-		new_pkg_path="$build_dir/$p_name${_ipt}_$curr_ver-$pkg_ver.${pkg_ext}"
-		mv "$pkg_path" "$new_pkg_path" && pkg_paths="$pkg_paths$new_pkg_path$_nl" ||
-			die_mk "*** Failed to move '$pkg_path' to '$new_pkg_path' ***"
+		pkg_path=
+		for pkg_path in $(find ./bin/packages -type f -name "${p_name}${_ipt}[_-]$curr_ver*.$pkg_type" -exec echo {} \;); do
+			new_pkg_path="$build_dir/$p_name${_ipt}_$curr_ver-$pkg_ver.${pkg_type}"
+			mv "$pkg_path" "$new_pkg_path" && pkg_paths="$pkg_paths$new_pkg_path$_nl" ||
+				die_mk "*** Failed to move '$pkg_path' to '$new_pkg_path' ***"
+		done
+		[ "$pkg_path" ] || die_mk "*** Can not find $pkg_type_cap file matching '${p_name}${_ipt}_$curr_ver' ***"
 	done
-	[ "$pkg_path" ] || die_mk "*** Can not find file matching '${p_name}${_ipt}_$curr_ver' ***"
 done
 
 [ "$build_dir" ] && {
