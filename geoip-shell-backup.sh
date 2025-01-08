@@ -184,7 +184,7 @@ case "$action" in
 		set_archive_type
 		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
-		printf_s "Creating backup of $p_name ip sets... "
+		printf_s "Creating backup of $p_name IP sets... "
 		rm -f "$bk_failed_file"
 		create_backup && OK
 		rm -f "$tmp_file"
@@ -209,7 +209,7 @@ case "$action" in
 			cp_conf restore || die "$FAIL restore the config and status files."
 			die 0
 		}
-		echolog "${_nl}Preparing to restore $p_name ip lists$and_config from backup..."
+		echolog "${_nl}Preparing to restore $p_name IP lists$and_config from backup..."
 		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
 		getconfig inbound_iplists inbound_iplists "$bk_conf_file" &&
 		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
@@ -221,7 +221,7 @@ case "$action" in
 			set_extract_cmd "$bk_ext"
 			extract_iplists
 		else
-			echolog "No ip lists registered - skipping iplist extraction."
+			echolog "No IP lists registered - skipping iplist extraction."
 		fi
 
 		### Remove geoblocking iptables rules and ipsets
@@ -236,7 +236,7 @@ case "$action" in
 		apply_rv=$?
 
 		rm_rstr_tmp
-		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore $p_name ip lists$and_config from backup." "reset"
+		[ "$apply_rv" != 0 ] && rstr_failed "$FAIL restore $p_name IP lists$and_config from backup." "reset"
 
 		[ "$restore_conf" ] && echolog "Successfully completed action 'restore'."
 esac

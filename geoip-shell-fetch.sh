@@ -30,7 +30,7 @@ cat <<EOF
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
-1) Fetches ip lists for given country codes from RIPE API, or from ipdeny, or from MaxMind
+1) Fetches IP lists for given country codes from RIPE API, or from ipdeny, or from MaxMind
 	(supports any combination of ipv4 and ipv6 lists)
 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
@@ -42,7 +42,7 @@ Options:
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
   -s <path>        : Path to a file to register fetch results in.
-  -u $srcs_syn : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
+  -u $srcs_syn : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
@@ -294,7 +294,7 @@ group_lists_by_registry() {
 		done
 		die "Invalid country codes: '$invalid_ccodes'."
 	}
-	[ ! "$valid_lists" ] && die "No applicable ip list id's found in '$lists_arg'."
+	[ ! "$valid_lists" ] && die "No applicable IP list IDs found in '$lists_arg'."
 	failed_lists="$valid_lists"
 }
 
@@ -323,12 +323,12 @@ check_prev_list() {
 	esac
 }
 
-# checks whether any of the ip lists need update
+# checks whether any of the IP lists need update
 # and populates $up_to_date_lists, $ccodes_need_update accordingly
 check_updates() {
 	time_now="$(date +%s)"
 
-	printf '\n%s\n' "Checking for ip list updates on the $dl_src_cap server..."
+	printf '\n%s\n' "Checking for IP list updates on the $dl_src_cap server..."
 
 	case "$dl_src" in
 		ipdeny) get_src_dates_ipdeny ;;
@@ -354,7 +354,7 @@ check_updates() {
 
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
-			msg1="Newest ip list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
+			msg1="Newest IP list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
 			msg2="Either your clock is incorrect, or $dl_src_cap is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
 			echolog -warn "$msg1" "$msg2" "$msg3"
@@ -371,9 +371,9 @@ check_updates() {
 	done
 
 	[ "$no_date_lists" ] &&
-		echolog -warn "$FAIL get the timestamp from the server for ip lists: '$no_date_lists'. Will try to fetch anyway."
+		echolog -warn "$FAIL get the timestamp from the server for IP lists: '$no_date_lists'. Will try to fetch anyway."
 	[ "$up_to_date_lists" ] &&
-		echolog "Ip lists '${purple}$up_to_date_lists${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
+		echolog "IP lists '${purple}$up_to_date_lists${n_c}' are already ${green}up-to-date${n_c} with the $dl_src_cap server."
 	:
 }
 
@@ -447,11 +447,11 @@ fetch_maxmind() {
 			list_id="${ccode}_${family}"
 			case "$exclude_iplists" in *"$list_id"*) continue; esac
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
-			printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
+			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 
 			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
 				rm_mm_tmp_f
-				echolog -err "$FAIL parse the ip list for '$list_id'."
+				echolog -err "$FAIL parse the IP list for '$list_id'."
 				return 1
 			}
 			OK
@@ -501,9 +501,9 @@ process_ccode() {
 
 		if [ ! -s "$fetched_file" ]; then
 			case "$dl_src" in
-				ripe) fetch_subj="ip list for country '${purple}$curr_ccode${n_c}'" ;;
-				maxmind) list_failed "Fetched file '$fetched_file' for list id '$list_id' not found"; return 1 ;;
-				ipdeny) fetch_subj="ip list for '${purple}$list_id${n_c}'"
+				ripe) fetch_subj="IP list for country '${purple}$curr_ccode${n_c}'" ;;
+				maxmind) list_failed "Fetched file '$fetched_file' for list ID '$list_id' not found"; return 1 ;;
+				ipdeny) fetch_subj="IP list for '${purple}$list_id${n_c}'"
 			esac
 			printf '\n%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
 
@@ -517,9 +517,9 @@ process_ccode() {
 
 		case "$dl_src" in
 			ripe)
-				printf %s "Parsing the ip list for '${purple}$list_id${n_c}'... "
+				printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 				parse_ripe_json "$fetched_file" "$parsed_list" "$family" ||
-					{ list_failed "$FAIL parse the ip list for '$list_id'."; continue; }
+					{ list_failed "$FAIL parse the IP list for '$list_id'."; continue; }
 				OK ;;
 			maxmind|ipdeny) mv "$fetched_file" "$parsed_list"
 		esac
@@ -541,7 +541,7 @@ process_ccode() {
 		if [ "$failed_s_cnt" != 0 ]; then
 			failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
 
-			list_failed "${_nl}out of $parsed_s_cnt subnets for ip list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
+			list_failed "${_nl}out of $parsed_s_cnt subnets for IP list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
 			if [ $failed_s_cnt -gt 10 ]; then
 					echo "First 10 failed subnets:"
 					printf '%s\n' "$failed_s" | head -n10
@@ -751,7 +751,7 @@ unset lists exclude_iplists excl_list_ids failed_lists fetched_lists
 for list_id in $lists_arg; do
 	case "$list_id" in
 		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}" ;;
-		*) die "invalid list id '$list_id'."
+		*) die "invalid list ID '$list_id'."
 	esac
 	list_id="$cc_up$fml_lo"
 	case "$exclude_iplists" in *"$list_id"*)
@@ -812,7 +812,7 @@ trap 'rm_tmp_f;	rm_mm_tmp_f; \
 
 check_updates
 
-# process list id's
+# process list IDs
 set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
 if [ "$dl_src" = maxmind ] && [ "$ccodes_need_update" ]; then
 	fetch_maxmind || die

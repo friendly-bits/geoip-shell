@@ -54,7 +54,7 @@ ${purple}Actions${n_c}:
   ${blue}restore${n_c}    :  re-apply geoblocking rules from the config
   ${blue}showconfig${n_c} :  print the contents of the config file
   ${blue}on|off${n_c}     :  enable or disable the geoblocking chain (via a rule in the base geoip chain)
-  ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets
+  ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and unload IP sets
 
 ${purple}'configure' action${n_c}:
   General syntax: ${blue}configure [options] [-D $direction_syn <options>]${n_c}
@@ -81,9 +81,9 @@ ${sp8}To specify ports for both tcp and udp in one command, use the '-p' option 
 
 ${purple}General options for the 'configure' action${n_c} (affects geoblocking in both directions):
 
-  ${blue}-f ${fam_syn}${n_c} : Ip families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  ${blue}-f ${fam_syn}${n_c} : IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-  ${blue}-u $srcs_syn${n_c} : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
+  ${blue}-u $srcs_syn${n_c} : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
 
   ${blue}-i $ifaces_syn${n_c} :
 ${sp8}Changes which network interface(s) geoblocking firewall rules will be applied to.
@@ -92,34 +92,34 @@ ${sp8}'auto' will automatically detect WAN interfaces (this may cause problems i
 ${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
 
   ${blue}-l $lan_syn${n_c} :
-${sp8}Specifies LAN ip's or subnets to exclude from geoblocking (both ipv4 and ipv6).
+${sp8}Specifies LAN IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
 ${sp8}Only compatible with whitelist mode.
 ${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
-${sp8}specify LAN ip's or subnets to avoid blocking them. Otherwise you probably don't need this.
-${sp8}'auto' will automatically detect LAN subnets during the initial setup and at every update of the ip lists.
-${sp8}'none' removes previously set LAN ip's and disables the automatic detection.
+${sp8}specify LAN IPs or subnets to avoid blocking them. Otherwise you probably don't need this.
+${sp8}'auto' will automatically detect LAN subnets during the initial setup and at every update of the IP lists.
+${sp8}'none' removes previously set LAN IPs and disables the automatic detection.
 ${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*
 
   ${blue}-t $tr_syn${n_c} :
-${sp8}Specifies trusted ip's or subnets to exclude from geoblocking (both ipv4 and ipv6).
-${sp8}This option is independent from the above LAN ip's option.
+${sp8}Specifies trusted IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
+${sp8}This option is independent from the above LAN IPs option.
 ${sp8}Works both in whitelist and blacklist mode.
-${sp8}'none' removes previously set trusted ip's
+${sp8}'none' removes previously set trusted IPs
 
   ${blue}-U <auto|pause|none|"[ip_addresses]">${n_c} :
-${sp8}Policy for allowing automatic ip list updates when outbound geoblocking is enabled.
-${sp8}Use 'auto' to detect ip addresses automatically once and always allow outbound connection to detected addresses.
-${sp8}Or use 'pause' to always temporarily pause outbound geoblocking before fetching ip list updates.
-${sp8}Or specify ip addresses for ip lists source (ripe, ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
-${sp8}Or use 'none' to remove previously assigned server ip addresses and disable this feature.
+${sp8}Policy for allowing automatic IP list updates when outbound geoblocking is enabled.
+${sp8}Use 'auto' to detect IP addresses automatically once and always allow outbound connection to detected addresses.
+${sp8}Or use 'pause' to always temporarily pause outbound geoblocking before fetching IP list updates.
+${sp8}Or specify IP addresses for IP lists source (ripe, ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
+${sp8}Or use 'none' to remove previously assigned server IP addresses and disable this feature.
 
   ${blue}-r $user_ccode_syn${n_c} :
 ${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
 ${sp8}'none' disables this feature.
 
   ${blue}-o $nobackup_syn${n_c} :
-${sp8}No backup. If set to 'true', $p_name will not create a backup of ip lists and firewall rules state after applying changes,
-${sp8}and will automatically re-fetch ip lists after each reboot.
+${sp8}No backup. If set to 'true', $p_name will not create a backup of IP lists and firewall rules state after applying changes,
+${sp8}and will automatically re-fetch IP lists after each reboot.
 ${sp8}Default is 'true' for OpenWrt, 'false' for all other systems.
 
   ${blue}-a $datadir_syn${n_c} :
@@ -127,9 +127,9 @@ ${sp8}Set custom path to directory where backups and the status file will be sto
 ${sp8}Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/$p_name' for all other systems.
 
   ${blue}-s $sch_syn${n_c} :
-${sp8}Schedule expression for the periodic cron job implementing automatic update of the ip lists, must be inside double quotes.
+${sp8}Schedule expression for the periodic cron job implementing automatic update of the IP lists, must be inside double quotes.
 ${sp8}Example expression: "15 4 * * *" (at 4:15 [am] every day)
-${sp8}'disable' will disable automatic updates of the ip lists.
+${sp8}'disable' will disable automatic updates of the IP lists.
 
   ${blue}-w $fw_be_syn${n_c} :
 ${sp8}Specify firewall backend to use with $p_name. 'ipt' for iptables, 'nft' for nftables.
@@ -285,7 +285,7 @@ restore_from_config() {
 			return 0
 		}
 	else
-		echo "No ip lists registered - skipping firewall rules creation."
+		echo "No IP lists registered - skipping firewall rules creation."
 		return 0
 	fi
 
@@ -499,7 +499,7 @@ trap 'die' INT TERM HUP QUIT
 case "$action" in
 	on|off|stop)
 		case "$action" in
-			on) [ ! "$inbound_iplists$outbound_iplists" ] && die "No ip lists registered. Refusing to enable geoblocking."
+			on) [ ! "$inbound_iplists$outbound_iplists" ] && die "No IP lists registered. Refusing to enable geoblocking."
 				setconfig "noblock=false" ;;
 			off) setconfig "noblock=true" ;;
 			stop)
@@ -629,7 +629,7 @@ for direction in inbound outbound; do
 	[ "$direction" = outbound ] && ! is_whitelist_present && {
 		[ "$lan_ips_arg" ] && die "Option '-l' can only be used in whitelist geoblocking mode."
 		if [ -n "$lan_ips_ipv4$lan_ips_ipv6" ]; then
-			echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing lan ip's from config."
+			echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing lan IPs from config."
 			unset lan_ips_ipv4 lan_ips_ipv6
 		fi
 	}
@@ -684,7 +684,7 @@ san_str all_ccodes_arg "$inbound_ccodes_arg $outbound_ccodes_arg" || die
 [ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
 
 [ "$all_ccodes_arg" ] && [ ! "$inbound_lists_req$outbound_lists_req" ] &&
-	die "No applicable ip list id's could be generated for country codes '$all_ccodes_arg'."
+	die "No applicable IP list IDs could be generated for country codes '$all_ccodes_arg'."
 
 # ifaces and lan subnets
 unset lan_picked ifaces_picked ifaces_change
@@ -733,7 +733,7 @@ done
 
 [ "$geosource_change" ] && unset source_ips_ipv4 source_ips_ipv6
 
-# source ip's
+# source IPs
 if [ "$source_ips_arg" ] || {
 		[ "$outbound_geomode" != disable ] && [ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] &&
 		{

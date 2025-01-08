@@ -72,13 +72,13 @@ After installation, the user interface is provided by running "geoip-shell", whi
 
 `geoip-shell <on|off>` : Enable or disable the main geoblocking chain (via a rule in the base geoip chain)
 
-`geoip-shell stop` : Kill any running geoip-shell processes, remove geoip-shell firewall rules and unload ip sets
+`geoip-shell stop` : Kill any running geoip-shell processes, remove geoip-shell firewall rules and unload IP sets
 
 `geoip-shell status`
 * Displays information on the current state of geoip blocking
-* For a list of all firewall rules in the geoip chain and for detailed count of ip ranges, run `geoip-shell status -v`.
+* For a list of all firewall rules in the geoip chain and for detailed count of IP ranges, run `geoip-shell status -v`.
 
-`geoip-shell restore` : re-fetches and re-applies geoip firewall rules and ip lists as per the config.
+`geoip-shell restore` : re-fetches and re-applies geoip firewall rules and IP lists as per the config.
 
 `geoip-shell showconfig` : prints the contents of the config file.
 
@@ -122,21 +122,21 @@ These options apply to geoblocking in both directions.
 
 `-f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-`-u [ripe|ipdeny|maxmind]`: Change ip lists source.
+`-u [ripe|ipdeny|maxmind]`: Change IP lists source.
 
 `-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no dedicated WAN network interfaces. The automatic detection occurs only when manually triggered by the user via this command.
 
-`-l <"[lan_ips]"|auto|none>`: Specify LAN ip's or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the ip lists. When specifying custom ip's or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
+`-l <"[lan_ips]"|auto|none>`: Specify LAN IPs or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the IP lists. When specifying custom IPs or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
 
-`-t <"[trusted_ips]|none">`: Specify trusted ip's or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+`-t <"[trusted_ips]|none">`: Specify trusted IPs or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
-`-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic ip list updates when outbound geoblocking is enabled. Use `auto` to detect server ip addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching ip list updates.
-Or specify ip addresses for ip lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
-Or use `none` to remove previously assigned server ip addresses and disable this feature.
+`-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic IP list updates when outbound geoblocking is enabled. Use `auto` to detect server IP addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching IP list updates.
+Or specify IP addresses for IP lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
+Or use `none` to remove previously assigned server IP addresses and disable this feature.
 
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 
-`-s <"schedule_expression"|disable>` : Enables automatic ip lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic ip lists updates.
+`-s <"schedule_expression"|disable>` : Enables automatic IP lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic IP lists updates.
 
 `-a <path>` : Set custom path to directory where backups and the status file will be stored. Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
 
@@ -144,7 +144,7 @@ Or use `none` to remove previously assigned server ip addresses and disable this
 
 `-O <memory|performance>`: Specify optimization policy for nftables sets. By default optimizes for low memory consumption if system RAM is less than 2GiB, otherwise optimizes for performance. This option doesn't work with iptables.
 
-`-o <true|false>` : No backup. If set to 'true', geoip-shell will not create backup of ip lists after applying changes, and will automatically re-fetch ip lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
+`-o <true|false>` : No backup. If set to 'true', geoip-shell will not create backup of IP lists after applying changes, and will automatically re-fetch IP lists after each reboot. Default is 'true' for OpenWrt, 'false' for all other systems.
 
 `-n <true|false>`: No-persistence. When set to `true`, geoip-shell will remove the persistence cron job and will avoid recreating it when processing cron jobs in the future. On OpenWrt, this will disable the init script and remove the firewall include. Default is `false`.
 
@@ -188,45 +188,45 @@ Options:
 Options:
 - `-r`: prepares the system for re-installation of geoip-shell: does the same as normal uninstall but keeps the data and the config from previous installation
 
-**geoip-shell-run.sh**: Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action. Requested actions are executed depending on the config and the command line options. Writes to system log when starting and on action completion (or if any errors encountered). If persistence or automatic updates are enabled, this script is called by the cron jobs (or on OpenWrt, by the firewall include script). If a non-fatal error is encountered, the script has the facility to enter sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action (which runs after system reboot to impelement persistnece), such as missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the ip lists.
+**geoip-shell-run.sh**: Coordinates and calls the -fetch, -apply and -backup scripts to perform requested action. Requested actions are executed depending on the config and the command line options. Writes to system log when starting and on action completion (or if any errors encountered). If persistence or automatic updates are enabled, this script is called by the cron jobs (or on OpenWrt, by the firewall include script). If a non-fatal error is encountered, the script has the facility to enter sort of a temporary daemon mode where it will re-try the action (up to a certain number of retries) with increasing time intervals. It also implements some logic to account for unexpected issues encountered during the 'restore' action (which runs after system reboot to impelement persistnece), such as missing backup, and in this situation will automatically change its action from 'restore' to 'update' and try to re-fetch and re-apply the IP lists.
 
 Actions: `add`, `update`, `restore`.
 
-`geoip-shell-run.sh add -l <"list_id [list_id] ... [list_id]">` : Fetches ip lists, loads them into ip sets and applies firewall rules for specified list id's.
-List id has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list id's.
+`geoip-shell-run.sh add -l <"list_id [list_id] ... [list_id]">` : Fetches IP lists, loads them into IP sets and applies firewall rules for specified list IDs.
+List ID has the format of `<country_code>_<family>`. For example, **US_ipv4** and **GB_ipv6** are valid list IDs.
 
-`geoip-shell-run.sh update` : Updates the ip sets for list id's that had been previously configured. Intended for triggering from periodic cron jobs.
+`geoip-shell-run.sh update` : Updates the IP sets for list IDs that had been previously configured. Intended for triggering from periodic cron jobs.
 
-`geoip-shell-run.sh restore` : Restore previously downloaded lists from backup. Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence. If restore from backup fails, automatically changes the action to `update`, fetches the ip lists and tries to apply them.
+`geoip-shell-run.sh restore` : Restore previously downloaded lists from backup. Used by the reboot cron job (or by the firewall include on OpenWrt) to implement persistence. If restore from backup fails, automatically changes the action to `update`, fetches the IP lists and tries to apply them.
 
-`geoip-shell-run.sh <restore|update> -a` : Adding the `-a` option when calling the `-run` script with the `restore` and `update` actions enables the temporary daemon-like behavior where the script will try to re-fetch and re-apply ip lists if initial attempt fails.
+`geoip-shell-run.sh <restore|update> -a` : Adding the `-a` option when calling the `-run` script with the `restore` and `update` actions enables the temporary daemon-like behavior where the script will try to re-fetch and re-apply IP lists if initial attempt fails.
 
 
 **geoip-shell-fetch.sh**
-- Fetches ip lists for given list id's from RIPE or from ipdeny or from MaxMind.
+- Fetches IP lists for given list IDs from RIPE or from ipdeny or from MaxMind.
 - Parses, validates, compiles the downloaded lists, and saves each one to a separate file.
 - Implements extensive sanity checks at each stage (fetching, parsing, validating and saving) and handles errors if they occur.
 
 Options:
 
-`-l <"list_ids">` : ip list id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)
+`-l <"list_ids">` : IP list IDs in the format <country_code>_<family> (if specifying multiple list IDs, use double quotes)
 
-`-p <path>` : Path to directory where downloaded and compiled ip lists will be stored.
+`-p <path>` : Path to directory where downloaded and compiled IP lists will be stored.
 
 `-o <output_file>` : Path to output file where fetched list will be stored.
 
 `-s <path>`        : Path to a file to register fetch results in.
 
-`-u <ripe|ipdeny|maxmind>` : Use this ip list source for download. Supported sources: ripe, ipdeny, maxmind.
+`-u <ripe|ipdeny|maxmind>` : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
 
 Extra options:
 
-`-r` : Raw mode (outputs newline-delimited ip lists rather than nftables-ready ones).
+`-r` : Raw mode (outputs newline-delimited IP lists rather than nftables-ready ones).
 
 `-f` : Force using fetched lists even if list timestamp didn't change compared to existing list.
 
 
-**geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes ip sets and firewall rules for specified list id's. Sources the lib-ipt or lib-nft library script.
+**geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes IP sets and firewall rules for specified list IDs. Sources the lib-ipt or lib-nft library script.
 
 Actions: `add`, `update`, `restore`, `on`, `off`
 
@@ -241,17 +241,17 @@ Actions: `add`, `update`, `restore`, `on`, `off`
 
 **geoip-shell-cronsetup.sh** manages cron-related logic and actions. Called by the -manage script. Cron jobs are created based on the settings stored in the config file. When called with the `-x <expression>` option, validates cron schedule specified by the user.
 
-**geoip-shell-backup.sh**: Creates backup of current geoip-shell ip sets and current geoip-shell config, or restores them from backup. By default (except on OpenWrt or if you configured geoip-shell with the '-o' option), backup will be created after every change to ip sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order: `bzip2`, `xz`, `gzip`, or `cat` as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-ipt or the lib-nft library script.
+**geoip-shell-backup.sh**: Creates backup of current geoip-shell IP sets and current geoip-shell config, or restores them from backup. By default (except on OpenWrt or if you configured geoip-shell with the '-o' option), backup will be created after every change to IP sets in the firewall. Backups are automatically compressed and de-compressed with the best utility available to the system, in this order: `bzip2`, `xz`, `gzip`, or `cat` as a fallback if neither is available (which generally should never happen on Linux). Only one backup copy is kept. Sources the lib-ipt or the lib-nft library script.
 
-`geoip-shell-backup.sh create-backup` : Creates backup of geoip-shell ip sets and config.
+`geoip-shell-backup.sh create-backup` : Creates backup of geoip-shell IP sets and config.
 
 `geoip-shell-backup.sh restore` : Restores geoip-shell state and config from backup. Used by the `-run` script to implement persistence, and under some conditions by the `-manage` script. If run with the option `-n`, does not restore the config and the status files.
 
 ## **Optional script**
-**check-ip-in-source.sh** can be used to verify that a certain ip address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
+**check-ip-in-source.sh** can be used to verify that a certain IP address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
 
-`sh check-ip-in-source.sh -c <country_code> -i <"ip [ip] [ip] ... [ip]"> [-u <source>]`
+`sh check-ip-in-source.sh -c <country_code> -i <"IP [IP] [IP] ... [IP]"> [-u <source>]`
 
 - Supported sources are `ripe`, `ipdeny` and `maxmind`.
 - Any combination of ipv4 and ipv6 addresses is supported.
-- If passing multiple ip addresses, use double quotes around them.
+- If passing multiple IP addresses, use double quotes around them.

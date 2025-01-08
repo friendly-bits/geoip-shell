@@ -21,7 +21,7 @@ usage() {
 cat <<EOF
 
 Usage: $me <action> [-s] [-d] [-V] [-h]
-Switches geolocking on/off, creates or modifies ipsets and firewall rules for configured ip lists.
+Switches geolocking on/off, creates or modifies ipsets and firewall rules for configured IP lists.
 
 Actions:
   on|off  :  Enable or disable the geoblocking chain (via a rule in the base chain)
@@ -93,7 +93,7 @@ get_ipset_id() {
 	list_id="${i%_*}_${ipset_family}"
 	case "$ipset_family" in
 		ipv4|ipv6) ;;
-		*) echolog -err "ip set name '$1' has unexpected format."
+		*) echolog -err "IP set name '$1' has unexpected format."
 			unset ipset_family list_id
 			return 1
 	esac
@@ -107,7 +107,7 @@ get_ipset_name() {
 	eval "list_date=\"\$prev_date_${list_id}\""
 	case "$1" in *"_dhcp"*|*"_allow"*) ;; *)
 		[ "$list_date" ] || {
-				echolog -err "The status file '$status_file' contains no information for list id '${list_id}'."
+				echolog -err "The status file '$status_file' contains no information for list ID '${list_id}'."
 				return 1
 		}
 		date_suffix="_${list_date}"
@@ -189,7 +189,7 @@ esac
 
 [ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || die "$FAIL source ${_lib}-ip-tools.sh"
 
-### compile allowlist ip's and write to file
+### compile allowlist IPs and write to file
 for family in $families; do
 	debugprint "Compiling the allowlist for $family..."
 	unset lan_autodetected all_allow_ips_prev allow_iplist_file_prev
@@ -209,7 +209,7 @@ for family in $families; do
 
 		rm -f "$allow_iplist_file"
 
-		## load source ip's
+		## load source IPs
 		[ "$direction" = outbound ] && {
 			eval "source_ips=\"\${source_ips_$family}\""
 
@@ -230,7 +230,7 @@ for family in $families; do
 			eval "allow_ipset_type_${direction}_${family}=net"
 			allow_ipset_type=net
 
-			## load or detect lan ip's
+			## load or detect lan IPs
 			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
 				lan_ips="$(get_lan_subnets "$family")" || die
 				lan_autodetected=1
@@ -280,7 +280,7 @@ for family in $families; do
 			all_allow_ips_prev="$all_allow_ips"
 			allow_iplist_file_prev="$allow_iplist_file"
 
-			# aggregate allowed ip's/subnets
+			# aggregate allowed IPs/subnets
 			res_subnets=
 			if [ "$_fw_backend" = ipt ] && [ $cat_cnt -ge 2 ] && [ "$allow_ipset_type" = net ] &&
 				res_subnets="$(printf %s "$all_allow_ips" | aggregate_subnets "$family")" && [ "$res_subnets" ]
@@ -292,10 +292,10 @@ for family in $families; do
 
 			[ "$res_subnets" ] && {
 				printf '%s\n' "$res_subnets" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
-				debugprint "allow ip's:${_nl}'$res_subnets'"
+				debugprint "allow IPs:${_nl}'$res_subnets'"
 			}
 		else
-			# if allow ip's are identical for inbound and outbound, use same ipset for both
+			# if allow IPs are identical for inbound and outbound, use same ipset for both
 			allow_ipset_name="allow_${family#ipv}"
 			allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
 			for dir in inbound outbound; do
@@ -327,7 +327,7 @@ for direction in inbound outbound; do
 		list_ids=\"\$${direction}_list_ids\"
 		geomode=\"\$${direction}_geomode\""
 
-	debugprint "$direction list id's: '$list_ids'"
+	debugprint "$direction list IDs: '$list_ids'"
 
 	unset "planned_ipsets_$direction"
 
@@ -338,7 +338,7 @@ for direction in inbound outbound; do
 
 	# process list_ids
 	for list_id in $list_ids; do
-		case "$list_id" in [A-Z][A-Z]_ipv[46]) ;; *) die "Invalid iplist id '$list_id'."; esac
+		case "$list_id" in [A-Z][A-Z]_ipv[46]) ;; *) die "Invalid iplist ID '$list_id'."; esac
 
 		# set list_id-specific vars
 		family="${list_id#*_}"
@@ -349,7 +349,7 @@ for direction in inbound outbound; do
 
 		case "$curr_ipsets_sp" in
 			# check for ipset with same list_id and date
-			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "Ip set for '$list_id' is already up-to-date." ;;
+			*"$ipset"*) [ "$action" = update ] && printf '%s\n' "IP set for '$list_id' is already up-to-date." ;;
 			# check for ipset with different date
 			*"$list_id_short"*)
 				get_matching_line "$curr_ipsets" "*" "$list_id_short" "*" old_ipset

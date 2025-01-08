@@ -162,7 +162,7 @@ check_cron() {
 # if cron service is not running, implements dialog with the user and optional automatic correction
 check_cron_compat() {
 	[ "$schedule" = disable ] && [ "$no_persist" = true ] && return 0
-	cr_p2="persistence and " cr_p3="automatic ip list updates"
+	cr_p2="persistence and " cr_p3="automatic IP list updates"
 	i=0
 	while [ $i -le 1 ]; do
 		i=$((i+1))

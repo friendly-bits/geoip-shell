@@ -125,7 +125,7 @@ report_lists() {
 			verified_lists="${red}None${n_c}"
 		fi
 		[ ! "$lists_reported" ] && printf '\n'
-		printf '%s\n' "Final ip lists in $direction $geomode: '$verified_lists'."
+		printf '%s\n' "Final IP lists in $direction $geomode: '$verified_lists'."
 		lists_reported=1
 	done
 }
@@ -804,7 +804,7 @@ ignore_allow() {
 }
 
 # checks current ipsets and firewall rules for geoip-shell
-# returns a whitespace-delimited list of active ip lists
+# returns a whitespace-delimited list of active IP lists
 # (optional: 1 - '-f' to force re-read of the table - nft-specific)
 # 1 - var name for output
 # 2 - direction (inbound|outbound)
@@ -866,7 +866,7 @@ check_lists_coherence() {
 		esac
 	done
 
-	debugprint "Verifying ip lists coherence..."
+	debugprint "Verifying IP lists coherence..."
 
 	[ -z "$no_reload_conf" ] && {
 		main_config=
@@ -899,8 +899,8 @@ check_lists_coherence() {
 			iplists_incoherent=1
 			eval "active_lists=\"\$${direction}_active_lists\""
 			report_incoherence "$direction"
-			debugprint "$direction $geomode expected ip lists: '$exp_iplists'"
-			debugprint "Firewall ip lists: '$active_lists'"
+			debugprint "$direction $geomode expected IP lists: '$exp_iplists'"
+			debugprint "Firewall IP lists: '$active_lists'"
 			debugprint "ipsets: $ipset_iplists_sp"
 		}
 	done
@@ -917,7 +917,7 @@ check_lists_coherence() {
 
 	r_no_l
 	[ "$iplists_incoherent" ] && return 1
-	debugprint "Successfully verified ip lists coherence."
+	debugprint "Successfully verified IP lists coherence."
 	:
 }
 
@@ -926,8 +926,8 @@ report_incoherence() {
 	[ "$1" ] || die "report_incoherence: direction not specified"
 	echolog -warn "${_nl}Discrepancy detected between $1 geoblocking state and the config file."
 	for opt_ri in unexpected missing; do
-		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri ip lists in the firewall: '\$${opt_ri}_lists'\""
-		eval "[ \"\$${opt_ri}_ipsets\" ] && echolog -warn \"$opt_ri ip sets in the firewall: '\$${opt_ri}_ipsets'\""
+		eval "[ \"\$${opt_ri}_lists\" ] && echolog -warn \"$opt_ri IP lists in the firewall: '\$${opt_ri}_lists'\""
+		eval "[ \"\$${opt_ri}_ipsets\" ] && echolog -warn \"$opt_ri IP sets in the firewall: '\$${opt_ri}_ipsets'\""
 	done
 }
 
@@ -1017,7 +1017,7 @@ resolve_domain_ips() {
 	elif checkutil ping; then
 		ns_cmd=res_ping
 	else
-		echolog -err "No available supported utility to resolve domain names to ip's. Supported utilities: host, nslookup, dig, ping."
+		echolog -err "No available supported utility to resolve domain names to IPs. Supported utilities: host, nslookup, dig, ping."
 		return 1
 	fi
 
@@ -1029,7 +1029,7 @@ resolve_domain_ips() {
 	)"
 
 	rdi_ips_cnt="$(printf %s "$dom_ips" | wc -w)"
-	[ "$debugmode" ] && debugprint "${ns_cmd#res_} resolved $rdi_ips_cnt $1 ip's for domains '$(printf %s "$2" | tr '\n' ' ')': $(printf %s "$dom_ips" | tr '\n' ' ')"
+	[ "$debugmode" ] && debugprint "${ns_cmd#res_} resolved $rdi_ips_cnt $1 IPs for domains '$(printf %s "$2" | tr '\n' ' ')': $(printf %s "$dom_ips" | tr '\n' ' ')"
 	[ "$rdi_ips_cnt" -ge "$req_ips_cnt" ] || { FAIL >&2; return 1; }
 	OK >&2
 	printf '%s\n' "$dom_ips"
@@ -1094,7 +1094,7 @@ setup_maxmind() {
 	:
 }
 
-# 1 - input ip's/subnets
+# 1 - input IPs/subnets
 # 2 - output via return code (0: all valid; 1: 1 or more invalid)
 # if a subnet detected in ips of a particular family, sets ipset_type to 'net', otherwise to 'ip'
 # expects the $family var to be set
@@ -1121,7 +1121,7 @@ validate_ip() {
 		esac
 
 		ip route get "$i_ip" 1>/dev/null 2>/dev/null
-		case $? in 0|2) ;; *) echolog -err "ip address '$i_ip' failed kernel validation."; oldifs; return 1; esac
+		case $? in 0|2) ;; *) echolog -err "IP address '$i_ip' failed kernel validation."; oldifs; return 1; esac
 		o_ips="$o_ips$i_ip$_nl"
 	done
 	oldifs
@@ -1170,10 +1170,10 @@ sp16="$sp8$sp8"
 srcs_syn="<ripe|ipdeny|maxmind>"
 direction_syn="<inbound|outbound>"
 direction_usage="direction (inbound|outbound). Only valid for actions add|remove and in combination with the '-l' option."
-list_ids_usage="iplist id's in the format <country_code>_<family> (if specifying multiple list id's, use double quotes)"
+list_ids_usage="iplist IDs in the format <country_code>_<family> (if specifying multiple list IDs, use double quotes)"
 nointeract_usage="Non-interactive setup. Will not ask any questions."
 
-# ip regex
+# IP regex
 export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])' \
 	ipv6_regex='([0-9a-f]{0,4})(:[0-9a-f]{0,4}){2,7}' \
 	maskbits_regex_ipv4='(3[0-2]|([1-2][0-9])|[6-9])' \

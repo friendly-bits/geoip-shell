@@ -151,7 +151,7 @@ sed -n '/\*\*P\.s\./q;
 	/once the installation completes/n;
 	/require root privileges/n;
 	/shell is incompatible/n;
-	/Default source for ip lists is RIPE/n;
+	/Default source for IP lists is RIPE/n;
 	/check-ip-in-source.sh/n;
 	/if a pre-requisite is missing/n;
 	/- \[Installation\](#installation)/n;

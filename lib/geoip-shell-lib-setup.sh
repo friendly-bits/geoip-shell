@@ -181,16 +181,16 @@ pick_ifaces() {
 	ifaces_picked=1
 }
 
-# 1 - input ip's/subnets
+# 1 - input IPs/subnets
 # 2 - output var base name
-# outputs whitespace-delimited validated ip's via $2_$family
+# outputs whitespace-delimited validated IPs via $2_$family
 # if a subnet detected in ips of a particular family, output is prefixed with 'net:', otherwise with 'ip:'
 # expects the $families var to be set
 validate_arg_ips() {
 	va_ips_a=
 	sp2nl va_ips_i "$1"
 	san_str -n va_ips_i
-	[ ! "$va_ips_i" ] && { echolog -err "No ip's detected in '$1'."; return 1; }
+	[ ! "$va_ips_i" ] && { echolog -err "No IPs detected in '$1'."; return 1; }
 	for f in $families; do
 		unset "va_$f" ipset_type
 		eval "ip_regex=\"\$${f}_regex\" mb_regex=\"\$maskbits_regex_$f\""
@@ -202,7 +202,7 @@ validate_arg_ips() {
 		va_ips_a="$va_ips_a$va_ips_f$_nl"
 	done
 	subtract_a_from_b "$va_ips_a" "$va_ips_i" bad_ips "$_nl" ||
-		{ nl2sp bad_ips; echolog -err "Invalid ip's for families '$families': '$bad_ips'"; return 1; }
+		{ nl2sp bad_ips; echolog -err "Invalid IPs for families '$families': '$bad_ips'"; return 1; }
 
 	for f in $families; do
 		eval "${2}_$f=\"\$va_$f\""
@@ -226,7 +226,7 @@ pick_ips() {
 			a|A) die 253
 		esac
 		case "$REPLY" in *[!A-Za-z0-9.:/\ ]*)
-			printf '%s\n' "Invalid ip adresses: '$REPLY'"
+			printf '%s\n' "Invalid IP adresses: '$REPLY'"
 			continue
 		esac
 		san_str pi_ips "$REPLY"
@@ -252,10 +252,10 @@ pick_lan_ips() {
 
 	[ "$lan_ips_arg" ] && validate_arg_ips "$lan_ips_arg" lan_ips && return 0
 
-	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan ip's with '-l <\"lan_ips\"|auto|none>'."
+	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan IPs with '-l <\"lan_ips\"|auto|none>'."
 
 	[ ! "$nointeract" ] && {
-		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual ip's to allow."
+		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual IPs to allow."
 	}
 
 	[ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || echolog -err "$FAIL source ${_lib}-ip-tools.sh"
@@ -285,13 +285,13 @@ pick_lan_ips() {
 			esac
 		}
 
-		pick_ips lan_ips "$family" "LAN ip addresses and/or subnets" || continue
+		pick_ips lan_ips "$family" "LAN IP addresses and/or subnets" || continue
 		confirm_ips
 	done
 	echo
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '%s\n' "${blue}A[u]tomatically detect LAN subnets when updating ip lists or keep this config c[o]nstant?$n_c"
+	printf '%s\n' "${blue}A[u]tomatically detect LAN subnets when updating IP lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
 	[ "$REPLY" = u ] && autodetect=1
 }
@@ -318,10 +318,10 @@ pick_source_ips() {
 
 	if [ ! "$source_ips_autodetect" ]; then
 		[ "$nointeract" ] && return 0
-		printf '\n%s\n%s\n%s\n%s\n' "$WARN outbound geoblocking may prevent $p_name from being able to automatically update ip lists." \
-			"To safeguard automatic ip list updates, either choose ip addresses of the download servers to bypass outbound geoblocking," \
-			"  or enable pausing of outbound geoblocking before each ip lists update." \
-			"[C]hoose ip addresses, [p]ause outbound geoblocking every time before ip list updates, [s]kip or [a]bort?"
+		printf '\n%s\n%s\n%s\n%s\n' "$WARN outbound geoblocking may prevent $p_name from being able to automatically update IP lists." \
+			"To safeguard automatic IP list updates, either choose IP addresses of the download servers to bypass outbound geoblocking," \
+			"  or enable pausing of outbound geoblocking before each IP lists update." \
+			"[C]hoose IP addresses, [p]ause outbound geoblocking every time before IP list updates, [s]kip or [a]bort?"
 		pick_opt "c|p|s|a"
 		case "$REPLY" in
 			c) source_ips_policy= ;;
@@ -594,7 +594,7 @@ get_general_prefs() {
 		setup_maxmind || die 253
 	fi
 
-	# process trusted ip's if specified
+	# process trusted IPs if specified
 	case "$trusted_arg" in
 		none) unset trusted_ipv4 trusted_ipv6 ;;
 		'') ;;
@@ -603,7 +603,7 @@ get_general_prefs() {
 			[ "$nointeract" ] && die
 			for family in $families; do
 				ipset_type=net
-				pick_ips trusted "$family" "trusted ip addresses or subnets" || continue
+				pick_ips trusted "$family" "trusted IP addresses or subnets" || continue
 				unset "trusted_$family"
 				[ "$trusted" ] && eval "trusted_$family=\"$ipset_type:$trusted\""
 			done
