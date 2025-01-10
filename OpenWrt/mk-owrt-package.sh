@@ -90,6 +90,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 unset build_from_remote troubleshoot upload pkg_paths extra_args
 
 #### PARSE ARGUMENTS
+_OWRTFW=
 while getopts ":p:v:f:rudt" opt; do
 	case $opt in
 		p) pkg_types=$OPTARG ;;
