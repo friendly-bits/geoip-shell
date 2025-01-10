@@ -26,8 +26,10 @@ die() {
 	case "$1" in
 		'') ;;
 		3|4|all) _OWRTFW="$1" ;;
+		"3 4"|"4 3") _OWRTFW=all ;;
 		*) die "Invalid openwrt firewall version '$1'. Expected '3' or '4' or 'all'."
 	esac
+case "$_OWRTFW" in "3 4"|"4 3") _OWRTFW=all; esac
 : "${_OWRTFW:=all}"
 
 ### Variables
