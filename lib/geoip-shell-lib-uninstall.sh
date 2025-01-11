@@ -28,27 +28,29 @@ kill_geo_pids() {
 		_killed=1
 	}
 
+	get_parent_pid() {
+		unset skipped prev_str
+		tr ' ' '\n' 2>/dev/null < "/proc/$1/stat" |
+		while IFS='' read -r str; do
+			case "$prev_str" in
+				*')'*) ;;
+				*) prev_str="$str"; continue
+			esac
+			[ ! "$skipped" ] && { skipped=1; continue; }
+			case "$str" in
+				*[!0-9]*) continue ;;
+				*) printf %s "$str"; break
+			esac
+		done
+	}
+
 	get_parents_pids() {
 		parent_pids="${$}|"
 		last_pid="${$}"
 		i_gpp=0
 		while [ $i_gpp -le 24 ]; do
 			i_gpp=$((i_gpp+1))
-			SPPID="$(
-				skipped='' prev_str=''
-				tr ' ' '\n' 2>/dev/null < "/proc/$last_pid/stat" | \
-				while IFS='' read -r str; do
-					case "$prev_str" in
-						*')'*) ;;
-						*) prev_str="$str"; continue
-					esac
-					[ ! "$skipped" ] && { skipped=1; continue; }
-					case "$str" in
-						*[!0-9]*) continue ;;
-						*) printf %s "$str"; break
-					esac
-				done
-			)"
+			SPPID="$(get_parent_pid "$last_pid")"
 			[ ! "$SPPID" ] && break
 			last_pid="$SPPID"
 			parent_pids="${parent_pids}${SPPID}|"
