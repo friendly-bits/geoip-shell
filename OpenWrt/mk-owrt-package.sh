@@ -23,7 +23,7 @@
 
 # 5) run: 'git checkout master' to build apk packages, or git 'checkout openwrt-23.05' to build ipk packages
 # 6) update feeds:
-# run: ./scripts/feeds update -a; ./scripts/feeds install -a
+# run: ./scripts/feeds update -a && ./scripts/feeds install -a
 # 7) run: make menuconfig
 # 8) select Target system --> [X] x86
 #     (probably this doesn't matter but it may? build faster if you select the same architecture as your CPU)
