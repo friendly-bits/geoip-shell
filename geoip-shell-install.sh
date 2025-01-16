@@ -228,7 +228,13 @@ pick_shell() {
 	pick_opt "y|n|a"
 	case "$REPLY" in
 		a) exit 0 ;;
-		y) newifs "$delim"; set -- $_args; unset curr_sh_g; eval "$recomm_sh \"$script_dir/$p_name-install.sh\" $*"; exit ;;
+		y)
+			newifs "$delim" psh
+			set -- $_args
+			unset curr_sh_g
+			oldifs psh
+			eval "$recomm_sh \"$script_dir/$p_name-install.sh\" $*"
+			exit ;;
 		n) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
