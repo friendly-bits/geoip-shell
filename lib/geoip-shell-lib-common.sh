@@ -1191,12 +1191,13 @@ blanks="${blank}${blank}*"
 export _nl='
 '
 export default_IFS="	 $_nl"
+export IFS="$default_IFS"
 
 set -f
 
 [ -z "$geotag" ] && {
 	set_ansi
-	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to" IFS="$default_IFS"
+	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
 
 	if checkutil gawk; then
 		awk_cmd="gawk"
