@@ -6,29 +6,101 @@ Installation is possible either via the -install script (as described in the mai
 
 geoip-shell packages come in 2 flavors: _geoip-shell_ (for firewall4+nftables OpenWrt systems) and _geoip-shell-iptables_ (for firewall3+iptables OpenWrt systems).
 
-  _<details><summary>To download the latest ipk package via the command line (using curl):</summary>_
+## Download the latest OpenWrt package via the command line
+Select the appropriate option below, copy the code and paste in your terminal, then press Enter.
 
-  - For firewall4 + nftables:
+<details><summary>IPK for firewall4 + nftables (download with uclient-fetch):</summary>
 
-   `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell_.*\.ipk')"`
-
-  - For firewall3 + iptables:
-
-   `curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://github.com/friendly-bits/geoip-shell/releases/.*geoip-shell-iptables_.*\.ipk')"`
+```
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"
+filename="${link##*/}"
+if [ -n "$filename" ]; then
+	uclient-fetch -O "$filename" "$link" &&
+	echo "File saved as '$filename'."
+else
+	echo "Fetch failed. Please download geoip-shell manually."
+fi
+```
 </details>
 
-A LuCi interface has not been implemented (yet). As on any other Linux system, all user interface is provided via the command line (but my goal is to make this an easy experience). Contributions are welcome, and if you are interested in implementing a LuCi interface for geoip-shell, please get in touch.
+<details><summary>IPK for firewall4 + nftables (download with curl):</summary>
+
+```
+curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"
+```
+</details>
+
+<details><summary>IPK for firewall3 + iptables (download with uclient-fetch):</summary>
+
+```
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"
+filename="${link##*/}"
+if [ -n "$filename" ]; then
+	uclient-fetch -O "$filename" "$link" &&
+	echo "File saved as '$filename'."
+else
+	echo "Fetch failed. Please download geoip-shell manually."
+fi
+```
+</details>
+
+<details><summary>IPK for firewall3 + iptables (download with curl):</summary>
+
+```
+curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"
+```
+</details>
+
+<details><summary>APK package - for OpenWrt snapshots (download with uclient-fetch):</summary>
+
+```
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"
+filename="${link##*/}"
+if [ -n "$filename" ]; then
+	uclient-fetch -O "$filename" "$link"
+else
+	echo "Fetch failed. Please download geoip-shell manually."
+fi
+```
+
+</details>
+
+<details><summary>APK package - for OpenWrt snapshots (download with curl):</summary>
+
+```
+curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"
+```
+</details>
+
+## Install the package
+<details><summary>IPK packages</summary>
+
+```
+opkg install <file_name>
+```
+</details>
+
+<details><summary>APK packages</summary>
+
+```
+apk --allow-untrusted add <file_name>
+```
+The `allow-untrusted` option is required because this package doesn't come from the official OpenWrt repository.
+</details>
+
+## LuCi interface
+A LuCi interface has not been implemented (yet). As on any other Linux system, all geoip-shell user interface is provided via the command line (but my goal is to make this an easy experience). Contributions are welcome, and if you are interested in implementing a LuCi interface for geoip-shell, please get in touch.
 
 ## Usage after installation via a package
 After installing the package, geoip-shell will be inactive until you configure it. To do so, run `geoip-shell configure` and follow the interactive setup. You can also run `geoip-shell -h` before that to find out about configuration options and then append certain options after the `configure` action, for example: `geoip-shell configure -c "de nl" -m whitelist` to configure geoip-shell in whitelist mode for countries Germany and Netherlands. The interactive setup will ask you about all the important options but some options are only available non-interactively (for example outbound geoblocking, or configuring geoblocking for certain selection of ports). You can always change these settings after initial configuration via the same `geoip-shell configure` command. Make sure to read the main [README.md](/README.md) for more information and examples.
 
-## Uninstallation of geoip-shell if installed via ipk
-- For nftables-based systems: `opkg remove geoip-shell`
+## Uninstallation of geoip-shell if installed via ipk or apk
+- For nftables-based systems: `opkg remove geoip-shell` (or `apk del geoip-shell` for current snapshots)
 - For iptables-based systems: `opkg remove geoip-shell-iptables`
 
 ## Resources management on OpenWrt
 Because OpenWrt typically runs on embedded devices with limited memory and very small flash storage, geoip-shell implements some techniques to conserve these resources as much as possible:
-- During installation on OpenWrt via the install script, comments and the debug code are stripped from the scripts to reduce their size. The ipk packages already come with comments and debug removed.
+- During installation on OpenWrt via the install script, comments and the debug code are stripped from the scripts to reduce their size. The packages already come with comments and debug removed.
 - Only the required modules are installed, depending on the system (iptables- or nftables- based).
 - I've researched the most memory-efficient way for loading IP lists into nftables sets. Currently, nftables has some bugs related to this process which may cause unnecessarily high memory consumption. geoip-shell works around these bugs as much as possible.
 - To avoid unnecessary flash storage wear, all filesystem-related tasks geoip-shell does which do not require permanent storage are done in the /tmp directory which in the typical OpenWrt installation is mounted on the ramdisk. Besides the scripts, by default geoip-shell only stores a tiny config file in permanent storage and that config file gets overwritten only when you change the config.

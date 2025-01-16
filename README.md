@@ -206,7 +206,7 @@ _<details><summary>Example</summary>_
 
 **To uninstall:** `geoip-shell-uninstall.sh`
 
-On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`
+On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`. For apk package: `apk del geoip-shell`.
 
 _<details><summary>Examples of using the `configure` command:</summary>_
 
