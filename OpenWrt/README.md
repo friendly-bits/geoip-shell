@@ -7,60 +7,48 @@ Installation is possible either via the -install script (as described in the mai
 geoip-shell packages come in 2 flavors: _geoip-shell_ (for firewall4+nftables OpenWrt systems) and _geoip-shell-iptables_ (for firewall3+iptables OpenWrt systems).
 
 ## Download the latest OpenWrt package via the command line
-Select the appropriate option below, copy the code and paste in your terminal, then press Enter.
+First, connect to you device [via SSH](https://openwrt.org/docs/guide-quick-start/sshadministration).
+
+Next, select the appropriate option below, copy the code and paste in your terminal, then press Enter. The package will be downloaded to `/tmp/`.
 
 <details><summary>IPK for firewall4 + nftables (download with uclient-fetch):</summary>
 
 ```
-link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"
-filename="${link##*/}"
-if [ -n "$filename" ]; then
-	uclient-fetch -O "$filename" "$link" &&
-	echo "File saved as '$filename'."
-else
-	echo "Fetch failed. Please download geoip-shell manually."
-fi
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"; \
+filename="${link##*/}"; \
+if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then echo "File saved as '$filename'."; else echo "Fetch failed. Please download geoip-shell manually."; fi
 ```
 </details>
 
 <details><summary>IPK for firewall4 + nftables (download with curl):</summary>
 
 ```
-curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"
+cd /tmp/ && curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"
 ```
 </details>
 
 <details><summary>IPK for firewall3 + iptables (download with uclient-fetch):</summary>
 
 ```
-link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"
-filename="${link##*/}"
-if [ -n "$filename" ]; then
-	uclient-fetch -O "$filename" "$link" &&
-	echo "File saved as '$filename'."
-else
-	echo "Fetch failed. Please download geoip-shell manually."
-fi
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"; \
+filename="${link##*/}"; \
+if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then echo "File saved as '$filename'."; else echo "Fetch failed. Please download geoip-shell manually."; fi
 ```
 </details>
 
 <details><summary>IPK for firewall3 + iptables (download with curl):</summary>
 
 ```
-curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"
+cd /tmp/ && curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"
 ```
 </details>
 
 <details><summary>APK package - for OpenWrt snapshots (download with uclient-fetch):</summary>
 
 ```
-link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"
-filename="${link##*/}"
-if [ -n "$filename" ]; then
-	uclient-fetch -O "$filename" "$link"
-else
-	echo "Fetch failed. Please download geoip-shell manually."
-fi
+link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"; \
+filename="${link##*/}"; \
+if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then echo "File saved as '$filename'."; else echo "Fetch failed. Please download geoip-shell manually."; fi
 ```
 
 </details>
@@ -68,7 +56,7 @@ fi
 <details><summary>APK package - for OpenWrt snapshots (download with curl):</summary>
 
 ```
-curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"
+cd /tmp/ && curl -LO "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"
 ```
 </details>
 
