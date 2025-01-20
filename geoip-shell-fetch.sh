@@ -263,7 +263,7 @@ parse_maxmind_db() {
 	in_file="$1" out_file="$2" ccode_parse="$3"
 
 	gunzip -fc "$in_file" |
-		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p}" > "$out_file" &&
+		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p;}" > "$out_file" &&
 		[ -s "$out_file" ] &&
 			return 0
 	return 1
