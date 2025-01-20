@@ -122,8 +122,8 @@ get_src_dates_ipdeny() {
 
 		server_html_file="${tmp_file_path}_dl_page_${family}.tmp"
 		server_plaintext_file="${tmp_file_path}_plaintext_${family}.tmp"
-		# debugprint "timestamp fetch command: '$fetch_cmd \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
+		# debugprint "timestamp fetch command: '$fetch_cmd_date \"${http}://${server_url}\" > \"$server_html_file\""
+		$fetch_cmd_date "${http}://$server_url" > "$server_html_file"
 
 		debugprint "Processing $family listing on the IPDENY server..."
 
@@ -163,8 +163,8 @@ get_src_dates_ripe() {
 
 		debugprint "getting listing from url '$server_url'..."
 
-		# debugprint "timestamp fetch command: '$fetch_cmd_q \"${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_q "${http}://$server_url" > "$server_html_file"
+		# debugprint "timestamp fetch command: '$fetch_cmd_date \"${http}://${server_url}\" > \"$server_html_file\""
+		$fetch_cmd_date "${http}://$server_url" > "$server_html_file"
 
 		debugprint "Processing the listing..."
 		# gets a listing and filters it by something like '-xxxxxxxx.md5' where x's are numbers,
@@ -194,8 +194,8 @@ get_src_dates_maxmind() {
 	debugprint "getting date from url '$server_url'..."
 
 	case "$fetch_cmd" in
-		curl*) fetch_cmd_date="$fetch_cmd_q --head" ;;
-		wget*) fetch_cmd_date="$fetch_cmd_q -S --method HEAD"
+		curl*) fetch_cmd_date="$fetch_cmd_date --head" ;;
+		wget*) fetch_cmd_date="$fetch_cmd_date -S --method HEAD"
 	esac
 
 	debugprint "timestamp fetch command: $fetch_cmd_date \"${server_url}\""
@@ -672,6 +672,11 @@ if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
 	esac
 fi
 
+case "$dl_src" in
+	ipdeny|maxmind) main_conn_timeout=16 ;;
+	ripe) main_conn_timeout=22 # ripe api may be slow at processing initial request for a non-ripe region
+esac
+
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
 	maxmind_str=
@@ -680,7 +685,9 @@ for util in curl wget uclient-fetch; do
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
 			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
 			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
-			fetch_cmd="$curl_cmd$maxmind_str -L -f --retry 3 --connect-timeout 16"
+			fetch_cmd="$curl_cmd$maxmind_str -L -f --retry 3"
+			fetch_cmd_date="$fetch_cmd --connect-timeout 16 -s -S"
+			fetch_cmd="$fetch_cmd --connect-timeout $main_conn_timeout"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
 			break ;;
@@ -699,7 +706,9 @@ for util in curl wget uclient-fetch; do
 			[ "$dl_src" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
 			wget_cmd="$wget_cmd$wget_max_redirect"
 			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
-			fetch_cmd="$wget_cmd$wget_tries$maxmind_str --timeout=16"
+			fetch_cmd="$wget_cmd$wget_tries$maxmind_str"
+			fetch_cmd_date="$fetch_cmd --timeout=16 -O -"
+			fetch_cmd="$fetch_cmd --timeout=$main_conn_timeout"
 			fetch_cmd_q="$fetch_cmd -O -"
 			fetch_cmd="$fetch_cmd$wget_show_progress -O -"
 			break ;;
@@ -707,8 +716,9 @@ for util in curl wget uclient-fetch; do
 			[ "$dl_src" = maxmind ] &&
 				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
 			con_check_cmd="$ucl_cmd -T 7 -q -s"
-			fetch_cmd_q="$ucl_cmd -T 16 -q -O -"
-			fetch_cmd="$ucl_cmd -T 16 -O -"
+			fetch_cmd_date="$ucl_cmd -T 16 -q -O -"
+			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q -O -"
+			fetch_cmd="$ucl_cmd -T $main_conn_timeout -O -"
 			break
 	esac
 done
