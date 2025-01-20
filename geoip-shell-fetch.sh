@@ -260,7 +260,7 @@ preparse_maxmind_csv() {
 }
 
 parse_maxmind_db() {
-	in_file="$1" out_file="$2" ccode_parse="$3" family_parse="$4"
+	in_file="$1" out_file="$2" ccode_parse="$3"
 
 	gunzip -fc "$in_file" |
 		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p}" > "$out_file" &&
@@ -449,7 +449,7 @@ fetch_maxmind() {
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 
-			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" "$family" || {
+			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" || {
 				rm_mm_tmp_f
 				echolog -err "$FAIL parse the IP list for '$list_id'."
 				return 1
