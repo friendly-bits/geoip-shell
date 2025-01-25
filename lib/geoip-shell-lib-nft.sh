@@ -114,9 +114,8 @@ get_fwrules_iplists() {
 		*) echolog -err "get_fw_rules_iplists: direction not specified"; return 1;
 	esac
 	set_dir_vars "$1"
-	nft_get_chain "$geochain" "$force_read" | {
-		sed -n "/${addr_type}${blank}*@[a-zA-Z0-9_][a-zA-Z0-9_]*/{s/@dhcp_4.*/@dhcp_4/;s/.*@//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/${blanks}accept.*//;s/${blanks}drop.*//;s/_4/_ipv4/;s/_6/_ipv6/;p;}"
-	}
+	nft_get_chain "$geochain" "$force_read" |
+	sed -n "/${addr_type}${blank}*@[a-zA-Z0-9_]/{s/.*${addr_type}\s*@//;s/${blanks}.*//;s/@dhcp_4.*/@dhcp_4/;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/_4/_ipv4/;s/_6/_ipv6/;p;}"
 	:
 }
 
@@ -274,6 +273,24 @@ get_nft_geoip_state() {
 }
 
 apply_rules() {
+	print_ipset_rule() {
+		case "$3" in
+			ip) ipset_flags="" ;;
+			net) ipset_flags="flags interval; auto-merge;"
+		esac
+
+		printf %s "add set inet $geotable $1 { type ${4}_addr; $ipset_flags policy $nft_perf; "
+
+		case "$1" in
+			local_*|allow_*)
+				printf %s "elements={ "
+				sed '/^$/d;s/$/,/' "$2"
+				printf '%s\n' " }; }"
+				;;
+			*) sed -n '/\}/{s/,*[ 	]*\}/ \}; \}/;p;:1 n;b1;q;};$ {s/$/; \}/};p' "$2"
+		esac
+	}
+
 	# fall back to 'memory' sets optimization if not set
 	: "${nft_perf:=memory}"
 
@@ -283,37 +300,24 @@ apply_rules() {
 	nft add table inet "$geotable" || die "$FAIL create table '$geotable'"
 
 	### load ipsets
-	printf_s "${_nl}Loading IP sets... "
+	printf_s "${_nl}Loading IP lists... "
 	for load_ipset in $load_ipsets; do
 		get_ipset_id "$load_ipset" || die_a
-		iplist_file="${iplist_dir}/${list_id}.iplist"
-		[ -f "$iplist_file" ] || { FAIL; die_a "Can not find the iplist file '$iplist_file'."; }
+		[ -f "$iplist_path" ] || { FAIL; die_a "Can not find the iplist file '$iplist_path'."; }
 
 		# count ips in the iplist file
-		[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_file" | sed 's/elements = { //;s/ }//' | wc -w)"
-		debugprint "\nip count in the iplist file '$iplist_file': $ip_cnt"
+		[ "$debugmode" ] && ip_cnt="$(tr ',' ' ' < "$iplist_path" | sed 's/elements = { //;s/ }//' | wc -w)"
+		debugprint "\nip count in the iplist file '$iplist_path': $ip_cnt"
 
-		# read $iplist_file into new set
-		{
-			printf %s "add set inet $geotable $load_ipset \
-				{ type ${ipset_family}_addr; flags interval; auto-merge; policy $nft_perf; "
-			sed '/\}/{s/,*[ 	]*\}/ \}; \}/;q;};$ {s/$/; \}/}' "$iplist_file"
-		} | nft -f - || { FAIL; die_a "$FAIL import the iplist from '$iplist_file' into IP set '$load_ipset'."; }
+		# read the IP list into new set
+		print_ipset_rule "$load_ipset" "$iplist_path" "$ipset_el_type" "$ipset_family" |
+			nft -f - || { FAIL; die_a "$FAIL import the iplist from '$iplist_path' into IP set '$load_ipset'."; }
+
+		rm -f "$iplist_path"
 
 		[ "$debugmode" ] && debugprint "elements in $load_ipset: $(sp2nl ipsets "$load_ipsets"; cnt_ipset_elements "$load_ipset" "$ipsets")"
 	done
 	OK
-
-	# add allow and dhcp ipsets to $rm_ipsets
-	curr_ipsets="$(get_ipsets)"
-	newifs "$_nl" aru
-	for family in ipv4 ipv6; do
-		for ipset_type in allow allow_in allow_out dhcp; do
-			ipset="${ipset_type}_${family#ipv}"
-			case "$curr_ipsets" in *"$ipset"*) add2list rm_ipsets "$ipset"; esac
-		done
-	done
-	oldifs aru
 
 	#### Assemble commands for nft
 	opt_ifaces_gen=
@@ -339,28 +343,34 @@ apply_rules() {
 		done
 
 		### Remove old ipsets
+		[ "$rm_ipsets" ] && debugprint "deleting ipsets '$rm_ipsets'"
 		for rm_ipset in $rm_ipsets; do
 			printf '%s\n' "delete set inet $geotable $rm_ipset"
 		done
 
-		### add ipsets for allowed subnets/ips
+		### Load ipsets for local iplists, allowed subnets/ips
 		for family in $families; do
-			allow_iplist_file_prev=
+			## local iplists
+			[ "$inbound_geomode" != disable ] || [ "$outbound_geomode" != disable ] && {
+				for ipset in $local_ipsets; do
+					get_ipset_id "$ipset" || exit 1
+					[ "$ipset_family" = "$family" ] || continue
+					print_ipset_rule "$ipset" "$iplist_path" "$ipset_el_type" "$family"
+				done
+			}
+
+			unset allow_iplist_file_prev
 			for direction in inbound outbound; do
 				eval "geomode=\"\$${direction}_geomode\""
+				[ "$geomode" = disable ] && continue
+
+				## allow iplists
 				set_allow_ipset_vars "$direction" "$family"
-				[ "$allow_iplist_file" = "$allow_iplist_file_prev" ] || [ "$geomode" = disable ] ||
-					[ ! -s "$allow_iplist_file" ] && continue
+				[ "$allow_iplist_file" = "$allow_iplist_file_prev" ] || [ ! -s "$allow_iplist_file" ] && continue
 				allow_iplist_file_prev="$allow_iplist_file"
 				eval "allow_ipset_type=\"\${allow_ipset_type_${direction}_${family}}\""
 
-				interval=
-				[ "${allow_ipset_type}" = net ] && interval="flags interval; auto-merge;"
-
-				# load allow_iplist_file into new set
-				printf %s "add set inet $geotable $allow_ipset_name { type ${family}_addr; $interval elements={ "
-				sed '/^$/d;s/$/,/' "$allow_iplist_file"
-				printf '%s\n' " }; }"
+				print_ipset_rule "$allow_ipset_name" "$allow_iplist_file" "$allow_ipset_type" "$family"
 			done
 		done
 
@@ -460,10 +470,28 @@ apply_rules() {
 				printf '%s\n' "add $rule_prefix $rule_ports_pt1 counter $counter_val $rule_ports_pt2"
 			done
 
-			# replace iplist-specific rules
 			eval "planned_ipsets_direction=\"\${planned_ipsets_${direction}}\""
 			debugprint "$direction planned ipsets: '$planned_ipsets_direction'"
+
+			# add rules for local iplists
+			for family in $families; do
+				for ipset in $local_block_ipsets $local_allow_ipsets; do
+					get_ipset_id "$ipset" &&
+					get_nft_family "$ipset_family" || exit 1
+					[ "$ipset_family" = "$family" ] || continue
+					rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
+					case "$ipset" in
+						*_allow_*) local_verdict=accept ;;
+						*_block_*) local_verdict=drop
+					esac
+					get_counter_val "$rule_ipset $local_verdict"
+					printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $local_verdict comment ${geotag}"
+				done
+			done
+
+			# add rules for country codes
 			for ipset in $planned_ipsets_direction; do
+				case "$ipset" in local_*) continue; esac
 				get_ipset_id "$ipset" &&
 				get_nft_family "$ipset_family" || exit 1
 				rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
@@ -492,7 +520,7 @@ apply_rules() {
 	nft_output="$(printf '%s\n' "$nft_cmd_chain" | nft -f - 2>&1)" || {
 		FAIL
 		echolog -err "$FAIL apply new firewall rules"
-		echolog "nftables errors: '$(printf %s "$nft_output" | head -c 1k | tr '\n' ';')'"
+		echolog "nftables errors: '$(printf %s "$nft_output" | sed "s/${blank}*\^\^\^[\^]*${blank}*/ /g" | tr '\n' ' ' | head -c 1k)'"
 		die
 	}
 
