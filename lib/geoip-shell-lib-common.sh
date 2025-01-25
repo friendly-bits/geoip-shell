@@ -113,19 +113,36 @@ statustip() {
 }
 
 report_lists() {
-	unset iplists_incoherent lists_reported
+	unset iplists_incoherent lists_reported local_lists_rl
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 		get_active_iplists verified_lists "$direction"
 		nl2sp verified_lists
-		if [ -n "$verified_lists" ]; then
-			verified_lists="${blue}$(printf %s "$verified_lists" | sed "s/allow_${notblank}*//g;s/dhcp_${notblank}*//g;s/^${blanks}//;s/${blanks}$//;s/${blanks}/ /g;")${n_c}"
-		else
-			verified_lists="${red}None${n_c}"
-		fi
+		for list_id in $verified_lists; do
+			case "$list_id" in *local_*)
+				add2list local_lists_rl "$list_id"
+			esac
+		done
+		subtract_a_from_b "$local_lists_rl" "$verified_lists" ccode_lists
+		verified_lists_sp="$local_lists_rl"
+		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
 		[ ! "$lists_reported" ] && printf '\n'
-		printf '%s\n' "Final IP lists in $direction $geomode: '$verified_lists'."
+		printf %s "Final IP lists in $direction $geomode: '${blue}"
+		if printf %s "$verified_lists_sp" |
+			sed "s/allow_in_${notblank}*//g;
+				s/allow_out_${notblank}*//g;
+				s/dhcp_${notblank}*//g;
+				s/^${blanks}//;
+				s/${blanks}$//;
+				s/${blanks}/ /g;
+				/^$/d" | grep . | tr -d '\n'
+		then
+			printf '%s\n' "${n_c}'."
+		else
+			printf '%s\n' "${red}None${n_c}"
+		fi
+
 		lists_reported=1
 	done
 }
@@ -208,7 +225,7 @@ conv_case() {
 		*[$tr_1]*) conv_res="$(printf %s "$3" | tr "$tr_1" "$tr_2")" ;;
 		*) conv_res="$3"
 	esac
-	eval "$outvar_cc=\"$conv_res\""
+	eval "$outvar_cc"='$conv_res'
 	oldifs conv
 }
 
@@ -422,7 +439,7 @@ getallconf() {
 		conf_gac="$(grep -vE "^(${blank}*#.*\$|\$)" "$2")"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
-	eval "$1=\"$conf_gac\""
+	eval "$1"='$conf_gac'
 	:
 }
 
@@ -507,11 +524,10 @@ setconfig() {
 	for config_line in $oldconfig; do
 		eval "case \"$config_line\" in
 				''|$keys_test_str) ;;
-				*) newconfig=\"$newconfig\""'$config_line'"\"$_nl\"
+				*) newconfig="'$newconfig$config_line$_nl'"
 			esac"
 	done
 	oldifs sc
-
 	newconfig="$newconfig$args_lines"
 	# don't write to file if config didn't change
 	[ -f "$target_file" ] && old_conf_exists=1 || old_conf_exists=
@@ -799,7 +815,7 @@ ignore_allow() {
 		done
 		inc_ia=1
 	done
-	eval "$var1_ia=\"$res_ia\""
+	eval "$var1_ia"='$res_ia'
 	return $inc_ia
 }
 
@@ -826,14 +842,20 @@ get_active_iplists() {
 			*) die "get_active_iplists: unexpected geoblocking mode '$geomode'."
 		esac
 
+		for iplist_type in allow block; do
+			eval "iplist_path=\"\${local_${iplist_type}_${family}}\""
+			[ -s "${iplist_path}.ip" ] || [ -s "${iplist_path}.net" ] &&
+				exp_iplists_gai="${exp_iplists_gai} local_${iplist_type}_${family}"
+		done
+
 		[ "$2" = outbound ] && eval "[ \"\${source_ips_${family}}\" ]" &&
 			exp_iplists_gai="${exp_iplists_gai} allow_$family"
 	done
 
-	ipset_iplists="$(get_ipsets | sed "s/${geotag}_//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/_4/_ipv4/;s/_6/_ipv6/;p")"
+	ipset_iplists="$(get_ipsets | sed "s/${geotag}_//;s/_[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].*//;s/_4/_ipv4/;s/_6/_ipv6/")"
 	fwrules_iplists="$(get_fwrules_iplists "$direction")"
 
-	# debugprint "$2 ipset_iplists: '$ipset_iplists', fwrules_iplists: '$fwrules_iplists'"
+	# debugprint "$_nl$2 ipset_iplists: ${_nl}$ipset_iplists${_nl}${_nl}fwrules_iplists: $_nl$fwrules_iplists"
 
 	nl2sp ipset_iplists_sp "$ipset_iplists"
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
@@ -888,10 +910,16 @@ check_lists_coherence() {
 				blacklist) eval "[ \"\${trusted_$family}\" ]" && exp_iplists="${exp_iplists} allow_$family" ;;
 				*) r_no_l; echolog -err "Unexpected geoblocking mode '$geomode'!"; return 1
 			esac
+
+			for iplist_type in allow block; do
+				eval "iplist_path=\"\${local_${iplist_type}_${family}}\""
+				[ -s "${iplist_path}.ip" ] || [ -s "${iplist_path}.net" ] &&
+					exp_iplists="${exp_iplists} local_${iplist_type}_${family}"
+			done
 		done
 
 
-		eval "${direction}_exp_iplists=\"$exp_iplists\""
+		eval "${direction}_exp_iplists"='$exp_iplists'
 
 		get_active_iplists -f "${direction}_active_lists" "$direction"; get_a_i_rv=$?
 		[ "$get_a_i_rv" != 0 ] &&
@@ -1133,7 +1161,7 @@ validate_ip() {
 # Get counters from existing rules and set variables
 get_counters() {
 	[ "$counters_set" ] && return 0
-	unset counter_strings ipt_save_ok
+	unset counter_strings
 	export counters_set
 
 	case "$_fw_backend" in
@@ -1210,7 +1238,20 @@ set -f
 		getconfig datadir
 		export datadir status_file="$datadir/status" counters_file="$datadir/counters"
 	}
+
 	export geotag="$p_name"
+}
+
+[ -n "$datadir" ] && {
+	case "$_OWRTFW" in
+		'') export local_iplists_dir="$datadir" ;;
+		*) export local_iplists_dir="$conf_dir"
+	esac
+	for iplist_type in allow block; do
+		for family in ipv4 ipv6; do
+			export "local_${iplist_type}_${family}"="${local_iplists_dir}/local_${iplist_type}_${family}"
+		done
+	done
 }
 
 :
