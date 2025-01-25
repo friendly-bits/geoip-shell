@@ -107,10 +107,10 @@ ${sp8}Works both in whitelist and blacklist mode.
 ${sp8}'none' removes previously set trusted IPs
 
   ${blue}[-A|-B] <"[path_to_file]"|remove>${n_c} :
-${sp8}Specifies local file containing a list of IPs or subnets to import into geoip-shell (one ip family per file).
+${sp8}Specifies local file containing a list of IPs or subnets to import into geoip-shell (one IP family per file).
 ${sp8}Use '-A' for allowlist, '-B' for blocklist.
 ${sp8}Rules for local IP lists will be applied regardless of whether geoblocking mode is whitelist or blacklist, and regardless of direction.
-${sp8}'remove' removes previously imported local allowlist or blocklist
+${sp8}'remove' removes existing local allowlists or blocklists.
 
   ${blue}-U <auto|pause|none|"[ip_addresses]">${n_c} :
 ${sp8}Policy for allowing automatic IP list updates when outbound geoblocking is enabled.
