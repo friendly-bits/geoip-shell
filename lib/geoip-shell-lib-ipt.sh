@@ -199,8 +199,7 @@ get_counters_ipt() {
 		# encode rules in [[:alnum:]_] strings, generate variable assignments
 		for f in $families; do
 			eval "curr_ipt=\"\$${f}_ipt\""
-			[ "$curr_ipt" ] && printf '%s\n' "$curr_ipt" |
-			encode_rules "$f"
+			[ "$curr_ipt" ] && printf '%s\n' "$curr_ipt" | encode_rules "$f"
 		done | $awk_cmd -F "]" '$2 ~ /^[a-zA-Z0-9_]+$/ {print $2 "=" $1 "]"}'
 	)"
 	:
@@ -244,7 +243,7 @@ load_ipsets() {
 		iplist_file="$*"
 		# read $iplist_file, transform each line into 'add' command and pipe the result into "ipset restore"
 		sed "/^$/d;s/^/add \"$ipset_name\" /" "$iplist_file"
-		rm -f "$iplist_file"
+		case "$ipset_name" in *_local_*) ;; *) rm -f "$iplist_file"; esac
 	done | ipset restore -exist ||
 		{ oldifs loi; FAIL; echolog -err "$FAIL load ipsets."; return 1; }
 	oldifs loi
@@ -277,9 +276,9 @@ reg_ipset() {
 		echolog -err "reg_ipset: unexpected IP count '$ip_cnt_ri' for ipset '$1'."
 		return 1
 	esac
-	debugprint "IP count in the iplist file '$4': $ip_cnt"
+	debugprint "IP count in the iplist file '$4': $ip_cnt_ri"
 
-	# set hashsize to 1024 or (ip_cnt / 2), whichever is larger
+	# set hashsize to 1024 or (ip_cnt_ri / 2), whichever is larger
 	ipset_hs_ri=$((ip_cnt_ri / 2))
 	[ $ipset_hs_ri -lt 1024 ] && ipset_hs_ri=1024
 
@@ -532,7 +531,7 @@ apply_rules() {
 	for family in $families; do
 		for ipset in $load_ipsets; do
 			[ ! "$ipset" ] && continue
-			get_ipset_id "$ipset"
+			get_ipset_id "$ipset" || die
 			case "$list_id" in *_*) ;; *) die "Invalid iplist ID '$list_id'."; esac
 			[ "${ipset_family}" != "$family" ] && continue
 			iplist_file="${iplist_dir}/${list_id}.iplist"
@@ -547,6 +546,14 @@ apply_rules() {
 			printf '%s\n' "$dhcp_addr" > "$dhcp_iplist_file"
 			reg_ipset "$dhcp_ipset" net "$family" "${dhcp_iplist_file}" "$curr_ipsets" || die
 		}
+
+		### register ipsets for local iplists
+		[ "$inbound_geomoe" != disable ] || [ "$outbound_geomode" != disable ] &&
+			for ipset in $local_ipsets; do
+				get_ipset_id "$ipset" || die
+				[ "$ipset_family" = "$family" ] || continue
+				reg_ipset "${ipset}" "$ipset_el_type" "$family" "$iplist_path" "$curr_ipsets" || die
+			done
 
 		### register ipsets for allowed subnets/IPs
 		allow_iplist_file_prev=
@@ -664,7 +671,21 @@ apply_rules() {
 				[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
 					printf '%s\n' "[0:0] -I $geochain $iface_kwrd lo $ipt_comm ${geotag_aux}_lo_${f_short} -j ACCEPT"
 
-				## add iplist-specific rules
+				# add rules for local iplists
+				for ipset in $local_ipsets; do
+					get_ipset_id "$ipset" || exit 1
+					[ "$ipset_family" = "$family" ] || continue
+					case "$ipset" in
+						*_allow_*) local_fw_target=ACCEPT ;;
+						*_block_*) local_fw_target=DROP
+					esac
+					list_tag="${geotag}_${list_id}"
+					rule="$geochain -m set --match-set $ipset $dir_kwrd_ipset $ipt_comm $list_tag -j $local_fw_target"
+					get_counter_val "$rule" "$family"
+					printf '%s\n' "$counter_val -A $rule"
+				done
+
+				# add rules for country codes
 				for list_id in $list_ids; do
 					[ "$family" != "${list_id#*_}" ] && continue
 					get_ipset_name ipset "$list_id" || exit 1
