@@ -85,17 +85,37 @@ get_counter_val() {
 }
 
 # 1 - ipset name
-# assigns results to $list_id, $ipset_family
+# assigns results to $list_id, $ipset_family, $ipset_el_type, $iplist_path
 get_ipset_id() {
-	case "$1" in *"_dhcp"*|*"_allow"*) i="$1" ;; *) i="${1%_*}"; esac
+	case "$1" in
+		*dhcp_[46]|*allow_in_[46]|*allow_out_[46]|*local_*) i="$1" ;;
+		*) i="${1%_*}"
+	esac
 	[ "$_fw_backend" = ipt ] && i="${i#*_}"
 	ipset_family="ipv${i##*_}"
 	list_id="${i%_*}_${ipset_family}"
+	iplist_path=
 	case "$ipset_family" in
 		ipv4|ipv6) ;;
 		*) echolog -err "IP set name '$1' has unexpected format."
 			unset ipset_family list_id
 			return 1
+	esac
+	case "$1" in
+		*local_*)
+			iplist_file="${local_iplists_dir}/${list_id}"
+			if [ -f "${iplist_file}.ip" ]; then
+				ipset_el_type=ip
+			elif [ -f "${iplist_file}.net" ]; then
+				ipset_el_type=net
+			else
+				echolog -err "Can not find local iplist file for '$iplist_file'."
+				return 1
+			fi
+			iplist_path="${iplist_file}.${ipset_el_type}" ;;
+		*)
+			ipset_el_type=net
+			iplist_path="${iplist_dir}/${list_id}.iplist"
 	esac
 	:
 }
@@ -104,17 +124,20 @@ get_ipset_id() {
 # 2 - list id
 # assigns result to var named $1
 get_ipset_name() {
+	[ "$2" ] || { echolog -err "get_ipset_name: list_id not specified"; return 1; }
 	eval "list_date=\"\$prev_date_${list_id}\""
-	case "$1" in *"_dhcp"*|*"_allow"*) ;; *)
+	unset prefix_gin date_suffix
+	case "$2" in *dhcp_[46]|*allow_in_[46]|*allow_out_[46]) ;; *)
 		[ "$list_date" ] || {
+			case "$2" in local_*) ;; *)
 				echolog -err "The status file '$status_file' contains no information for list ID '${list_id}'."
 				return 1
+			esac
 		}
-		date_suffix="_${list_date}"
+		[ "$list_date" ] && date_suffix="_${list_date}"
 	esac
-	[ "$2" ] || { echolog -err "get_ipset_name: list_id not specified"; return 1; }
 	[ "$_fw_backend" = ipt ] && prefix_gin="${p_name}_"
-	eval "$1=\"${prefix_gin}${2%%_*}_${2##*ipv}${date_suffix}\""
+	eval "$1=\"${prefix_gin}${2%_*}_${2##*ipv}${date_suffix}\""
 }
 
 # 1 - direction
@@ -205,7 +228,6 @@ for family in $families; do
 			allow_iplist_file_${direction}_${family}=\"$allow_iplist_file\"
 			allow_ipset_type_${direction}_${family}=ip"
 		allow_ipset_type=ip
-
 
 		rm -f "$allow_iplist_file"
 
@@ -308,6 +330,17 @@ for family in $families; do
 	done
 done
 
+# compile a list of local IP lists to process
+for family in ipv4 ipv6; do
+	for iplist_type in allow block; do
+		eval "iplist_file=\"\${local_${iplist_type}_${family}}\""
+		[ -s "${iplist_file}.ip" ] || [ -s "${iplist_file}.net" ] || continue
+		ipset_prefix=
+		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
+		add2list local_ipsets "${ipset_prefix}local_${iplist_type}_${family#ipv}"
+	done
+done
+
 # generate lists:
 # planned_ipsets_$direction - will be used to create direction-specific rules for iplists
 # planned_ipsets - all planned final ipsets
@@ -341,8 +374,8 @@ for direction in inbound outbound; do
 		case "$list_id" in [A-Z][A-Z]_ipv[46]) ;; *) die "Invalid iplist ID '$list_id'."; esac
 
 		# set list_id-specific vars
-		family="${list_id#*_}"
-		list_id_short="${list_id%%_*}_${list_id##*ipv}"
+		family="${list_id##*_}"
+		list_id_short="${list_id%_*}_${list_id##*ipv}"
 		get_ipset_name ipset "$list_id" || die
 
 		add2list "planned_ipsets_$direction" "$ipset"
@@ -381,7 +414,7 @@ debugprint "load ipsets: '$load_ipsets'"
 # check that there are iplist files to load ipsets from
 for ipset in $load_ipsets; do
 	get_ipset_id "$ipset"
-	[ -f "$iplist_dir/$list_id.iplist" ] || die "Can not find file '$iplist_dir/$list_id.iplist' to load ipset '$ipset'."
+	[ -f "$iplist_path" ] || die "Can not find file '$iplist_path' to load ipset '$ipset'."
 done
 
 get_counters
