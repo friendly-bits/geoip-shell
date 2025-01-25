@@ -672,7 +672,7 @@ apply_rules() {
 					printf '%s\n' "[0:0] -I $geochain $iface_kwrd lo $ipt_comm ${geotag_aux}_lo_${f_short} -j ACCEPT"
 
 				# add rules for local iplists
-				for ipset in $local_ipsets; do
+				for ipset in $local_block_ipsets $local_allow_ipsets; do
 					get_ipset_id "$ipset" || exit 1
 					[ "$ipset_family" = "$family" ] || continue
 					case "$ipset" in
