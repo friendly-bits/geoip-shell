@@ -14,6 +14,7 @@ If you find this project useful, please take a second to give it a star on Githu
 - [Installation](#installation)
 - [Usage](#usage)
 - [Outbound geoblocking](#outbound-geoblocking)
+- [Local allowlists and blocklists](#local-allowlists-and-blocklists)
 - [Pre-requisites](#pre-requisites)
 - [Notes](#notes)
 - [In detail](#in-detail)
@@ -247,6 +248,34 @@ To configure **inbound and outbound** geoblocking, whitelisting Germany and Ital
 
 `geoip-shell configure -D outbound -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
 
+## **Local allowlists and blocklists**
+geoip-shell supports importing custom newline-separated IP lists into locally stored files. These files are then used to create additional allow or block rules. Rules for local IP lists will be created regardless of whether geoblocking mode is whitelist or blacklist, and for any enabled geoblocking direction (inbound or outbound or both).
+
+To import a custom IP list, use this command:
+
+`geoip-shell configure [-A|-B] <"[path_to_file]"|remove>`
+
+Use `-A` to import the IP list as allowlist. Use `-B` to import the IP list as blocklist.
+
+The `remove` keyword tells geoip-shell to remove any existing local iplists of the specified type (allowlist or blocklist).
+
+Each IP list file can contain IP addresses and/or IP ranges (in CIDR format) of one family (ipv4 or ipv6).
+_<details><summary>Example source file contents</summary>_
+```
+8.8.8.8
+1.1.1.1/24
+```
+</details>
+
+_<details><summary>Example command</summary>_
+`geoip-shell configure -A /tmp/my-ip-list.txt` - This will import specified file as an allowlist.
+</details>
+
+You can sequentially import multiple IP lists and geoip-shell will add IP addresses from each file to locally stored IP lists.
+
+**NOTE** that blocklist rules take precedence over allowlist rules. So if same IP address is included both in a local allowlist and in a local blocklist, it will be blocked.
+
+**NOTE** that when importing custom IP lists, geoip-shell creates local allow- and blocklist files in `/etc/geoip-shell` on OpenWrt, or in `/var/lib/geoip-shell` on other systems. The original files used to import the IP lists can then be deleted to free up space.
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)

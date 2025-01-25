@@ -134,6 +134,8 @@ These options apply to geoblocking in both directions.
 Or specify IP addresses for IP lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 Or use `none` to remove previously assigned server IP addresses and disable this feature.
 
+`[-A|-B] <"[path_to_file]"|remove>`: Local IP lists. Specify file containing a list of IPs or subnets to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`). `remove` removes existing local allowlists or blocklists.
+
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 
 `-s <"schedule_expression"|disable>` : Enables automatic IP lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic IP lists updates.
