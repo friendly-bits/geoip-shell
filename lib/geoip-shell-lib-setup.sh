@@ -609,6 +609,95 @@ get_general_prefs() {
 			done
 	esac
 
+	# process and import local IP lists if specified
+	sed_san() {
+		sed 's/\r/\n/g;s/\n$//' "$1" | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
+	}
+
+	for iplist_type in allow block; do
+		eval "file=\"\$local_${iplist_type}_arg\""
+		case "$file" in
+			'') continue ;;
+			remove)
+				printf '%s\n' "Removing local ${iplist_type}lists..."
+				prev_local_file="$(find "${local_iplists_dir}" -name "local_${iplist_type}_*" -exec rm -f {} \; -exec printf '%s\n' {} \;)"
+				[ -n "${prev_local_file}" ] && lists_change=1
+				continue
+		esac
+
+		printf %s "Checking local ${iplist_type}list file '$file'... "
+		[ -s "$file" ] || die "${_nl}IP list file '$file' is empty or doesn't exist."
+		# detect family
+		for iplist_family in 4 6; do
+			eval "ip_regex=\"\${ipv${iplist_family}_regex}\"
+				mb_regex=\"\${maskbits_regex_ipv${iplist_family}}\""
+			sed 's/\r/\n/g;s/\n$//' "$file" | grep -E -m1 "^${blank}*${ip_regex}(/${mb_regex}|)${blank}*$" 1>/dev/null &&
+				break
+		done ||
+			die "${_nl}$FAIL process IP list file '$file' or it does not contain newline-separated IP addresses."
+
+		# check for invalid lines
+		invalid_ip="$(
+			sed_san "$file" | {
+				grep -Ev -m1 "^${ip_regex}(/${mb_regex}|)$"
+				rv=$?
+				cat 1>/dev/null
+				exit $rv
+			}
+		)" &&
+		# found invalid line
+		{
+			case "$iplist_family" in
+				4) check_family=6 ;;
+				6) check_family=4
+			esac
+			eval "iplist_regex=\"^\${ipv${check_family}_regex}(/\${maskbits_regex_ipv${check_family}}|)$\""
+			if printf '%s\n' "$invalid_ip" | grep -E "$iplist_regex" 1>/dev/null; then
+				die "${_nl}IP list file '$file' contains both IPv4 and IPv6 addresses - this is not supported."
+			else
+				die "${_nl}IP list file '$file' contains unexpected string '$invalid_ip'."
+			fi
+		}
+
+		# determine elements type
+		iplist_el_type=ip
+		grep -E -m1 "/${mb_regex}" "$file" 1>/dev/null && iplist_el_type=net
+
+		printf '%s\n' "${blue}Detected IPv${iplist_family} with elements of type '$iplist_el_type'${n_c}."
+		printf %s "Importing local IPv$iplist_family ${iplist_type}list file... "
+		eval "dest_file=\"\${local_${iplist_type}_ipv${iplist_family}}.${iplist_el_type}\""
+		{
+			[ -f "$dest_file" ] && cat "$dest_file"
+			sed_san "$file"
+			tail -c 1 "$file" | grep . && printf '\n' # add newline if needed
+			:
+		} | sort -u > "/tmp/$p_name-import.tmp" && [ -s "/tmp/$p_name-import.tmp" ] &&
+		{
+			old_local_exists=
+			[ -f "$dest_file" ] && old_local_exists=1
+			if [ -n "$old_local_exists" ] && [ "$(get_md5 "$dest_file")" = "$(get_md5 "/tmp/$p_name-import.tmp")" ]; then
+				rm -f "/tmp/$p_name-import.tmp"
+			else
+				mv "/tmp/$p_name-import.tmp" "$dest_file"
+			fi
+		} || {
+				FAIL
+				rm -f "/tmp/$p_name-import.tmp"
+				[ -n "$old_local_exists" ] || rm -f "$dest_file"
+				die "$FAIL import the IP list into file '$dest_file'."
+			}
+		OK
+
+		case "$iplist_el_type" in
+			ip) inv_el_type=net ;;
+			net) inv_el_type=ip
+		esac
+		rm -f "${dest_file%."$iplist_el_type"}.${inv_el_type}"
+
+		printf '%s\n' "${yellow}You can delete the file '$file' to free up space.${n_c}"
+		lists_change=1
+	done
+
 	[ ! "$user_ccode" ] || [ "$user_ccode_arg" ] && pick_user_ccode
 	:
 }
