@@ -106,6 +106,12 @@ ${sp8}This option is independent from the above LAN IPs option.
 ${sp8}Works both in whitelist and blacklist mode.
 ${sp8}'none' removes previously set trusted IPs
 
+  ${blue}[-A|-B] <"[path_to_file]"|remove>${n_c} :
+${sp8}Specifies local file containing a list of IPs or subnets to import into geoip-shell (one ip family per file).
+${sp8}Use '-A' for allowlist, '-B' for blocklist.
+${sp8}Rules for local IP lists will be applied regardless of whether geoblocking mode is whitelist or blacklist, and regardless of direction.
+${sp8}'remove' removes previously imported local allowlist or blocklist
+
   ${blue}-U <auto|pause|none|"[ip_addresses]">${n_c} :
 ${sp8}Policy for allowing automatic IP list updates when outbound geoblocking is enabled.
 ${sp8}Use 'auto' to detect IP addresses automatically once and always allow outbound connection to detected addresses.
@@ -205,7 +211,7 @@ esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:U:a:o:w:O:n:N:P:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:o:w:O:n:N:P:zvdVh" opt; do
 	case $opt in
 		D) tolower OPTARG
 			case "$OPTARG" in inbound|outbound) ;; *)
@@ -226,6 +232,8 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:U:a:o:w:O:n:N:P:zvdVh" opt; do
 		t) set_opt trusted_arg ;;
 		r) set_opt user_ccode_arg ;;
 		u) set_opt geosource_arg ;;
+		A) set_opt local_allow_arg ;;
+		B) set_opt local_block_arg ;;
 		U) set_opt source_ips_arg ;;
 		a) set_opt datadir_arg ;;
 		w) set_opt _fw_backend_arg ;;
@@ -474,15 +482,11 @@ run_command="$i_script-run.sh"
 erract="action '$action'"
 incompat="$erract is incompatible with option"
 
-case "$action" in
-	status|restore|reset|on|off|stop) [ "$inbound_ccodes_arg$outbound_ccodes_arg" ] && die "$incompat '-c'."
-esac
-
 [ "$action" != configure ] && {
 	for i_opt in "inbound_ccodes c" "outbound_ccodes c" "inbound_geomode m" "outbound_geomode m" \
 			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" \
 			"geosource u" "source_ips U" "datadir a" "nobackup o" "schedule s" \
-			"families f" "user_ccode r" "nft_perf O" "nointeract z"; do
+			"families f" "user_ccode r" "nft_perf O" "nointeract z" "local_allow A" "local_block B"; do
 		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
 }
@@ -539,6 +543,7 @@ export nointeract="${nointeract_arg:-$nointeract}"
 
 # sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir schedule families
 #   geosource trusted user_ccode
+# imports local IP lists if specified
 get_general_prefs || die
 
 for opt_ch in datadir noblock nobackup schedule no_persist geosource families \
@@ -752,7 +757,7 @@ done
 
 [ "$source_ips_policy_change" ] && [ "$source_ips_policy" = true ] && source_ips_change=1
 
-unset lists_change all_iplists all_iplists_prev all_add_iplists
+unset all_iplists all_iplists_prev all_add_iplists
 for direction in inbound outbound; do
 	eval "lists_req=\"\$${direction}_lists_req\" iplists=\"\$${direction}_iplists\" iplists_prev=\"\$${direction}_iplists_prev\""
 	: "${lists_req:="$iplists"}"
@@ -781,8 +786,8 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 [ "$nobackup_change" ] && [ "$nobackup" = false ] && backup_req=1
 
 [ "$ports_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] || [ "$source_ips_policy_change" ] ||
-	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] ||
-	[ "$noblock_change" ] || [ "$lists_change" ] && apply_req=1
+	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] || [ "$noblock_change" ] ||
+	[ "$lists_change" ] && apply_req=1
 
 [ "$nft_perf_change" ] && run_restore_req=1
 
@@ -800,20 +805,23 @@ check_for_lockout
 	}
 }
 
-[ "$datadir_change" ] && [ -n "${datadir_prev}" ] && {
-	rm -rf "$datadir"
-	mk_datadir
-	[ -d "$datadir_prev" ] && {
-		printf %s "Moving data to the new path... "
-		set +f
-		mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data directory."; }
-		set -f
-		OK
-		printf %s "Removing the old data directory '$datadir_prev'..."
-		rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data directory."; }
-		OK
+if [ "$datadir_change" ]; then
+	[ -n "${datadir_prev}" ] && {
+		rm -rf "$datadir"
+		mk_datadir
+		[ -d "$datadir_prev" ] && {
+			printf %s "Moving data to the new path... "
+			set +f
+			mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data directory."; }
+			set -f
+			OK
+			printf %s "Removing the old data directory '$datadir_prev'..."
+			rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data directory."; }
+			OK
+		}
 	}
-}
+	. "$_lib-common.sh" # source -common again to update variables
+fi
 
 export datadir status_file="$datadir/status" nobackup
 
