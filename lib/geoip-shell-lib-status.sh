@@ -141,6 +141,70 @@ is_whitelist_present && {
 
 printf '%s\n' "Automatic backup of IP lists: $backup_st$n_c"
 
+# compile lists of active country codes and local iplists
+unset local_iplists local_families all_active_ccodes
+for direction in inbound outbound; do
+	# $${direction}_active_lists var populated in check_lists_coherence()
+	set_dir_vars "$direction"
+	[ "$geomode" = disable ] && continue
+	eval "active_lists=\"\$${direction}_active_lists\""
+	unset "${direction}_active_ccodes" "${direction}_active_families"
+	for list_id in $active_lists; do
+		case "$list_id" in
+			allow_*|dhcp*) continue ;;
+			local_*)
+				add2list local_iplists "$list_id"
+				add2list local_families "${list_id##*_}"
+				add2list "${direction}_active_families" "${list_id##*_}"
+				continue
+		esac
+		add2list "${direction}_active_ccodes" "${list_id%_*}"
+		add2list all_active_ccodes "${list_id%_*}"
+		add2list "${direction}_active_families" "${list_id##*_}"
+	done
+done
+
+ipsets="$(get_ipsets)"
+
+if [ "$verb_status" ]; then
+	case "$_fw_backend" in
+		nft) verb_ipsets="$ipsets" ;;
+		ipt) verb_ipsets="$(get_ext_ipsets)"
+	esac
+
+	for ccode in $all_active_ccodes; do
+		for family in $families; do
+			list_id="${ccode}_${family}"
+			f="${family#ipv}"
+			el_cnt="$(cnt_ipset_elements "${ccode}_${f}" "$verb_ipsets")"
+			: "${el_cnt:=0}"
+			eval "${list_id}_el_cnt"='$el_cnt'
+		done
+	done
+
+	for list_id in $local_iplists; do
+		l="${list_id%_ipv*}"
+		family="${list_id#"$l"}"
+		f="${family#_ipv}"
+		el_cnt="$(cnt_ipset_elements "${l}_${f}" "$verb_ipsets")"
+		: "${el_cnt:=0}"
+		eval "${list_id}_el_cnt"='$el_cnt'
+	done
+fi
+
+if [ "$local_iplists" ]; then
+	printf '\n%s' "${purple}Active local IP lists"
+	if [ ! "$verb_status" ]; then
+		printf '%s\n' "${n_c}: ${blue}$local_iplists${n_c}"
+	else
+		printf '%s\n' " and respective elements counts${n_c}:"
+		for list_id in $local_iplists; do
+			eval "el_cnt=\"\${${list_id}_el_cnt}\""
+			printf '%s\n' "  $list_id: ${blue}$el_cnt${n_c}"
+		done
+	fi
+fi
+
 for direction in inbound outbound; do
 	printf '\n%s\n' "$purple$direction geoblocking:${n_c}"
 	set_dir_vars "$direction"
@@ -149,17 +213,8 @@ for direction in inbound outbound; do
 	printf '%s\n' "  Mode: ${geomode_pr}"
 	[ "$geomode" = disable ] && continue
 
-	# check ipsets and firewall rules for active ccodes
-	# $${direction}_active_lists var populated in check_lists_coherence()
-	eval "active_lists=\"\$${direction}_active_lists\""
-	unset active_ccodes active_families
-	for list_id in $active_lists; do
-		case "$list_id" in allow_*|dhcp*) continue; esac
-		active_ccodes="$active_ccodes${list_id%_*} "
-		active_families="$active_families${list_id##*_} "
-	done
-	san_str active_ccodes &&
-	san_str active_families || die
+	eval "active_ccodes=\"\${${direction}_active_ccodes}\" active_families=\"\${${direction}_active_families}\""
+
 	printf %s "  Country codes: "
 	case "$active_ccodes" in
 		'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -172,12 +227,10 @@ for direction in inbound outbound; do
 		*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 	esac
 
-	ipsets="$(get_ipsets)"
-
 	for f in $families; do
 		unset allow_ips no_allow_ips "allow_$f"
 		case "$ipsets" in
-			*"allow_${f#ipv}"*) allow_ipset_name="allow_${f#ipv}" ;;
+			"allow_${f#ipv}"*|"${_nl}allow_${f#ipv}"*) allow_ipset_name="allow_${f#ipv}" ;;
 			*"allow_${direction%bound}_${f#ipv}"*) allow_ipset_name="allow_${direction%bound}_${f#ipv}" ;;
 			*) no_allow_ips=1
 		esac
@@ -231,26 +284,21 @@ for direction in inbound outbound; do
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
 			*)
 				echo
-				[ "$_fw_backend" = ipt ] && ipsets="$(get_ext_ipsets)"
 				dir_total_el_cnt=0
 				for ccode in $active_ccodes; do
 					el_summary=
 					printf %s "  ${purple}${ccode}${n_c}: "
 					for family in $families; do
 						list_id="${ccode}_${family}"
-						f="${family#ipv}"
-						el_cnt=0
-						if eval "[ -n \"\${${list_id}_el_cnt}\" ]"; then
-							eval "el_cnt=\"\${${list_id}_el_cnt}\""
-						else
-							el_cnt="$(cnt_ipset_elements "${ccode}_${f}" "$ipsets")"
-							eval "${list_id}_el_cnt=\"$el_cnt\""
-						fi
-						[ "$el_cnt" != 0 ] && list_empty='' || {
-							case "$exclude_iplists" in
-								*"$list_id"*) list_empty=" (excluded)" ;;
-								*) list_empty=" $_X"; incr_issues
-							esac
+						list_empty=
+						eval "el_cnt=\"\${${list_id}_el_cnt}\""
+						[ "$el_cnt" = 0 ] && {
+							if is_included "$list_id" "$exclude_iplists"; then
+								list_empty=" (excluded)"
+							else
+								list_empty=" $_X"
+								incr_issues
+							fi
 						}
 						el_summary="$el_summary$family - $blue$el_cnt$n_c$list_empty, "
 						dir_total_el_cnt=$((dir_total_el_cnt+el_cnt))
