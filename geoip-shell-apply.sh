@@ -331,6 +331,7 @@ for family in $families; do
 done
 
 # compile a list of local IP lists to process
+unset local_ipsets local_allow_ipsets local_block_ipsets
 for family in ipv4 ipv6; do
 	for iplist_type in allow block; do
 		eval "iplist_file=\"\${local_${iplist_type}_${family}}\""
@@ -338,6 +339,7 @@ for family in ipv4 ipv6; do
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
 		add2list local_ipsets "${ipset_prefix}local_${iplist_type}_${family#ipv}"
+		add2list "local_${iplist_type}_ipsets" "${ipset_prefix}local_${iplist_type}_${family#ipv}"
 	done
 done
 
