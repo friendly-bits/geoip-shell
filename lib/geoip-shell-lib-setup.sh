@@ -480,12 +480,15 @@ set_defaults() {
 
 	if [ "$_OWRTFW" ]; then
 		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
+		local_iplists_dir_def="$conf_dir/local_iplists"
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
+		local_iplists_dir_def="$datadir_def/local_iplists"
 	fi
 
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
+	: "${local_iplists_dir:="$local_iplists_dir_def"}"
 	: "${schedule:="$def_sch_minute 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
@@ -503,6 +506,21 @@ set_defaults() {
 }
 
 get_general_prefs() {
+	dir_change() {
+		eval "dir_arg=\"\${${1}_arg}\" dir_old=\"\${$1%/}\""
+		dir_new="${dir_arg%/}"
+		[ ! "$dir_new" ] && die "Invalid directory '$dir_arg'."
+		case "$dir_new" in /*) ;; *) die "Invalid directory '$dir_arg'."; esac
+		[ "$dir_new"  = "$dir_old" ] && { eval "$1"='$dir_old'; return 0; }
+		case "$dir_new" in "$datadir"|"$local_iplists_dir"|"$iplist_dir"|"$conf_dir")
+			die "Directory '$dir_new' is reserved. Please pick another one."
+		esac
+		is_dir_empty "$dir_new" || die "Can not use directory '$dir_arg': it exists and is not empty."
+		parent_dir="${dir_new%/*}/"
+		[ ! -d "$parent_dir" ] && die "Can not create directory '$dir_arg': parent directory '$parent_dir' doesn't exist."
+		eval "$1"='${dir_new}'
+	}
+
 	set_defaults
 	# firewall backend
 	[ "$_fw_backend_arg" ] && {
@@ -551,19 +569,10 @@ get_general_prefs() {
 	done
 
 	# datadir
-	[ "$datadir_arg" ] && {
-		datadir_new="${datadir_arg%/}"
-		[ ! "$datadir_new" ] && die "Invalid directory '$datadir_arg'."
-		case "$datadir_new" in /*) ;; *) die "Invalid directory '$datadir_arg'."; esac
-		case "$datadir_new" in "$iplist_dir"|"$conf_dir") die "Directory '$datadir_new' is reserved. Please pick another one."; esac
-		[ "$datadir_new" != "$datadir" ] && {
-			{ find "$datadir_new" | head -n2 | grep -v "^$datadir_new\$"; } 1>/dev/null 2>/dev/null &&
-				die "Can not use directory '$datadir_arg': it exists and is not empty."
-		}
-		parent_dir="${datadir_new%/*}/"
-		[ ! -d "$parent_dir" ] && die "Can not create directory '$datadir_arg': parent directory '$parent_dir' doesn't exist."
-	}
-	datadir="${datadir_new:-"$datadir"}"
+	[ "$datadir_arg" ] && dir_change datadir
+
+	# local IP lists dir
+	[ "$local_iplists_dir_arg" ] && dir_change local_iplists_dir
 
 	# cron schedule
 	schedule="${schedule_arg:-"$schedule"}"
@@ -609,11 +618,12 @@ get_general_prefs() {
 			done
 	esac
 
-	# process and import local IP lists if specified
+	# sanitization for local IP lists
 	sed_san() {
 		sed 's/\r/\n/g;s/\n$//' "$1" | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
 	}
 
+	# process and import local IP lists if specified
 	for iplist_type in allow block; do
 		eval "file=\"\$local_${iplist_type}_arg\""
 		case "$file" in
@@ -664,8 +674,9 @@ get_general_prefs() {
 		grep -E -m1 "/${mb_regex}" "$file" 1>/dev/null && iplist_el_type=net
 
 		printf '%s\n' "${blue}Detected IPv${iplist_family} with elements of type '$iplist_el_type'${n_c}."
-		printf %s "Importing local IPv$iplist_family ${iplist_type}list file... "
-		eval "dest_file=\"\${local_${iplist_type}_ipv${iplist_family}}.${iplist_el_type}\""
+		dir_mk "$local_iplists_dir"
+		printf %s "Importing local IPv${iplist_family} ${iplist_type}list file... "
+		dest_file="${local_iplists_dir}/local_${iplist_type}_ipv${iplist_family}.${iplist_el_type}"
 		{
 			[ -f "$dest_file" ] && cat "$dest_file"
 			sed_san "$file"
