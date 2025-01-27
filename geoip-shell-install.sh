@@ -460,8 +460,8 @@ $set_posix
 $init_non_owrt_pt1
 
 [ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
-. "\${_lib}-common.sh" || exit 1
 $set_owrt_install
+. "\${_lib}-common.sh" || exit 1
 [ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 [ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
 	{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
