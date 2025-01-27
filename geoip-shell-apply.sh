@@ -334,7 +334,7 @@ done
 unset local_ipsets local_allow_ipsets local_block_ipsets
 for family in ipv4 ipv6; do
 	for iplist_type in allow block; do
-		eval "iplist_file=\"\${local_${iplist_type}_${family}}\""
+		iplist_file="${local_iplists_dir}/local_${iplist_type}_${family}"
 		[ -s "${iplist_file}.ip" ] || [ -s "${iplist_file}.net" ] || continue
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
