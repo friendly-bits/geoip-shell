@@ -154,16 +154,22 @@ rm_cron_jobs() {
 # 1 - dir path
 # 2 - dir description
 rm_geodir() {
-	[ "$1" ] && [ -d "$1" ] && {
+	[ "${1%/}" ] && [ "${1%/}" != '/' ] && [ -d "${1%/}" ] && {
 		printf '%s\n' "Deleting the $2 directory '$1'..."
-		rm -rf "$1"
+		rm -rf "${1%/}"
 	}
+}
+
+rm_all_data() {
+	rm_data
+	rm_geodir "$local_iplists_dir" "local IP lists"
+	rm_dir_if_empty "$datadir"
 }
 
 rm_data() {
 	rm_geodir "$datadir"/backup backup
-	rm -f "$datadir"/status
-	{ find "$datadir" | head -n2 | grep -v "^$datadir\$"; } 1>/dev/null 2>/dev/null || rm_geodir "$datadir" data
+	rm -f "$datadir"/status "$datadir"/ips_cnt
+	rm_dir_if_empty "$datadir"
 	:
 }
 
@@ -179,7 +185,6 @@ rm_config() {
 rm_setupdone() {
 	rm -f "$conf_dir/setupdone"
 }
-
 
 [ ! "$_fw_backend" ] && [ "$root_ok" ] && {
 	if [ "$_OWRTFW" ]; then
