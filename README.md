@@ -275,7 +275,7 @@ You can sequentially import multiple IP lists and geoip-shell will add IP addres
 
 **NOTE** that blocklist rules take precedence over allowlist rules. So if same IP address is included both in a local allowlist and in a local blocklist, it will be blocked.
 
-**NOTE** that when importing custom IP lists, geoip-shell creates local allow- and blocklist files in `/etc/geoip-shell` on OpenWrt, or in `/var/lib/geoip-shell` on other systems. The original files used to import the IP lists can then be deleted to free up space.
+**NOTE** that when importing custom IP lists, geoip-shell creates local allow- and blocklist files in `/etc/geoip-shell/local_iplists/` on OpenWrt, or in `/var/lib/geoip-shell/local_iplists/` on all other systems. The original files used to import the IP lists can be deleted after they are imported to free up space. To change the directory where imported local IP lists are stored, use the command `geoip-shell configure -L <path>`.
 
 ## **Pre-requisites**
 (if a pre-requisite is missing, the _-install.sh_ script will tell you which)
