@@ -52,6 +52,30 @@ printf_s() {
 	case "$debugmode" in '') ;; *) echo >&2; esac
 }
 
+is_dir_empty() {
+	[ "$1" ] && [ -d "$1" ] || return 0
+	{ find "$1" | head -n2 | grep -v "^$1\$"; } 1>/dev/null 2>/dev/null && return 1
+	:
+}
+
+rm_dir_if_empty() {
+	is_dir_empty "$1" &&
+	{
+		printf %s "Deleting directory '$1'..."
+		rm -rf "$1" || { echolog -err "$FAIL delete the directory '$1'."; return 1; }
+		OK
+	}
+	:
+}
+
+dir_mk() {
+	[ ! "$1" ] && die "dir_mk: received empty path."
+	[ -d "$1" ] && return 0
+	printf %s "Creating directory '$1'... "
+	mkdir -p "$1" && chmod -R 600 "$1" && chown -R root:root "$1" || die "$FAIL create '$1'."
+	OK
+}
+
 get_md5() {
 	printf %s "$1" | md5sum | cut -d' ' -f1
 }
@@ -400,14 +424,6 @@ get_matching_line() {
 	return $_rv
 }
 
-mk_datadir() {
-	[ ! "$datadir" ] && die "\$datadir variable is unset."
-	[ -d "$datadir" ] && return 0
-	printf %s "Creating the data directory '$datadir'... "
-	mkdir -p "$datadir" && chmod -R 600 "$datadir" && chown -R root:root "$datadir" || die "$FAIL create '$datadir'."
-	OK
-}
-
 # 1 - var name for output
 # 2 - optional key (otherwise uses var name as key)
 # 3 - optional path to config file
@@ -551,7 +567,7 @@ set_all_config() {
 	setconfig inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
 		inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
 		geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-		nft_perf ifaces datadir nobackup no_persist noblock http user_ccode schedule families \
+		nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \
 		_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
 		mm_license_type mm_acc_id mm_license_key
 }
@@ -843,7 +859,8 @@ get_active_iplists() {
 		esac
 
 		for iplist_type in allow block; do
-			eval "iplist_path=\"\${local_${iplist_type}_${family}}\""
+			iplist_path="${local_iplists_dir}/local_${iplist_type}_${family}"
+
 			[ -s "${iplist_path}.ip" ] || [ -s "${iplist_path}.net" ] &&
 				exp_iplists_gai="${exp_iplists_gai} local_${iplist_type}_${family}"
 		done
@@ -912,7 +929,7 @@ check_lists_coherence() {
 			esac
 
 			for iplist_type in allow block; do
-				eval "iplist_path=\"\${local_${iplist_type}_${family}}\""
+				iplist_path="${local_iplists_dir}/local_${iplist_type}_${family}"
 				[ -s "${iplist_path}.ip" ] || [ -s "${iplist_path}.net" ] &&
 					exp_iplists="${exp_iplists} local_${iplist_type}_${family}"
 			done
@@ -1236,22 +1253,10 @@ set -f
 
 	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
 		getconfig datadir
-		export datadir status_file="$datadir/status" counters_file="$datadir/counters"
+		export datadir status_file="$datadir/status"
 	}
 
 	export geotag="$p_name"
-}
-
-[ -n "$datadir" ] && {
-	case "$_OWRTFW" in
-		'') export local_iplists_dir="$datadir" ;;
-		*) export local_iplists_dir="$conf_dir"
-	esac
-	for iplist_type in allow block; do
-		for family in ipv4 ipv6; do
-			export "local_${iplist_type}_${family}"="${local_iplists_dir}/local_${iplist_type}_${family}"
-		done
-	done
 }
 
 :
