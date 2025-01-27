@@ -33,8 +33,10 @@ echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall r
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -f "$conf_file" ] && nodie=1 getconfig datadir
+[ -s "$conf_file" ] && nodie=1 getconfig datadir
 : "${datadir:=/tmp/$p_name-data}"
+[ -s "$conf_file" ] && nodie=1 getconfig local_iplists_dir
+: "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 rm_setupdone
 [ -s "$init_script" ] && $init_script disable
@@ -45,3 +47,10 @@ rm_iplists_rules
 rm_cron_jobs
 rm_data
 rm_symlink
+if is_dir_empty "$local_iplists_dir"; then
+	rm_geodir "$local_iplists_dir" "local IP lists"
+	rm_dir_if_empty "$datadir"
+else
+	echolog "NOTE: local IP lists are not removed." \
+		"If you are not planning to re-install $p_name, manually remove the directory '$local_iplists_dir'."
+fi
