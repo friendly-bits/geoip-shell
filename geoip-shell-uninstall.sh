@@ -112,7 +112,9 @@ install_dir="${old_install_dir:-"$install_dir"}"
 			echolog -warn "Config file doesn't exist or failed to read config." \
 				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
 	}
-: "${datadir:="/var/lib/geoip-shell"}"
+: "${datadir:="/var/lib/$p_name"}"
+[ -s "$conf_file" ] && nodie=1 getconfig local_iplists_dir
+: "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 #### MAIN
 
@@ -151,6 +153,9 @@ rm_cron_jobs
 
 rm_symlink
 rm_scripts
-[ ! "$keepdata" ] && { rm_config; rm_data; }
+[ ! "$keepdata" ] && {
+	rm_config
+	rm_all_data
+}
 
 printf '%s\n\n' "Uninstall complete."
