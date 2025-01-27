@@ -23,21 +23,7 @@ set -- $_args; oldifs
 
 # vars for usage()
 ccodes_syn="<\"country_codes\">"
-fam_syn="<ipv4|ipv6|\"ipv4 ipv6\">"
 mode_syn="<whitelist|blacklist|disable>"
-ifaces_syn="<\"[ifaces]\"|auto|all>"
-lan_syn="<\"[lan_ips]\"|auto|none>"
-tr_syn="<\"[trusted_ips]\"|none>"
-ports_syn="<[tcp|udp]:[allow|block]:[all|<ports>]>"
-sch_syn="<\"[expression]\"|disable>"
-user_ccode_syn="<[user_country_code]|none>"
-fw_be_syn="<ipt|nft>"
-datadir_syn="<\"path\">"
-noblock_syn="<true|false>"
-nobackup_syn="<true|false>"
-nft_p_syn="<memory|performance>"
-force_cr_syn="<true|false>"
-no_persist_syn="<true|false>"
 
 usage() {
 
@@ -74,24 +60,24 @@ ${sp8}'disable' removes all previous config options for specified direction and 
   ${blue}-c $ccodes_syn${n_c} : 2-letter country codes to include in whitelist/blacklist.
 ${sp8}If passing multiple country codes, use double quotes.
 
-  ${blue}-p $ports_syn${n_c} :
+  ${blue}-p <[tcp|udp]:[allow|block]:[all|<ports>]>${n_c} :
 ${sp8}For given protocol (tcp/udp), use 'block' to geoblock traffic on specific ports or on all ports.
 ${sp8}or use 'allow' to geoblock all traffic except on specific ports.
 ${sp8}To specify ports for both tcp and udp in one command, use the '-p' option twice.
 
 ${purple}General options for the 'configure' action${n_c} (affects geoblocking in both directions):
 
-  ${blue}-f ${fam_syn}${n_c} : IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  ${blue}-f <ipv4|ipv6|"ipv4 ipv6">${n_c} : IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
   ${blue}-u $srcs_syn${n_c} : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
 
-  ${blue}-i $ifaces_syn${n_c} :
+  ${blue}-i <"[ifaces]"|auto|all>${n_c} :
 ${sp8}Changes which network interface(s) geoblocking firewall rules will be applied to.
 ${sp8}'all' will apply geoblocking to all network interfaces.
 ${sp8}'auto' will automatically detect WAN interfaces (this may cause problems if the machine has no direct WAN connection).
 ${sp8}Generally, if the machine has dedicated WAN interfaces, specify them, otherwise pick 'all'.
 
-  ${blue}-l $lan_syn${n_c} :
+  ${blue}-l <"[lan_ips]"|auto|none>${n_c} :
 ${sp8}Specifies LAN IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
 ${sp8}Only compatible with whitelist mode.
 ${sp8}Generally, in whitelist mode, if the machine has no dedicated WAN interfaces,
@@ -100,7 +86,7 @@ ${sp8}'auto' will automatically detect LAN subnets during the initial setup and 
 ${sp8}'none' removes previously set LAN IPs and disables the automatic detection.
 ${sp8}*Don't use 'auto' if the machine has a dedicated WAN interface*
 
-  ${blue}-t $tr_syn${n_c} :
+  ${blue}-t <"[trusted_ips]"|none>${n_c} :
 ${sp8}Specifies trusted IPs or subnets to exclude from geoblocking (both ipv4 and ipv6).
 ${sp8}This option is independent from the above LAN IPs option.
 ${sp8}Works both in whitelist and blacklist mode.
@@ -119,42 +105,46 @@ ${sp8}Or use 'pause' to always temporarily pause outbound geoblocking before fet
 ${sp8}Or specify IP addresses for IP lists source (ripe, ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 ${sp8}Or use 'none' to remove previously assigned server IP addresses and disable this feature.
 
-  ${blue}-r $user_ccode_syn${n_c} :
+  ${blue}-r <[user_country_code]|none>${n_c} :
 ${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
 ${sp8}'none' disables this feature.
 
-  ${blue}-o $nobackup_syn${n_c} :
+  ${blue}-o <true|false>${n_c} :
 ${sp8}No backup. If set to 'true', $p_name will not create a backup of IP lists and firewall rules state after applying changes,
 ${sp8}and will automatically re-fetch IP lists after each reboot.
 ${sp8}Default is 'true' for OpenWrt, 'false' for all other systems.
 
-  ${blue}-a $datadir_syn${n_c} :
+  ${blue}-a <"path">${n_c} :
 ${sp8}Set custom path to directory where backups and the status file will be stored.
-${sp8}Default is '/tmp/geoip-shell-data' for OpenWrt, '/var/lib/$p_name' for all other systems.
+${sp8}Default is '/tmp/$p_name-data' for OpenWrt, '/var/lib/$p_name' for all other systems.
 
-  ${blue}-s $sch_syn${n_c} :
+  ${blue}-L <"path">${n_c} :
+${sp8}Set custom path to directory where local IP lists will be stored.
+${sp8}Default is '/etc/$p_name' for OpenWrt, '/var/lib/$p_name' for all other systems.
+
+  ${blue}-s <"[expression]"|disable>${n_c} :
 ${sp8}Schedule expression for the periodic cron job implementing automatic update of the IP lists, must be inside double quotes.
 ${sp8}Example expression: "15 4 * * *" (at 4:15 [am] every day)
 ${sp8}'disable' will disable automatic updates of the IP lists.
 
-  ${blue}-w $fw_be_syn${n_c} :
+  ${blue}-w <ipt|nft>${n_c} :
 ${sp8}Specify firewall backend to use with $p_name. 'ipt' for iptables, 'nft' for nftables.
 ${sp8}Default is nftables if present in the system.
 
-  ${blue}-O $nft_p_syn${n_c} :
+  ${blue}-O <memory|performance>${n_c} :
 ${sp8}Optimization policy for nftables sets.
 ${sp8}By default optimizes for memory if the machine has less than 2GiB of RAM, otherwise for performance.
 ${sp8}Doesn't work with iptables.
 
-  ${blue}-N $noblock_syn${n_c} :
+  ${blue}-N <true|false>${n_c} :
 ${sp8}No Block: Skip creating the rule which redirects traffic to the geoblocking chain.
 ${sp8}Everything will be installed and configured but geoblocking will not be enabled. Default is false.
 
-  ${blue}-n $no_persist_syn${n_c} :
+  ${blue}-n <true|false>${n_c} :
 ${sp8}No Persistence: Skip creating the persistence cron job or init script.
 ${sp8}$p_name will likely not work after reboot. Default is false.
 
-  ${blue}-P $force_cr_syn${n_c} : Force cron-based persistence even when the system may not support it. Default is false.
+  ${blue}-P <true|false>${n_c} : Force cron-based persistence even when the system may not support it. Default is false.
 
 ${purple}Other options${n_c}:
 
@@ -211,7 +201,7 @@ esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:o:w:O:n:N:P:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:L:o:w:O:n:N:P:zvdVh" opt; do
 	case $opt in
 		D) tolower OPTARG
 			case "$OPTARG" in inbound|outbound) ;; *)
@@ -236,6 +226,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:o:w:O:n:N:P:zvdVh" opt; do
 		B) set_opt local_block_arg ;;
 		U) set_opt source_ips_arg ;;
 		a) set_opt datadir_arg ;;
+		L) set_opt local_iplists_dir_arg ;;
 		w) set_opt _fw_backend_arg ;;
 		O) set_opt nft_perf_arg ;;
 
@@ -265,6 +256,38 @@ is_root_ok
 
 
 #### FUNCTIONS
+
+# 1 - old dir
+# 2 - new dir
+# 3 - description
+dir_mv() {
+	prev_dir_mv="$1" new_dir_mv="$2" dir_cont_desc="$3"
+	[ -n "${prev_dir_mv}" ] || return 0
+
+	rm -rf "$new_dir_mv"
+	dir_mk "$new_dir_mv"
+	[ -d "$prev_dir_mv" ] || return 0
+
+	if ! is_dir_empty "$prev_dir_mv"; then
+		printf %s "Moving $dir_cont_desc to the new path... "
+		set +f
+		for mv_file in "$prev_dir_mv"/*; do
+			if [ ! -d "$mv_file" ]; then
+				mv -- "$mv_file" "$new_dir_mv/" || {
+					mv "$new_dir_mv"/* "$prev_dir_mv/"
+					set -f
+					rm -rf "$new_dir_mv"
+					die "$FAIL move the $dir_cont_desc."
+				}
+			fi
+		done
+		set -f
+		OK
+	fi
+
+	# remove prev_dir_mv if it's empty
+	rm_dir_if_empty "$prev_dir_mv"
+}
 
 # restore iplists from the config file
 # if that fails, restore from backup
@@ -399,7 +422,7 @@ unset conf_act rm_conf
 		q="[K]eep previous"
 		keep_opt=k
 		for _par in inbound_geomode outbound_geomode inbound_ccodes outbound_ccodes inbound_ports outbound_ports \
-			families ifaces lan_ips trusted user_ccode geosource datadir nobackup \
+			families ifaces lan_ips trusted user_ccode geosource datadir local_iplists_dir nobackup \
 			_fw_backend nft_perf schedule no_persist noblock force_cron_persist; do
 			eval "arg_val=\"\$${_par}_arg\""
 			[ "$arg_val" ] && {
@@ -437,7 +460,8 @@ unset conf_act rm_conf
 [ ! -s "$conf_file" ] || [ "$rm_conf" ] && {
 	rm -f "$conf_file"
 	rm_data
-	unset datadir
+	datadir=
+	local_iplists_dir=
 	rm_setupdone
 	export first_setup=1
 }
@@ -485,7 +509,7 @@ incompat="$erract is incompatible with option"
 [ "$action" != configure ] && {
 	for i_opt in "inbound_ccodes c" "outbound_ccodes c" "inbound_geomode m" "outbound_geomode m" \
 			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" \
-			"geosource u" "source_ips U" "datadir a" "nobackup o" "schedule s" \
+			"geosource u" "source_ips U" "datadir a" "local_iplists_dir L" "nobackup o" "schedule s" \
 			"families f" "user_ccode r" "nft_perf O" "nointeract z" "local_allow A" "local_block B"; do
 		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
 	done
@@ -516,7 +540,7 @@ case "$action" in
 		die $? ;;
 	reset)
 		rm_iplists_rules
-		rm_data
+		rm_all_data
 		[ -f "$conf_file" ] && { printf '%s\n' "Deleting the config file '$conf_file'..."; rm -f "$conf_file"; }
 		rm_setupdone
 		die 0 ;;
@@ -534,19 +558,19 @@ prev_config="$main_config"
 
 debugprint "first_setup: '$first_setup'"
 
-for var_name in datadir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf user_ccode \
-	lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
+for var_name in datadir local_iplists_dir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf \
+	user_ccode lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
 	eval "${var_name}_prev=\"\$$var_name\""
 done
 
 export nointeract="${nointeract_arg:-$nointeract}"
 
-# sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir schedule families
+# sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
 #   geosource trusted user_ccode
 # imports local IP lists if specified
 get_general_prefs || die
 
-for opt_ch in datadir noblock nobackup schedule no_persist geosource families \
+for opt_ch in datadir local_iplists_dir noblock nobackup schedule no_persist geosource families \
 		_fw_backend nft_perf user_ccode source_ips_policy; do
 	unset "${opt_ch}_change"
 	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
@@ -806,24 +830,17 @@ check_for_lockout
 }
 
 if [ "$datadir_change" ]; then
-	[ -n "${datadir_prev}" ] && {
-		rm -rf "$datadir"
-		mk_datadir
-		[ -d "$datadir_prev" ] && {
-			printf %s "Moving data to the new path... "
-			set +f
-			mv "$datadir_prev"/* "$datadir" || { rm -rf "$datadir"; die "$FAIL move the data directory."; }
-			set -f
-			OK
-			printf %s "Removing the old data directory '$datadir_prev'..."
-			rm -rf "$datadir_prev" || { rm -rf "$datadir"; die "$FAIL remove the old data directory."; }
-			OK
-		}
-	}
-	. "$_lib-common.sh" # source -common again to update variables
+	dir_mv "$datadir_prev" "$datadir" data
+	dir_mv "$datadir_prev/backup" "$datadir/backup" backup
+	rm -rf "$datadir_prev/backup"
+	rm_dir_if_empty "$datadir_prev" || die
+
+	status_file="$datadir/status"
 fi
 
-export datadir status_file="$datadir/status" nobackup
+export datadir status_file
+
+[ "$local_iplists_dir_change" ] && dir_mv "$local_iplists_dir_prev" "$local_iplists_dir" "local IP lists"
 
 [ "$run_restore_req" ] &&
 	{ [ "$nobackup_prev" = true ] || [ ! -s "$datadir/backup/$p_name.conf.bak" ] || [ ! -s "$status_file" ]; } &&
@@ -874,7 +891,7 @@ case "$conf_act" in
 	*)
 esac
 
-mk_datadir
+dir_mk "$datadir"
 
 case "$conf_act" in
 	reset)
