@@ -314,7 +314,7 @@ for family in $families; do
 
 			[ "$res_subnets" ] && {
 				printf '%s\n' "$res_subnets" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
-				debugprint "allow IPs:${_nl}'$res_subnets'"
+				debugprint "$direction $family allow IPs:${_nl}'$res_subnets'"
 			}
 		else
 			# if allow IPs are identical for inbound and outbound, use same ipset for both
