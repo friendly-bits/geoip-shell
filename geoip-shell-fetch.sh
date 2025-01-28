@@ -182,13 +182,6 @@ get_src_dates_ripe() {
 
 # get list time based on the filename on the server
 get_src_dates_maxmind() {
-	[ ! "$maxmind_url" ] && { echolog -err "get_src_dates_maxmind(): \$maxmind_url variable should not be empty!"; return 1; }
-
-	case "$mm_license_type" in
-		free) mm_db_name=GeoLite2 ;;
-		paid) mm_db_name=GeoIP2 ;;
-		*) echolog -err "unexpected MaxMind license type '$mm_license_type'"; return 1
-	esac
 	server_url="https://${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
 	debugprint "getting date from url '$server_url'..."
@@ -413,11 +406,6 @@ fetch_file() {
 
 fetch_maxmind() {
 	fetched_db_mm="/tmp/${p_name}_fetched-db.tmp"
-	case "$mm_license_type" in
-		free) mm_db_name=GeoLite2 ;;
-		paid) mm_db_name=GeoIP2 ;;
-		*) echolog -err "unexpected MaxMind license type '$mm_license_type'"; return 1
-	esac
 	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
 	printf '%s\n' "Fetching the database from MaxMind..."
@@ -788,8 +776,17 @@ group_lists_by_registry
 case "$dl_src" in
 	ripe) con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
 	ipdeny) con_check_url="$ipdeny_ipv4_url" ;;
-	maxmind) con_check_url="${maxmind_url%%/*}"
+	maxmind)
+		checkvars maxmind_url mm_license_type mm_acc_id mm_license_key
+		con_check_url="${maxmind_url%%/*}"
+
+		case "$mm_license_type" in
+			free) mm_db_name=GeoLite2 ;;
+			paid) mm_db_name=GeoIP2 ;;
+			*) die "unexpected MaxMind license type '$mm_license_type'"
+		esac
 esac
+
 debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
