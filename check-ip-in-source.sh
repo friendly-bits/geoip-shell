@@ -15,8 +15,8 @@ set_path() {
 	var_name="$1"
 	case "$var_name" in *[a-zA-Z0-9_]*) ;; *) printf '%s\n' "set_path: invalid var name '$var_name'"; exit 1; esac
 	f_name="$2"
-	dir1="$script_dir"
-	dir2="$3"
+	dir1="$3"
+	dir2="$script_dir"
 	for dir in "$dir1" "$dir2"; do
 		[ -f "$dir/$f_name" ] && {
 			eval "${var_name}_path=\"$dir/$f_name\""
@@ -151,7 +151,15 @@ done
 [ -z "$families" ] && die "\$families variable is empty."
 
 if [ "$dl_source" = maxmind ]; then
-	setup_maxmind || die
+	[ -s "$conf_file" ] && [ "$root_ok" ] && {
+		nodie=1 getconfig mm_license_type
+		nodie=1 getconfig mm_acc_id
+		nodie=1 getconfig mm_license_key
+		export mm_license_type mm_acc_id mm_license_key
+	}
+	[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || {
+		setup_maxmind || die
+	}
 fi
 
 ### Fetch the IP list file
