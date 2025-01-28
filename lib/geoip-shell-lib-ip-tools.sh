@@ -207,20 +207,11 @@ aggregate_subnets() {
 		*) echolog -err "aggregate_subnets: invalid family '$1'."; return 1
 	esac
 
-	res_ips_int="${_nl}"
 	processed_maskbits=' '
 	nonempty_ags=
 
-	while IFS="$_nl" read -r subnet_ags; do
-		# get mask bits
-		case "$subnet_ags" in
-			'') continue ;;
-			*/*) maskbits="${subnet_ags##*/}" ;;
-			*) maskbits=$ip_len_bits
-		esac
-		# print with maskbits prepended
-		printf '%s\n' "${maskbits}/${subnet_ags%/*}"
-	done |
+	# print with maskbits prepended
+	awk -F/ "\$0{ if (\$2) {mb=\$2} else {mb=\"$ip_len_bits\"}; print mb \"/\" \$1}" |
 
 	# sort by mask bits, add magic string in final line
 	{
@@ -260,7 +251,7 @@ aggregate_subnets() {
 		# convert IP to int and trim to mask bits
 		ip_to_int "$ip1_ags" "$family_ags" "$maskbits" ip1_int || exit 1
 
-		# don't print if trimmed IP int is included in $res_ips_int
+		# don't print if trimmed IP int is included in ${res_ips_by_mb_${maskbits}}
 		IFS=' '
 		bits_processed=0
 		ip1_trim=
@@ -268,6 +259,7 @@ aggregate_subnets() {
 		chunk=
 		for mb in $processed_maskbits; do
 			chunks_done_last=0
+			eval "mb_ips=\"\${res_ips_by_mb_${mb}}\""
 
 			case "$family_ags" in
 				ipv4|inet)
@@ -296,11 +288,11 @@ aggregate_subnets() {
 			esac
 
 			shift $chunks_done_last
-			case "$res_ips_int" in *"${_nl}${ip1_trim}${chunk} "*) continue 2; esac
+			case "$mb_ips" in *"${_nl}${ip1_trim}${chunk} "*) continue 2; esac
 		done
 
-		# add current IP to $res_ips_int
-		res_ips_int="${res_ips_int}${ip1_int} ${_nl}"
+		# add current IP to ${res_ips_by_mb_${maskbits}
+		eval "res_ips_by_mb_${maskbits}=\"\${res_ips_by_mb_${maskbits}}${_nl}${ip1_int} \""
 
 		# add current maskbits to $processed_maskbits
 		case "$processed_maskbits" in *" $maskbits "*) ;; *)
