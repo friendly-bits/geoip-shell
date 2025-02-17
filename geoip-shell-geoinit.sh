@@ -11,7 +11,7 @@
 # the install script makes a new version of this file
 
 
-curr_ver="0.6.9"
+curr_ver="0.7.0"
 export install_dir="/usr/bin" lib_dir="$script_dir/lib" iplist_dir="/tmp/$p_name" lock_file="/tmp/$p_name.lock" \
 	excl_file="$script_dir/iplist-exclusions.conf"
 
