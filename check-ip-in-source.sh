@@ -155,7 +155,8 @@ if [ "$dl_source" = maxmind ]; then
 		nodie=1 getconfig mm_license_type
 		nodie=1 getconfig mm_acc_id
 		nodie=1 getconfig mm_license_key
-		export mm_license_type mm_acc_id mm_license_key
+		nodie=1 getconfig keep_mm_db
+		export mm_license_type mm_acc_id mm_license_key keep_mm_db
 	}
 	[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || {
 		setup_maxmind || die
