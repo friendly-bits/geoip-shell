@@ -486,12 +486,15 @@ set_defaults() {
 		local_iplists_dir_def="$datadir_def/local_iplists"
 	fi
 
+	keep_mm_db_def=false
+
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${local_iplists_dir:="$local_iplists_dir_def"}"
 	: "${schedule:="$def_sch_minute 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
+	: "${keep_mm_db:=false}"
 	: "${_fw_backend:="$_fw_backend_def"}"
 	: "${inbound_tcp_ports:=skip}"
 	: "${inbound_udp_ports:=skip}"
@@ -545,27 +548,31 @@ get_general_prefs() {
 	esac
 	nft_perf="${nft_perf_arg:-$nft_perf}"
 
-	# nobackup, noblock, no_persist, force_cron_persist
-	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F"; do
+	# nobackup, noblock, no_persist, force_cron_persist, keep_mm_db
+	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F" "keep_mm_db K"; do
 		par_name="${_par% *}" par_opt="${_par#* }"
-		eval "par_val=\"\${${par_name}_arg}\""
-		[ "$par_val" ] && tolower par_val
-		case "$par_val" in
+		eval "par_val=\"\$$par_name\"
+			par_val_arg=\"\${${par_name}_arg}\"
+			def_val=\"\$${par_name}_def\""
+		[ "$par_val_arg" ] && tolower par_val_arg
+		case "$par_val_arg" in
 			''|true|false) ;;
-			*) die "Invalid value for option '-$par_opt': '$par_val'."
+			*) die "Invalid value for option '-$par_opt': '$par_val_arg'."
 		esac
-		eval "$par_name=\"\${${par_name}_arg:-\$$par_name}\""
-		eval "par_val=\"\$$par_name\""
-		eval "par_val_arg=\"\${${par_name}_arg}\""
+		par_val="${par_val_arg:-"$par_val"}"
 		case "$par_val" in
-			true) [ "$first_setup" ] && [ "$par_val_arg" != true ] && [ "$par_name" != nobackup ] &&
-						echolog -warn "${_nl}option '$par_name' is set to 'true' in config." ;;
+			true)
+				[ "$first_setup" ] && [ "$par_val_arg" != true ] &&
+					case "$par_name" in noblock|no_persist|force_cron_persist)
+						echolog -warn "${_nl}option '$par_name' is set to 'true' in config."
+					esac ;;
 			false) ;;
-			*) eval "def_val=\"\$${par_name}_def\""
+			*)
 				[ ! "$first_setup" ] &&
 					echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
-				eval "$par_name=\"$def_val\""
+				par_val="$def_val"
 		esac
+		eval "$par_name"='$par_val'
 	done
 
 	# datadir
