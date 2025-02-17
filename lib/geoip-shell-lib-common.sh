@@ -77,7 +77,7 @@ dir_mk() {
 }
 
 get_md5() {
-	printf %s "$1" | md5sum | cut -d' ' -f1
+	md5sum "$1" | cut -d' ' -f1
 }
 
 # sets some variables for colors, symbols and delimiter
@@ -564,12 +564,7 @@ setconfig() {
 }
 
 set_all_config() {
-	setconfig inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
-		inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
-		geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-		nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \
-		_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
-		mm_license_type mm_acc_id mm_license_key
+	setconfig $ALL_CONF_VARS
 }
 
 sc_failed() {
@@ -1193,6 +1188,14 @@ get_counters() {
 unisleep() {
 	sleep 0.1 2>/dev/null || sleep 1
 }
+
+# config variables
+ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
+	inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
+	geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \
+	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
+	mm_license_type mm_acc_id mm_license_key keep_mm_db"
 
 valid_sources="ripe ipdeny maxmind"
 valid_families="ipv4 ipv6"
