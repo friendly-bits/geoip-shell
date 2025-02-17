@@ -201,7 +201,7 @@ esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:L:o:w:O:n:N:P:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:zvdVh" opt; do
 	case $opt in
 		D) tolower OPTARG
 			case "$OPTARG" in inbound|outbound) ;; *)
@@ -225,6 +225,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:a:L:o:w:O:n:N:P:zvdVh" opt; do
 		A) set_opt local_allow_arg ;;
 		B) set_opt local_block_arg ;;
 		U) set_opt source_ips_arg ;;
+		K) set_opt keep_mm_db_arg ;;
 		a) set_opt datadir_arg ;;
 		L) set_opt local_iplists_dir_arg ;;
 		w) set_opt _fw_backend_arg ;;
@@ -421,9 +422,7 @@ unset conf_act rm_conf
 	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
 		q="[K]eep previous"
 		keep_opt=k
-		for _par in inbound_geomode outbound_geomode inbound_ccodes outbound_ccodes inbound_ports outbound_ports \
-			families ifaces lan_ips trusted user_ccode geosource datadir local_iplists_dir nobackup \
-			_fw_backend nft_perf schedule no_persist noblock force_cron_persist; do
+		for _par in $ALL_CONF_VARS; do
 			eval "arg_val=\"\$${_par}_arg\""
 			[ "$arg_val" ] && {
 				nodie=1 getconfig prev_val "$_par" "$conf_file" 2>/dev/null
@@ -508,7 +507,7 @@ incompat="$erract is incompatible with option"
 
 [ "$action" != configure ] && {
 	for i_opt in "inbound_ccodes c" "outbound_ccodes c" "inbound_geomode m" "outbound_geomode m" \
-			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" \
+			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" "keep_mm_db K" \
 			"geosource u" "source_ips U" "datadir a" "local_iplists_dir L" "nobackup o" "schedule s" \
 			"families f" "user_ccode r" "nft_perf O" "nointeract z" "local_allow A" "local_block B"; do
 		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
@@ -566,7 +565,7 @@ done
 export nointeract="${nointeract_arg:-$nointeract}"
 
 # sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
-#   geosource trusted user_ccode
+#   geosource trusted user_ccode keep_mm_db
 # imports local IP lists if specified
 get_general_prefs || die
 
