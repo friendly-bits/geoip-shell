@@ -193,7 +193,7 @@ get_src_dates_maxmind() {
 
 	debugprint "timestamp fetch command: $fetch_cmd_date \"${server_url}\""
 
-	server_date="$(
+	MM_DB_DATE="$(
 		$fetch_cmd_date "$server_url" 2>&1 |
 		sed -n "/[Ll]ast-[Mm]odified:.*,/{
 			s/\r//g;
@@ -217,8 +217,9 @@ get_src_dates_maxmind() {
 	)" || return 1
 
 	for list_id in $valid_lists; do
-		reg_server_date "$server_date" "$list_id" MAXMIND
+		reg_server_date "$MM_DB_DATE" "$list_id" MAXMIND
 	done
+	:
 }
 
 parse_ripe_json() {
@@ -376,7 +377,6 @@ rm_tmp_f() {
 
 rm_mm_tmp_f() {
 	set +f
-	rm -f "/tmp/${p_name}_fetched"*.tmp
 	rm -f "/tmp/${p_name}_preparsed"*.tmp
 	set -f
 }
@@ -405,29 +405,36 @@ fetch_file() {
 }
 
 fetch_maxmind() {
-	fetched_db_mm="/tmp/${p_name}_fetched-db.tmp"
+	fetched_db_mm="/tmp/${p_name}_fetched-mm-db_${MM_DB_DATE}.zip"
 	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
-	printf '%s\n' "Fetching the database from MaxMind..."
+	if [ "$keep_mm_db" = true ] && [ -s "$fetched_db_mm" ]; then
+		printf '%s\n' "Using previously fetched database from MaxMind..."
+	else
+		rm -f "/tmp/${p_name}_fetched-mm-db"*
+		printf '%s\n' "Fetching the database from MaxMind..."
 
-	fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || { 
-		list_failed "$FAIL fetch the database from Maxmind"
-		rm -f "$fetched_db_mm"
-		return 1
-	}
+		fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || {
+			list_failed "$FAIL fetch the database from Maxmind"
+			rm -f "$fetched_db_mm"
+			return 1
+		}
+	fi
 
 	printf '\n%s' "Pre-parsing the database... "
 	for family in $families; do
 		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
 		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" "$mm_db_name" || {
 			FAIL
+			rm -f "$fetched_db_mm"
 			rm_mm_tmp_f
 			echolog -err "$FAIL pre-parse the database from MaxMind."
 			return 1
 		}
 	done
 	OK
-	rm -f "$fetched_db_mm"
+
+	[ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm"
 
 	for family in $families; do
 		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
@@ -813,7 +820,7 @@ else
 	:
 fi
 
-trap 'rm_tmp_f;	rm_mm_tmp_f; \
+trap 'rm_tmp_f; rm_mm_tmp_f; [ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm" \
 	set +f;	rm -f "$server_html_file" "/tmp/${p_name}_ipdeny_plaintext_"*.tmp "/tmp/${p_name}_ipdeny_dl_page_"*.tmp; set -f; \
 	trap - INT TERM HUP QUIT; exit' INT TERM HUP QUIT
 
