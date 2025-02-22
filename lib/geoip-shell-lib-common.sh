@@ -59,10 +59,11 @@ is_dir_empty() {
 }
 
 rm_dir_if_empty() {
+	[ "$1" ] && [ -d "$1" ] || return 0
 	is_dir_empty "$1" &&
 	{
-		printf %s "Deleting directory '$1'..."
-		rm -rf "$1" || { echolog -err "$FAIL delete the directory '$1'."; return 1; }
+		printf %s "Deleting directory '$1'... "
+		rm -rf "$1" || { echolog -err "$FAIL delete directory '$1'."; return 1; }
 		OK
 	}
 	:
