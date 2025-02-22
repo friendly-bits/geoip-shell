@@ -685,14 +685,14 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd="$fetch_cmd --connect-timeout $main_conn_timeout"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
-			con_check_ok_ptrn="(302|403)"
+			con_check_ok_ptrn="(301|302|403)"
 			break ;;
 		wget)
 			if ! wget --version 2>/dev/null | grep -m1 "GNU Wget" 1>/dev/null; then
 				unset wget_tries wget_tries_con_check wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
 				[ "$dl_src" = maxmind ] &&
 					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
-				con_check_ok_ptrn="HTTP error 403"
+				con_check_ok_ptrn="HTTP error (301|302|403)"
 			else
 				wget_server_response=" --server-response"
 				wget_show_progress=" --show-progress"
@@ -700,7 +700,7 @@ for util in curl wget uclient-fetch; do
 				wget_con_check_max_redirect=" --max-redirect=0"
 				wget_tries=" --tries=3"
 				wget_tries_con_check=" --tries=2"
-				con_check_ok_ptrn="(HTTP/.* 302 Moved Temporarily|HTTP/.* 403 Forbidden)"
+				con_check_ok_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
 			fi
 
 			[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
@@ -718,7 +718,7 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd_date="$ucl_cmd -T 16 -q"
 			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
 			fetch_cmd="$ucl_cmd -T $main_conn_timeout"
-			con_check_ok_ptrn="HTTP error 403"
+			con_check_ok_ptrn="HTTP error (301|302|403)"
 			break
 	esac
 done
