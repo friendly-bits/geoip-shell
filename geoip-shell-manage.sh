@@ -829,11 +829,12 @@ check_for_lockout
 }
 
 if [ "$datadir_change" ]; then
-	dir_mv "$datadir_prev" "$datadir" data
-	dir_mv "$datadir_prev/backup" "$datadir/backup" backup
-	rm -rf "$datadir_prev/backup"
-	rm_dir_if_empty "$datadir_prev" || die
-
+	if [ -n "$datadir_prev" ] && [ -d "$datadir_prev" ]; then
+		dir_mv "$datadir_prev" "$datadir" data
+		dir_mv "$datadir_prev/backup" "$datadir/backup" backup
+		rm -rf "$datadir_prev/backup"
+		rm_dir_if_empty "$datadir_prev" || die
+	fi
 	status_file="$datadir/status"
 fi
 
