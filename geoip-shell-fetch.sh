@@ -651,7 +651,7 @@ curl_cmd="curl -f"
 wget_cmd="wget -O -"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-unset fetch_cmd ssl_ok
+unset fetch_cmd ssl_ok wget_no_ssl
 
 if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
 	case "$initsys" in
@@ -710,6 +710,7 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
 			fetch_cmd_q="${fetch_cmd}"
 			fetch_cmd="${fetch_cmd}${wget_show_progress}"
+			wget --version 2>/dev/null | grep 'wget-nossl' 1>/dev/null && { wget_no_ssl=1; continue; }
 			break ;;
 		uclient-fetch)
 			[ "$dl_src" = maxmind ] &&
@@ -722,6 +723,10 @@ for util in curl wget uclient-fetch; do
 			break
 	esac
 done
+
+case "${fetch_cmd}" in wget)
+	[ "$wget_no_ssl" ] && ssl_ok=
+esac
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
