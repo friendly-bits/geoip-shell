@@ -646,9 +646,9 @@ checkvars dl_src
 toupper dl_src_cap "$dl_src"
 
 #### Choose best available DL utility, set options
-ucl_cmd=uclient-fetch
+ucl_cmd="uclient-fetch -O -"
 curl_cmd="curl -f"
-wget_cmd="wget -q"
+wget_cmd="wget -O -"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
 unset fetch_cmd ssl_ok
@@ -679,41 +679,46 @@ for util in curl wget uclient-fetch; do
 		curl)
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
 			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
-			con_check_cmd="$curl_cmd --retry 2 --connect-timeout 7 -s -S --head"
+			con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --retry 2 --connect-timeout 7 -s --head"
 			fetch_cmd="$curl_cmd$maxmind_str -L -f --retry 3"
 			fetch_cmd_date="$fetch_cmd --connect-timeout 16 -s -S"
 			fetch_cmd="$fetch_cmd --connect-timeout $main_conn_timeout"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
+			con_check_ok_ptrn="(302|403)"
 			break ;;
 		wget)
-			if ! wget --version 2>/dev/null | grep -m1 "GNU Wget"; then
-				unset wget_tries wget_tries_con_check wget_show_progress wget_max_redirect
+			if ! wget --version 2>/dev/null | grep -m1 "GNU Wget" 1>/dev/null; then
+				unset wget_tries wget_tries_con_check wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
 				[ "$dl_src" = maxmind ] &&
 					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
+				con_check_ok_ptrn="HTTP error 403"
 			else
+				wget_server_response=" --server-response"
 				wget_show_progress=" --show-progress"
 				wget_max_redirect=" --max-redirect=10"
+				wget_con_check_max_redirect=" --max-redirect=0"
 				wget_tries=" --tries=3"
 				wget_tries_con_check=" --tries=2"
-			fi 1>/dev/null
+				con_check_ok_ptrn="(HTTP/.* 302 Moved Temporarily|HTTP/.* 403 Forbidden)"
+			fi
 
-			[ "$dl_src" = maxmind ] && maxmind_str=" --user=$mm_acc_id --password=$mm_license_key"
-			wget_cmd="$wget_cmd$wget_max_redirect"
-			con_check_cmd="$wget_cmd$wget_tries_con_check --timeout=7 --spider -U Mozilla"
-			fetch_cmd="$wget_cmd$wget_tries$maxmind_str"
-			fetch_cmd_date="$fetch_cmd --timeout=16 -O -"
-			fetch_cmd="$fetch_cmd --timeout=$main_conn_timeout"
-			fetch_cmd_q="$fetch_cmd -O -"
-			fetch_cmd="$fetch_cmd$wget_show_progress -O -"
+			[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
+			con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries_con_check} --timeout=7 --spider"
+			fetch_cmd="${wget_cmd}${wget_max_redirect}${wget_tries}${maxmind_str} -q"
+			fetch_cmd_date="${fetch_cmd} --timeout=16"
+			fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
+			fetch_cmd_q="${fetch_cmd}"
+			fetch_cmd="${fetch_cmd}${wget_show_progress}"
 			break ;;
 		uclient-fetch)
 			[ "$dl_src" = maxmind ] &&
 				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
-			con_check_cmd="$ucl_cmd -T 7 -q -s"
-			fetch_cmd_date="$ucl_cmd -T 16 -q -O -"
-			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q -O -"
-			fetch_cmd="$ucl_cmd -T $main_conn_timeout -O -"
+			con_check_cmd="$ucl_cmd -T 7 -s"
+			fetch_cmd_date="$ucl_cmd -T 16 -q"
+			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
+			fetch_cmd="$ucl_cmd -T $main_conn_timeout"
+			con_check_ok_ptrn="HTTP error 403"
 			break
 	esac
 done
@@ -798,12 +803,17 @@ debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
 printf '\n%s' "Checking connectivity... "
-$con_check_cmd "${http}://$con_check_url" 1>/dev/null 2>/dev/null || {
+con_check_file=/tmp/geoip-shell-conn-check
+$con_check_cmd "${http}://$con_check_url" 1>"$con_check_file" 2>&1 || {
 	rv=$?
-	echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"${http}://$con_check_url\""
-	die "Connection attempt to the $dl_src_cap server failed."
+	if ! grep -E "${con_check_ok_ptrn}" "$con_check_file" 1>/dev/null; then
+		rm -f "$con_check_file"
+		echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"${http}://$con_check_url\""
+		die "Connection attempt to the $dl_src_cap server failed."
+	fi
 }
 OK
+rm -f "$con_check_file"
 
 for f in "$status_file" "$fetch_res_file" "$output_file"; do
 	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$FAIL create file '$f'."; }
