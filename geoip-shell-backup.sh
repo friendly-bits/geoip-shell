@@ -127,19 +127,26 @@ set_archive_type() {
 # checks for diff in new and old config and status files and makes a backup or restores if necessary
 # 1 - restore|backup
 cp_conf() {
-	unset src_f src_d dest_f dest_d
+	unset src_f src_d dest_f dest_d compare_d
 	case "$1" in
 		restore) src_f=_bak; src_d="$bk_dir/"; cp_act=Restoring ;;
-		backup) dest_f=_bak; dest_d="$bk_dir_new/"; cp_act="Creating backup of" ;;
+		backup) dest_f=_bak; dest_d="$bk_dir_new/" compare_d="$bk_dir/"; cp_act="Creating backup of" ;;
 		*) echolog -err "cp_conf: bad argument '$1'"; return 1
 	esac
 
 	for bak_f in status config; do
-		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" cp_dest=\"$dest_d\$${bak_f}_file$dest_f\""
+		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" \
+			cp_dest=\"$dest_d\$${bak_f}_file$dest_f\"
+			dest_compare_f=\"$compare_d\$${bak_f}_file$dest_f\"
+			"
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
-		[ -f "$cp_dest" ] && compare_files "$cp_src" "$cp_dest" && {
-			debugprint "$cp_src is identical to $cp_dest"
+		[ -f "$dest_compare_f" ] && compare_files "$cp_src" "$dest_compare_f" && {
+			debugprint "$cp_src is identical to $dest_compare_f"
+			[ "$1" = backup ] && {
+				debugprint "Moving '$dest_compare_f' to '$cp_dest'"
+				mv "$dest_compare_f" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
+			}
 			continue
 		}
 		debugprint "Copying '$cp_src' to '$cp_dest'"
