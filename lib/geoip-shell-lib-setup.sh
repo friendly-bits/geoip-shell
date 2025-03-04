@@ -687,7 +687,7 @@ get_general_prefs() {
 		{
 			[ -f "$dest_file" ] && cat "$dest_file"
 			sed_san "$file"
-			tail -c 1 "$file" | grep . && printf '\n' # add newline if needed
+			tail -c 1 "$file" | grep . 1>/dev/null && printf '\n' # add newline if needed
 			:
 		} | sort -u > "/tmp/$p_name-import.tmp" && [ -s "/tmp/$p_name-import.tmp" ] &&
 		{
