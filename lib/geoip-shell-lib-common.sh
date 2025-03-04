@@ -600,7 +600,18 @@ setstatus() {
 }
 
 awk_cmp() {
-	$awk_cmd 'NF==0{next} NR==FNR {A[$0]=1;a++;next} {b++} !A[$0]{r=1;exit} END{if(!a&&!b){exit 0};if(!a||!b){exit 1};exit r}' r=0 "$1" "$2"
+	$awk_cmd '
+		NF==0{next}
+		NR==FNR {A[$0];a=1;next}
+		{if (!($0 in A)){r=1;exit}; B[$0];b=1;next}
+		END{
+			if(r==1){exit 1}
+			if(!a&&!b){exit 0}
+			if(!a||!b){exit 1}
+			for (b in B) if (!(b in A)){exit 1}
+			exit 0
+		}
+	' "$1" "$2"
 }
 
 # compares lines in files $1 and $2, regardless of order
@@ -608,7 +619,7 @@ awk_cmp() {
 # returns 0 for no diff, 1 for diff, 2 for error
 compare_files() {
 	[ -f "$1" ] && [ -f "$2" ] || { echolog -err "compare_files: file '$1' or '$2' does not exist."; return 2; }
-	awk_cmp "$1" "$2" && awk_cmp "$2" "$1"
+	awk_cmp "$1" "$2"
 }
 
 # compares lines in file $1 and string $2, regardless of order
@@ -616,7 +627,7 @@ compare_files() {
 # returns 0 for no diff, 1 for diff, 2 for error
 compare_file2str() {
 	[ -f "$1" ] || { echolog -err "compare_file2str: file '$1' does not exist."; return 2; }
-	printf '%s\n' "$2" | awk_cmp - "$1" && printf '%s\n' "$2" | awk_cmp "$1" -
+	printf '%s\n' "$2" | awk_cmp - "$1"
 }
 
 # trims leading, trailing and extra in-between spaces
