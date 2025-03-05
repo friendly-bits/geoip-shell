@@ -869,12 +869,14 @@ if [ "$_fw_backend_change" ]; then
 	# source library for the new backend
 	. "$_lib-$_fw_backend.sh" || die
 else
-	case "$conf_act" in backup|run_restore) ;; *)
-		# create backup if it doesn't exist yet
-		if [ "$nobackup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ]; then
-			inbound_iplists="$inbound_iplists_prev" outbound_iplists="$outbound_iplists_prev" \
-				call_script -l "$i_script-backup.sh" create-backup || rm_data
-		fi
+	case "$conf_act" in
+		backup|run_restore) ;;
+		*)
+			# create backup if it doesn't exist yet
+			if [ "$nobackup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ]; then
+				inbound_iplists="$inbound_iplists_prev" outbound_iplists="$outbound_iplists_prev" \
+					call_script -l "$i_script-backup.sh" create-backup || rm_data
+			fi
 	esac
 fi
 
