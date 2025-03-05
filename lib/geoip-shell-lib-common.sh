@@ -608,7 +608,7 @@ awk_cmp() {
 			if(r==1){exit 1}
 			if(!a&&!b){exit 0}
 			if(!a||!b){exit 1}
-			for (b in B) if (!(b in A)){exit 1}
+			for (a in A) if (!(a in B)){exit 1}
 			exit 0
 		}
 	' "$1" "$2"
