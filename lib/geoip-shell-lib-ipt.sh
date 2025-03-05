@@ -766,6 +766,8 @@ restore_ipsets() {
 # Saves current ipsets to a backup file
 create_backup() {
 	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
+	bk_failed_file="/tmp/$p_name-backup-failed"
+	rm -f "$bk_failed_file"
 	ipsets="$(ipset list -n | grep "$geotag")" || { echolog "create_backup: no ipsets found."; return 0; }
 	for ipset in $ipsets; do
 		ipset save "$ipset" || {
@@ -774,7 +776,10 @@ create_backup() {
 			exit 1
 		}
 	done | eval "$compr_cmd" > "$bk_file" && [ ! -f "$bk_failed_file" ] && [ -s "$bk_file" ] ||
+	{
+		rm -f "$bk_failed_file"
 		bk_failed "${_nl}$FAIL create backup of $p_name ipsets."
+	}
 	:
 }
 
