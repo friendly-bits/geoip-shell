@@ -77,7 +77,7 @@ bk_failed() {
 rm_bk_tmp() {
 	set +f
 	rm -rf "$bk_dir_new"
-	rm -f "$bk_failed_file" "$tmp_file" "$iplist_dir/"*.iplist
+	rm -f "$tmp_file" "$iplist_dir/"*.iplist
 }
 
 rstr_failed() {
@@ -137,8 +137,7 @@ cp_conf() {
 	for bak_f in status config; do
 		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" \
 			cp_dest=\"$dest_d\$${bak_f}_file$dest_f\"
-			dest_compare_f=\"$compare_d\$${bak_f}_file$dest_f\"
-			"
+			dest_compare_f=\"$compare_d\$${bak_f}_file$dest_f\""
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
 		[ -f "$dest_compare_f" ] && compare_files "$cp_src" "$dest_compare_f" && {
@@ -156,11 +155,57 @@ cp_conf() {
 	done
 }
 
+bk_local_lists() {
+	local_lists="$(find "${local_iplists_dir}" -type f -name "local_*" 2>/dev/null)"
+	[ -z "${local_lists}" ] && { debugprint "No local lists to back up."; return 0; }
+	printf_s "Creating backup of local iplists... "
+	mkdir -p "${bk_dir_new}/local_iplists"
+	newifs "$_nl" bll
+	for local_list in $local_lists; do
+		oldifs bll
+		bk_file="${bk_dir_new}/local_iplists/${local_list##*/}.${bk_ext:-bak}"
+		[ "$debugmode" ] && bk_len="$(wc -l < "$local_list")"
+		debugprint "\n${local_list##*/} backup length: $bk_len"
+
+		$compr_cmd < "$local_list" > "$bk_file" || bk_failed "$compr_cmd exited with status $? for local iplist '$local_list'."
+		[ -s "$bk_file" ] || bk_failed "resulting compressed file for '$list_id' is empty or doesn't exist."
+	done
+	oldifs bll
+	OK
+	:
+}
+
+restore_local_lists() {
+	rm -rf "${local_iplists_dir}"
+	local_lists_bk="$(find "${bk_dir}/local_iplists" -type f -name "local_*" 2>/dev/null)"
+	[ -z "${local_lists_bk}" ] && {
+		debugprint "No local lists to restore."
+		return 0
+	}
+
+	printf_s "Restoring local iplists from backup... "
+	mkdir -p "${local_iplists_dir}"
+	newifs "$_nl" rll
+	for bk_file in $local_lists_bk; do
+		oldifs rll
+		iplist_file="$local_iplists_dir/${bk_file##*/}"
+		iplist_file="${iplist_file%."${bk_ext}"}"
+		$extract_cmd "$bk_file" > "$iplist_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
+		[ ! -s "$iplist_file" ] && rstr_failed "$FAIL extract IP list for ${iplist_file##*/}."
+		[ "$debugmode" ] && debugprint "\nLines count in ${iplist_file##*/} backup: $(wc -w < "$iplist_file")"
+	done
+	oldifs rll
+	OK
+	:
+}
+
+
 #### VARIABLES
 
 getconfig families
 [ ! "$inbound_iplists" ] && getconfig inbound_iplists
 [ ! "$outbound_iplists" ] && getconfig outbound_iplists
+[ ! "$local_iplists_dir" ] && getconfig local_iplists_dir
 
 bk_dir="$datadir/backup"
 bk_dir_new="${bk_dir}.new"
@@ -168,7 +213,6 @@ config_file="$conf_file"
 config_file_bak="${p_name}.conf.bak"
 status_file="$datadir/status"
 status_file_bak="status.bak"
-bk_failed_file="/tmp/$p_name-backup-failed"
 
 checkvars _fw_backend datadir
 
@@ -190,9 +234,9 @@ case "$action" in
 		}
 		set_archive_type
 		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
+		bk_local_lists
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		printf_s "Creating backup of $p_name IP sets... "
-		rm -f "$bk_failed_file"
 		create_backup && OK
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
@@ -222,14 +266,16 @@ case "$action" in
 		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
 		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
+		set_extract_cmd "$bk_ext"
 
 		if [ "$iplists" ]; then
 			get_counters
-			set_extract_cmd "$bk_ext"
 			extract_iplists
 		else
 			echolog "No IP lists registered - skipping iplist extraction."
 		fi
+
+		restore_local_lists
 
 		### Remove geoblocking iptables rules and ipsets
 		rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
