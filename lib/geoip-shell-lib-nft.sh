@@ -564,7 +564,7 @@ extract_iplists() {
 		# extract elements and write to $iplist_file
 		$extract_cmd "$bk_file" > "$iplist_file" || rstr_failed "$FAIL extract backup file '$bk_file'."
 		[ ! -s "$iplist_file" ] && rstr_failed "$FAIL extract IP list for $list_id."
-		[ "$debugmode" ] && debugprint "\nLines count in $list_id backup: $(wc -c < "$iplist_file")"
+		[ "$debugmode" ] && debugprint "\nLines count in $list_id backup: $(wc -w < "$iplist_file")"
 	done
 	OK
 	:
