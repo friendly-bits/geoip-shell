@@ -554,7 +554,7 @@ apply_rules() {
 # extracts IP lists from backup
 extract_iplists() {
 	printf_s "Restoring IP lists from backup... "
-	mkdir -p "$iplist_dir"
+	dir_mk -n "$iplist_dir" || rstr_failed
 	for list_id in $iplists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
 		iplist_file="$iplist_dir/${list_id}.iplist"
