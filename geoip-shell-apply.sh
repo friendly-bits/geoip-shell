@@ -103,7 +103,12 @@ get_ipset_id() {
 	esac
 	case "$1" in
 		*local_*)
-			iplist_file="${local_iplists_dir}/${list_id}"
+			case "$1" in
+				*_allow_*) local_type=allow ;;
+				*_block_*) local_type=block
+			esac
+			eval "local_dir=\"\${local_${local_type}_dir}\""
+			iplist_file="${local_dir}/${list_id}"
 			if [ -f "${iplist_file}.ip" ]; then
 				ipset_el_type=ip
 			elif [ -f "${iplist_file}.net" ]; then
@@ -332,14 +337,21 @@ done
 
 # compile a list of local IP lists to process
 unset local_ipsets local_allow_ipsets local_block_ipsets
+
 for family in ipv4 ipv6; do
-	for iplist_type in allow block; do
-		iplist_file="${local_iplists_dir}/local_${iplist_type}_${family}"
-		[ -s "${iplist_file}.ip" ] || [ -s "${iplist_file}.net" ] || continue
+	for local_type in allow block; do
+		filename="local_${local_type}_${family}"
+		if [ -s "$staging_local_dir/$filename.ip" ] || [ -s "$staging_local_dir/$filename.net" ]; then
+			eval "local_${local_type}_dir=\"\$staging_local_dir\""
+		elif [ -s "${local_iplists_dir}/$filename.ip" ] || [ -s "${local_iplists_dir}/$filename.net" ]; then
+			eval "local_${local_type}_dir=\"\$local_iplists_dir\""
+		else
+			continue
+		fi
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
-		add2list local_ipsets "${ipset_prefix}local_${iplist_type}_${family#ipv}"
-		add2list "local_${iplist_type}_ipsets" "${ipset_prefix}local_${iplist_type}_${family#ipv}"
+		add2list local_ipsets "${ipset_prefix}local_${local_type}_${family#ipv}"
+		add2list "local_${local_type}_ipsets" "${ipset_prefix}local_${local_type}_${family#ipv}"
 	done
 done
 
