@@ -76,7 +76,7 @@ dir_mk() {
 	[ -d "$1" ] && return 0
 	[ -z "$dmk_nolog" ] && printf %s "Creating directory '$1'... "
 	mkdir -p "$1" && {
-		[ "$inst_root_gs" ] || [ ! "$root_ok" ] || chmod -R 600 "$1" && chown -R root:root "$1"
+		[ -n "$inst_root_gs" ] || [ ! "$root_ok" ] || { chmod -R 600 "$1" && chown -R root:root "$1"; }
 	} || { echolog -err "$FAIL create '$1'."; return 1; }
 	[ -z "$dmk_nolog" ] && OK
 	:
