@@ -146,6 +146,8 @@ ${sp8}$p_name will likely not work after reboot. Default is false.
 
   ${blue}-P <true|false>${n_c} : Force cron-based persistence even when the system may not support it. Default is false.
 
+  ${blue}-K <true|false>${n_c} : Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
+
 ${purple}Other options${n_c}:
 
   -v : Verbose status output
