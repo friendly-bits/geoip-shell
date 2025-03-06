@@ -376,9 +376,10 @@ lib_files="$lib_files $owrt_comm"
 
 
 #### CHECKS
-
+printf %s "Checking files... "
 check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
 	die "missing files: $missing_files."
+OK
 
 
 #### MAIN
@@ -387,12 +388,15 @@ check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_
 : "${curr_sh_g:=/bin/sh}"
 export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 
-[ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
-
 rm -rf "$tmp_dir"
 dir_mk -n "$tmp_dir" || die
 
 [ ! "$inst_root_gs" ] && {
+	# add $install_dir to $PATH
+	add2list PATH "$install_dir" ':'
+
+	[ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
+
 	reg_file_ok=
 	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
 		[ -s "$f" ] && continue
@@ -423,11 +427,6 @@ dir_mk -n "$tmp_dir" || die
 printf '%s\n' "Preparing to install $p_name..."
 add_scripts "$script_files" "$install_dir" 555
 add_scripts "$lib_files" "$lib_dir" 444
-
-[ ! "$inst_root_gs" ] && {
-	# add $install_dir to $PATH
-	add2list PATH "$install_dir" ':'
-}
 
 # create the .const file
 cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL create file '"$tmp_dir/${p_name}.const"'."
