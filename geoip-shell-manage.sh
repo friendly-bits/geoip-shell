@@ -266,7 +266,7 @@ dir_mv() {
 	[ -n "${prev_dir_mv}" ] || return 0
 
 	rm -rf "$new_dir_mv"
-	dir_mk "$new_dir_mv"
+	dir_mk "$new_dir_mv" || die
 	[ -d "$prev_dir_mv" ] || return 0
 
 	if ! is_dir_empty "$prev_dir_mv"; then
@@ -893,7 +893,7 @@ case "$conf_act" in
 	*)
 esac
 
-dir_mk "$datadir"
+dir_mk "$datadir" || die
 
 case "$conf_act" in
 	reset)
