@@ -141,7 +141,7 @@ copy_files() {
 # 1 - list of src files, 2 - target directory, 3 - permissions
 add_scripts() {
 	src_files="$1" target_dir="$2" _mod="$3"
-	mkdir -p "$tmp_dir$target_dir"
+	mkdir -p "$tmp_dir$target_dir" || preinstall_failed "$FAIL create directory '$tmp_dir$target_dir'."
 
 	for f in $src_files; do
 		f_name="${f##*/}"
@@ -390,8 +390,7 @@ export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
 [ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
 
 rm -rf "$tmp_dir"
-mkdir -p "$tmp_dir" || die "$FAIL create directory '$tmp_dir'."
-mkdir -p "$inst_root_gs$lib_dir" || preinstall_failed "$FAIL create directory '$inst_root_gs$lib_dir'."
+dir_mk -n "$tmp_dir" || die
 
 [ ! "$inst_root_gs" ] && {
 	reg_file_ok=
@@ -429,10 +428,6 @@ add_scripts "$lib_files" "$lib_dir" 444
 	# add $install_dir to $PATH
 	add2list PATH "$install_dir" ':'
 }
-
-# Create the config directory
-mkdir -p "$inst_root_gs$conf_dir"
-
 
 # create the .const file
 cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL create file '"$tmp_dir/${p_name}.const"'."
@@ -532,7 +527,9 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 }
 
 printf %s "Creating directories... "
-mkdir -p "$lib_dir" || preinstall_failed "$FAIL create directory '$lib_dir'."
+for dir in "$inst_root_gs$lib_dir" "$inst_root_gs$conf_dir"; do
+	mkdir -p "$dir" || preinstall_failed "$FAIL create directory '$dir'."
+done
 OK
 
 copy_files
