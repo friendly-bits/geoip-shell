@@ -70,11 +70,14 @@ rm_dir_if_empty() {
 }
 
 dir_mk() {
+	dmk_nolog=
+	[ "$1" = '-n' ] && { dmk_nolog=1; shift; }
 	[ ! "$1" ] && die "dir_mk: received empty path."
 	[ -d "$1" ] && return 0
-	printf %s "Creating directory '$1'... "
+	[ -z "$dmk_nolog" ] && printf %s "Creating directory '$1'... "
 	mkdir -p "$1" && chmod -R 600 "$1" && chown -R root:root "$1" || die "$FAIL create '$1'."
-	OK
+	[ -z "$dmk_nolog" ] && OK
+	:
 }
 
 get_md5() {
