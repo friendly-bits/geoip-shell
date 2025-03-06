@@ -159,7 +159,7 @@ bk_local_lists() {
 	local_lists="$(find "${local_iplists_dir}" -type f -name "local_*" 2>/dev/null)"
 	[ -z "${local_lists}" ] && { debugprint "No local lists to back up."; return 0; }
 	printf_s "Creating backup of local iplists... "
-	mkdir -p "${bk_dir_new}/local_iplists"
+	dir_mk -n "${bk_dir_new}/local_iplists" || bk_failed
 	newifs "$_nl" bll
 	for local_list in $local_lists; do
 		oldifs bll
@@ -184,7 +184,7 @@ restore_local_lists() {
 	}
 
 	printf_s "Restoring local iplists from backup... "
-	mkdir -p "${local_iplists_dir}"
+	dir_mk -n "${local_iplists_dir}" || rstr_failed
 	newifs "$_nl" rll
 	for bk_file in $local_lists_bk; do
 		oldifs rll
@@ -228,12 +228,12 @@ case "$action" in
 		tmp_file="/tmp/${p_name}_backup.tmp"
 		[ "$only_conf_status" ] && {
 			bk_dir_new="$bk_dir"
-			mkdir -p "$bk_dir" && chmod -R 600 "$bk_dir" && chown -R root:root "$bk_dir" &&
+			dir_mk "$bk_dir" &&
 			cp_conf backup || die "$FAIL create backup of the config and status files."
 			die 0
 		}
 		set_archive_type
-		mkdir -p "$bk_dir_new" && chmod -R 600 "$bk_dir_new" && chown -R root:root "$bk_dir_new"
+		dir_mk -n "$bk_dir_new" || die
 		bk_local_lists
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		printf_s "Creating backup of $p_name IP sets... "
