@@ -135,8 +135,7 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || di
 
 [ ! "$manmode" ] && echolog "Starting action '$action_run'."
 
-mkdir -p "$iplist_dir"
-[ ! -d "$iplist_dir" ] && die "$FAIL create directory '$iplist_dir'."
+dir_mk -n "$iplist_dir" || die
 
 mk_lock
 trap 'trap - INT TERM HUP QUIT; set +f; rm -f \"$iplist_dir/\"*.iplist; rm -f \"$fetch_res_file\"; die' INT TERM HUP QUIT
@@ -200,7 +199,7 @@ unset all_fetched_lists missing_lists lists_fetch fetched_lists
 [ ! "$daemon_mode" ] && max_attempts=1
 case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
 
-dir_mk "$datadir"
+dir_mk "$datadir" || die
 
 attempt=0 secs=5
 resume_req=
