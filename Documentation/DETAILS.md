@@ -136,6 +136,8 @@ Or use `none` to remove previously assigned server IP addresses and disable this
 
 `[-A|-B] <"[path_to_file]"|remove>`: Local IP lists. Specify file containing a list of IPs or subnets to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`). `remove` removes existing local allowlists or blocklists.
 
+`-L <path>`: Set custom path to directory where local IP lists will be stored. Default is '/etc/geoip-shell' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
+
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
 
 `-s <"schedule_expression"|disable>` : Enables automatic IP lists updates and configures the schedule for the periodic cron job which implements this feature. `disable` disables automatic IP lists updates.
@@ -153,6 +155,8 @@ Or use `none` to remove previously assigned server IP addresses and disable this
 `-N <true|false>`: No-block. When set to `true`, geoip-shell will remove the "geoblocking enable" rules. All other geoip-shell firewall rules will remain in place but traffic will not be passing through them. The effect is the same as for the command `geoip-shell off`. The `-N` option may be useful in combination with other options when you want to check the resulting rules without starting to pass traffic through those rules.
 
 `-P <true|false>`: Force cron-based persistence on Busybox-based systems. Depending on compile-time options of Busybox, in some cases Busybox crontab supports the `@reboot` string which is used by geoip-shell to implement persistence and in other cases it doesn't. geoip-shell has no way to tell whether the specific Busybox on your device does or does not support it. For this reason by default geoip-shell refuses to create the persistence cron job when Busybox crontab is detected. This option allows you to override this behavior, so the persistence cron job will be created anyway. You will want to check that it works by restarting your machine, waiting for a minute and running `geoip-shell status`.
+
+`-K <true|false>`: Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
 
 ### Other options
 `-v`: Verbose status output
