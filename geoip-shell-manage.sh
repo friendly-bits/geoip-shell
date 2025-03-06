@@ -919,10 +919,31 @@ case "$conf_act" in
 esac
 
 if [ "$rv_conf" = 0 ]; then
+	# add staging local lists
+	for family in ipv4 ipv6; do
+		for local_type in allow block; do
+			filename="local_${local_type}_${family}"
+			if [ -s "$staging_local_dir/$filename.ip" ] || [ -s "$staging_local_dir/$filename.net" ]; then
+				set +f
+				rm -f "$local_iplists_dir/$filename".*
+				mv "$staging_local_dir/$filename".* "$local_iplists_dir/"
+				set -f
+			else
+				continue
+			fi
+		done
+	done
+	rm -rf "$staging_local_dir"
+
 	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
-		check_lists_coherence || restore_from_config || die
+		check_lists_coherence || {
+			rm -rf "$staging_local_dir"
+			restore_from_config || die
+		}
+
 	}
 else
+	rm -rf "$staging_local_dir"
 	backup_req=1
 fi
 
