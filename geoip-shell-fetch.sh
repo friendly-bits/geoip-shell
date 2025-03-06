@@ -348,7 +348,7 @@ check_updates() {
 
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
-			msg1="Newest IP list for list '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
+			msg1="Newest IP list for '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
 			msg2="Either your clock is incorrect, or $dl_src_cap is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
 			echolog -warn "$msg1" "$msg2" "$msg3"
