@@ -1247,6 +1247,7 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 	inbound_dir_short=in outbound_dir_short=out
 
 export fetch_res_file="/tmp/${p_name}-fetch-res"
+export staging_local_dir="/tmp/geoip-shell-staging"
 
 blank="[ 	]"
 notblank="[^ 	]"
