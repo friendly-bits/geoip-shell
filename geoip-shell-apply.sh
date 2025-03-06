@@ -213,7 +213,7 @@ case "$action" in
 		esac
 esac
 
-[ -n "$iplist_dir" ] && mkdir -p "$iplist_dir"
+[ -n "$iplist_dir" ] && { dir_mk -n "$iplist_dir" || die; }
 
 [ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || die "$FAIL source ${_lib}-ip-tools.sh"
 
