@@ -627,7 +627,7 @@ get_general_prefs() {
 
 	# sanitization for local IP lists
 	sed_san() {
-		sed 's/\r/\n/g;s/\n$//' "$1" | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
+		{ cat "$1"; printf '\n'; } | sed 's/\r/\n/g;s/\n$//' | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
 	}
 
 	# process and import local IP lists if specified
@@ -637,7 +637,7 @@ get_general_prefs() {
 			'') continue ;;
 			remove)
 				printf '%s\n' "Removing local ${iplist_type}lists..."
-				prev_local_file="$(find "${local_iplists_dir}" -name "local_${iplist_type}_*" -exec rm -f {} \; -exec printf '%s\n' {} \;)"
+				prev_local_file="$(find "${local_iplists_dir}" -name "local_${iplist_type}_*" -exec rm -f {} \; -exec printf '%s\n' {} \; 2>/dev/null)"
 				[ -n "${prev_local_file}" ] && lists_change=1
 				continue
 		esac
@@ -649,7 +649,7 @@ get_general_prefs() {
 		local_ips_found=
 		for iplist_family in 4 6; do
 			local_f_name="local_${iplist_type}_ipv${iplist_family}"
-			dest_file="${local_iplists_dir}/${local_f_name}"
+			perm_file="${local_iplists_dir}/${local_f_name}"
 			staging_file="$staging_local_dir/${local_f_name}"
 
 			rm -rf "$staging_local_dir"
@@ -705,8 +705,8 @@ get_general_prefs() {
 		printf %s "Importing local IPv${iplist_family} ${iplist_type}list file... "
 		{
 			for el_type in net ip; do
-				[ -f "$dest_file.$el_type" ] && {
-					sed '/^$/d' "$dest_file.$el_type"
+				[ -f "$perm_file.$el_type" ] && {
+					cat "$perm_file.$el_type"
 					[ "$el_type" = net ] && touch "$staging_local_dir/net"
 				}
 				[ -f "$staging_file.$el_type" ] && {
@@ -714,12 +714,11 @@ get_general_prefs() {
 					[ "$el_type" = net ] && touch "$staging_local_dir/net"
 				}
 			done
-			printf '\n' # add newline
 			:
 		} | sort -u > "$staging_file" && [ -s "$staging_file" ] &&
 		{
 			for el_type in net ip; do
-				if [ -f "$dest_file.$el_type" ] && compare_files "$dest_file.$el_type" "$staging_file"; then
+				if [ -f "$perm_file.$el_type" ] && compare_files "$perm_file.$el_type" "$staging_file"; then
 					echolog "${_nl}All IP's in file '$file' have already previously imported."
 					set +f
 					rm -f "$staging_file"*
