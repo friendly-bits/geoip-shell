@@ -644,14 +644,36 @@ get_general_prefs() {
 
 		printf %s "Checking local ${iplist_type}list file '$file'... "
 		[ -s "$file" ] || die "${_nl}IP list file '$file' is empty or doesn't exist."
+
 		# detect family
+		local_ips_found=
 		for iplist_family in 4 6; do
+			local_f_name="local_${iplist_type}_ipv${iplist_family}"
+			dest_file="${local_iplists_dir}/${local_f_name}"
+			staging_file="$staging_local_dir/${local_f_name}"
+
+			rm -rf "$staging_local_dir"
+			dir_mk -n "$staging_local_dir"
+
 			eval "ip_regex=\"\${ipv${iplist_family}_regex}\"
 				mb_regex=\"\${maskbits_regex_ipv${iplist_family}}\""
-			sed 's/\r/\n/g;s/\n$//' "$file" | grep -E -m1 "^${blank}*${ip_regex}(/${mb_regex}|)${blank}*$" 1>/dev/null &&
-				break
-		done ||
-			die "${_nl}$FAIL process IP list file '$file' or it does not contain newline-separated IP addresses."
+			import_el_type=ip
+			for el_type in net ip; do
+				case "$el_type" in
+					net) detect_regex="${ip_regex}/${mb_regex}";;
+					ip) detect_regex="${ip_regex}"
+				esac
+				if sed_san "$file" | grep -E "^${detect_regex}$" > "$staging_file.$el_type"; then
+					local_ips_found=1
+					[ "$el_type" = net ] && import_el_type=net
+					continue
+				else
+					rm -f "$staging_file.$el_type"
+				fi
+			done
+			[ -n "$local_ips_found" ] && break
+		done
+		[ -n "$local_ips_found" ] || die "${_nl}$FAIL process IP list file '$file' or it does not contain newline-separated IP addresses."
 
 		# check for invalid lines
 		invalid_ip="$(
@@ -664,6 +686,7 @@ get_general_prefs() {
 		)" &&
 		# found invalid line
 		{
+			rm -rf "$staging_local_dir"
 			case "$iplist_family" in
 				4) check_family=6 ;;
 				6) check_family=4
@@ -676,41 +699,49 @@ get_general_prefs() {
 			fi
 		}
 
-		# determine elements type
-		iplist_el_type=ip
-		grep -E -m1 "/${mb_regex}" "$file" 1>/dev/null && iplist_el_type=net
-
-		printf '%s\n' "${blue}Detected IPv${iplist_family} with elements of type '$iplist_el_type'${n_c}."
+		# report elements type
+		printf '%s\n' "${blue}Detected IPv${iplist_family} with elements of type '$import_el_type'${n_c}."
 		dir_mk "$local_iplists_dir"
 		printf %s "Importing local IPv${iplist_family} ${iplist_type}list file... "
-		dest_file="${local_iplists_dir}/local_${iplist_type}_ipv${iplist_family}.${iplist_el_type}"
 		{
-			[ -f "$dest_file" ] && cat "$dest_file"
-			sed_san "$file"
-			tail -c 1 "$file" | grep . 1>/dev/null && printf '\n' # add newline if needed
+			for el_type in net ip; do
+				[ -f "$dest_file.$el_type" ] && {
+					sed '/^$/d' "$dest_file.$el_type"
+					[ "$el_type" = net ] && touch "$staging_local_dir/net"
+				}
+				[ -f "$staging_file.$el_type" ] && {
+					cat "$staging_file.$el_type"
+					[ "$el_type" = net ] && touch "$staging_local_dir/net"
+				}
+			done
+			printf '\n' # add newline
 			:
-		} | sort -u > "/tmp/$p_name-import.tmp" && [ -s "/tmp/$p_name-import.tmp" ] &&
+		} | sort -u > "$staging_file" && [ -s "$staging_file" ] &&
 		{
-			old_local_exists=
-			[ -f "$dest_file" ] && old_local_exists=1
-			if [ -n "$old_local_exists" ] && [ "$(get_md5 "$dest_file")" = "$(get_md5 "/tmp/$p_name-import.tmp")" ]; then
-				rm -f "/tmp/$p_name-import.tmp"
-			else
-				mv "/tmp/$p_name-import.tmp" "$dest_file"
-			fi
+			for el_type in net ip; do
+				if [ -f "$dest_file.$el_type" ] && compare_files "$dest_file.$el_type" "$staging_file"; then
+					echolog "${_nl}All IP's in file '$file' have already previously imported."
+					set +f
+					rm -f "$staging_file"*
+					set -f
+					continue 2
+				fi
+			done
+			:
 		} || {
 				FAIL
-				rm -f "/tmp/$p_name-import.tmp"
-				[ -n "$old_local_exists" ] || rm -f "$dest_file"
-				die "$FAIL import the IP list into file '$dest_file'."
+				rm -rf "$staging_local_dir"
+				die "$FAIL import the IP list into file '$staging_file'."
 			}
 		OK
 
-		case "$iplist_el_type" in
-			ip) inv_el_type=net ;;
-			net) inv_el_type=ip
-		esac
-		rm -f "${dest_file%."$iplist_el_type"}.${inv_el_type}"
+		rm -f "$staging_file.net" "$staging_file.ip"
+		if [ -f "$staging_local_dir/net" ]; then
+			mv "$staging_file" "$staging_file.net"
+		else
+			mv "$staging_file" "$staging_file.ip"
+		fi
+		rm -f "$staging_local_dir/net"
 
 		printf '%s\n' "${yellow}You can delete the file '$file' to free up space.${n_c}"
 		lists_change=1
