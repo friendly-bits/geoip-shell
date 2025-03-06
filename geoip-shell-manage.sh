@@ -551,7 +551,10 @@ esac
 prev_config="$main_config"
 
 [ ! -s "$conf_file" ] && {
-	touch "$conf_file" || die "$FAIL create the config file."
+	touch "$conf_file" && chmod 600 "$conf_file" && chown root:root "$conf_file" || {
+		rm -f "$conf_file"
+		die "$FAIL create the config file."
+	}
 	[ "$_fw_backend" ] && rm_iplists_rules
 }
 
