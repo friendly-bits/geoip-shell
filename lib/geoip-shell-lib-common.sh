@@ -75,7 +75,9 @@ dir_mk() {
 	[ ! "$1" ] && die "dir_mk: received empty path."
 	[ -d "$1" ] && return 0
 	[ -z "$dmk_nolog" ] && printf %s "Creating directory '$1'... "
-	mkdir -p "$1" && chmod -R 600 "$1" && chown -R root:root "$1" || die "$FAIL create '$1'."
+	mkdir -p "$1" && {
+		[ "$inst_root_gs" ] || [ ! "$root_ok" ] || chmod -R 600 "$1" && chown -R root:root "$1"
+	} || { echolog -err "$FAIL create '$1'."; return 1; }
 	[ -z "$dmk_nolog" ] && OK
 	:
 }
