@@ -466,7 +466,7 @@ if [ ! "\$_fw_backend" ]; then
 	[ "\$first_setup" ] && return 0
 	case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 	[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-	_fw_backend="\$(detect_fw_backend)"
+	_fw_backend="\$(get_def_fw_backend)"
 elif ! check_fw_backend "\$_fw_backend"; then
 	_fw_be_rv=\$?
 	if [ "\$in_uninstall" ]; then

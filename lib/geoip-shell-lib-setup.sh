@@ -455,7 +455,7 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	_fw_backend_def="$(detect_fw_backend)" || die
+	_fw_backend_def="$(get_def_fw_backend)" || die
 
 	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=1840MiB
 	[ ! "$nft_perf" ] && {

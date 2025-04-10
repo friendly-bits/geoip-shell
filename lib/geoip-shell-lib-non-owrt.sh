@@ -63,7 +63,7 @@ check_shell() {
 	export curr_sh_g
 }
 
-detect_fw_backend() {
+get_def_fw_backend() {
 	[ ! "$_fw_backend_arg" ] && {
 		if check_fw_backend nft 2>/dev/null; then
 			printf nft

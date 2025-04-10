@@ -9,7 +9,7 @@
 
 checkutil () { command -v "$1" 1>/dev/null; }
 
-detect_fw_backend() {
+get_def_fw_backend() {
 	case "$_OWRTFW" in
 		3) printf ipt ;;
 		4) printf nft ;;

@@ -27,6 +27,6 @@ check_shell
 [ "$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok=1; }
 . "${_lib}-common.sh" || exit 1
 
-[ "$root_ok" ] && [ ! "$inst_root_gs" ] && { _fw_backend="$(detect_fw_backend)" || die; }
+[ "$root_ok" ] && [ ! "$inst_root_gs" ] && { _fw_backend="$(get_def_fw_backend)" || die; }
 
 :
