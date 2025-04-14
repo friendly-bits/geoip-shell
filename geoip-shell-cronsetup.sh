@@ -317,8 +317,8 @@ esac
 	case "$no_persist" in
 		false) create_cron_job persistence ;;
 		true) rm_cron_job persistence
-			echolog "${_nl}Note: no-persistence option was specified during installation. Geoip blocking will likely be deactivated upon reboot." \
-			"To enable persistence, install $p_name again without the '-n' option."
+			echolog "${_nl}Note: no-persistence option is set to 'true'. Geoblocking may be deactivated upon reboot." \
+			"To enable persistence, use the command \'$p_name configure -n false\'."
 	esac
 }
 
