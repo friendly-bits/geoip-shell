@@ -44,7 +44,7 @@ incr_issues() { issues=$((issues+1)); }
 _Q="${red}?${n_c}"
 issues=0
 
-printf '\n%s\n\n%s\n' "${purple}$p_name status:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
+printf '\n%s\n' "${purple}$p_name v$curr_ver status:${n_c}"
 
 case "$_fw_backend" in
 	ipt|nft) _fw="$blue${_fw_backend}ables$n_c" ;;
