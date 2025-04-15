@@ -81,12 +81,8 @@ shift $((OPTIND-1))
 
 is_root_ok || exit 1
 
-. "$_lib-uninstall.sh"  || exit 1
-
-: "${_fw_backend:="$_fw_backend_def"}"
-
-[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || exit 1; } ||
-	echolog -err "Firewall backend is unknown. Cannot remove firewall rules."
+old_lib_dir="$_lib"
+. "$old_lib_dir-uninstall.sh"  || exit 1
 
 ### VARIABLES
 lib_dir="/usr/lib/$p_name"
@@ -126,9 +122,39 @@ kill_geo_pids
 # remove the lock file
 rm_lock
 
-### Remove geoip firewall rules
-[ "$_fw_backend" ] && rm_all_georules ||
-	echolog -err "$FAIL remove $p_name firewall rules. Please restart the machine after uninstallation."
+### Remove geoblocking rules
+if [ "$_fw_backend" ] || detect_fw_backends; then
+	[ -z "$_fw_backend" ] &&
+		case "$_fw_backend_def" in
+			'') ;;
+			ipt|nft) _fw_backend="$_fw_backend_def" ;;
+			ask)
+				# resort to heuristics
+				if [ "$ipt_rules_present" ] && [ "$ipset_present" ]; then
+					_fw_backend=ipt
+				else
+					_fw_backend=nft
+				fi
+				[ ! "$keepdata" ] && echolog -warn "Based on heuristics, using firewall backend '${_fw_backend}ables' to remove existing geoblocking rules."
+		esac
+
+	[ "$_fw_backend" ] && (
+		for lib_dir in "$old_lib_dir" "$_lib"; do
+			[ -f "$lib_dir-$_fw_backend.sh" ] && . "$lib_dir-$_fw_backend.sh" && break
+			false
+		done || {
+			echolog -err "Failed to source the ${_fw_backend}ables library."
+			exit 1
+		}
+		rm_all_georules || {
+			echolog -err "$FAIL remove $p_name firewall rules."
+			exit 1
+		}
+	)
+else
+	echolog -err "Firewall backend is unknown."
+	false
+fi || echolog -err "Cannot remove geoblocking rules. Please restart the machine after uninstallation."
 
 case "$iplist_dir" in
 	*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
