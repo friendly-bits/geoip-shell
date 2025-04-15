@@ -813,6 +813,48 @@ set_dir_vars() {
 	:
 }
 
+# sets $nft_present, $ipt_present, $ipset_present, $ipt_rules_present, $_fw_backend_def
+detect_fw_backends() {
+	ipt_present='' ipset_present='' nft_present='' ipt_rules_present='' _fw_backend_def=''
+
+	echolog "${_nl}Detecting firewall backends..."
+
+	check_fw_backend ipt 2>/dev/null
+	case $? in
+		0) ipt_present=1 ipset_present=1; echolog "Found iptables and the 'ipset' utility." ;;
+		2) echolog "Did not find iptables." ;;
+		3) ipt_present=1; echolog "Found iptables."
+	esac
+
+	if check_fw_backend nft 2>/dev/null; then
+		nft_present=1
+		echolog "Found nftables."
+	else
+		echolog "Did not find nftables."
+	fi
+
+	[ "${ipt_present}" ] && { iptables-save; ip6tables-save; } | grep '^-A[ \t]' 1>/dev/null &&
+		{ ipt_rules_present=1; echolog "Found existing iptables rules"; }
+
+	if [ "$ipt_present" ]; then
+		if [ "$nft_present" ]; then
+			_fw_backend_def=ask
+		elif [ "$ipset_present" ]; then
+			_fw_backend_def=ipt
+		else
+			echolog -err "Found iptables but required utility 'ipset' not found. Use your package manager to install it."
+			return 1
+		fi
+	elif [ -n "$nft_present" ]; then
+		_fw_backend_def=nft
+	else
+		echolog -err "Neither nftables nor iptables not found."
+		return 1
+	fi
+
+	:
+}
+
 # return codes:
 # 0 - backend found
 # 1 - error
