@@ -63,23 +63,6 @@ check_shell() {
 	export curr_sh_g
 }
 
-get_def_fw_backend() {
-	[ ! "$_fw_backend_arg" ] && {
-		if check_fw_backend nft 2>/dev/null; then
-			printf nft
-		else
-			check_fw_backend ipt 2>/dev/null
-			case $? in
-				0) printf ipt ;;
-				1) return 1 ;;
-				2) echolog -err "Neither nftables nor iptables not found."; return 1 ;;
-				3) echolog -err "Found iptables but utility 'ipset' not found."; return 1
-			esac
-		fi
-	}
-	:
-}
-
 # returns 0 if crontab is readable and cron or crond process is running, 1 otherwise
 # sets $cron_reboot if above conditions are satisfied and cron is not implemented via the busybox binary
 check_cron() {
