@@ -359,7 +359,7 @@ done
 # planned_ipsets_$direction - will be used to create direction-specific rules for iplists
 # planned_ipsets - all planned final ipsets
 # rm_ipsets - ipsets to remove
-# load_ipsets - ipsets to load from file
+# ipsets_to_load - ipsets to load from file
 
 getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
 
@@ -367,7 +367,7 @@ curr_ipsets="$(get_ipsets)"
 
 nl2sp curr_ipsets_sp "$curr_ipsets"
 
-unset planned_ipsets rm1_ipsets load_ipsets
+unset planned_ipsets rm1_ipsets ipsets_to_load
 for direction in inbound outbound; do
 	eval "
 		${direction}_list_ids=\"\$${direction}_iplists\"
@@ -414,7 +414,7 @@ subtract_a_from_b "$planned_ipsets" "$curr_ipsets_sp" rm2_ipsets
 san_str rm_ipsets "$rm1_ipsets $rm2_ipsets"
 
 subtract_a_from_b "$rm_ipsets" "$curr_ipsets_sp" keep_ipsets
-subtract_a_from_b "$keep_ipsets" "$planned_ipsets" load_ipsets
+subtract_a_from_b "$keep_ipsets" "$planned_ipsets" ipsets_to_load
 
 
 debugprint "curr_ipsets_sp: '$curr_ipsets_sp'"
@@ -423,10 +423,10 @@ debugprint "rm1 ipsets: '$rm1_ipsets'"
 debugprint "rm2 ipsets: '$rm2_ipsets'"
 debugprint "rm ipsets: '$rm_ipsets'"
 debugprint "keep ipsets: '$keep_ipsets'"
-debugprint "load ipsets: '$load_ipsets'"
+debugprint "ipsets to load : '$ipsets_to_load'"
 
 # check that there are iplist files to load ipsets from
-for ipset in $load_ipsets; do
+for ipset in $ipsets_to_load; do
 	get_ipset_id "$ipset"
 	[ -f "$iplist_path" ] || die "Can not find file '$iplist_path' to load ipset '$ipset'."
 done
