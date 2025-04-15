@@ -109,7 +109,7 @@ pick_ccodes() {
 pick_geomode() {
 	printf '\n%s\n' "${blue}Select *$direction* geoblocking mode:$n_c [w]hitelist or [b]lacklist or [d]isable, or [a] to abort."
 	[ "$direction" = outbound ] && printf '%s\n' \
-		"${yellow}*NOTE*${n_c}: this may block Internet access if you are not careful. If unsure, select [d]isable."
+		"${yellow}* NOTE *${n_c}: this may block Internet access if you are not careful. If unsure, select [d]isable."
 	pick_opt "w|b|d|a"
 	case "$REPLY" in
 		w) geomode=whitelist ;;
@@ -455,8 +455,6 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	_fw_backend_def="$(get_def_fw_backend)" || die
-
 	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=1840MiB
 	[ ! "$nft_perf" ] && {
 		nft_perf_def=memory
@@ -524,6 +522,13 @@ get_general_prefs() {
 		eval "$1"='${dir_new}'
 	}
 
+	[ -z "${_fw_backend}${_fw_backend_arg}" ] && {
+		detect_fw_backends || die # sets $_fw_backend_def
+		case "$_fw_backend_def" in
+			ipt|nft) echolog "Setting firewall backend to ${_fw_backend_def}ables."
+		esac
+	}
+
 	set_defaults
 	# firewall backend
 	[ "$_fw_backend_arg" ] && {
@@ -535,7 +540,23 @@ get_general_prefs() {
 			3) die "Utility 'ipset' not found."
 		esac
 	}
-	_fw_backend="${_fw_backend_arg:-$_fw_backend}"
+	export _fw_backend="${_fw_backend_arg:-$_fw_backend}"
+
+	if [ "$_fw_backend" = ask ]; then
+		[ "$nointeract" ] && die "Specify the firewall backend with '$p_name configure -w <ipt|nft>'."
+		printf '\n%s\n' "This system can use either iptables or nftables rules."
+		[ "$ipt_rules_present" ] &&
+			printf '%s\n%s\n\n' "${yellow}** NOTE **${n_c}: This system has existing iptables rules." \
+				"It is recommended to avoid mixing iptables and nftables rules."
+		printf '%s\n' "Select the firewall backend: [i]ptables or [n]ftables. Or type in [a] to abort."
+		pick_opt "i|n|a"
+		case "$REPLY" in
+			i) _fw_backend=ipt ;;
+			n) _fw_backend=nft ;;
+			a) die 253
+		esac
+		[ "$_fw_backend" = ipt ] && [ ! "$ipset_present" ] && die "'ipset' utility is missing. Install it using your package manager."
+	fi
 
 	# nft_perf
 	[ "$nft_perf_arg" ] && {
