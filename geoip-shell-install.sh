@@ -381,6 +381,8 @@ check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_
 	die "missing files: $missing_files."
 OK
 
+[ ! "$inst_root_gs" ] && { detect_fw_backends 1>/dev/null || die; }
+
 
 #### MAIN
 
@@ -466,7 +468,6 @@ if [ ! "\$_fw_backend" ]; then
 	[ "\$first_setup" ] && return 0
 	case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
 	[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-	_fw_backend="\$(get_def_fw_backend)"
 elif ! check_fw_backend "\$_fw_backend"; then
 	_fw_be_rv=\$?
 	if [ "\$in_uninstall" ]; then
