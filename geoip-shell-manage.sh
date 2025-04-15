@@ -461,8 +461,10 @@ unset conf_act rm_conf
 [ ! -s "$conf_file" ] || [ "$rm_conf" ] && {
 	rm -f "$conf_file"
 	rm_data
-	datadir=
-	local_iplists_dir=
+	for _conf_var in $ALL_CONF_VARS; do
+		is_alphanum "$_conf_var" || die "Internal error."
+		eval "$_conf_var="
+	done
 	rm_setupdone
 	export first_setup=1
 }
