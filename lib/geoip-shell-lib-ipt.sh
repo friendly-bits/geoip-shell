@@ -125,11 +125,12 @@ rm_all_georules() {
 	done
 
 	# remove ipsets
-	rm_ipsets_rv=0
+	rm_ipsets_rv=1
 	unisleep
 	printf_s "Destroying $p_name ipsets... "
 	for ipset in $(ipset list -n | grep "$geotag"); do
-		ipset destroy "$ipset" || rm_ipsets_rv=1
+		ipset destroy "$ipset" || { rm_ipsets_rv=1; continue; }
+		rm_ipsets_rv=0
 	done
 	[ "$rm_ipsets_rv" = 0 ] && OK || FAIL
 	return "$rm_ipsets_rv"
@@ -529,7 +530,7 @@ apply_rules() {
 	### register load ipsets
 	ipsets_to_add=
 	for family in $families; do
-		for ipset in $load_ipsets; do
+		for ipset in $ipsets_to_load; do
 			[ ! "$ipset" ] && continue
 			get_ipset_id "$ipset" || die
 			case "$list_id" in *_*) ;; *) die "Invalid iplist ID '$list_id'."; esac
