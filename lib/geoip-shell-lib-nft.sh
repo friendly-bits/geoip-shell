@@ -207,7 +207,7 @@ report_fw_state() {
 
 destroy_tmp_ipsets() {
 	echo "Destroying temporary ipsets..."
-	for load_ipset in $load_ipsets; do
+	for load_ipset in $ipsets_to_load; do
 		nft delete set inet "$geotable" "$load_ipset" 1>/dev/null 2>/dev/null
 	done
 }
@@ -301,7 +301,7 @@ apply_rules() {
 
 	### load ipsets
 	printf_s "${_nl}Loading IP lists... "
-	for load_ipset in $load_ipsets; do
+	for load_ipset in $ipsets_to_load; do
 		get_ipset_id "$load_ipset" || die_a
 		[ -f "$iplist_path" ] || { FAIL; die_a "Can not find the iplist file '$iplist_path'."; }
 
@@ -315,7 +315,7 @@ apply_rules() {
 
 		rm -f "$iplist_path"
 
-		[ "$debugmode" ] && debugprint "elements in $load_ipset: $(sp2nl ipsets "$load_ipsets"; cnt_ipset_elements "$load_ipset" "$ipsets")"
+		[ "$debugmode" ] && debugprint "elements in $load_ipset: $(sp2nl ipsets "$ipsets_to_load"; cnt_ipset_elements "$load_ipset" "$ipsets")"
 	done
 	OK
 
