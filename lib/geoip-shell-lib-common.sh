@@ -291,7 +291,6 @@ call_script() {
 	[ "$use_lock" ] && rm_lock
 	$use_shell "$script_to_call" "$@"
 	call_rv=$?
-	unset main_config
 	debugexitmsg
 	[ "$use_lock" ] && mk_lock -f
 	use_lock=
