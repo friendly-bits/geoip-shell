@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC2155,SC2015
+# shellcheck disable=SC2154,SC2155,SC2015,SC2034
 
 # geoip-shell-lib-ipt.sh
 
