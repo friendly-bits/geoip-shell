@@ -540,7 +540,31 @@ get_general_prefs() {
 			3) die "Utility 'ipset' not found."
 		esac
 	}
+
 	export _fw_backend="${_fw_backend_arg:-$_fw_backend}"
+
+	# special treatment for LXC containers
+	case "${_fw_backend}" in nft|ask)
+		unpriv_lxc=''
+		# check if running inside LXC container
+		if { checkutil systemd-detect-virt && systemd-detect-virt | grep lxc; } ||
+			grep -E '[ \t]/proc/(cpuinfo|meminfo|stat|uptime)[ \t].*[ \t]lxcfs[ \t]' /proc/self/mountinfo
+		then
+			# shellcheck disable=SC2010
+			# check if container is privileged
+			if ! ls -ld /proc | grep -E '^[-drwx \t]+[0-9]+[ \t]+root[ \t]'; then
+				unpriv_lxc=1
+			fi
+		fi 1>/dev/null 2>/dev/null
+
+		if [ "$unpriv_lxc" ]; then
+			printf '\n%s\n%s\n%s\n%s\n\n' \
+				"${yellow}** NOTE ** : $p_name seems to be running inside unprivileged LXC container." \
+				"Using the nftables backend may run into problems.${n_c}" "Consider using the iptables backend." \
+				"See: https://github.com/friendly-bits/geoip-shell/issues/24"
+		fi
+
+	esac
 
 	if [ "$_fw_backend" = ask ]; then
 		[ "$nointeract" ] && die "Specify the firewall backend with '$p_name configure -w <ipt|nft>'."
