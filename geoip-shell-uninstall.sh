@@ -135,6 +135,7 @@ if [ "$_fw_backend" ] || detect_fw_backends; then
 				else
 					_fw_backend=nft
 				fi
+				# if not re-installing
 				[ ! "$keepdata" ] && echolog -warn "Based on heuristics, using firewall backend '${_fw_backend}ables' to remove existing geoblocking rules."
 		esac
 
