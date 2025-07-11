@@ -330,16 +330,13 @@ restore_from_config() {
 		prev_config_try=1
 		export main_config="$prev_config"
 
-		{ nodie=1 export_conf=1 get_config_vars || { echolog -err "$FAIL load the previous config."; false; }; } &&
-		_prev="previous " &&
-		{
+		if nodie=1 export_conf=1 get_config_vars && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
-			{
-				[ "$_fw_backend" ] && . "${_lib}-${_fw_backend}.sh" ||
-					{ echolog -err "$FAIL load the '$_fw_backend' library."; false; }
-			}
-		} &&
-		restore_from_config && { set_all_config; return 0; }
+				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && . "${_lib}-${_fw_backend}.sh"; }; then
+					restore_from_config && { set_all_config; return 0; }
+		else
+			echolog -err "$FAIL load the previous config."
+		fi
 	}
 
 	# recover from backup
