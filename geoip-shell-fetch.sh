@@ -791,8 +791,8 @@ group_lists_by_registry
 
 # check connectivity
 case "$dl_src" in
-	ripe) con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
-	ipdeny) con_check_url="$ipdeny_ipv4_url" ;;
+	ripe) con_check_url="${ripe_url_api%%/*}" ;;
+	ipdeny) con_check_url="${ipdeny_ipv4_url%%/*}" ;;
 	maxmind)
 		checkvars maxmind_url mm_license_type mm_acc_id mm_license_key
 		con_check_url="${maxmind_url%%/*}"
