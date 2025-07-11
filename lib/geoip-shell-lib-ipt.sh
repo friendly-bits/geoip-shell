@@ -125,12 +125,11 @@ rm_all_georules() {
 	done
 
 	# remove ipsets
-	rm_ipsets_rv=1
+	rm_ipsets_rv=0
 	unisleep
 	printf_s "Destroying $p_name ipsets... "
 	for ipset in $(ipset list -n | grep "$geotag"); do
 		ipset destroy "$ipset" || { rm_ipsets_rv=1; continue; }
-		rm_ipsets_rv=0
 	done
 	[ "$rm_ipsets_rv" = 0 ] && OK || FAIL
 	return "$rm_ipsets_rv"
