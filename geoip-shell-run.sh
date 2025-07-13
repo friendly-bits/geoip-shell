@@ -115,6 +115,8 @@ san_str apply_lists_req "$lists_arg" || die
 			san_str apply_lists_req "$inbound_iplists $outbound_iplists" || die
 	esac
 
+separate_excl_iplists apply_lists_req "$apply_lists_req" || die
+
 fast_el_cnt "$apply_lists_req" " " lists_cnt
 
 failed_lists_cnt=0
