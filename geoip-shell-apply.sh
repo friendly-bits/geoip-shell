@@ -370,9 +370,12 @@ nl2sp curr_ipsets_sp "$curr_ipsets"
 unset planned_ipsets rm1_ipsets ipsets_to_load
 for direction in inbound outbound; do
 	eval "
-		${direction}_list_ids=\"\$${direction}_iplists\"
-		list_ids=\"\$${direction}_list_ids\"
+		list_ids=\"\$${direction}_iplists\"
 		geomode=\"\$${direction}_geomode\""
+
+	separate_excl_iplists list_ids "$list_ids" || die
+
+	eval "${direction}_list_ids=\"$list_ids\""
 
 	debugprint "$direction list IDs: '$list_ids'"
 
