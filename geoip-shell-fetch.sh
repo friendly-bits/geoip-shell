@@ -632,8 +632,19 @@ done
 newifs "$_nl" cca
 set -- $cca2_list
 oldifs cca
-for i in 1 2 3 4 5; do
-	eval "c=\"\${$i}\""
+for c in "$@"; do
+	case "$c" in
+		'') continue ;;
+		*[!\ \	]*) ;;
+		*) continue
+	esac
+	case "$c" in
+		*[!\ =A-Za-z\	]*|*=*=*) die "Unexpected data in cca2.list" ;;
+		*=*)
+	esac
+	case "${c%%=*}" in
+		*[!a-zA-Z]*) die "Unexpected data in cca2.list"
+	esac
 	set_a_arr_el registry_ccodes_arr "$c"
 done
 
