@@ -516,6 +516,7 @@ apply_rules() {
 	#### Remove unneeded ipsets
 	[ -n "$rm_ipsets" ] && {
 		printf_s "Removing unneeded ipsets... "
+		unisleep
 		rm_ipsets_rv=0
 		for ipset in $rm_ipsets; do
 			rm_ipset "$ipset" "$curr_ipsets" || rm_ipsets_rv=1
@@ -523,7 +524,6 @@ apply_rules() {
 		done
 		[ "$rm_ipsets_rv" = 0 ] || { FAIL; echo; die; }
 		OK
-		echo
 	}
 
 	### register load ipsets
