@@ -498,8 +498,6 @@ done
 
 run_command="$i_script-run.sh"
 
-[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
-
 
 ## Check args for sanity
 
@@ -676,7 +674,7 @@ for direction in inbound outbound; do
 	done
 
 	# country codes
-	[ "$ccodes_arg" ] && validate_ccodes "$ccodes_arg"
+	[ "$ccodes_arg" ] && { normalize_ccodes ccodes_arg "$ccodes_arg" || die; }
 	if { [ "$ccodes_arg_unset" ] && [ "$iplists_unset" ]; } || [ "$ccodes_arg" ] || [ "$geomode_change" ]; then
 		if [ "$nointeract" ]; then
 			[ "$direction" = outbound ] && {
@@ -695,17 +693,14 @@ for direction in inbound outbound; do
 		done
 
 	# generate a list of requested iplists
-	unset lists_req excl_list_ids
+	lists_req=
 	for ccode in $ccodes; do
 		for f in $families; do
-			list_id="${ccode}_$f"
-			case "$exclude_iplists" in *"$list_id"*)
-				add2list excl_list_ids "$list_id"
-				continue
-			esac
-			add2list lists_req "$list_id"
+			add2list lists_req "${ccode}_$f"
 		done
 	done
+
+	separate_excl_iplists lists_req "$lists_req" || die
 
 	eval "${direction}_lists_req"='$lists_req' \
 		"${direction}_ccodes"='$ccodes'
