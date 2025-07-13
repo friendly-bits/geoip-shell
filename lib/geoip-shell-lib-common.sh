@@ -1036,19 +1036,40 @@ report_excluded_lists() {
 	echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
 }
 
-# validates country code in $1 against cca2.list
-# must be in upper case
-# optional $2 may contain path to cca2.list
-# returns 0 if validation successful, 2 if not, 1 if cca2 list is empty
-validate_ccode() {
-	cca2_path="$conf_dir/cca2.list"
-	[ ! -s "$cca2_path" ] && cca2_path="$script_dir/cca2.list"
-	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
-	case "$ccode_list" in
-		'') die "\$ccode_list variable is empty. Perhaps cca2.list is missing?" ;;
-		*" $1 "*) return 0 ;;
-		*) return 2
+# validate reg. name or country code against cca2.list, translate reg. name to country code
+# 1 - var name for output
+# 2 - input
+# return codes:
+# 0 - country code
+# 1 - error
+# 2 - registry name
+# 3 - neither
+normalize_ccode() {
+	cca2_path="$conf_dir/cca2.list" nc_in="$2"
+	if [ -z "$ccode_list" ]; then
+		[ -s "$cca2_path" ] || cca2_path="$script_dir/cca2.list"
+		[ -s "$cca2_path" ] || { echolog -err "File 'cca2.list' does not exist or is empty."; return 1; }
+		getstatus "$cca2_path" || return 1
+		RIPE="$RIPENCC"
+		export RIPE ARIN APNIC AFRINIC LACNIC \
+			ccode_list="$RIPE$ARIN$APNIC$AFRINIC$LACNIC"
+	fi
+
+	toupper nc_in
+	case "$nc_in" in ''|*" "*) return 3; esac
+	# shellcheck disable=SC2194
+	case " RIPE ARIN APNIC AFRINIC LACNIC " in *" $nc_in "*)
+		eval "nc_out=\"\${$nc_in% }\"
+			$1=\"\${nc_out# }\""
+		return 2
 	esac
+
+	case "$ccode_list" in
+		'') echolog -err "Failed to load country codes list from '$cca2_path'."; return 1 ;;
+		*" $nc_in "*) eval "$1=\"$nc_in\""; return 0 ;;
+		*) return 3
+	esac
+	:
 }
 
 # detects all network interfaces known to the kernel, except the loopback interface
