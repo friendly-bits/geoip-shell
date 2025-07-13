@@ -771,24 +771,9 @@ debugprint "http: '$http', ssl_ok: '$ssl_ok'"
 
 #### VARIABLES
 
-unset lists exclude_iplists excl_list_ids failed_lists fetched_lists
-[ -s "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+separate_excl_iplists san_lists "$lists_arg" || die
 
-for list_id in $lists_arg; do
-	case "$list_id" in
-		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}" ;;
-		*) die "invalid list ID '$list_id'."
-	esac
-	list_id="$cc_up$fml_lo"
-	case "$exclude_iplists" in *"$list_id"*)
-		add2list excl_list_ids "$list_id"
-		continue
-	esac
-	add2list lists "$list_id"
-done
-san_lists="$lists"
-
-[ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
+unset failed_lists fetched_lists
 
 
 #### Checks
