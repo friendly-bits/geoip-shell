@@ -103,8 +103,9 @@ get_ipset_id() {
 	esac
 	case "$1" in
 		*local_*)
-			eval "iplist_path=\"\${${1}_file}\""
-			[ -s "$iplist_path" ] || { echolog -err "Can not find local iplist file '$iplist_path'."; return 1; } ;;
+			eval "iplist_path=\"\${${1#"${p_name}_"}_file}\""
+			[ -s "$iplist_path" ] || { echolog -err "Can not find local iplist file '$iplist_path'."; return 1; }
+			ipset_el_type="${iplist_path##*.}" ;;
 		*)
 			ipset_el_type=net
 			iplist_path="${iplist_dir}/${list_id}.iplist"
@@ -330,7 +331,7 @@ for family in ipv4 ipv6; do
 		filename="local_${local_type}_${family}"
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
-		ipset_name="${ipset_prefix}local_${local_type}_${family#ipv}"
+		ipset_name="local_${local_type}_${family#ipv}"
 
 		iplist_found=
 		for dir in "$local_iplists_dir" "$staging_local_dir"; do
@@ -342,8 +343,8 @@ for family in ipv4 ipv6; do
 		done
 
 		[ "$iplist_found" ] || continue
-		add2list local_ipsets "$ipset_name"
-		add2list "local_${local_type}_ipsets" "$ipset_name"
+		add2list local_ipsets "${ipset_prefix}${ipset_name}"
+		add2list "local_${local_type}_ipsets" "${ipset_prefix}${ipset_name}"
 	done
 done
 
