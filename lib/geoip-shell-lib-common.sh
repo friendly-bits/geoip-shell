@@ -142,39 +142,6 @@ statustip() {
 	printf '\n%s\n\n' "View geoblocking status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
 }
 
-report_lists() {
-	unset iplists_incoherent lists_reported local_lists_rl
-	for direction in inbound outbound; do
-		eval "geomode=\"\$${direction}_geomode\""
-		[ "$geomode" = disable ] && continue
-		get_active_iplists verified_lists "$direction"
-		nl2sp verified_lists
-		for list_id in $verified_lists; do
-			case "$list_id" in *local_*)
-				add2list local_lists_rl "$list_id"
-			esac
-		done
-		subtract_a_from_b "$local_lists_rl" "$verified_lists" ccode_lists
-		verified_lists_sp="$local_lists_rl"
-		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
-		[ ! "$lists_reported" ] && printf '\n'
-		report_lists=
-		for list_id in $verified_lists_sp; do
-			case "$list_id" in
-				allow_in_*|allow_out_*|allow_*|dhcp_*) continue ;;
-				*) report_lists="$report_lists$list_id "
-			esac
-		done
-		if [ -n "$report_lists" ]; then
-			report_lists="'${blue}${report_lists% }${n_c}'"
-		else
-			report_lists="${red}None${n_c}"
-		fi
-		printf '%s\n' "Final IP lists in $direction $geomode: $report_lists."
-		lists_reported=1
-	done
-}
-
 unknownact() {
 	specifyact="Specify action in the 1st argument!"
 	case "$action" in
