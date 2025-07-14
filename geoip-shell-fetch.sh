@@ -440,7 +440,7 @@ fetch_maxmind() {
 		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
-			case "$exclude_iplists" in *"$list_id"*) continue; esac
+			case " $excl_file_lists " in *" $list_id "*) continue; esac
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 
@@ -462,10 +462,9 @@ process_ccode() {
 	curr_ccode="$1"
 	tolower curr_ccode_lc "$curr_ccode"
 	unset list_path fetched_file
-
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
-		case "$exclude_iplists" in *"$list_id"*) continue; esac
+		case " $excl_file_lists " in *" $list_id "*) continue; esac
 
 		rm_fetched_list_id=
 		case "$dl_src" in
