@@ -88,7 +88,7 @@ get_counter_val() {
 # assigns results to $list_id, $ipset_family, $ipset_el_type, $iplist_path
 get_ipset_id() {
 	case "$1" in
-		*dhcp_[46]|*allow_in_[46]|*allow_out_[46]|*local_*) i="$1" ;;
+		*dhcp_[46]|*allow_in_[46]|*allow_out_[46]|*allow_[46]|*local_*) i="$1" ;;
 		*) i="${1%_*}"
 	esac
 	[ "$_fw_backend" = ipt ] && i="${i#*_}"
@@ -103,21 +103,8 @@ get_ipset_id() {
 	esac
 	case "$1" in
 		*local_*)
-			case "$1" in
-				*_allow_*) local_type=allow ;;
-				*_block_*) local_type=block
-			esac
-			eval "local_dir=\"\${local_${local_type}_dir}\""
-			iplist_file="${local_dir}/${list_id}"
-			if [ -f "${iplist_file}.ip" ]; then
-				ipset_el_type=ip
-			elif [ -f "${iplist_file}.net" ]; then
-				ipset_el_type=net
-			else
-				echolog -err "Can not find local iplist file for '$iplist_file'."
-				return 1
-			fi
-			iplist_path="${iplist_file}.${ipset_el_type}" ;;
+			eval "iplist_path=\"\${${1}_file}\""
+			[ -s "$iplist_path" ] || { echolog -err "Can not find local iplist file '$iplist_path'."; return 1; } ;;
 		*)
 			ipset_el_type=net
 			iplist_path="${iplist_dir}/${list_id}.iplist"
@@ -341,17 +328,22 @@ unset local_ipsets local_allow_ipsets local_block_ipsets
 for family in ipv4 ipv6; do
 	for local_type in allow block; do
 		filename="local_${local_type}_${family}"
-		if [ -s "$staging_local_dir/$filename.ip" ] || [ -s "$staging_local_dir/$filename.net" ]; then
-			eval "local_${local_type}_dir=\"\$staging_local_dir\""
-		elif [ -s "${local_iplists_dir}/$filename.ip" ] || [ -s "${local_iplists_dir}/$filename.net" ]; then
-			eval "local_${local_type}_dir=\"\$local_iplists_dir\""
-		else
-			continue
-		fi
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
-		add2list local_ipsets "${ipset_prefix}local_${local_type}_${family#ipv}"
-		add2list "local_${local_type}_ipsets" "${ipset_prefix}local_${local_type}_${family#ipv}"
+		ipset_name="${ipset_prefix}local_${local_type}_${family#ipv}"
+
+		iplist_found=
+		for dir in "$local_iplists_dir" "$staging_local_dir"; do
+			for type in ip net; do
+				[ -s "$dir/$filename.$type" ] || continue
+				eval "${ipset_name}_file=\"$dir/$filename.$type\""
+				iplist_found=1
+			done
+		done
+
+		[ "$iplist_found" ] || continue
+		add2list local_ipsets "$ipset_name"
+		add2list "local_${local_type}_ipsets" "$ipset_name"
 	done
 done
 
