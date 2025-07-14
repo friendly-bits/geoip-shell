@@ -520,7 +520,7 @@ apply_rules() {
 	nft_output="$(printf '%s\n' "$nft_cmd_chain" | nft -f - 2>&1)" || {
 		FAIL
 		echolog -err "$FAIL apply new firewall rules"
-		echolog "nftables errors: '$(printf %s "$nft_output" | sed "s/${blank}*\^\^\^[\^]*${blank}*/ /g" | tr '\n' ' ' | head -c 1k)'"
+		echolog "nftables errors:${_nl}$(printf %s "$nft_output" | head -c 1k)"
 		die
 	}
 
