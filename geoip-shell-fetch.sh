@@ -647,6 +647,8 @@ for c in "$@"; do
 	set_a_arr_el registry_ccodes_arr "$c"
 done
 
+load_exclusions
+
 #### Check for valid DL source
 default_source=ripe
 is_alphanum "$source_arg" && tolower source_arg && subtract_a_from_b "$valid_sources" "$source_arg" ||
