@@ -258,7 +258,7 @@ load_ipsets() {
 # 4 - path to file
 # 5 - curr ipsets
 reg_ipset() {
-	debugprint "Registering load ipset '$1'... "
+	debugprint "Registering load ipset '$1': type '$2', family '$3', path '$4' "
 	case "$5" in *"$1"*) echolog -err "reg_ipset: ipset '$1' already exists."; return 1; esac
 
 	[ -s "$4" ] || {
