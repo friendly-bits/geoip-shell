@@ -161,6 +161,8 @@ A selection of options is given here, for additional options run `geoip-shell -h
 
 `geoip-shell configure -c <"country_codes">`
 
+The `-c` option accepts any combination of valid 2-letter country codes and/or one of region codes: RIPE, ARIN, APNIC, AFRINIC, LACNIC.
+
 _<details><summary>Example:</summary>_
 - to set countries to Germany and Netherlands: `geoip-shell configure -c "DE NL"`
 </details>
