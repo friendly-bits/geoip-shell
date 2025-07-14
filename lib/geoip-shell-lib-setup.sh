@@ -750,7 +750,7 @@ get_general_prefs() {
 		{
 			for el_type in net ip; do
 				if [ -f "$perm_file.$el_type" ] && compare_files "$perm_file.$el_type" "$staging_file"; then
-					echolog "${_nl}All IP's in file '$file' have already previously imported."
+					echolog "${_nl}All IP's in file '$file' have been previously imported."
 					set +f
 					rm -f "$staging_file"*
 					set -f
