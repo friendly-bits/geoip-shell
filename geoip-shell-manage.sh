@@ -674,7 +674,21 @@ for direction in inbound outbound; do
 	done
 
 	# country codes
-	[ "$ccodes_arg" ] && { normalize_ccodes ccodes_arg "$ccodes_arg" || die; }
+	if [ -n "$ccodes_arg" ]; then
+		norm_ccodes='' bad_ccodes=''
+		toupper ccodes_arg
+		for ccode in $ccodes_arg; do
+			normalize_ccode norm_ccode "$ccode"
+			case $? in
+				1) die "Internal error while validating country codes." ;;
+				3) bad_ccodes="$bad_ccodes$ccode "
+			esac
+			norm_ccodes="${norm_ccodes}${norm_ccode} "
+		done
+		[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
+		ccodes_arg="${norm_ccodes% }"
+	fi
+
 	if { [ "$ccodes_arg_unset" ] && [ "$iplists_unset" ]; } || [ "$ccodes_arg" ] || [ "$geomode_change" ]; then
 		if [ "$nointeract" ]; then
 			[ "$direction" = outbound ] && {
