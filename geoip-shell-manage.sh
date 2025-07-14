@@ -57,8 +57,9 @@ ${purple}Options for 'configure -D $direction_syn'${n_c}
   ${blue}-m $mode_syn${n_c} : Geoblocking mode: whitelist, blacklist or disable.
 ${sp8}'disable' removes all previous config options for specified direction and disables geoblocking for it.
 
-  ${blue}-c $ccodes_syn${n_c} : 2-letter country codes to include in whitelist/blacklist.
-${sp8}If passing multiple country codes, use double quotes.
+  ${blue}-c $ccodes_syn${n_c} : 2-letter country codes and/or region codes to include in whitelist/blacklist.
+${sp8}Supported region codes: RIPE, ARIN, APNIC, AFRINIC, LACNIC
+${sp8}If passing multiple values, use double quotes.
 
   ${blue}-p <[tcp|udp]:[allow|block]:[all|<ports>]>${n_c} :
 ${sp8}For given protocol (tcp/udp), use 'block' to geoblock traffic on specific ports or on all ports.
