@@ -279,6 +279,7 @@ for direction in inbound outbound; do
 	report_fw_state "$direction"
 
 	[ "$verb_status" ] && {
+		load_exclusions
 		printf %s "  IP ranges count in active $direction geoblocking sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -293,7 +294,7 @@ for direction in inbound outbound; do
 						list_empty=
 						eval "el_cnt=\"\${${list_id}_el_cnt}\""
 						[ "$el_cnt" = 0 ] && {
-							if is_included "$list_id" "$exclude_iplists"; then
+							if is_included "$list_id" "$excl_file_lists"; then
 								list_empty=" (excluded)"
 							else
 								list_empty=" $_X"
