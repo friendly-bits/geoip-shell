@@ -158,21 +158,19 @@ report_lists() {
 		verified_lists_sp="$local_lists_rl"
 		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
 		[ ! "$lists_reported" ] && printf '\n'
-		printf %s "Final IP lists in $direction $geomode: '${blue}"
-		if printf %s "$verified_lists_sp" |
-			sed "s/allow_in_${notblank}*//g;
-				s/allow_out_${notblank}*//g;
-				s/dhcp_${notblank}*//g;
-				s/^${blanks}//;
-				s/${blanks}$//;
-				s/${blanks}/ /g;
-				/^$/d" | grep . | tr -d '\n'
-		then
-			printf '%s\n' "${n_c}'."
+		report_lists=
+		for list_id in $verified_lists_sp; do
+			case "$list_id" in
+				allow_in_*|allow_out_*|allow_*|dhcp_*) continue ;;
+				*) report_lists="$report_lists$list_id "
+			esac
+		done
+		if [ -n "$report_lists" ]; then
+			report_lists="'${blue}${report_lists% }${n_c}'"
 		else
-			printf '%s\n' "${red}None${n_c}"
+			report_lists="${red}None${n_c}"
 		fi
-
+		printf '%s\n' "Final IP lists in $direction $geomode: $report_lists."
 		lists_reported=1
 	done
 }
