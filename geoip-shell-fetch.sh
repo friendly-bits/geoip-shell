@@ -440,7 +440,7 @@ fetch_maxmind() {
 		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
-			case "$exclude_iplists" in *"$list_id"*) continue; esac
+			case " $excl_file_lists " in *" $list_id "*) continue; esac
 			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 
@@ -462,10 +462,9 @@ process_ccode() {
 	curr_ccode="$1"
 	tolower curr_ccode_lc "$curr_ccode"
 	unset list_path fetched_file
-
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
-		case "$exclude_iplists" in *"$list_id"*) continue; esac
+		case " $excl_file_lists " in *" $list_id "*) continue; esac
 
 		rm_fetched_list_id=
 		case "$dl_src" in
@@ -632,10 +631,23 @@ done
 newifs "$_nl" cca
 set -- $cca2_list
 oldifs cca
-for i in 1 2 3 4 5; do
-	eval "c=\"\${$i}\""
+for c in "$@"; do
+	case "$c" in
+		'') continue ;;
+		*[!\ \	]*) ;;
+		*) continue
+	esac
+	case "$c" in
+		*[!\ =A-Za-z\	]*|*=*=*) die "Unexpected data in cca2.list" ;;
+		*=*)
+	esac
+	case "${c%%=*}" in
+		*[!a-zA-Z]*) die "Unexpected data in cca2.list"
+	esac
 	set_a_arr_el registry_ccodes_arr "$c"
 done
+
+load_exclusions
 
 #### Check for valid DL source
 default_source=ripe
@@ -760,24 +772,9 @@ debugprint "http: '$http', ssl_ok: '$ssl_ok'"
 
 #### VARIABLES
 
-unset lists exclude_iplists excl_list_ids failed_lists fetched_lists
-[ -s "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
+separate_excl_iplists san_lists "$lists_arg" || die
 
-for list_id in $lists_arg; do
-	case "$list_id" in
-		*_*) toupper cc_up "${list_id%%_*}"; tolower fml_lo "_${list_id#*_}" ;;
-		*) die "invalid list ID '$list_id'."
-	esac
-	list_id="$cc_up$fml_lo"
-	case "$exclude_iplists" in *"$list_id"*)
-		add2list excl_list_ids "$list_id"
-		continue
-	esac
-	add2list lists "$list_id"
-done
-san_lists="$lists"
-
-[ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
+unset failed_lists fetched_lists
 
 
 #### Checks
@@ -791,8 +788,8 @@ group_lists_by_registry
 
 # check connectivity
 case "$dl_src" in
-	ripe) con_check_url="${ripe_url_api}v4_format=prefix&resource=nl" ;;
-	ipdeny) con_check_url="$ipdeny_ipv4_url" ;;
+	ripe) con_check_url="${ripe_url_api%%/*}" ;;
+	ipdeny) con_check_url="${ipdeny_ipv4_url%%/*}" ;;
 	maxmind)
 		checkvars maxmind_url mm_license_type mm_acc_id mm_license_key
 		con_check_url="${maxmind_url%%/*}"

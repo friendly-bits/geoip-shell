@@ -88,7 +88,7 @@ get_counter_val() {
 # assigns results to $list_id, $ipset_family, $ipset_el_type, $iplist_path
 get_ipset_id() {
 	case "$1" in
-		*dhcp_[46]|*allow_in_[46]|*allow_out_[46]|*local_*) i="$1" ;;
+		*dhcp_[46]|*allow_in_[46]|*allow_out_[46]|*allow_[46]|*local_*) i="$1" ;;
 		*) i="${1%_*}"
 	esac
 	[ "$_fw_backend" = ipt ] && i="${i#*_}"
@@ -103,21 +103,9 @@ get_ipset_id() {
 	esac
 	case "$1" in
 		*local_*)
-			case "$1" in
-				*_allow_*) local_type=allow ;;
-				*_block_*) local_type=block
-			esac
-			eval "local_dir=\"\${local_${local_type}_dir}\""
-			iplist_file="${local_dir}/${list_id}"
-			if [ -f "${iplist_file}.ip" ]; then
-				ipset_el_type=ip
-			elif [ -f "${iplist_file}.net" ]; then
-				ipset_el_type=net
-			else
-				echolog -err "Can not find local iplist file for '$iplist_file'."
-				return 1
-			fi
-			iplist_path="${iplist_file}.${ipset_el_type}" ;;
+			eval "iplist_path=\"\${${1#"${p_name}_"}_file}\""
+			[ -s "$iplist_path" ] || { echolog -err "Can not find local iplist file '$iplist_path'."; return 1; }
+			ipset_el_type="${iplist_path##*.}" ;;
 		*)
 			ipset_el_type=net
 			iplist_path="${iplist_dir}/${list_id}.iplist"
@@ -341,17 +329,22 @@ unset local_ipsets local_allow_ipsets local_block_ipsets
 for family in ipv4 ipv6; do
 	for local_type in allow block; do
 		filename="local_${local_type}_${family}"
-		if [ -s "$staging_local_dir/$filename.ip" ] || [ -s "$staging_local_dir/$filename.net" ]; then
-			eval "local_${local_type}_dir=\"\$staging_local_dir\""
-		elif [ -s "${local_iplists_dir}/$filename.ip" ] || [ -s "${local_iplists_dir}/$filename.net" ]; then
-			eval "local_${local_type}_dir=\"\$local_iplists_dir\""
-		else
-			continue
-		fi
 		ipset_prefix=
 		[ "$_fw_backend" = ipt ] && ipset_prefix="${geotag}_"
-		add2list local_ipsets "${ipset_prefix}local_${local_type}_${family#ipv}"
-		add2list "local_${local_type}_ipsets" "${ipset_prefix}local_${local_type}_${family#ipv}"
+		ipset_name="local_${local_type}_${family#ipv}"
+
+		iplist_found=
+		for dir in "$local_iplists_dir" "$staging_local_dir"; do
+			for type in ip net; do
+				[ -s "$dir/$filename.$type" ] || continue
+				eval "${ipset_name}_file=\"$dir/$filename.$type\""
+				iplist_found=1
+			done
+		done
+
+		[ "$iplist_found" ] || continue
+		add2list local_ipsets "${ipset_prefix}${ipset_name}"
+		add2list "local_${local_type}_ipsets" "${ipset_prefix}${ipset_name}"
 	done
 done
 
@@ -359,7 +352,7 @@ done
 # planned_ipsets_$direction - will be used to create direction-specific rules for iplists
 # planned_ipsets - all planned final ipsets
 # rm_ipsets - ipsets to remove
-# load_ipsets - ipsets to load from file
+# ipsets_to_load - ipsets to load from file
 
 getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
 
@@ -367,12 +360,15 @@ curr_ipsets="$(get_ipsets)"
 
 nl2sp curr_ipsets_sp "$curr_ipsets"
 
-unset planned_ipsets rm1_ipsets load_ipsets
+unset planned_ipsets rm1_ipsets ipsets_to_load
 for direction in inbound outbound; do
 	eval "
-		${direction}_list_ids=\"\$${direction}_iplists\"
-		list_ids=\"\$${direction}_list_ids\"
+		list_ids=\"\$${direction}_iplists\"
 		geomode=\"\$${direction}_geomode\""
+
+	separate_excl_iplists list_ids "$list_ids" || die
+
+	eval "${direction}_list_ids=\"$list_ids\""
 
 	debugprint "$direction list IDs: '$list_ids'"
 
@@ -414,7 +410,7 @@ subtract_a_from_b "$planned_ipsets" "$curr_ipsets_sp" rm2_ipsets
 san_str rm_ipsets "$rm1_ipsets $rm2_ipsets"
 
 subtract_a_from_b "$rm_ipsets" "$curr_ipsets_sp" keep_ipsets
-subtract_a_from_b "$keep_ipsets" "$planned_ipsets" load_ipsets
+subtract_a_from_b "$keep_ipsets" "$planned_ipsets" ipsets_to_load
 
 
 debugprint "curr_ipsets_sp: '$curr_ipsets_sp'"
@@ -423,10 +419,10 @@ debugprint "rm1 ipsets: '$rm1_ipsets'"
 debugprint "rm2 ipsets: '$rm2_ipsets'"
 debugprint "rm ipsets: '$rm_ipsets'"
 debugprint "keep ipsets: '$keep_ipsets'"
-debugprint "load ipsets: '$load_ipsets'"
+debugprint "ipsets to load : '$ipsets_to_load'"
 
 # check that there are iplist files to load ipsets from
-for ipset in $load_ipsets; do
+for ipset in $ipsets_to_load; do
 	get_ipset_id "$ipset"
 	[ -f "$iplist_path" ] || die "Can not find file '$iplist_path' to load ipset '$ipset'."
 done

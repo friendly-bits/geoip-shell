@@ -44,7 +44,7 @@ incr_issues() { issues=$((issues+1)); }
 _Q="${red}?${n_c}"
 issues=0
 
-printf '\n%s\n\n%s\n' "${purple}$p_name status:${n_c}" "$p_name ${blue}v$curr_ver$n_c"
+printf '\n%s\n' "${purple}$p_name v$curr_ver status:${n_c}"
 
 case "$_fw_backend" in
 	ipt|nft) _fw="$blue${_fw_backend}ables$n_c" ;;
@@ -279,6 +279,7 @@ for direction in inbound outbound; do
 	report_fw_state "$direction"
 
 	[ "$verb_status" ] && {
+		load_exclusions
 		printf %s "  IP ranges count in active $direction geoblocking sets: "
 		case "$active_ccodes" in
 			'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -293,7 +294,7 @@ for direction in inbound outbound; do
 						list_empty=
 						eval "el_cnt=\"\${${list_id}_el_cnt}\""
 						[ "$el_cnt" = 0 ] && {
-							if is_included "$list_id" "$exclude_iplists"; then
+							if is_included "$list_id" "$excl_file_lists"; then
 								list_empty=" (excluded)"
 							else
 								list_empty=" $_X"

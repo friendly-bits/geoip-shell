@@ -167,6 +167,7 @@ rm_all_data() {
 }
 
 rm_data() {
+	[ -n "$datadir" ] || return 0
 	rm_geodir "$datadir"/backup backup
 	rm -f "$datadir"/status "$datadir"/ips_cnt
 	rm_dir_if_empty "$datadir"

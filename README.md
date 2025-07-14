@@ -113,7 +113,7 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
     `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://api.github.com/repos/friendly-bits/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz`
   
-  - to extract, run: `tar -xvf geoip-shell.tar.gz`
+  - to extract, run: `tar -zxvf geoip-shell.tar.gz`
   </details>
 
 **3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal.

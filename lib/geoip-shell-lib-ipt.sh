@@ -129,7 +129,7 @@ rm_all_georules() {
 	unisleep
 	printf_s "Destroying $p_name ipsets... "
 	for ipset in $(ipset list -n | grep "$geotag"); do
-		ipset destroy "$ipset" || rm_ipsets_rv=1
+		ipset destroy "$ipset" || { rm_ipsets_rv=1; continue; }
 	done
 	[ "$rm_ipsets_rv" = 0 ] && OK || FAIL
 	return "$rm_ipsets_rv"
@@ -258,7 +258,7 @@ load_ipsets() {
 # 4 - path to file
 # 5 - curr ipsets
 reg_ipset() {
-	debugprint "Registering load ipset '$1'... "
+	debugprint "Registering load ipset '$1': type '$2', family '$3', path '$4' "
 	case "$5" in *"$1"*) echolog -err "reg_ipset: ipset '$1' already exists."; return 1; esac
 
 	[ -s "$4" ] || {
@@ -516,6 +516,7 @@ apply_rules() {
 	#### Remove unneeded ipsets
 	[ -n "$rm_ipsets" ] && {
 		printf_s "Removing unneeded ipsets... "
+		unisleep
 		rm_ipsets_rv=0
 		for ipset in $rm_ipsets; do
 			rm_ipset "$ipset" "$curr_ipsets" || rm_ipsets_rv=1
@@ -523,13 +524,12 @@ apply_rules() {
 		done
 		[ "$rm_ipsets_rv" = 0 ] || { FAIL; echo; die; }
 		OK
-		echo
 	}
 
 	### register load ipsets
 	ipsets_to_add=
 	for family in $families; do
-		for ipset in $load_ipsets; do
+		for ipset in $ipsets_to_load; do
 			[ ! "$ipset" ] && continue
 			get_ipset_id "$ipset" || die
 			case "$list_id" in *_*) ;; *) die "Invalid iplist ID '$list_id'."; esac

@@ -142,41 +142,6 @@ statustip() {
 	printf '\n%s\n\n' "View geoblocking status with '${blue}${p_name} status${n_c}' (may require 'sudo')."
 }
 
-report_lists() {
-	unset iplists_incoherent lists_reported local_lists_rl
-	for direction in inbound outbound; do
-		eval "geomode=\"\$${direction}_geomode\""
-		[ "$geomode" = disable ] && continue
-		get_active_iplists verified_lists "$direction"
-		nl2sp verified_lists
-		for list_id in $verified_lists; do
-			case "$list_id" in *local_*)
-				add2list local_lists_rl "$list_id"
-			esac
-		done
-		subtract_a_from_b "$local_lists_rl" "$verified_lists" ccode_lists
-		verified_lists_sp="$local_lists_rl"
-		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
-		[ ! "$lists_reported" ] && printf '\n'
-		printf %s "Final IP lists in $direction $geomode: '${blue}"
-		if printf %s "$verified_lists_sp" |
-			sed "s/allow_in_${notblank}*//g;
-				s/allow_out_${notblank}*//g;
-				s/dhcp_${notblank}*//g;
-				s/^${blanks}//;
-				s/${blanks}$//;
-				s/${blanks}/ /g;
-				/^$/d" | grep . | tr -d '\n'
-		then
-			printf '%s\n' "${n_c}'."
-		else
-			printf '%s\n' "${red}None${n_c}"
-		fi
-
-		lists_reported=1
-	done
-}
-
 unknownact() {
 	specifyact="Specify action in the 1st argument!"
 	case "$action" in
@@ -291,7 +256,6 @@ call_script() {
 	[ "$use_lock" ] && rm_lock
 	$use_shell "$script_to_call" "$@"
 	call_rv=$?
-	unset main_config
 	debugexitmsg
 	[ "$use_lock" ] && mk_lock -f
 	use_lock=
@@ -813,6 +777,48 @@ set_dir_vars() {
 	:
 }
 
+# sets $nft_present, $ipt_present, $ipset_present, $ipt_rules_present, $_fw_backend_def
+detect_fw_backends() {
+	ipt_present='' ipset_present='' nft_present='' ipt_rules_present='' _fw_backend_def=''
+
+	echolog "${_nl}Detecting firewall backends..."
+
+	check_fw_backend ipt 2>/dev/null
+	case $? in
+		0) ipt_present=1 ipset_present=1; echolog "Found iptables and the 'ipset' utility." ;;
+		2) echolog "Did not find iptables." ;;
+		3) ipt_present=1; echolog "Found iptables."
+	esac
+
+	if check_fw_backend nft 2>/dev/null; then
+		nft_present=1
+		echolog "Found nftables."
+	else
+		echolog "Did not find nftables."
+	fi
+
+	[ "${ipt_present}" ] && { iptables-save; ip6tables-save; } | grep '^-A[ \t]' 1>/dev/null &&
+		{ ipt_rules_present=1; echolog "Found existing iptables rules"; }
+
+	if [ "$ipt_present" ]; then
+		if [ "$nft_present" ]; then
+			_fw_backend_def=ask
+		elif [ "$ipset_present" ]; then
+			_fw_backend_def=ipt
+		else
+			echolog -err "Found iptables but required utility 'ipset' not found. Use your package manager to install it."
+			return 1
+		fi
+	elif [ -n "$nft_present" ]; then
+		_fw_backend_def=nft
+	else
+		echolog -err "Neither nftables nor iptables not found."
+		return 1
+	fi
+
+	:
+}
+
 # return codes:
 # 0 - backend found
 # 1 - error
@@ -853,7 +859,7 @@ ignore_allow() {
 # 1 - var name for output
 # 2 - direction (inbound|outbound)
 get_active_iplists() {
-	unset force_read
+	force_read=
 	[ "$1" = "-f" ] && { force_read="-f"; shift; }
 	[ "$2" ] || die "get_active_iplists: direction not specified"
 	gai_out_var="$1" direction="$2"
@@ -889,15 +895,19 @@ get_active_iplists() {
 	nl2sp ipset_iplists_sp "$ipset_iplists"
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
+	load_exclusions
+
 	inc=0
 	subtract_a_from_b "$ipset_iplists_sp" "$exp_iplists_gai" missing_ipsets ||
-		ignore_allow missing_ipsets ipset_iplists_sp "$direction" || inc=1
+		ignore_allow missing_ipsets ipset_iplists_sp "$direction" ||
+		subtract_a_from_b "$excl_file_lists" "$missing_ipsets" missing_ipsets || inc=1
 
 	subtract_a_from_b "$exp_iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
 		ignore_allow unexpected_lists exp_iplists_gai "$direction"|| inc=1
 
 	subtract_a_from_b "$fwrules_iplists_sp" "$exp_iplists_gai" missing_lists ||
-		ignore_allow missing_lists fwrules_iplists_sp "$direction" || inc=1
+		ignore_allow missing_lists fwrules_iplists_sp "$direction" ||
+		subtract_a_from_b "$excl_file_lists" "$missing_lists" missing_lists || inc=1
 
 	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
 	nl2sp "$gai_out_var" "$active_iplists_nl"
@@ -988,26 +998,74 @@ report_incoherence() {
 	done
 }
 
-report_excluded_lists() {
-	fast_el_cnt "$1" ' ' excl_cnt
-	excl_list="list" excl_verb="is"
-	[ "$excl_cnt" != 1 ] && excl_list="lists" excl_verb="are"
-	echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list '$1' $excl_verb in the exclusions file, skipping."
+load_exclusions() {
+	[ -n "$excl_file_lists" ] && return 0
+	[ -s "$excl_file" ] &&
+		nodie=1 getconfig excl_file_lists exclude_iplists "$excl_file" &&
+			export excl_file_lists
 }
 
-# validates country code in $1 against cca2.list
-# must be in upper case
-# optional $2 may contain path to cca2.list
-# returns 0 if validation successful, 2 if not, 1 if cca2 list is empty
-validate_ccode() {
-	cca2_path="$conf_dir/cca2.list"
-	[ ! -s "$cca2_path" ] && cca2_path="$script_dir/cca2.list"
-	[ -s "$cca2_path" ] && export ccode_list="${ccode_list:-"$(cat "$cca2_path")"}"
-	case "$ccode_list" in
-		'') die "\$ccode_list variable is empty. Perhaps cca2.list is missing?" ;;
-		*" $1 "*) return 0 ;;
-		*) return 2
+separate_excl_iplists() {
+	unset _excl_lists _ok_lists
+	load_exclusions
+
+	for _list_id in $2; do
+		case "$_list_id" in
+			*_*) toupper cc_up "${_list_id%%_*}"; tolower fml_lo "_${_list_id#*_}" ;;
+			*) echolog -err "invalid list ID '$_list_id'."; return 1
+		esac
+		_list_id="$cc_up$fml_lo"
+		case "$excl_file_lists" in *"$_list_id"*)
+			add2list _excl_lists "$_list_id"
+			continue
+		esac
+		add2list _ok_lists "$_list_id"
+	done
+
+	[ "$_excl_lists" ] && {
+		fast_el_cnt "$_excl_lists" ' ' excl_cnt
+		excl_list_pr="list" excl_verb="is"
+		[ "$excl_cnt" != 1 ] && excl_list_pr="lists" excl_verb="are"
+		echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list_pr '$_excl_lists' $excl_verb in the exclusions file, skipping."
+	}
+	eval "$1=\"$_ok_lists\""
+	:
+}
+
+# validate reg. name or country code against cca2.list, translate reg. name to country code
+# 1 - var name for output
+# 2 - input
+# return codes:
+# 0 - country code
+# 1 - error
+# 2 - registry name
+# 3 - neither
+normalize_ccode() {
+	cca2_path="$conf_dir/cca2.list" nc_in="$2"
+	if [ -z "$ccode_list" ]; then
+		[ -s "$cca2_path" ] || cca2_path="$script_dir/cca2.list"
+		[ -s "$cca2_path" ] || { echolog -err "File 'cca2.list' does not exist or is empty."; return 1; }
+		getstatus "$cca2_path" || return 1
+		RIPE="$RIPENCC"
+		export RIPE ARIN APNIC AFRINIC LACNIC \
+			ccode_list="$RIPE$ARIN$APNIC$AFRINIC$LACNIC"
+	fi
+
+	toupper nc_in
+	case "$nc_in" in ''|*" "*) return 3; esac
+	# shellcheck disable=SC2194
+	case " RIPE ARIN APNIC AFRINIC LACNIC " in *" $nc_in "*)
+		eval "nc_out=\"\${$nc_in% }\"
+			$1=\"\${nc_out# }\""
+		return 2
 	esac
+
+	case "$ccode_list" in
+		'') echolog -err "Failed to load country codes list from '$cca2_path'."; return 1 ;;
+		*" $nc_in "*) eval "$1=\"$nc_in\""; return 0 ;;
+		*) return 3
+	esac
+	:
 }
 
 # detects all network interfaces known to the kernel, except the loopback interface

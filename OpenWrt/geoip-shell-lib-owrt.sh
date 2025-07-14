@@ -9,15 +9,6 @@
 
 checkutil () { command -v "$1" 1>/dev/null; }
 
-detect_fw_backend() {
-	case "$_OWRTFW" in
-		3) printf ipt ;;
-		4) printf nft ;;
-		*) echolog -err "Invalid OpenWrt firewall version '$_OWRTFW'."; return 1
-	esac
-	:
-}
-
 enable_owrt_persist() {
 	[ "$no_persist" = true ] && {
 		printf '%s\n\n' "Installed without persistence functionality."

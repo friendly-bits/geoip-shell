@@ -330,16 +330,13 @@ restore_from_config() {
 		prev_config_try=1
 		export main_config="$prev_config"
 
-		{ nodie=1 export_conf=1 get_config_vars || { echolog -err "$FAIL load the previous config."; false; }; } &&
-		_prev="previous " &&
-		{
+		if nodie=1 export_conf=1 get_config_vars && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
-			{
-				[ "$_fw_backend" ] && . "${_lib}-${_fw_backend}.sh" ||
-					{ echolog -err "$FAIL load the '$_fw_backend' library."; false; }
-			}
-		} &&
-		restore_from_config && { set_all_config; return 0; }
+				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && . "${_lib}-${_fw_backend}.sh"; }; then
+					restore_from_config && { set_all_config; return 0; }
+		else
+			echolog -err "$FAIL load the previous config."
+		fi
 	}
 
 	# recover from backup
@@ -405,6 +402,39 @@ set_first_setup() {
 	action=configure reset_req=1
 }
 
+report_lists() {
+	unset iplists_incoherent lists_reported local_lists_rl
+	for direction in inbound outbound; do
+		eval "geomode=\"\$${direction}_geomode\""
+		[ "$geomode" = disable ] && continue
+		get_active_iplists verified_lists "$direction"
+		nl2sp verified_lists
+		for list_id in $verified_lists; do
+			case "$list_id" in *local_*)
+				add2list local_lists_rl "$list_id"
+			esac
+		done
+		subtract_a_from_b "$local_lists_rl" "$verified_lists" ccode_lists
+		verified_lists_sp="$local_lists_rl"
+		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
+		[ ! "$lists_reported" ] && printf '\n'
+		report_lists=
+		for list_id in $verified_lists_sp; do
+			case "$list_id" in
+				allow_in_*|allow_out_*|allow_*|dhcp_*) continue ;;
+				*) report_lists="$report_lists$list_id "
+			esac
+		done
+		if [ -n "$report_lists" ]; then
+			report_lists="'${blue}${report_lists% }${n_c}'"
+		else
+			report_lists="${red}None${n_c}"
+		fi
+		printf '%s\n' "Final IP lists in $direction $geomode: $report_lists."
+		lists_reported=1
+	done
+}
+
 
 #### showconfig
 [ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0; }
@@ -461,8 +491,10 @@ unset conf_act rm_conf
 [ ! -s "$conf_file" ] || [ "$rm_conf" ] && {
 	rm -f "$conf_file"
 	rm_data
-	datadir=
-	local_iplists_dir=
+	for _conf_var in $ALL_CONF_VARS; do
+		is_alphanum "$_conf_var" || die "Internal error."
+		eval "$_conf_var="
+	done
 	rm_setupdone
 	export first_setup=1
 }
@@ -498,8 +530,6 @@ for dir in inbound outbound; do
 done
 
 run_command="$i_script-run.sh"
-
-[ -f "$excl_file" ] && nodie=1 getconfig exclude_iplists exclude_iplists "$excl_file"
 
 
 ## Check args for sanity
@@ -677,7 +707,21 @@ for direction in inbound outbound; do
 	done
 
 	# country codes
-	[ "$ccodes_arg" ] && validate_ccodes "$ccodes_arg"
+	if [ -n "$ccodes_arg" ]; then
+		norm_ccodes='' bad_ccodes=''
+		toupper ccodes_arg
+		for ccode in $ccodes_arg; do
+			normalize_ccode norm_ccode "$ccode"
+			case $? in
+				1) die "Internal error while validating country codes." ;;
+				3) bad_ccodes="$bad_ccodes$ccode "
+			esac
+			norm_ccodes="${norm_ccodes}${norm_ccode} "
+		done
+		[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
+		ccodes_arg="${norm_ccodes% }"
+	fi
+
 	if { [ "$ccodes_arg_unset" ] && [ "$iplists_unset" ]; } || [ "$ccodes_arg" ] || [ "$geomode_change" ]; then
 		if [ "$nointeract" ]; then
 			[ "$direction" = outbound ] && {
@@ -696,17 +740,14 @@ for direction in inbound outbound; do
 		done
 
 	# generate a list of requested iplists
-	unset lists_req excl_list_ids
+	lists_req=
 	for ccode in $ccodes; do
 		for f in $families; do
-			list_id="${ccode}_$f"
-			case "$exclude_iplists" in *"$list_id"*)
-				add2list excl_list_ids "$list_id"
-				continue
-			esac
-			add2list lists_req "$list_id"
+			add2list lists_req "${ccode}_$f"
 		done
 	done
+
+	separate_excl_iplists lists_req "$lists_req" || die
 
 	eval "${direction}_lists_req"='$lists_req' \
 		"${direction}_ccodes"='$ccodes'

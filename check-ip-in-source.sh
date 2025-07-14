@@ -32,9 +32,6 @@ done
 
 . "$geoinit_path" || exit 1
 
-# set $cca2_path
-set_path cca2 cca2.list "$conf_dir"
-
 
 #### USAGE
 
@@ -66,7 +63,7 @@ EOF
 
 while getopts ":c:i:u:dh" opt; do
 	case $opt in
-	c) ccode=$OPTARG ;;
+	c) ccode_arg=$OPTARG ;;
 	i) ips=$OPTARG ;;
 	u) source_arg=$OPTARG ;;
 	d) debugmode_arg=1 ;;
@@ -111,7 +108,6 @@ default_source=ripe
 
 tolower source_arg
 dl_source="${source_arg:-"$default_source"}"
-toupper ccode
 ip_check_rv=0
 
 
@@ -119,13 +115,11 @@ ip_check_rv=0
 
 check_deps grepcidr || die
 
-[ -z "$ccode" ] && { usage; die "Specify country code with '-c <country_code>'."; }
-[ "$(printf %s "$ccode" | wc -w)" -gt 1 ] && { usage; die "Specify only one country code."; }
-
-validate_ccode "$ccode" "$cca2_path"; rv=$?
-case "$rv" in
-	1) die ;;
-	2) usage; die "Invalid country code: '$ccode'."
+normalize_ccode ccode "$ccode_arg"
+case $? in
+	0) ;;
+	2|3) usage; die "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'." ;;
+	*) die
 esac
 
 checkvars dl_source

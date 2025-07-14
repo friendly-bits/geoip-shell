@@ -11,18 +11,6 @@
 
 #### FUNCTIONS
 
-validate_ccodes() {
-	bad_ccodes=
-	for ccode in $1; do
-		validate_ccode "$ccode"
-		case $? in
-			1) die "Internal error while validating country codes." ;;
-			2) bad_ccodes="$bad_ccodes$ccode "
-		esac
-	done
-	[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
-}
-
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=none; return 0; }
@@ -38,17 +26,11 @@ pick_user_ccode() {
 		case "$REPLY" in
 			'') printf '%s\n\n' "Skipped."; user_ccode=none; return 0 ;;
 			*)
-				is_alphanum "$REPLY" || {
-					REPLY=
-					[ "$nointeract" ] && die 1
-					continue
-				}
-				toupper REPLY
-				validate_ccode "$REPLY"; rv=$?
-				case "$rv" in
-					0)  user_ccode="$REPLY"; break ;;
-					1)  die "Internal error while trying to validate country codes." ;;
-					2)  printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
+				normalize_ccode REPLY "$REPLY"
+				case "$?" in
+					0) user_ccode="$REPLY"; break ;;
+					1) die "Internal error while trying to validate country codes." ;;
+					2|3) printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
 						[ "$nointeract" ] && die 1
 						printf '%s\n\n' "Try again or press Enter to skip this check."
 						REPLY=
@@ -65,7 +47,7 @@ pick_ccodes() {
 	while :; do
 		unset bad_ccodes ok_ccodes
 		[ ! "$REPLY" ] && {
-			printf %s "Country codes (2 letters) or [a] to abort: "
+			printf %s "Enter whitespace-separated country codes (2 letters) and/or region codes (RIPE, ARIN, APNIC, AFRINIC, LACNIC) or [a] to abort: "
 			read -r REPLY
 		}
 		case "$REPLY" in *[!A-Za-z\ ,\;]*)
@@ -82,9 +64,13 @@ pick_ccodes() {
 			*)
 				newifs ' ;,' pcc
 				for ccode in $REPLY; do
-					[ "$ccode" ] && {
-						validate_ccode "$ccode" && ok_ccodes="$ok_ccodes$ccode " || bad_ccodes="$bad_ccodes$ccode "
-					}
+					[ "$ccode" ] || continue
+					normalize_ccode ccode "$ccode"
+						case $? in
+							0|2) ok_ccodes="$ok_ccodes$ccode " ;;
+							1) die "Failed to process input." ;;
+							3) bad_ccodes="$bad_ccodes$ccode "
+						esac
 				done
 				oldifs pcc
 				[ "$bad_ccodes" ] && {
@@ -109,7 +95,7 @@ pick_ccodes() {
 pick_geomode() {
 	printf '\n%s\n' "${blue}Select *$direction* geoblocking mode:$n_c [w]hitelist or [b]lacklist or [d]isable, or [a] to abort."
 	[ "$direction" = outbound ] && printf '%s\n' \
-		"${yellow}*NOTE*${n_c}: this may block Internet access if you are not careful. If unsure, select [d]isable."
+		"${yellow}* NOTE *${n_c}: this may block Internet access if you are not careful. If unsure, select [d]isable."
 	pick_opt "w|b|d|a"
 	case "$REPLY" in
 		w) geomode=whitelist ;;
@@ -455,8 +441,6 @@ warn_lockout() {
 
 # assigns default values, unless the var is set
 set_defaults() {
-	_fw_backend_def="$(detect_fw_backend)" || die
-
 	# check RAM capacity, set default optimization policy for nftables sets to performance if RAM>=1840MiB
 	[ ! "$nft_perf" ] && {
 		nft_perf_def=memory
@@ -524,6 +508,13 @@ get_general_prefs() {
 		eval "$1"='${dir_new}'
 	}
 
+	[ -z "${_fw_backend}${_fw_backend_arg}" ] && {
+		detect_fw_backends || die # sets $_fw_backend_def
+		case "$_fw_backend_def" in
+			ipt|nft) echolog "Setting firewall backend to ${_fw_backend_def}ables."
+		esac
+	}
+
 	set_defaults
 	# firewall backend
 	[ "$_fw_backend_arg" ] && {
@@ -535,7 +526,47 @@ get_general_prefs() {
 			3) die "Utility 'ipset' not found."
 		esac
 	}
-	_fw_backend="${_fw_backend_arg:-$_fw_backend}"
+
+	export _fw_backend="${_fw_backend_arg:-$_fw_backend}"
+
+	# special treatment for LXC containers
+	case "${_fw_backend}" in nft|ask)
+		unpriv_lxc=''
+		# check if running inside LXC container
+		if { checkutil systemd-detect-virt && systemd-detect-virt | grep lxc; } ||
+			grep -E '[ \t]/proc/(cpuinfo|meminfo|stat|uptime)[ \t].*[ \t]lxcfs[ \t]' /proc/self/mountinfo
+		then
+			# shellcheck disable=SC2010
+			# check if container is privileged
+			if ! ls -ld /proc | grep -E '^[-drwx \t]+[0-9]+[ \t]+root[ \t]'; then
+				unpriv_lxc=1
+			fi
+		fi 1>/dev/null 2>/dev/null
+
+		if [ "$unpriv_lxc" ]; then
+			printf '\n%s\n%s\n%s\n%s\n\n' \
+				"${yellow}** NOTE ** : $p_name seems to be running inside unprivileged LXC container." \
+				"Using the nftables backend may run into problems.${n_c}" "Consider using the iptables backend." \
+				"See: https://github.com/friendly-bits/geoip-shell/issues/24"
+		fi
+
+	esac
+
+	if [ "$_fw_backend" = ask ]; then
+		[ "$nointeract" ] && die "Specify the firewall backend with '$p_name configure -w <ipt|nft>'."
+		printf '\n%s\n' "This system can use either iptables or nftables rules."
+		[ "$ipt_rules_present" ] &&
+			printf '%s\n%s\n\n' "${yellow}** NOTE **${n_c}: This system has existing iptables rules." \
+				"It is recommended to avoid mixing iptables and nftables rules."
+		printf '%s\n' "Select the firewall backend: [i]ptables or [n]ftables. Or type in [a] to abort."
+		pick_opt "i|n|a"
+		case "$REPLY" in
+			i) _fw_backend=ipt ;;
+			n) _fw_backend=nft ;;
+			a) die 253
+		esac
+		[ "$_fw_backend" = ipt ] && [ ! "$ipset_present" ] && die "'ipset' utility is missing. Install it using your package manager."
+	fi
 
 	# nft_perf
 	[ "$nft_perf_arg" ] && {
@@ -719,7 +750,7 @@ get_general_prefs() {
 		{
 			for el_type in net ip; do
 				if [ -f "$perm_file.$el_type" ] && compare_files "$perm_file.$el_type" "$staging_file"; then
-					echolog "${_nl}All IP's in file '$file' have already previously imported."
+					echolog "${_nl}All IP's in file '$file' have been previously imported."
 					set +f
 					rm -f "$staging_file"*
 					set -f

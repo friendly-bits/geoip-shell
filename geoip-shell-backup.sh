@@ -134,23 +134,23 @@ cp_conf() {
 		*) echolog -err "cp_conf: bad argument '$1'"; return 1
 	esac
 
-	for bak_f in status config; do
-		eval "cp_src=\"$src_d\$${bak_f}_file$src_f\" \
-			cp_dest=\"$dest_d\$${bak_f}_file$dest_f\"
-			dest_compare_f=\"$compare_d\$${bak_f}_file$dest_f\""
+	for bak_obj in status config; do
+		eval "cp_src=\"$src_d\$${bak_obj}_file$src_f\" \
+			cp_dest=\"$dest_d\$${bak_obj}_file$dest_f\"
+			dest_compare_f=\"$compare_d\$${bak_obj}_file$dest_f\""
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
 		[ -f "$dest_compare_f" ] && compare_files "$cp_src" "$dest_compare_f" && {
 			debugprint "$cp_src is identical to $dest_compare_f"
-			[ "$1" = backup ] && {
+			[ "$1" = backup ] && [ "$dest_compare_f" != "$cp_dest" ] && {
 				debugprint "Moving '$dest_compare_f' to '$cp_dest'"
-				mv "$dest_compare_f" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
+				mv "$dest_compare_f" "$cp_dest" || { echolog -err "$cp_act the $bak_obj file failed."; return 1; }
 			}
 			continue
 		}
 		debugprint "Copying '$cp_src' to '$cp_dest'"
-		printf %s "$cp_act the $bak_f file... "
-		cp "$cp_src" "$cp_dest" || { echolog -err "$cp_act the $bak_f file failed."; return 1; }
+		printf %s "$cp_act the $bak_obj file... "
+		cp "$cp_src" "$cp_dest" || { echolog -err "$cp_act the $bak_obj file failed."; return 1; }
 		OK
 	done
 }
