@@ -11,18 +11,6 @@
 
 #### FUNCTIONS
 
-validate_ccodes() {
-	bad_ccodes=
-	for ccode in $1; do
-		validate_ccode "$ccode"
-		case $? in
-			1) die "Internal error while validating country codes." ;;
-			2) bad_ccodes="$bad_ccodes$ccode "
-		esac
-	done
-	[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
-}
-
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=none; return 0; }
@@ -38,17 +26,11 @@ pick_user_ccode() {
 		case "$REPLY" in
 			'') printf '%s\n\n' "Skipped."; user_ccode=none; return 0 ;;
 			*)
-				is_alphanum "$REPLY" || {
-					REPLY=
-					[ "$nointeract" ] && die 1
-					continue
-				}
-				toupper REPLY
-				validate_ccode "$REPLY"; rv=$?
-				case "$rv" in
-					0)  user_ccode="$REPLY"; break ;;
-					1)  die "Internal error while trying to validate country codes." ;;
-					2)  printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
+				normalize_ccode REPLY "$REPLY"
+				case "$?" in
+					0) user_ccode="$REPLY"; break ;;
+					1) die "Internal error while trying to validate country codes." ;;
+					2|3) printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
 						[ "$nointeract" ] && die 1
 						printf '%s\n\n' "Try again or press Enter to skip this check."
 						REPLY=
@@ -65,7 +47,7 @@ pick_ccodes() {
 	while :; do
 		unset bad_ccodes ok_ccodes
 		[ ! "$REPLY" ] && {
-			printf %s "Country codes (2 letters) or [a] to abort: "
+			printf %s "Enter whitespace-separated country codes (2 letters) and/or region codes (RIPE, ARIN, APNIC, AFRINIC, LACNIC) or [a] to abort: "
 			read -r REPLY
 		}
 		case "$REPLY" in *[!A-Za-z\ ,\;]*)
@@ -82,9 +64,13 @@ pick_ccodes() {
 			*)
 				newifs ' ;,' pcc
 				for ccode in $REPLY; do
-					[ "$ccode" ] && {
-						validate_ccode "$ccode" && ok_ccodes="$ok_ccodes$ccode " || bad_ccodes="$bad_ccodes$ccode "
-					}
+					[ "$ccode" ] || continue
+					normalize_ccode ccode "$ccode"
+						case $? in
+							0|2) ok_ccodes="$ok_ccodes$ccode " ;;
+							1) die "Failed to process input." ;;
+							3) bad_ccodes="$bad_ccodes$ccode "
+						esac
 				done
 				oldifs pcc
 				[ "$bad_ccodes" ] && {
