@@ -895,8 +895,7 @@ get_active_iplists() {
 	nl2sp ipset_iplists_sp "$ipset_iplists"
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
-	[ -n "$excl_file_lists" ] ||
-		{ [ -s "$excl_file" ] && nodie=1 getconfig excl_file_lists exclude_iplists "$excl_file" && export excl_file_lists; }
+	load_exclusions
 
 	inc=0
 	subtract_a_from_b "$ipset_iplists_sp" "$exp_iplists_gai" missing_ipsets ||
@@ -999,10 +998,16 @@ report_incoherence() {
 	done
 }
 
+load_exclusions() {
+	[ -n "$excl_file_lists" ] && return 0
+	[ -s "$excl_file" ] &&
+		nodie=1 getconfig excl_file_lists exclude_iplists "$excl_file" &&
+			export excl_file_lists
+}
+
 separate_excl_iplists() {
 	unset _excl_lists _ok_lists
-	[ -n "$excl_file_lists" ] ||
-		{ [ -s "$excl_file" ] && nodie=1 getconfig excl_file_lists exclude_iplists "$excl_file" && export excl_file_lists;  }
+	load_exclusions
 
 	for _list_id in $2; do
 		case "$_list_id" in
