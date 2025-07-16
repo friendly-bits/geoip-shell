@@ -193,6 +193,12 @@ LAN addresses can only be configured when geoblocking mode for at least one dire
 
 `auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN IP addresses.
 
+**To check whether certain IP addresses belong to any of the IP sets loaded by geoip-shell:**
+
+`geoip-shell lookup [-I <"ip_addresses">] [-F <path_to_file>] [-v]`
+
+For detailed description of this feature, run `geoip-shell -h` or read [DETAILS.md](/Documentation/DETAILS.md).
+
 **To enable or change the automatic update schedule:** `geoip-shell configure -s <"schedule_expression">`
 
 _<details><summary>Example</summary>_

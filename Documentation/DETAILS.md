@@ -29,23 +29,26 @@
 - lib/geoip-shell-lib-arrays.sh
 - lib/geoip-shell-lib-uninstall.sh
 - lib/geoip-shell-lib-ip-tools.sh
+- lib/geoip-shell-lib-lookup.sh
 
 
-The -lib-common script includes a large number of functions used throughout the suite, and assigns some essential variables.
+The **lib-common** script includes a large number of functions used throughout the suite, and assigns some essential variables.
 
-The lib-setup script implements some of the CLI interactive and noninteractive setup and arguments parsing. It is used by the -manage script.
+The **lib-setup** script implements some of the CLI interactive and noninteractive setup and arguments parsing. It is used by the -manage script.
 
-The -lib-status script implements the status report which you can get by issuing the `geoip-shell status` command.
+The **lib-status** script implements the status report which you can get by issuing the `geoip-shell status` command.
 
-The -lib-ipt and -lib-nft scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
+The **lib-lookup** script implements the lookup action which you can use by issuing the `geoip-shell lookup` command.
 
-The -lib-non-owrt script includes some functions which are not needed for OpenWrt
+The **lib-ipt** and **lib-nft** scripts implement support for iptables and nftables, respectively. They are sourced from other scripts which need to interact with the firewall utility directly.
 
-The -lib-arrays script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
+The **lib-non-owrt** script includes some functions which are not needed for OpenWrt
 
-The -lib-uninstall script has some functions which are used both for uninstallation and for reset if required.
+The **lib-arrays** script implements a minimal subset of functions emulating the functionality of associative arrays in POSIX-compliant shell. It is used in the -fetch script. It is a part of a larger project implementing much more of the arrays functionality. You can check my other repositories if you are interested.
 
-The lib-ip-tools script is only used under specific conditions:
+The **lib-uninstall** script has some functions which are used both for uninstallation and for reset if required.
+
+The **lib-ip-tools** script is only used under specific conditions:
 - During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
 - At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
 
@@ -77,6 +80,14 @@ After installation, the user interface is provided by running "geoip-shell", whi
 `geoip-shell status`
 * Displays information on the current state of geoip blocking
 * For a list of all firewall rules in the geoip chain and for detailed count of IP ranges, run `geoip-shell status -v`.
+
+`geoip-shell lookup`: Look up given IP addresses in IP sets loaded by geoip-shell
+
+Options for `geoip-shell lookup`:
+- `-I <"ip_addresses">` : Look up specified IP addresses in loaded IP sets
+- `-F <path>` : Read IP addresses from file and look them up in loaded IP sets
+- `-v` : Verbose mode: print which IP set each matching IP address belongs to
+
 
 `geoip-shell restore` : re-fetches and re-applies geoip firewall rules and IP lists as per the config.
 
