@@ -40,6 +40,7 @@ ${purple}Actions${n_c}:
   ${blue}restore${n_c}    :  re-apply geoblocking rules from the config
   ${blue}showconfig${n_c} :  print the contents of the config file
   ${blue}on|off${n_c}     :  enable or disable the geoblocking chain (via a rule in the base geoip chain)
+  ${blue}lookup${n_c}     :  look up given IP addresses in IP sets loaded by geoip-shell
   ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and unload IP sets
 
 ${purple}'configure' action${n_c}:
@@ -149,6 +150,11 @@ ${sp8}$p_name will likely not work after reboot. Default is false.
 
   ${blue}-K <true|false>${n_c} : Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
 
+${purple}Options for the 'lookup' action${n_c}:
+  ${blue}-I <"ip_addresses">${n_c} : Look up specified IP addresses in loaded IP sets
+  ${blue}-F <path>${n_c} : Read IP addresses from file and look them up in loaded IP sets
+  ${blue}-v${n_c} : Verbose mode: specify IP sets each matching IP address belongs to
+
 ${purple}Other options${n_c}:
 
   -v : Verbose status output
@@ -198,13 +204,13 @@ set_directional_opt() {
 tolower action "$1"
 case "$action" in
 	configure) direction=inbound; shift ;;
-	status|restore|reset|on|off|stop|showconfig) shift ;;
+	status|restore|reset|on|off|stop|showconfig|lookup) shift ;;
 	*) action="$1"; unknownact
 esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:I:F:zvdVh" opt; do
 	case $opt in
 		D) tolower OPTARG
 			case "$OPTARG" in inbound|outbound) ;; *)
@@ -239,8 +245,11 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:zvdVh" opt; do
 		N) set_opt noblock_arg ;;
 		P) set_opt force_cron_persist_arg ;;
 
+		I) set_opt lookup_addr_arg ;;
+		F) set_opt lookup_addr_file_arg ;;
+
 		z) nointeract_arg=1 ;;
-		v) verb_status="-v" ;;
+		v) verb_mode="-v" ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
 		h) usage; exit 0 ;;
@@ -547,10 +556,23 @@ incompat="$erract is incompatible with option"
 	done
 }
 
+[ "$action" != lookup ] && {
+	for i_opt in "lookup_addr_arg I" "lookup_addr_file_arg F"; do
+		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
+	done
+}
+
 
 #### MAIN
 
 [ "$action" = status ] && { . "$_lib-status.sh"; die $?; }
+
+[ "$action" = lookup ] && {
+	. "$_lib-$_fw_backend.sh" &&
+	. "$_lib-lookup.sh" &&
+	lookup "$lookup_addr_arg" "$lookup_addr_file_arg"
+	die $?
+}
 
 [ "$action" != stop ] && mk_lock
 trap 'die' INT TERM HUP QUIT

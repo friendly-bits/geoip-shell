@@ -166,7 +166,7 @@ done
 
 ipsets="$(get_ipsets)"
 
-if [ "$verb_status" ]; then
+if [ "$verb_mode" ]; then
 	case "$_fw_backend" in
 		nft) verb_ipsets="$ipsets" ;;
 		ipt) verb_ipsets="$(get_ext_ipsets)"
@@ -194,7 +194,7 @@ fi
 
 if [ "$local_iplists" ]; then
 	printf '\n%s' "${purple}Active local IP lists"
-	if [ ! "$verb_status" ]; then
+	if [ ! "$verb_mode" ]; then
 		printf '%s\n' "${n_c}: ${blue}$local_iplists${n_c}"
 	else
 		printf '%s\n' " and respective elements counts${n_c}:"
@@ -234,9 +234,9 @@ for direction in inbound outbound; do
 			*"allow_${direction%bound}_${f#ipv}"*) allow_ipset_name="allow_${direction%bound}_${f#ipv}" ;;
 			*) no_allow_ips=1
 		esac
-
-		[ ! "$no_allow_ips" ] && allow_ips="$(print_ipset_elements "$allow_ipset_name" "$ipsets")"
-		eval "allow_$f=\"$allow_ips\""
+		[ "$_fw_backend" = ipt ] && allow_ipset_name="${geotag}_${allow_ipset_name}"
+		[ ! "$no_allow_ips" ] && allow_ips="$(print_ipset_elements "$allow_ipset_name" "$ipsets" | tr '\n' ' ')"
+		eval "allow_$f=\"${allow_ips% }\""
 	done
 
 	includes_server=
@@ -278,7 +278,7 @@ for direction in inbound outbound; do
 
 	report_fw_state "$direction"
 
-	[ "$verb_status" ] && {
+	[ "$verb_mode" ] && {
 		load_exclusions
 		printf %s "  IP ranges count in active $direction geoblocking sets: "
 		case "$active_ccodes" in

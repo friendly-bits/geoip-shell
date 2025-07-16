@@ -48,7 +48,7 @@ get_ext_ipsets() {
 # 1 - ipset tag
 print_ipset_elements() {
 	get_matching_line "$2" "*" "$1" "*" &&
-		ipset list "${geotag}_${1}" | sed -n -e /"Members:"/\{:1 -e n\; -e p\; -e b1\; -e \} | tr '\n' ' '
+		ipset list "${1}" | sed -n -e /"Members:"/\{:1 -e n\; -e p\; -e b1\; -e \}
 }
 
 # 1 - ipset tag
@@ -327,7 +327,7 @@ report_fw_state() {
 			printf '%s\n' "  Whitelist blocking rule ($family): $wl_rule_status"
 		}
 
-		if [ "$verb_status" ]; then
+		if [ "$verb_mode" ]; then
 			# report gepblocking rules
 			printf '\n%s\n' "  ${purple}Firewall rules in the $geochain chain ($family)${n_c}:"
 			print_rules_table "$direction" "$family" || { printf '%s\n' "${red}None $_X"; incr_issues; }

@@ -369,7 +369,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in uninstall common arrays status setup ip-tools $non_owrt $fw_libs; do
+for f in uninstall common arrays status setup ip-tools lookup $non_owrt $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"

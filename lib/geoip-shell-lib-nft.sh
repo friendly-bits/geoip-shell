@@ -144,7 +144,7 @@ cnt_ipset_elements() {
 # 1 - ipset tag
 # 2 - ipsets
 print_ipset_elements() {
-	get_ipset_elements "$1" "$2" | $awk_cmd '{gsub(",", "");$1=$1};1' ORS=' '
+	get_ipset_elements "$1" "$2" | sed "s/^$blank*//;s/,*$blank*$//;s/,$blank*/\n/g"
 }
 
 # 1 - direction (inbound|outbound)
@@ -168,7 +168,7 @@ report_fw_state() {
 		printf '%s\n' "  whitelist blocking rule: $wl_rule_status"
 	}
 
-	if [ "$verb_status" ]; then
+	if [ "$verb_mode" ]; then
 		dashes="$(printf '%156s' ' ' | tr ' ' '-')"
 		# report geoip rules
 		fmt_str="  %-9s%-11s%-5s%-8s%-5s%-24s%-33s%s\n"
