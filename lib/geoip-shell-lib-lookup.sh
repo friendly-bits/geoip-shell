@@ -54,7 +54,7 @@ lookup() {
 	elif [ -n "$2" ]; then
 		for f in 4 6; do
 			eval "regex=\"\${ipv${3}_regex}\""
-			grep -E "$regex" "$2" && add2list lookup_families "$f"
+			grep -E "$regex" "$2" 1>/dev/null && add2list lookup_families "$f"
 		done
 	fi
 
