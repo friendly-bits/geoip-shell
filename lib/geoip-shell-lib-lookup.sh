@@ -68,14 +68,14 @@ lookup() {
 
 	# lookup
 	if [ -z "$verb_mode" ]; then
-		printf '%s\n\n' "Matching IP's in all loaded IP sets:"
+		printf '%s\n' "Matching IP's in all loaded IP sets:"
 		for f in $lookup_families; do
 			dump_ipsets "$ipsets" "$f" "$dumped_ipsets_file" || finalize_lookup 1
 			lookup_ips "$1" "$2" "$f" "$dumped_ipsets_file" && ips_found=1
 		done
 		[ -z "$ips_found" ] && { printf '%s\n' "${red}None${n_c}"; finalize_lookup 2; }
 	else
-		printf '%s\n\n' "Matching IP's:"
+		printf '%s\n' "Matching IP's:"
 		for f in $lookup_families; do
 			for ipset in $ipsets; do
 				case "$ipset" in
@@ -84,7 +84,7 @@ lookup() {
 				esac
 				dump_ipsets "$ipset" "$f" "$dumped_ipsets_file" || finalize_lookup 1
 				ips="$(lookup_ips "$1" "$2" "$f" "$dumped_ipsets_file")" || continue
-				printf '%s\n%s\n\n' "IP set '$ipset':" "$ips"
+				printf '\n%s\n%s\n' "IP set '$ipset':" "$ips"
 				ips_found=1
 			done
 		done
