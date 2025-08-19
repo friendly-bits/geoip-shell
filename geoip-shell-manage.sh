@@ -275,7 +275,8 @@ is_root_ok
 # 3 - description
 dir_mv() {
 	prev_dir_mv="$1" new_dir_mv="$2" dir_cont_desc="$3"
-	[ -n "${prev_dir_mv}" ] || return 0
+	[ -n "$prev_dir_mv" ] || return 0
+	[ -n "$new_dir_mv" ] || return 1
 
 	rm -rf "$new_dir_mv"
 	dir_mk "$new_dir_mv" || die
@@ -627,13 +628,14 @@ export nointeract="${nointeract_arg:-$nointeract}"
 # imports local IP lists if specified
 get_general_prefs || die
 
+checkvars _fw_backend datadir
+
 for opt_ch in datadir local_iplists_dir noblock nobackup schedule no_persist geosource families \
 		_fw_backend nft_perf user_ccode source_ips_policy; do
 	unset "${opt_ch}_change"
 	eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
 done
 
-checkvars _fw_backend datadir
 
 unset ccodes_arg_unset iplists_unset geomode_set ports_change geomode_change_g
 [ ! "$inbound_ccodes_arg$outbound_ccodes_arg" ] && ccodes_arg_unset=1
@@ -889,7 +891,7 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 
 check_for_lockout
 
-[ "$nobackup_change" ] && {
+[ "$nobackup_change" ] && [ -n "$datadir_prev" ] && {
 	[ -d "$datadir_prev/backup" ] && {
 		printf %s "Removing old backup... "
 		rm -rf "$datadir_prev/backup" || die "$FAIL remove old backup."
@@ -1002,17 +1004,17 @@ if [ "$rv_conf" = 0 ]; then
 			fi
 		done
 	done
-	rm -rf "$staging_local_dir"
+	rm -rf "${staging_local_dir:-???}"
 
 	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
 		check_lists_coherence || {
-			rm -rf "$staging_local_dir"
+			rm -rf "${staging_local_dir:-???}"
 			restore_from_config || die
 		}
 
 	}
 else
-	rm -rf "$staging_local_dir"
+	rm -rf "${staging_local_dir:-???}"
 	backup_req=1
 fi
 
