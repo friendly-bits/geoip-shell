@@ -171,6 +171,21 @@ EOF
 
 set_opt() {
 	var_name="$1"
+
+	# Check opt sanity
+	incompat="action '$action' is incompatible with option"
+
+	[ "$action" = configure ] ||
+	case "$opt" in
+		a|A|B|c|f|i|K|l|L|m|o|O|p|P|r|s|S|u|U|z)
+			die "$incompat '-$opt'."
+	esac
+
+	[ "$action" = lookup ] ||
+	case "$opt" in
+		I|F) die "$incompat '-$opt'."
+	esac
+
 	[ "$opt" != p ] && {
 		eval "oldval=\"\$${1}\""
 		[ -n "$oldval" ] && {
@@ -179,6 +194,8 @@ set_opt() {
 			die "Option '-$opt' can not be used twice${fordirection}."
 		}
 	}
+
+	# set vars
 	case "$opt" in
 		m|c|p) set_directional_opt "$var_name" ;;
 		*) eval "$var_name"='$OPTARG'; return 0
@@ -541,27 +558,6 @@ for dir in inbound outbound; do
 done
 
 run_command="$i_script-run.sh"
-
-
-## Check args for sanity
-
-erract="action '$action'"
-incompat="$erract is incompatible with option"
-
-[ "$action" != configure ] && {
-	for i_opt in "inbound_ccodes c" "outbound_ccodes c" "inbound_geomode m" "outbound_geomode m" \
-			"inbound_ports p" "outbound_ports p" "trusted t" "lan_ips l" "ifaces i" "keep_mm_db K" \
-			"geosource u" "source_ips U" "datadir a" "local_iplists_dir L" "nobackup o" "schedule s" \
-			"families f" "user_ccode r" "nft_perf O" "nointeract z" "local_allow A" "local_block B"; do
-		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
-	done
-}
-
-[ "$action" != lookup ] && {
-	for i_opt in "lookup_addr_arg I" "lookup_addr_file_arg F"; do
-		eval "[ -n \"\$${i_opt% *}_arg\" ]" && die "$incompat '-${i_opt#* }'."
-	done
-}
 
 
 #### MAIN
