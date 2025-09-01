@@ -106,7 +106,7 @@ oldifs() {
 is_root_ok() {
 	[ "$root_ok" ] && return 0
 	rv=1
-	[ "$manmode" ] && { rv=0; tip=" For usage, run '$me -h'."; }
+	[ "$manmode" = 1 ] && { rv=0; tip=" For usage, run '$me -h'."; }
 	die $rv "$me needs to be run as root.$tip"
 }
 
@@ -130,8 +130,29 @@ checkutil() {
 
 checkvars() {
 	for chkvar; do
-		eval "[ \"\$$chkvar\" ]" || { printf '%s\n' "Error: The '\$$chkvar' variable is unset."; exit 1; }
+		eval "[ -n \"\$$chkvar\" ]" || {
+			logger -s -t "${me:-"$p_name"}" -p user.err "Error: The '\$$chkvar' variable is unset."
+			exit 1
+		}
 	done
+}
+
+check_custom_script() {
+	[ -f "$1" ] || { echolog -err "Custom script '$1' not found."; return 1; }
+	ccs_res="$(
+		. "$1" 1>/dev/null
+		custom_f_found=
+		for r_func in gs_success gs_failure; do
+			command -v "$r_func" 1>/dev/null && custom_f_found=1
+		done
+		[ -n "$custom_f_found" ] || {
+			printf '%s\n' "Custom script '$1' must define functions 'gs_success' and/or 'gs_failure' but it defines neither."
+			exit 1
+		}
+	)" && return 0
+	[ -n "$ccs_res" ] && { echolog -err "$ccs_res"; return 1; }
+	echolog -err "Failed to source custom script '$1'."
+	return 1
 }
 
 unknownopt() {
@@ -279,21 +300,27 @@ check_libs() {
 # outputs args to stdout and writes them to syslog
 # if one of the args is '-err' or '-warn' then redirect output to stderr
 echolog() {
-	unset msg_args __nl msg_prefix o_nolog
+	write_entry() {
+		el_msg="$(printf %s "$1" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
+		[ -n "$daemon_mode" ] && date +"[%b %d %Y %H:%M:%S] ${el_msg}" >> "${GS_LOG_FILE}"
+		logger -t "$me" -p "user.$2" "$el_msg"
+	}
+
+	unset msg_args __nl msg_prefix o_nolog el_msg
 
 	highlight="$blue"; err_l=info
 	for arg in "$@"; do
 		case "$arg" in
-			"-err" ) highlight="$red"; err_l=err; msg_prefix="$ERR " ;;
-			"-warn" ) highlight="$yellow"; err_l=warn; msg_prefix="$WARN " ;;
-			"-nolog" ) o_nolog=1 ;;
+			-err) highlight="$red"; err_l=err; msg_prefix="$ERR " ;;
+			-warn) highlight="$yellow"; err_l=warn; msg_prefix="$WARN " ;;
+			-nolog) o_nolog=1 ;;
 			'') ;;
-			* ) msg_args="$msg_args$arg$delim"
+			*) msg_args="$msg_args$arg$delim"
 		esac
 	done
 
 	# check for newline in the biginning of the line and strip it
-	case "$msg_args" in "$_nl"* )
+	case "$msg_args" in "$_nl"*)
 		__nl="$_nl"
 		msg_args="${msg_args#"$_nl"}"
 	esac
@@ -308,18 +335,29 @@ echolog() {
 				info) printf '%s\n' "$_msg" ;;
 				err|warn) printf '%s\n' "$_msg" >&2
 			esac
-			unset __nl msg_prefix
 		}
-		[ ! "$nolog" ] && [ ! "$o_nolog" ] &&
-			logger -t "$me" -p user."$err_l" "$(printf %s "$msg_prefix$arg" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
+
+		if [ ! "$nolog" ] && [ ! "$o_nolog" ]; then
+			write_entry "$msg_prefix$arg" "$err_l" &
+		fi
+		unset __nl highlight msg_prefix err_l
+	done
+}
+
+get_session_log() {
+	i=1
+	while [ $i -le 5 ] && ! cat "$GS_LOG_FILE" 2>/dev/null; do
+		sleep 1 &
+		wait $!
+		i=$((i+1))
 	done
 }
 
 die() {
 	# if first arg is a number, assume it's the exit code
 	case "$1" in
-		''|*[!0-9]* ) die_rv="1" ;;
-		* ) die_rv="$1"; shift
+		''|*[!0-9]*) die_rv="1" ;;
+		*) die_rv="$1"; shift
 	esac
 
 	unset msg_type die_args
@@ -1109,11 +1147,12 @@ check_lock() {
 
 # 1 - family (ipv4|ipv6)
 # 2 - newline-separated domains
+# shellcheck disable=SC2329
 resolve_domain_ips() {
-	res_host() { host -t "$2" "$1" | grep -E "has${blanks}(IPv6${blanks})?address${blanks}${regex}(${blank}|$)" | awk '{print $NF}'; }
-	res_nslookup() { nslookup -q="$2" "$1" | grep -E "^Address:${blanks}${regex}(${blank}|$)" | awk '{print $2}'; }
+	res_host() { host -t "$2" "$1" | awk "/has${blanks}(IPv6${blanks})?address${blanks}${regex}(${blank}|$)/{print \$NF}"; }
+	res_nslookup() { nslookup -q="$2" "$1" | awk "/^Address:${blanks}${regex}(${blank}|$)/{print \$2}"; }
 	res_dig() { dig "$1" "$2" | sed -n "/^;;${blanks}ANSWER SECTION/{n;:1 /^$/q;/^\;\;/q;s/^.*${blanks}//;p;n;b1;}"; }
-	res_ping() { ipv=4; [ "$2" = AAAA ] && ipv=6; ping -c 1 -w 1  "-$ipv" "$1" | grep -m1 . | grep -oE "\($regex\)" | sed 's/(//;s/)//'; }
+	res_ping() { ipv=4; [ "$2" = AAAA ] && ipv=6; ping -c 1 -w 1  "-$ipv" "$1" | grep -m1 -oE "\($regex\)" | sed 's/(//;s/)//'; }
 
 	printf_s "Resolving $1 addresses for domains: $(printf %s "$2" | tr '\n' ' ' | sed "s/^${blanks}//;s/${blanks}$//;")... " >&2
 
@@ -1267,7 +1306,7 @@ unisleep() {
 # config variables
 ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
 	inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
-	geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+	custom_script geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \
 	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
 	mm_license_type mm_acc_id mm_license_key keep_mm_db"
@@ -1307,7 +1346,8 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 	inbound_dir_short=in outbound_dir_short=out
 
 export fetch_res_file="/tmp/${p_name}-fetch-res"
-export staging_local_dir="/tmp/geoip-shell-staging"
+export staging_local_dir="/tmp/${p-name}-staging"
+export GS_LOG_FILE="/tmp/${p-name}-log"
 
 blank="[ 	]"
 notblank="[^ 	]"
