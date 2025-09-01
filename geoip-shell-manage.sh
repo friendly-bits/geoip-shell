@@ -8,7 +8,8 @@
 
 #### Initial setup
 p_name="geoip-shell"
-export inbound_geomode nolog=1 manmode=1
+: "${manmode:=1}"
+export inbound_geomode nolog=1 manmode
 
 . "/usr/bin/${p_name}-geoinit.sh" &&
 script_dir="$install_dir" &&
@@ -146,6 +147,10 @@ ${sp8}Everything will be installed and configured but geoblocking will not be en
 ${sp8}No Persistence: Skip creating the persistence cron job or init script.
 ${sp8}$p_name will likely not work after reboot. Default is false.
 
+  ${blue}-S <"path">${n_c} :
+${sp8}Set path to custom script called on success or failure when $p_name is running automatically, or 'none' to disable.
+${sp8}See README for specifics.
+
   ${blue}-P <true|false>${n_c} : Force cron-based persistence even when the system may not support it. Default is false.
 
   ${blue}-K <true|false>${n_c} : Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
@@ -153,7 +158,7 @@ ${sp8}$p_name will likely not work after reboot. Default is false.
 ${purple}Options for the 'lookup' action${n_c}:
   ${blue}-I <"ip_addresses">${n_c} : Look up specified IP addresses in loaded IP sets
   ${blue}-F <path>${n_c} : Read IP addresses from file and look them up in loaded IP sets
-  ${blue}-v${n_c} : Verbose mode: specify IP sets each matching IP address belongs to
+  ${blue}-v${n_c} : Verbose mode: print which of the loaded IP sets each matching IP address belongs to
 
 ${purple}Other options${n_c}:
 
@@ -227,7 +232,7 @@ esac
 
 # process the rest of the args
 req_direc_opt=
-while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:I:F:zvdVh" opt; do
+while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; do
 	case $opt in
 		D) tolower OPTARG
 			case "$OPTARG" in inbound|outbound) ;; *)
@@ -261,6 +266,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:I:F:zvdVh" opt; do
 		n) set_opt no_persist_arg ;;
 		N) set_opt noblock_arg ;;
 		P) set_opt force_cron_persist_arg ;;
+		S) set_opt custom_script_arg ;;
 
 		I) set_opt lookup_addr_arg ;;
 		F) set_opt lookup_addr_file_arg ;;
@@ -620,7 +626,7 @@ done
 export nointeract="${nointeract_arg:-$nointeract}"
 
 # sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
-#   geosource trusted user_ccode keep_mm_db
+#   geosource trusted user_ccode keep_mm_db custom_script
 # imports local IP lists if specified
 get_general_prefs || die
 
