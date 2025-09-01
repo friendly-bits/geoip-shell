@@ -606,6 +606,15 @@ get_general_prefs() {
 		eval "$par_name"='$par_val'
 	done
 
+	# custom_script
+	case "$custom_script_arg" in
+		'') ;;
+		none) custom_script='' ;;
+		*)
+			check_custom_script "$custom_script_arg" || die
+			custom_script="$custom_script_arg"
+	esac
+
 	# datadir
 	[ "$datadir_arg" ] && dir_change datadir
 
