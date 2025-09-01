@@ -16,7 +16,8 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-export manmode=1 first_setup=1 nolog=1
+: "${manmode:=1}"
+export manmode first_setup=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" &&
 . "$_lib-uninstall.sh" || exit 1
