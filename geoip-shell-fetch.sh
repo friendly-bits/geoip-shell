@@ -356,7 +356,7 @@ check_updates() {
 
 		check_prev_list "$list_id"
 
-		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ ! "$manmode" ]; then
+		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$manmode" != 1 ]; then
 			add2list up_to_date_lists "$list_id"
 		else
 			add2list ccodes_need_update "${list_id%_*}"
@@ -755,7 +755,7 @@ if [ -z "$ssl_ok" ]; then
 		if [ "$nointeract" ]; then
 			REPLY=y
 		else
-			[ ! "$manmode" ] && die "no fetch utility with SSL support available."
+			[ "$manmode" != 1 ] && die "no fetch utility with SSL support available."
 			printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
 			pick_opt "y|n"
 		fi
