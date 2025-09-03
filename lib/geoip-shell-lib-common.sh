@@ -815,42 +815,30 @@ set_dir_vars() {
 	:
 }
 
-# sets $nft_present, $ipt_present, $ipset_present, $ipt_rules_present, $_fw_backend_def
+# sets $_FW_BACKEND_DEF, $IPT_OK, $NFT_OK, $NFT_PRESENT, $IPT_PRESENT, $IPSET_PRESENT, $IPT_RULES_PRESENT
 detect_fw_backends() {
-	ipt_present='' ipset_present='' nft_present='' ipt_rules_present='' _fw_backend_def=''
+	unset IPT_OK IPT_LIB_PRESENT IPT_PRESENT IPT_RULES_PRESENT IPSET_PRESENT \
+		NFT_OK NFT_LIB_PRESENT NFT_PRESENT _FW_BACKEND_DEF
 
 	echolog "${_nl}Detecting firewall backends..."
 
-	check_fw_backend ipt 2>/dev/null
-	case $? in
-		0) ipt_present=1 ipset_present=1; echolog "Found iptables and the 'ipset' utility." ;;
-		2) echolog "Did not find iptables." ;;
-		3) ipt_present=1; echolog "Found iptables."
-	esac
+	check_fw_backend -nolog ipt && IPT_OK=1
+	check_fw_backend -nolog nft && NFT_OK=1
 
-	if check_fw_backend nft 2>/dev/null; then
-		nft_present=1
-		echolog "Found nftables."
+	[ "${IPT_PRESENT}" ] && { iptables-save; ip6tables-save; } | grep '^-A[ \t]' 1>/dev/null &&
+		{ IPT_RULES_PRESENT=1; echolog "Found existing iptables rules"; }
+
+	if [ -n "$IPT_OK" ] && [ -n "$NFT_OK" ]; then
+		_FW_BACKEND_DEF=ask
+	elif [ -n "$NFT_OK" ]; then
+		_FW_BACKEND_DEF=nft
+	elif [ -n "$IPT_OK" ]; then
+		_FW_BACKEND_DEF=ipt
+	elif [ -n "$IPT_PRESENT" ] && [ -n "$IPT_LIB_PRESENT" ] && [ -z "$IPSET_PRESENT" ]; then
+		echolog -err "Found iptables but required utility 'ipset' not found. Use your package manager to install it."
+		return 1
 	else
-		echolog "Did not find nftables."
-	fi
-
-	[ "${ipt_present}" ] && { iptables-save; ip6tables-save; } | grep '^-A[ \t]' 1>/dev/null &&
-		{ ipt_rules_present=1; echolog "Found existing iptables rules"; }
-
-	if [ "$ipt_present" ]; then
-		if [ "$nft_present" ]; then
-			_fw_backend_def=ask
-		elif [ "$ipset_present" ]; then
-			_fw_backend_def=ipt
-		else
-			echolog -err "Found iptables but required utility 'ipset' not found. Use your package manager to install it."
-			return 1
-		fi
-	elif [ -n "$nft_present" ]; then
-		_fw_backend_def=nft
-	else
-		echolog -err "Neither nftables nor iptables not found."
+		echolog -err "Found neither nftables + $p_name nftables library nor iptables + $p_name iptables library."
 		return 1
 	fi
 
@@ -858,17 +846,52 @@ detect_fw_backends() {
 }
 
 # return codes:
-# 0 - backend found
+# 0 - backend and library found
 # 1 - error
 # 2 - main backend not found (for ipt, iptables not found)
 # 3 - for ipt, ipset not found
+# 4 - library not found
 check_fw_backend() {
+	be_notify() {
+		notify_dest=/dev/stdout be_err_l=
+		[ "$1" = '-e' ] && {
+			[ -z "$el_nolog" ] && { be_err_l=-err notify_dest=/dev/stderr; }
+			shift
+		}
+		echolog $el_nolog $be_err_l "$1" > "$notify_dest"
+	}
+
+	unset el_nolog nochecklibs
+	for __arg; do
+		case "$__arg" in
+			-nolog) el_nolog="$1"; shift ;;
+			-nochecklibs) nochecklibs=1; shift
+		esac
+	done
+
+	[ "$1" = '-nolog' ] && { el_nolog="$1"; shift; }
 	case "$1" in
-		nft) check_deps nft || return 2 ;;
-		ipt) check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore || return 2
-			check_deps ipset || return 3 ;;
+		nft)
+			check_deps nft 2>/dev/null || { be_notify -e "nftables not found."; return 2; }
+			NFT_PRESENT=1
+			be_notify "nftables found." ;;
+		ipt)
+			check_deps iptables ip6tables iptables-save ip6tables-save iptables-restore ip6tables-restore 2>/dev/null ||
+				{ be_notify -e "iptables not found."; return 2; }
+			IPT_PRESENT=1
+			be_notify "iptables found."
+			check_deps ipset 2>/dev/null || { be_notify -e "ipset utility not found."; return 3; }
+			IPSET_PRESENT=1
+			be_notify "ipset utility found." ;;
 		*) echolog -err "Unsupported firewall backend '$1'."; return 1
 	esac
+
+	[ -z "$nochecklibs" ] && {
+		[ -s "${_lib}-${1}.sh" ] || { be_notify -e "$p_name ${1}ables library not found."; return 4; }
+		be_notify "$p_name ${1}ables library found."
+		eval "${1}_lib_present=1"
+	}
+	:
 }
 
 ignore_allow() {
