@@ -232,7 +232,7 @@ load_ipsets() {
 	done
 	OK
 
-	printf %s "Loading ipsets... "
+	printf %s "Loading IP lists... "
 	IFS="$_nl"
 	for entry in ${ipsets_to_add%"${_nl}"}; do
 		IFS=' '
@@ -245,7 +245,7 @@ load_ipsets() {
 		sed "/^$/d;s/^/add \"$ipset_name\" /" "$iplist_file"
 		case "$ipset_name" in *_local_*) ;; *) rm -f "$iplist_file"; esac
 	done | ipset restore -exist ||
-		{ oldifs loi; FAIL; echolog -err "$FAIL load ipsets."; return 1; }
+		{ oldifs loi; FAIL; echolog -err "$FAIL load IP lists."; return 1; }
 	oldifs loi
 	OK
 
