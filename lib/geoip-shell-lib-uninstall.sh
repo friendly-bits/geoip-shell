@@ -187,17 +187,4 @@ rm_setupdone() {
 	rm -f "$conf_dir/setupdone"
 }
 
-[ ! "$_fw_backend" ] && [ "$root_ok" ] && {
-	if [ "$_OWRTFW" ]; then
-		[ "$_OWRTFW" = 4 ] && _fw_backend=nft || _fw_backend=ipt
-	elif [ -f "$_lib-check-compat.sh" ]; then
-		. "$_lib-check-compat.sh"
-		if check_fw_backend nft; then
-			_fw_backend=nft
-		elif check_fw_backend ipt; then
-			_fw_backend=ipt
-		fi
-	fi 2>/dev/null
-}
-
 :
