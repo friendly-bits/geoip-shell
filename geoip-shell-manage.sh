@@ -533,8 +533,9 @@ unset conf_act rm_conf
 	export first_setup=1
 }
 
-[ "$_fw_backend" ] && { . "$_lib-$_fw_backend.sh" || die; } || {
+[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" || {
 	[ "$action" != configure ] && echolog "Firewall backend is not set."
+	_fw_backend=
 	set_first_setup
 }
 
