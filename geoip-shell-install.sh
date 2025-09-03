@@ -366,8 +366,6 @@ dir_mk -n "$tmp_dir" || die
 ### Firewall backend and system-specific vars
 unset _fw_backend_def set_posix non_owrt init_non_owrt
 
-_fw_backend="${_fw_backend_arg:-"$_fw_backend_prev"}"
-
 [ "$_OWRTFW" ] && {
 	o_script="OpenWrt/${p_name}-owrt"
 	owrt_init="$o_script-init.tpl"
@@ -398,7 +396,9 @@ _fw_backend="${_fw_backend_arg:-"$_fw_backend_prev"}"
 	_fw_backend_def=all
 }
 
-: "${_fw_backend:="$_fw_backend_def"}"
+[ "$_fw_backend_def" != all ] &&
+	_fw_backend_def="${_fw_backend_prev:-"${_fw_backend_def}"}"
+_fw_backend="${_fw_backend_arg:-"$_fw_backend_def"}"
 
 
 ipt_fw_libs=ipt
@@ -425,15 +425,10 @@ check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_
 	die "missing files: $missing_files."
 OK
 
-[ ! "$inst_root_gs" ] &&
-	for lib in $fw_libs; do
-		check_fw_backend -nochecklibs "$lib" 1>/dev/null || die
-	done
-
 #### MAIN
 
 ## add scripts
-printf '%s\n' "Preparing to install $p_name..."
+printf '%s\n' "Preparing to install $p_name for firewall backends: $_fw_backend..."
 add_scripts "$script_files" "$install_dir" 555
 add_scripts "$lib_files" "$lib_dir" 444
 
@@ -531,15 +526,16 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 
 ## Uninstall existing version
 [ ! "$inst_root_gs" ] && {
-	if [ "$reg_file_ok" ] && [ -n "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
+	[ "$reg_file_ok" ] && prev_reg_file_cont="$(cat "$reg_file")"
+	if [ "$reg_file_ok" ] && [ -n "$prev_reg_file_cont" ] && \
+		[ -n "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
 		(
 			_fw_backend="$_fw_backend_prev"
 			. "${_lib}-$_fw_backend_prev.sh" &&
 			kill_geo_pids &&
 			rm_lock &&
 			rm_all_georules
-		) &&
-		prev_reg_file_cont="$(cat "$reg_file")"
+		)
 	then
 		:
 	else
