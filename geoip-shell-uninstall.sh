@@ -123,23 +123,26 @@ kill_geo_pids
 rm_lock
 
 ### Remove geoblocking rules
-if [ "$_fw_backend" ] || detect_fw_backends; then
-	[ -z "$_fw_backend" ] &&
-		case "$_fw_backend_def" in
-			'') ;;
-			ipt|nft) _fw_backend="$_fw_backend_def" ;;
-			ask)
-				# resort to heuristics
-				if [ "$ipt_rules_present" ] && [ "$ipset_present" ]; then
-					_fw_backend=ipt
-				else
-					_fw_backend=nft
-				fi
-				# if not re-installing
-				[ ! "$keepdata" ] && echolog -warn "Based on heuristics, using firewall backend '${_fw_backend}ables' to remove existing geoblocking rules."
-		esac
 
-	[ "$_fw_backend" ] && (
+if [ -z "$_fw_backend" ] && [ -n "$old_install_dir" ] && detect_fw_backends; then
+	case "$_FW_BACKEND_DEF" in
+		'') ;;
+		ipt|nft) _fw_backend="$_FW_BACKEND_DEF" ;;
+		ask)
+			# resort to heuristics
+			if [ "$IPT_OK" ]; then
+				_fw_backend=ipt
+			elif [ "$NFT_OK" ]; then
+				_fw_backend=nft
+			fi
+			# if not re-installing
+			[ "$_fw_backend" ] && [ ! "$keepdata" ] &&
+				echolog -warn "Based on heuristics, using firewall backend '${_fw_backend}ables' to remove existing geoblocking rules."
+	esac
+fi
+
+if [ "$_fw_backend" ]; then
+	(
 		for lib_dir in "$old_lib_dir" "$_lib"; do
 			[ -f "$lib_dir-$_fw_backend.sh" ] && . "$lib_dir-$_fw_backend.sh" && break
 			false
@@ -152,9 +155,11 @@ if [ "$_fw_backend" ] || detect_fw_backends; then
 			exit 1
 		}
 	)
-else
+elif [ -n "$old_install_dir" ]; then
 	echolog -err "Firewall backend is unknown."
 	false
+else
+	:
 fi || echolog -err "Cannot remove geoblocking rules. Please restart the machine after uninstallation."
 
 case "$iplist_dir" in
@@ -171,6 +176,8 @@ esac
 
 rm_cron_jobs
 
+[ -n "$keepdata" ] && exit 0
+
 # For OpenWrt
 [ "$_OWRT_install" ] && {
 	rm_owrt_init
@@ -180,9 +187,7 @@ rm_cron_jobs
 
 rm_symlink
 rm_scripts
-[ ! "$keepdata" ] && {
-	rm_config
-	rm_all_data
-}
+rm_config
+rm_all_data
 
 printf '%s\n\n' "Uninstall complete."
