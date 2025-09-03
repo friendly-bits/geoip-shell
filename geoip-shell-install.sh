@@ -37,6 +37,7 @@ Usage: $me [-z] [-d] [-V] [-h]
 Installer for $p_name.
 
 Options:
+  -w <ipt|nft|all> : Install $p_name library for specified firewall backend. 'ipt' for iptables, 'nft' for nftables, 'all' for both.
   -z : $nointeract_usage
   -d : Debug
   -V : Version
@@ -47,8 +48,14 @@ EOF
 
 #### PARSE ARGUMENTS
 
-while getopts ":zdVh" opt; do
+unset _fw_backend _fw_backend_arg
+while getopts ":w:zdVh" opt; do
 	case $opt in
+		w)
+			case "$OPTARG" in ipt|nft|all) ;; *)
+				echolog -err "Unexpected firewall backend '$OPTARG'."; exit 1
+			esac
+			_fw_backend_arg=$OPTARG ;;
 		z) nointeract_arg=1 ;;
 		d) debugmode=1 ;;
 		V) echo "$curr_ver"; exit 0 ;;
@@ -241,37 +248,41 @@ pick_shell() {
 }
 
 # detects the init system and sources the OWRT -common script if needed
+# 1 - var name for output
 detect_init() {
-	check_openrc() { grep 'sysinit:/.*/openrc sysinit' /etc/inittab 1>/dev/null 2>/dev/null && initsys=openrc; }
+	check_openrc() { grep 'sysinit:/.*/openrc sysinit' /etc/inittab 1>/dev/null 2>/dev/null && di_res=openrc; }
 	check_strings() {
 		$awk_cmd 'BEGIN{IGNORECASE=1; rv=1} match($0, /(upstart|systemd|procd|sysvinit|busybox|openrc)/) \
 			{ print substr($0, RSTART, RLENGTH); rv=0; exit; } END{exit rv}' "$1"
 	}
+	set_di_var() { eval "$1=\"$2\""; }
 
-	[ "$_OWRTFW" ] && { initsys=procd; [ "$inst_root_gs" ] && return 0; }
+	set_di_var "$1" ''
+	[ "$_OWRTFW" ] && { set_di_var "$1" procd; [ "$inst_root_gs" ] && return 0; }
 	# check /run/systemd/system/
-	[ -d "/run/systemd/system/" ] && { initsys=systemd; return 0; }
-	if [ ! "$initsys" ]; then
-		# check /sbin/init strings
-		initsys="$(check_strings /sbin/init 2>/dev/null)" ||
-			# check process with pid 1
-			{
-				_pid1="$(ls -l /proc/1/exe | awk '{print $NF}')"
-				_pid1_lc="$(printf %s "$_pid1" | tr 'A-Z' 'a-z')"
-				for initsys in systemd procd busybox openrc upstart initctl unknown; do
-					case "$_pid1_lc" in *"$initsys"* ) break; esac
-				done
-				if [ "$initsys" = unknown ]; then
-					[ -n "$_pid1" ] && [ -f "$_pid1" ] && initsys="$(check_strings "$_pid1")" || initsys=unknown
-				fi
-			}
-	fi
-	case "$initsys" in
+	[ -d "/run/systemd/system/" ] && { set_di_var "$1" systemd; return 0; }
+
+	# check /sbin/init strings
+	di_res="$(check_strings /sbin/init 2>/dev/null)" ||
+		# check process with pid 1
+		{
+			_pid1="$(ls -l /proc/1/exe | awk '{print $NF}')"
+			_pid1_lc="$(printf %s "$_pid1" | tr 'A-Z' 'a-z')"
+			for di_res in systemd procd busybox openrc upstart initctl unknown; do
+				case "$_pid1_lc" in *"$di_res"* ) break; esac
+			done
+			if [ "$di_res" = unknown ]; then
+				[ -n "$_pid1" ] && [ -f "$_pid1" ] && di_res="$(check_strings "$_pid1")" || di_res=unknown
+			fi
+		}
+
+	case "$di_res" in
 		busybox) check_openrc ;;
-		initctl|sysvinit) initsys=sysvinit; check_openrc ;;
+		initctl|sysvinit) di_res=sysvinit; check_openrc ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
 		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt.sh" || exit 1
 	esac
+	set_di_var "$1" "$di_res"
 	:
 }
 
@@ -313,7 +324,7 @@ prep_script() {
 checkvars install_dir lib_dir p_script i_script _lib lock_file _nl
 
 #### Detect the init system
-detect_init
+detect_init initsys
 debugprint "Detected init: '$initsys'."
 
 #### Variables
@@ -322,16 +333,40 @@ export nointeract_arg debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_nam
 	tmp_dir="${inst_root_gs}/tmp/${p_name}-install"
 export conf_file="$conf_dir/$p_name.conf"
 
+reg_file_ok=
 reg_file="$lib_dir/${p_name}-components"
 reg_permissions="$tmp_dir/${p_name}-permissions"
 reg_tmp="$tmp_dir/${p_name}-components"
 cp_files_reg="$tmp_dir/${p_name}-components-replace"
 please_configure="Please run '$p_name configure' to complete the setup."
 
-unset fw_libs ipt_libs nft_libs set_posix non_owrt init_non_owrt_pt1
-ipt_fw_libs=ipt
-nft_fw_libs=nft
-all_fw_libs="ipt nft"
+[ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
+: "${curr_sh_g:=/bin/sh}"
+export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
+
+
+### Get vars from old config
+rm -rf "$tmp_dir"
+dir_mk -n "$tmp_dir" || die
+
+[ ! "$inst_root_gs" ] && {
+	add2list PATH "$install_dir" ':'
+
+	[ -s "$conf_file"  ] && nodie=1 get_config_vars &&
+		export datadir status_file="$datadir/status" &&
+		nodie=1 getconfig _fw_backend_prev _fw_backend
+
+	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
+		[ -s "$f" ] && continue
+		reg_file_ok=
+		break
+	done < "$reg_file"
+}
+
+### Firewall backend and system-specific vars
+unset _fw_backend_def set_posix non_owrt init_non_owrt
+
+_fw_backend="${_fw_backend_arg:-"$_fw_backend_prev"}"
 
 [ "$_OWRTFW" ] && {
 	o_script="OpenWrt/${p_name}-owrt"
@@ -340,12 +375,11 @@ all_fw_libs="ipt nft"
 	owrt_mk_fw_inc="$o_script-mk-fw-include.tpl"
 	owrt_comm="${script_dir}/OpenWrt/${p_name}-lib-owrt.sh"
 	case "$_OWRTFW" in
-		3) _fw_backend=ipt ;;
-		4) _fw_backend=nft ;;
-		all) _fw_backend=all
+		3) _fw_backend_def=ipt ;;
+		4) _fw_backend_def=nft ;;
+		all) _fw_backend_def=all
 	esac
 	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt.sh\" || die"
-	eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
 } || {
 	non_owrt="non-owrt"
 	set_posix="
@@ -360,10 +394,19 @@ all_fw_libs="ipt nft"
 		set -o posix
 	fi"
 
-	init_non_owrt_pt1=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
-	fw_libs="$all_fw_libs"
+	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
+	_fw_backend_def=all
 }
 
+: "${_fw_backend:="$_fw_backend_def"}"
+
+
+ipt_fw_libs=ipt
+nft_fw_libs=nft
+all_fw_libs="ipt nft"
+eval "fw_libs=\"\$${_fw_backend}_fw_libs\""
+
+### Compile list of scripts to install
 script_files=
 for f in fetch apply manage cronsetup run uninstall backup; do
 	script_files="$script_files${script_dir}/${p_name}-$f.sh "
@@ -382,49 +425,12 @@ check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_
 	die "missing files: $missing_files."
 OK
 
-[ ! "$inst_root_gs" ] && { detect_fw_backends 1>/dev/null || die; }
-
+[ ! "$inst_root_gs" ] &&
+	for lib in $fw_libs; do
+		check_fw_backend -nochecklibs "$lib" 1>/dev/null || die
+	done
 
 #### MAIN
-
-[ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
-: "${curr_sh_g:=/bin/sh}"
-export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
-
-rm -rf "$tmp_dir"
-dir_mk -n "$tmp_dir" || die
-
-[ ! "$inst_root_gs" ] && {
-	# add $install_dir to $PATH
-	add2list PATH "$install_dir" ':'
-
-	[ -s "$conf_file"  ] && nodie=1 get_config_vars && export datadir status_file="$datadir/status"
-
-	reg_file_ok=
-	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
-		[ -s "$f" ] && continue
-		reg_file_ok=
-		break
-	done < "$reg_file"
-
-	if [ "$reg_file_ok" ] && [ -s "$conf_file" ] &&
-			nodie=1 getconfig _fw_backend_prev _fw_backend &&
-			[ "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
-			(
-				. "${_lib}-$_fw_backend_prev.sh" &&
-				kill_geo_pids &&
-				rm_lock &&
-				rm_all_georules
-			) &&
-			prev_reg_file_cont="$(cat "$reg_file")"
-	then
-		:
-	else
-		echolog "Cleaning up previous installation (if any)..."
-		call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
-	fi
-	rm -f "$conf_dir/setupdone"
-}
 
 ## add scripts
 printf '%s\n' "Preparing to install $p_name..."
@@ -451,10 +457,12 @@ export lock_file="/tmp/$p_name.lock" excl_file="$conf_dir/iplist-exclusions.conf
 export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
+export _fw_backend
+in_configure=
 
 $set_posix
 
-$init_non_owrt_pt1
+$init_non_owrt
 
 [ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
 $set_owrt_install
@@ -463,25 +471,19 @@ $set_owrt_install
 [ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
 	{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
 
+case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) in_configure=1; esac
+
 [ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
 if [ ! "\$_fw_backend" ]; then
 	rm -f "\$conf_dir/setupdone"
-	[ "\$first_setup" ] && return 0
-	case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) return 0; esac
-	[ ! "\$in_uninstall" ] && die "Config file \$conf_file is missing or corrupted. Please run '\$p_name configure'."
-elif ! check_fw_backend "\$_fw_backend"; then
-	_fw_be_rv=\$?
-	if [ "\$in_uninstall" ]; then
-		_fw_backend=
-	else
-		case \$_fw_be_rv in
-			1) die ;;
-			2) die "Firewall backend '\${_fw_backend}ables' not found." ;;
-			3) die "Utility 'ipset' not found."
-		esac
-	fi
+	[ "\$first_setup" ] || [ "\$in_uninstall" ] || [ "\$in_configure" ] && return 0
+	die "Firewall backend is not configured. Please run '\$p_name configure'."
+elif ! check_fw_backend -nolog "\$_fw_backend" 1>/dev/null; then
+	[ "\$in_uninstall" ] || [ "\$in_configure" ] && { rm -f "\$conf_dir/setupdone"; _fw_backend=''; return 0; }
+	check_fw_backend "\$_fw_backend"
+	die
 fi
-export fwbe_ok=1 _fw_backend
+export fwbe_ok=1
 :
 EOF
 add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
@@ -526,6 +528,28 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 	cut -d"$delim" -f1 "$reg_permissions" > "$reg_tmp"
 	add_file "$reg_tmp" "$reg_file" 600
 }
+
+## Uninstall existing version
+[ ! "$inst_root_gs" ] && {
+	if [ "$reg_file_ok" ] && [ -n "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
+		(
+			_fw_backend="$_fw_backend_prev"
+			. "${_lib}-$_fw_backend_prev.sh" &&
+			kill_geo_pids &&
+			rm_lock &&
+			rm_all_georules
+		) &&
+		prev_reg_file_cont="$(cat "$reg_file")"
+	then
+		:
+	else
+		echolog "Cleaning up previous installation (if any)..."
+		call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
+	fi
+	rm -f "$conf_dir/setupdone"
+}
+
+#### Install files
 
 printf %s "Creating directories... "
 for dir in "$inst_root_gs$lib_dir" "$inst_root_gs$conf_dir"; do
