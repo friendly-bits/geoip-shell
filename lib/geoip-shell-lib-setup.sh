@@ -479,7 +479,7 @@ set_defaults() {
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
 	: "${keep_mm_db:=false}"
-	: "${_fw_backend:="$_fw_backend_def"}"
+	: "${_fw_backend:="$_FW_BACKEND_DEF"}"
 	: "${inbound_tcp_ports:=skip}"
 	: "${inbound_udp_ports:=skip}"
 	: "${outbound_tcp_ports:=skip}"
@@ -509,22 +509,17 @@ get_general_prefs() {
 	}
 
 	[ -z "${_fw_backend}${_fw_backend_arg}" ] && {
-		detect_fw_backends || die # sets $_fw_backend_def
-		case "$_fw_backend_def" in
-			ipt|nft) echolog "Setting firewall backend to ${_fw_backend_def}ables."
+		detect_fw_backends || die # sets $_FW_BACKEND_DEF
+		case "$_FW_BACKEND_DEF" in
+			ipt|nft) echolog "Setting firewall backend to ${_FW_BACKEND_DEF}ables."
 		esac
 	}
 
 	set_defaults
 	# firewall backend
-	[ "$_fw_backend_arg" ] && {
-		[ "$_OWRTFW" ] && die "Changing the firewall backend is unsupported on OpenWrt."
-		check_fw_backend "$_fw_backend_arg" ||
-		case $? in
-			1) die ;;
-			2) die "Firewall backend '${_fw_backend_arg}ables' not found." ;;
-			3) die "Utility 'ipset' not found."
-		esac
+	[ -z "$_fw_backend_arg" ] || check_fw_backend "$_fw_backend_arg" || {
+		[ $? = 4 ] && echolog "NOTE: on OpenWrt, by default only one $p_name firewall backend library is installed."
+		die
 	}
 
 	export _fw_backend="${_fw_backend_arg:-$_fw_backend}"
@@ -555,7 +550,7 @@ get_general_prefs() {
 	if [ "$_fw_backend" = ask ]; then
 		[ "$nointeract" ] && die "Specify the firewall backend with '$p_name configure -w <ipt|nft>'."
 		printf '\n%s\n' "This system can use either iptables or nftables rules."
-		[ "$ipt_rules_present" ] &&
+		[ "$IPT_RULES_PRESENT" ] &&
 			printf '%s\n%s\n\n' "${yellow}** NOTE **${n_c}: This system has existing iptables rules." \
 				"It is recommended to avoid mixing iptables and nftables rules."
 		printf '%s\n' "Select the firewall backend: [i]ptables or [n]ftables. Or type in [a] to abort."
@@ -565,7 +560,7 @@ get_general_prefs() {
 			n) _fw_backend=nft ;;
 			a) die 253
 		esac
-		[ "$_fw_backend" = ipt ] && [ ! "$ipset_present" ] && die "'ipset' utility is missing. Install it using your package manager."
+		[ "$_fw_backend" = ipt ] && [ ! "$IPSET_PRESENT" ] && die "'ipset' utility is missing. Install it using your package manager."
 	fi
 
 	# nft_perf
