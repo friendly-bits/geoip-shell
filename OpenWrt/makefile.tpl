@@ -28,7 +28,7 @@ endef
 define Package/$p_name
 $(call Package/$p_name/Default)
 	TITLE+= with nftables support
-	DEPENDS+= +kmod-nft-core +nftables +firewall4
+	DEPENDS+= +kmod-nft-core +nftables
 	DEFAULT_VARIANT:=1
 	VARIANT:=nftables
 endef
@@ -38,7 +38,7 @@ $(call Package/$p_name/Default)
 	TITLE+= with iptables support
 	DEPENDS+= +kmod-ipt-ipset +IPV6:ip6tables +iptables +ipset
 	VARIANT:=iptables
-	CONFLICTS:=$p_name firewall4
+	CONFLICTS:=$p_name
 endef
 
 define Package/$p_name/description/Default
