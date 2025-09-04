@@ -155,7 +155,7 @@ A selection of options is given here, for additional options run `geoip-shell -h
 
 `geoip-shell configure -m <whitelist|blacklist|disable>`
 
-(`disable` unloads all IP lists and removes firewall geoblocking rules for both directions)
+(`disable` unloads all IP lists and removes firewall geoblocking rules for given direction)
 
 **To change countries in the geoblocking whitelist/blacklist:**
 
@@ -217,7 +217,58 @@ _<details><summary>Example</summary>_
 
 On OpenWrt, if installed via an ipk package: `opkg remove <geoip-shell|geoip-shell-iptables>`. For apk package: `apk del geoip-shell`.
 
-_<details><summary>Examples of using the `configure` command:</summary>_
+**To set up reports of success or failure:**
+<details>
+
+geoip-shell supports specifying a custom shell script which defines any or both functions `gs_success`, `gs_failure` to be called on success or failure when geoip-shell is running automatically, eg after reboot or during automatic IP lists updates. This feature can be used to eg send an email/SMS/msg.
+
+You can implement functions `gs_success` and/or `gs_failure` as you like. When calling `gs_failure`, geoip-shell will provide session log collected during the run as the first argument. When calling `gs_success`, geoip-shell will not provide session log, unless errors or warnings were encountered.
+
+Example below for free Brevo (formerly sendinblue) email service, but use your favourite smtp/email/SMS etc method.
+
+1. Install mailsend
+2. Sign up for free Brevo account (not affiliated!)
+3. Create file `/usr/libexec/geoip-shell_custom-script.sh` (you can use any other suitable path) - replace variables in CAPITALS below with your specific details:
+
+```sh
+#!/bin/sh
+
+gs_success()
+{
+	mailbody="${1}"
+	mailsend -port 587 -smtp smtp-relay.brevo.com -auth -f FROM@EMAIL.COM -t TO@EMAIL.COM -user BREVO@USERNAME.COM -pass PASSWORD -sub "geoip-shell automatic run successful" -M "${mailbody}"
+}
+
+gs_failure()
+{
+	mailbody="${1}"
+	mailsend -port 587 -smtp smtp-relay.brevo.com -auth -f FROM@EMAIL.COM -t TO@EMAIL.COM -user BREVO@USERNAME.COM -pass PASSWORD -sub "geoip-shell automatic run failed" -M "${mailbody}"
+}
+```
+
+- the Brevo password is supplied within their website, not the one created on sign-up.
+- If copy-pasting from Windows, avoid copy-pasting Windows-style newlines. To make sure, in Windows use a text editor which supports changing newline style (such as Notepad++) and make sure it is set to Unix (LF), rather than Windows (CR LF).
+
+4. Make sure to set permissions for the custom script, eg `chmod 640 "<custom_script_path>" && chown root:root "<custom_script_path>"`
+5. Configure the custom script in geoip-shell:
+
+```
+geoip-shell configure -S "<custom_script_path>"
+```
+
+6. To test calling the custom script:
+```
+geoip-shell-run.sh update -a
+```
+
+To disable calling the custom script:
+```
+geoip-shell configure -S none
+```
+</details>
+
+**Examples of using the `configure` command:**
+<details>
 
 - configuring **inbound** geoblocking on a server located in Germany, which has nftables and is behind a firewall (no direct WAN connection), whitelist Germany and Italy and block all other countries:
 
