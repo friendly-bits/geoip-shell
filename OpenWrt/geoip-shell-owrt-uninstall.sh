@@ -20,11 +20,23 @@ geoinit="${p_name}-geoinit.sh"
 geoinit_path="/usr/bin/$geoinit"
 init_script="/etc/init.d/${p_name}-init"
 
-[ -f "$geoinit_path" ] && . "$geoinit_path"
+[ -f "$geoinit_path" ] && . "$geoinit_path" ||
+{
+	[ -f "${_lib}-owrt.sh" ] && . "${_lib}-owrt.sh" &&
+	[ -f "${_lib}-common.sh" ] && . "${_lib}-common.sh" ||
+	{ logger -s -t "owrt-uninstall" -p user.err "Failed to source essential libraries."; exit 1; }
+}
 
 for lib_f in owrt uninstall; do
 	[ -f "$_lib-$lib_f.sh" ] && . "$_lib-$lib_f.sh"
 done
+
+[ "$_fw_backend" ] ||
+for _fw_backend in ipt nft; do
+	checkutil check_fw_backend &&
+		check_fw_backend -nolog "$_fw_backend" 1>/dev/null && break
+	false
+done || _fw_backend=''
 
 [ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" ||
 echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules." \
