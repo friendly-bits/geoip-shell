@@ -377,7 +377,7 @@ unset _fw_backend_def set_posix non_owrt init_non_owrt
 		4) _fw_backend_def=nft ;;
 		all) _fw_backend_def=all
 	esac
-	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt.sh\" || die"
+	set_owrt_install="export _OWRT_install=1${_nl}. \"\${_lib}-owrt.sh\" || exit 1"
 } || {
 	non_owrt="non-owrt"
 	set_posix="
