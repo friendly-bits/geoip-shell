@@ -224,8 +224,9 @@ get_src_dates_maxmind() {
 
 parse_ripe_json() {
 	in_file="$1" out_file="$2" family_parse="$3"
-	sed -n -e /"$family_parse"/\{/]/q\;:1 -e n\;/]/q\;p\;b1 -e \} "$in_file" | cut -d\" -f2 > "$out_file" &&
-		[ -s "$out_file" ] &&
+	tr ',' '\n' < "$in_file" |
+		sed -n "/\"${family_parse}\"\s*:\s*\[/{s/.*\[//;:1 /]/{s/].*//;/^\s*$/n;p;q;};/^\s*$/n;p;n;b1}" |
+		cut -d \" -f2 > "$out_file" && [ -s "$out_file" ] &&
 			return 0
 	return 1
 }
