@@ -476,7 +476,9 @@ report_lists() {
 [ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0; }
 
 
-#### VARIABLES
+#### Handle first setup and/or missing config
+
+dir_mk -n "$GEOTEMP_DIR" || die
 
 unset conf_act rm_conf
 
@@ -570,8 +572,6 @@ run_command="$i_script-run.sh"
 
 
 #### MAIN
-
-dir_mk -n "$GEOTEMP_DIR" || die
 
 [ "$action" = status ] && { source_lib status "$lib_dir"; die $?; }
 
