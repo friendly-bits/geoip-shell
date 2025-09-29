@@ -8,7 +8,7 @@
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-. "$_lib-$_fw_backend.sh" || die
+source_lib "$_fw_backend" || die
 
 #### FUNCTIONS
 
