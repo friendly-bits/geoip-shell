@@ -244,12 +244,12 @@ pick_lan_ips() {
 		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual IPs to allow."
 	}
 
-	[ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || echolog -err "$FAIL source ${_lib}-ip-tools.sh"
+	source_lib ip-tools || die
 
 	for family in $families; do
 		ipset_type=net
 		echo
-		command -v get_lan_subnets 1>/dev/null && {
+		checkutil get_lan_subnets && {
 			printf %s "Detecting $family LAN subnets..."
 			lan_ips="$(get_lan_subnets "$family")"
 		} || {
@@ -463,7 +463,7 @@ set_defaults() {
 	}
 
 	if [ "$_OWRTFW" ]; then
-		geosource_def=ipdeny datadir_def="/tmp/$p_name-data" nobackup_def=true
+		geosource_def=ipdeny datadir_def="$GEORUN_DIR/data" nobackup_def=true
 		local_iplists_dir_def="$conf_dir/local_iplists"
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
