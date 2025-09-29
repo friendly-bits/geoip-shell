@@ -224,7 +224,7 @@ aggregate_subnets() {
 		case "$subnet1" in
 			'') continue ;;
 			EOF_AGS)
-				[ "$nonempty_ags" ] && exit 254 # 254 means OK here
+				[ "$nonempty_ags" ] && exit 0
 				exit 1
 		esac
 
@@ -305,12 +305,11 @@ aggregate_subnets() {
 			exit 1
 		}
 		nonempty_ags=1
-	done
+	done &&
+	return 0
 
-	case $? in
-		254) return 0 ;;
-		*) cat >/dev/null; return 1
-	esac
+	cat 1>/dev/null
+	return 1
 }
 
 # Outputs newline-separated subnets
