@@ -59,7 +59,7 @@ lookup() {
 	fi
 
 	# variables
-	dumped_ipsets_file=/tmp/geoip-shell-lookup.tmp
+	dumped_ipsets_file=$GEOTEMP_DIR/geoip-shell-lookup.tmp
 	ips_found=
 
 	# get ipset list
