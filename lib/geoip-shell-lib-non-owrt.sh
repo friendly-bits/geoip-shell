@@ -17,14 +17,14 @@ check_common_deps() {
 
 check_shell() {
 	if [ -n "$curr_sh_g" ]; then return 0; fi
-	fast_sh="dash|ash|yash|ksh93|ksh|busybox sh|busybox"
+	fast_sh="dash|ash|yash|ksh93u+m|busybox sh|busybox"
 	slow_sh="mksh|lksh|bash"
 	compat_sh="${fast_sh}|${slow_sh}"
-	incompat_sh="zsh|csh|posh"
+	incompat_sh="zsh|csh|posh|ksh93u+|fish"
 
 	# not assuming a compatible shell at this point
 	_g_test=`echo 0112 | grep -oE '1{2}'` # backticks on purpose
-	if [ "$_g_test" != 11 ]; then echo "Error: grep doesn't support the required options." >&2; exit 1; fi
+	if [ "$_g_test" != 11 ]; then echo "Error: this version of grep doesn't support the required options." >&2; exit 1; fi
 
 	# check for proc
 	if [ ! -d "/proc" ]; then echo "Error: /proc not found."; exit 1; fi
@@ -37,13 +37,22 @@ check_shell() {
 		curr_sh_g=`ls -l /proc/$$/exe | grep -oE '/[^[:space:]]+$'`
 	fi
 
+	# special treatment for ksh93
+	case "$curr_sh_g" in *ksh93)
+		case "$($curr_sh_g --version 2>&1)" in
+			*" 93u+ "*) curr_sh_g="ksh93u+" ;;
+			*" 93u+m "*) curr_sh_g="ksh93u+m" ;;
+			*) curr_sh_g="ksh93 (unrecognized version)"
+		esac
+	esac
+
 	ok_sh=`printf %s "$curr_sh_g" | grep -E "/($compat_sh)"`
 	if [ -z "$curr_sh_g" ]; then
 		echo "Warning: failed to identify current shell. $p_name may not work correctly. Please notify the developer." >&2
 	elif [ -z "$ok_sh" ]; then
 		bad_sh=`echo "$curr_sh_g" | grep -E "$incompat_sh"`
 		if [ -n "$bad_sh" ]; then
-			echo "Error: incompatible shell $curr_sh_g." >&2
+			echo "Error: incompatible shell '$curr_sh_g'." >&2
 			while [ "$n" -le 6 ]; do
 				___sh="${compat_sh%%"|"*}"
 				compat_sh="${compat_sh#*"|"}"
@@ -56,7 +65,7 @@ check_shell() {
 			done
 			exit 1
 		else
-			echo "Warning: whether $p_name works with your shell $blue$curr_sh_g$n_c is currently unknown. Please test and notify the developer." >&2
+			echo "!!! WARNING: whether $p_name works with your shell '$curr_sh_g' is currently unknown. Please test and notify the developer !!!" >&2
 		fi
 	fi
 	case "$curr_sh_g" in *busybox*) curr_sh_g="/bin/busybox sh"; esac
