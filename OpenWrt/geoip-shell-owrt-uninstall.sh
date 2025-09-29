@@ -28,7 +28,7 @@ init_script="/etc/init.d/${p_name}-init"
 }
 
 for lib_f in owrt uninstall; do
-	[ -f "$_lib-$lib_f.sh" ] && . "$_lib-$lib_f.sh"
+	source_lib "$lib_f"
 done
 
 [ "$_fw_backend" ] ||
@@ -38,15 +38,13 @@ for _fw_backend in ipt nft; do
 	false
 done || _fw_backend=''
 
-[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" ||
-echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules." \
-	"Please restart the machine after uninstalling."
-
+[ "$_fw_backend" ] && source_lib "$_fw_backend" ||
+	echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules."
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
 [ -s "$conf_file" ] && nodie=1 getconfig datadir
-: "${datadir:=/tmp/$p_name-data}"
+: "${datadir:="$GEORUN_DIR/data"}"
 [ -s "$conf_file" ] && nodie=1 getconfig local_iplists_dir
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
@@ -55,7 +53,7 @@ rm_setupdone
 rm_owrt_fw_include
 kill_geo_pids
 rm_lock
-rm_iplists_rules
+checkutil rm_iplists_rules && rm_iplists_rules
 rm_cron_jobs
 rm_data
 rm_symlink
