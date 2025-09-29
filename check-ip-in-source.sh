@@ -11,24 +11,23 @@ p_name="geoip-shell"
 export manmode=1 nolog=1 LC_ALL=C POSIXLY_CORRECT=YES
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-set_path() {
+get_path() {
 	var_name="$1"
-	case "$var_name" in *[a-zA-Z0-9_]*) ;; *) printf '%s\n' "set_path: invalid var name '$var_name'"; exit 1; esac
+	case "$var_name" in *[a-zA-Z0-9_]*) ;; *) printf '%s\n' "get_path: invalid var name '$var_name'" >&2; exit 1; esac
 	f_name="$2"
-	dir1="$3"
-	dir2="$script_dir"
+	dir1="$script_dir"
+	dir2="$3"
 	for dir in "$dir1" "$dir2"; do
 		[ -f "$dir/$f_name" ] && {
-			eval "${var_name}_path=\"$dir/$f_name\""
+			eval "$var_name=\"$dir/$f_name\""
 			break
 		}
-	done || { printf '%s\n' "Error: Can not find '$f_name'."; exit 1; }
+	done || { printf '%s\n' "Error: Can not find '$f_name'." >&2; exit 1; }
 }
 
 # set $geoinit_path, $fetch_path
-for f_opts in "geoinit ${p_name}-geoinit.sh /usr/bin" "fetch ${p_name}-fetch.sh /usr/bin"; do
-	set_path $f_opts
-done
+get_path geoinit_path "${p_name}-geoinit.sh" /usr/bin
+get_path fetch_path "${p_name}-fetch.sh" /usr/bin
 
 . "$geoinit_path" || exit 1
 
@@ -80,17 +79,16 @@ setdebug
 
 #### Functions
 
-die() {
-	rm -f "$list_file" "$fetch_res_file"
-	printf '\n%s\n\n' "$*" >&2
-	exit 1
+die_l() {
+	rm -f "$list_file" "$ciis_fetch_res_file"
+	die "$@"
 }
 
 validate_ip() {
 	val_ip=
 	for family in ipv4 ipv6; do
 		eval "regex=\"^\$${family}_regex$\""
-		[ -z "$regex" ] && die "$FAIL load regex's."
+		[ -z "$regex" ] && die_l "$FAIL load regex's."
 		printf '%s\n' "$1" | grep -Ei "$regex" 1>/dev/null &&
 			{ add2list families "$family "; add2list "val_${family}s" "$1"; val_ip="$1"; return 0; }
 	done
@@ -113,25 +111,25 @@ ip_check_rv=0
 
 #### Checks
 
-check_deps grepcidr || die
+check_deps grepcidr || die_l
 
 normalize_ccode ccode "$ccode_arg"
 case $? in
 	0) ;;
-	2|3) usage; die "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'." ;;
-	*) die
+	2|3) usage; die_l "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'." ;;
+	*) die_l
 esac
 
 checkvars dl_source
-[ "$(printf %s "$dl_source" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
+[ "$(printf %s "$dl_source" | wc -w)" -gt 1 ] && { usage; die_l "Specify only one source."; }
 
 subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
-[ -n "$invalid_source" ] && { usage; die "Invalid source: $invalid_source"; }
+[ -n "$invalid_source" ] && { usage; die_l "Invalid source: $invalid_source"; }
 
-[ -z "$ips" ] && { usage; die "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
+[ -z "$ips" ] && { usage; die_l "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
 
 # remove duplicates etc
-san_str ips || die
+san_str ips || die_l
 
 
 #### Main
@@ -141,8 +139,8 @@ for ip in $ips; do
 	validate_ip "$ip" || add2list invalid_ips "$ip"
 done
 
-[ -z "$val_ipv4s$val_ipv6s" ] && die "All IP addresses failed validation."
-[ -z "$families" ] && die "\$families variable is empty."
+[ -z "$val_ipv4s$val_ipv6s" ] && die_l "All IP addresses failed validation."
+[ -z "$families" ] && die_l "\$families variable is empty."
 
 if [ "$dl_source" = maxmind ]; then
 	[ -s "$conf_file" ] && [ "$root_ok" ] && {
@@ -153,39 +151,51 @@ if [ "$dl_source" = maxmind ]; then
 		export mm_license_type mm_acc_id mm_license_key keep_mm_db
 	}
 	[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || {
-		setup_maxmind || die
+		setup_maxmind || die_l
 	}
 fi
 
 ### Fetch the IP list file
 
+if [ -n "$root_ok" ] && [ -n "$GEORUN_DIR" ]; then
+	mk_lock || die_l
+else
+	export GEORUN_DIR="/tmp/check-ip-in-source"
+	export GEOTEMP_DIR="$GEORUN_DIR"
+fi
+
+trap 'die_l' INT TERM HUP QUIT
+
+dir_mk -n "$GEORUN_DIR" || die_l
+
 for family in $families; do
 	eval "val_ips=\"\$val_${family}s\""
 
 	list_id="${ccode}_${family}"
-	fetch_res_file="/tmp/fetch-res-$list_id.tmp"
+	ciis_fetch_res_file="$GEORUN_DIR/fetch-res-$list_id.tmp"
+	list_file="$GEORUN_DIR/iplist-$list_id.tmp"
 
-	list_file="/tmp/iplist-$list_id.tmp"
+	printf '' > "$ciis_fetch_res_file" &&
+	call_script "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$ciis_fetch_res_file" -u "$dl_source" ||
+		die_l "$FAIL fetch IP lists."
 
-	/bin/sh "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$fetch_res_file" -u "$dl_source" || die "$FAIL fetch IP lists."
+	# read fetch results from ciis_fetch_res_file
+	getstatus "$ciis_fetch_res_file" || die_l "$FAIL read fetch results from file '$ciis_fetch_res_file'."
 
-	# read fetch results from fetch_res_file
-	getstatus "$fetch_res_file" || die "$FAIL read fetch results from file '$fetch_res_file'."
-
-	[ -n "$failed_lists" ] && die "IP list fetch failed."
+	[ -n "$failed_lists" ] && die_l "IP list fetch failed."
 
 	### Test the fetched list for specified IPs
 
-	printf '\n%s\n' "Checking the IP addresses..."
+	printf '\n%s\n' "Checking $family IP addresses..."
 
 	for val_ip in $val_ips; do
 		unset match no
 		filtered_ip="$(printf '%s\n' "$val_ip" | grepcidr -f "$list_file")"; rv=$?
-		[ "$rv" -gt 1 ] && die "grepcidr returned error code '$grep_rv'."
+		[ "$rv" -gt 1 ] && die_l "grepcidr returned error code '$grep_rv'."
 		[ "$rv" =  1 ] && { no="no"; ip_check_rv=$((ip_check_rv+1)); }
 		add2list "${no}match_ips" "$val_ip" "$_nl"
 	done
-	rm -f "$list_file" "$fetch_res_file"
+	rm -f "$list_file" "$ciis_fetch_res_file"
 done
 
 match="Included"
@@ -208,4 +218,4 @@ done
 
 echo
 
-exit "$ip_check_rv"
+die_l "$ip_check_rv"
