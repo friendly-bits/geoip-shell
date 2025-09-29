@@ -359,7 +359,9 @@ print_rules_table() {
 			s/-m udp//;
 			s/-p tcp/-P tcp/;
 			s/-m tcp//;
+			s/\!${blank}*--dports${blanks}/--dports \!=/;
 			s/-m multiport --dports/-p/;
+			s/\!${blank}*--dport${blanks}/--dport \!=/;
 			s/--dport/-p/;
 			s/${blanks}dst${blanks}/ /;
 			s/${blanks}src${blanks}/ /;
@@ -379,7 +381,9 @@ print_rules_table() {
 		IFS=' '
 		unset $columns
 		eval "set -- $rule"
-		while getopts ":K:B::e:c:j:s:d:P:p:S:i:o:" opt; do
+		oldifs table
+		OPTIND=1
+		while getopts ":K:B:e:c:j:s:d:P:p:S:i:o:" opt; do
 			case $opt in
 				K)
 					pkts="$OPTARG"
@@ -387,15 +391,15 @@ print_rules_table() {
 				B)
 					bytes="$OPTARG"
 					[ "$line_index" != 0 ] && bytes=$(num2human "$OPTARG" bytes) ;;
+				e) extra="$OPTARG" ;;
+				c) comment="${OPTARG#"${p_name}_"}"; comment="${comment#aux_}" ;;
 				j) target="$OPTARG" ;;
-				P) proto="$OPTARG" ;;
-				p) dports="$OPTARG" ;;
 				s) src="$OPTARG" ;;
 				d) dest="$OPTARG" ;;
-				i|o) ifaces="$OPTARG" ;;
+				P) proto="$OPTARG" ;;
+				p) dports="$OPTARG" ;;
 				S) ipset="${OPTARG#"${p_name}_"}" ;;
-				c) comment="${OPTARG#"${p_name}_"}"; comment="${comment#aux_}" ;;
-				e) extra="$OPTARG" ;;
+				i|o) ifaces="$OPTARG" ;;
 				*) echolog -err "unknown opt: '$OPTARG'"; return 1
 			esac
 		done
