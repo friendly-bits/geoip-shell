@@ -54,8 +54,8 @@ while getopts ":nsdVh" opt; do
 		n) restore_conf= ;;
 		s) only_conf_status=1 ;;
 		d) debugmode_arg=1 ;;
-		V) echo "$curr_ver"; exit 0 ;;
-		h) usage; exit 0 ;;
+		V) echo "$curr_ver"; die 0 ;;
+		h) usage; die 0 ;;
 		*) unknownopt
 	esac
 done
@@ -75,9 +75,9 @@ bk_failed() {
 }
 
 rm_bk_tmp() {
-	set +f
 	rm -rf "$bk_dir_new"
-	rm -f "$tmp_file" "$iplist_dir/"*.iplist
+	rm -f "$tmp_file"
+	rm_iplists
 }
 
 rstr_failed() {
@@ -92,8 +92,8 @@ rstr_failed() {
 }
 
 rm_rstr_tmp() {
-	set +f
-	rm -f "$tmp_file" "$iplist_dir/"*.iplist
+	rm -f "$tmp_file"
+	rm_iplists
 }
 
 # detects archive type (if any) of file passed in 1st argument by its extension
@@ -204,11 +204,12 @@ restore_local_lists() {
 
 getconfig families
 [ ! "$inbound_iplists" ] && getconfig inbound_iplists
+[ ! "$geosource" ] && getconfig geosource
 [ ! "$outbound_iplists" ] && getconfig outbound_iplists
 [ ! "$local_iplists_dir" ] && getconfig local_iplists_dir
 
 bk_dir="$datadir/backup"
-bk_dir_new="${bk_dir}.new"
+bk_dir_new="${GEOTEMP_DIR:?}/bk_new"
 config_file="$conf_file"
 config_file_bak="${p_name}.conf.bak"
 status_file="$datadir/status"
@@ -216,16 +217,18 @@ status_file_bak="status.bak"
 
 checkvars _fw_backend datadir
 
-. "$_lib-$_fw_backend.sh" || die
+source_lib "$_fw_backend" || die
+
 
 #### MAIN
 
-mk_lock
-set +f
+dir_mk -n "$GEOTEMP_DIR" || die
+mk_lock || die
+
 case "$action" in
 	create-backup)
 		trap 'trap - INT TERM HUP QUIT; rm_bk_tmp; die' INT TERM HUP QUIT
-		tmp_file="/tmp/${p_name}_backup.tmp"
+		tmp_file="$GEOTEMP_DIR/backup.tmp"
 		[ "$only_conf_status" ] && {
 			bk_dir_new="$bk_dir"
 			dir_mk "$bk_dir" &&
