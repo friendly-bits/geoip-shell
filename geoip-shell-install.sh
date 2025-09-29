@@ -20,11 +20,12 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 export manmode first_setup=1 nolog=1
 
 . "$script_dir/$p_name-geoinit.sh" &&
-. "$_lib-uninstall.sh" || exit 1
+source_lib uninstall "$script_dir/lib" || exit 1
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
 
 
 #### USAGE
@@ -96,7 +97,7 @@ compare_files() {
 
 set_permissions() {
 	update_perm() {
-		chmod "$2" "$1" && chown root:root "$1" || { echolog -err "$FAIL set permissions for file '$1'."; exit 1; }
+		chmod "$2" "$1" && chown root:root "$1" || { echolog -err "$FAIL set permissions for file '$1'."; die; }
 	}
 
 	while IFS='' read -r entry; do
@@ -107,13 +108,13 @@ set_permissions() {
 		IFS="$default_IFS"
 
 		case "${set_perm%% *}" in [0-9][0-9][0-9]) ;; *)
-			echolog -err "File '$reg_permissions' contains invalid entry."; exit 1
+			echolog -err "File '$reg_permissions' contains invalid entry."; die
 		esac
 
 		f_perm="$(ls -l "$f_path")"
 		upd_perm=
 		case "${f_perm%% *}" in
-			d*) echolog -err "'$f_path' should be a file but it is a directory."; exit 1 ;;
+			d*) echolog -err "'$f_path' should be a file but it is a directory."; die ;;
 			*[!-lxrw]*|'')
 				echolog -err "$FAIL check permissions of file '$f_path' ('${f_perm}')."
 				upd_perm=1 ;;
@@ -137,8 +138,8 @@ copy_files() {
 		src_file="$1" dest_file="$2"
 		IFS="$default_IFS"
 		[ -n "$src_file" ] && [ -s "$src_file" ] && [ -n "$dest_file" ] ||
-			{ echolog -err "File '$cp_files_reg' includes an invalid entry."; exit 1; }
-		cp "$src_file" "$dest_file" || { echolog -err "$FAIL copy file '$src_file' to '$dest_file'."; exit 1; }
+			{ echolog -err "File '$cp_files_reg' includes an invalid entry."; die; }
+		cp "$src_file" "$dest_file" || { echolog -err "$FAIL copy file '$src_file' to '$dest_file'."; die; }
 		:
 	done < "$cp_files_reg" || preinstall_failed "$FAIL copy files."
 	OK
@@ -181,7 +182,7 @@ preinstall_failed() {
 	[ "$*" ] && printf '%s\n' "$*" >&2
 	printf '\n%s\n' "Installation failed." >&2
 	rm -rf "$tmp_dir"
-	exit 1
+	die
 }
 
 install_failed() {
@@ -193,7 +194,7 @@ install_failed() {
 		call_script "$p_script-uninstall.sh" -r
 		rm_data
 	}
-	exit 1
+	die
 }
 
 manage_interr() {
@@ -201,18 +202,19 @@ manage_interr() {
 	trap - INT TERM HUP QUIT
 	printf '\n\n%s\n' "${yellow}Configuration was interrupted.${n_c} $please_configure" >&2
 	rm -f "$status_file"
-	exit $manage_rv
+	die $manage_rv
 }
 
 pick_shell() {
+	# variables are assigned in check_shell(), called by geoinit
 	unset sh_msg f_shs_avail s_shs_avail
 	curr_sh_g_b="${curr_sh_g##*"/"}"
-	is_included "$curr_sh_g_b" "$fast_sh" "|" && return 0
-	[ -z "$ok_sh" ] && {
-		printf '\n%s\n%s\n\n' "${yellow}NOTE:${n_c} I'm running under an untested/unsupported shell '$blue$curr_sh_g_b$n_c'." \
-		"Consider runing $p_name-install.sh from a supported shell, such as ${blue}dash${n_c} or ${blue}bash${n_c}."
+	if [ -z "$ok_sh" ]; then
+		printf '\n%s\n%s\n\n' "!!! WARNING: I'm running under an untested/unsupported shell '$curr_sh_g_b' !!!" \
+			"Consider runing $p_name-install.sh from a supported shell, such as 'dash' or 'bash'."
 		return 0
-	}
+	fi
+	is_included "$curr_sh_g_b" "$fast_sh" "|" && return 0
 
 	newifs "|" psh
 	for ___sh in $fast_sh; do
@@ -235,14 +237,14 @@ pick_shell() {
 		"Would you like to use '$recomm_sh' with $p_name? [y|n] or [a] to abort installation."
 	pick_opt "y|n|a"
 	case "$REPLY" in
-		a) exit 0 ;;
+		a) die 0 ;;
 		y)
 			newifs "$delim" psh
 			set -- $_args
 			unset curr_sh_g
 			oldifs psh
-			eval "$recomm_sh \"$script_dir/$p_name-install.sh\" $*"
-			exit ;;
+			$recomm_sh "$script_dir/$p_name-install.sh" "$@"
+			die $? ;;
 		n) if [ -n "$bad_sh" ]; then exit 1; fi
 	esac
 }
@@ -280,7 +282,7 @@ detect_init() {
 		busybox) check_openrc ;;
 		initctl|sysvinit) di_res=sysvinit; check_openrc ;;
 		unknown) die "Failed to detect the init system. Please notify the developer." ;;
-		procd) . "$script_dir/OpenWrt/${p_name}-lib-owrt.sh" || exit 1
+		procd) source_lib owrt "$script_dir/OpenWrt" || die
 	esac
 	set_di_var "$1" "$di_res"
 	:
@@ -321,7 +323,7 @@ prep_script() {
 }
 
 
-checkvars install_dir lib_dir p_script i_script _lib lock_file _nl
+checkvars GEOTEMP_DIR install_dir lib_dir p_script i_script _lib lock_file _nl
 
 #### Detect the init system
 detect_init initsys
@@ -329,9 +331,9 @@ debugprint "Detected init: '$initsys'."
 
 #### Variables
 
-export nointeract_arg debugmode lib_dir="/usr/lib/$p_name" conf_dir="/etc/$p_name" \
-	tmp_dir="${inst_root_gs}/tmp/${p_name}-install"
-export conf_file="$conf_dir/$p_name.conf"
+export nointeract_arg debugmode
+
+tmp_dir="${inst_root_gs}${GEOTEMP_DIR}/install-tmp"
 
 reg_file_ok=
 reg_file="$lib_dir/${p_name}-components"
@@ -342,7 +344,7 @@ please_configure="Please run '$p_name configure' to complete the setup."
 
 [ ! "$_OWRTFW" ] && [ ! "$nointeract_arg" ] && pick_shell
 : "${curr_sh_g:=/bin/sh}"
-export _lib="$lib_dir/$p_name-lib" use_shell="$curr_sh_g"
+export use_shell="$curr_sh_g"
 
 
 ### Get vars from old config
@@ -447,15 +449,30 @@ cat <<EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create fil
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-export conf_dir="/etc/$p_name" install_dir="/usr/bin" lib_dir="$lib_dir" iplist_dir="/tmp/$p_name"
-export lock_file="/tmp/$p_name.lock" excl_file="$conf_dir/iplist-exclusions.conf"
-export p_name="$p_name" conf_file="$conf_file" _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name" _nl='
+export _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
+export p_name="$p_name"
+GEORUN_DIR="\${GEORUN_DIR:-"/tmp/$p_name-run"}" GEOTEMP_DIR="\${GEOTEMP_DIR:-"/tmp/$p_name-tmp"}"
+
+export conf_dir="/etc/$p_name" \
+	install_dir="/usr/bin" \
+	lib_dir="/usr/lib/$p_name" \
+	iplist_dir="\$GEORUN_DIR/iplists" \
+	staging_local_dir="\$GEORUN_DIR/staging"
+
+export lock_file="\$GEORUN_DIR/lock" \
+	GS_LOG_FILE="\$GEORUN_DIR/log" \
+	fetch_res_file="\$GEORUN_DIR/fetch-res" \
+	excl_file="\$conf_dir/iplist-exclusions.conf" \
+	conf_file="\$conf_dir/$p_name.conf"
+
+export _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name"
 export _fw_backend
 in_configure=
 
 $set_posix
+set -f
 
 $init_non_owrt
 
@@ -481,6 +498,7 @@ fi
 export fwbe_ok=1
 :
 EOF
+
 add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
 
 # add cca2.list
@@ -531,7 +549,7 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 		[ -n "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
 		(
 			_fw_backend="$_fw_backend_prev"
-			. "${_lib}-$_fw_backend_prev.sh" &&
+			source_lib "$_fw_backend_prev" "$lib_dir" &&
 			kill_geo_pids &&
 			rm_lock &&
 			rm_all_georules
@@ -557,7 +575,7 @@ copy_files
 
 [ "$inst_root_gs" ] && {
 	rm -rf "$tmp_dir"
-	exit 0
+	die 0
 }
 
 ## Create a symlink from ${p_name}-manage.sh to ${p_name}
@@ -579,6 +597,7 @@ OK
 	subtract_a_from_b "$(cat "$reg_tmp")" "$(printf '%s\n' "$prev_reg_file_cont" | grep -v '[^[:alnum:]/.-]' | \
 			grep -E "^${i_script}|${lib_dir}|${conf_dir}|/etc/init.d/${p_name}-init")" rm_files "$_nl" || {
 		printf '%s\n' "Removing files from previous installation..."
+		# shellcheck disable=SC2046
 		rm -f $(printf %s "$rm_files" | tr '\n' ' ')
 	}
 }
@@ -591,7 +610,7 @@ REPLY=n
 	printf '\n%s\n' "Configure $p_name now? [y|n]"
 	pick_opt "y|n"
 }
-[ "$REPLY" = n ] && { echolog "$please_configure"; exit 0; }
+[ "$REPLY" = n ] && { echolog "$please_configure"; die 0; }
 
 trap 'manage_interr' INT TERM HUP QUIT
 call_script "$i_script-manage.sh" configure || {
@@ -604,4 +623,4 @@ call_script "$i_script-manage.sh" configure || {
 
 trap - INT TERM HUP QUIT
 
-:
+die 0
