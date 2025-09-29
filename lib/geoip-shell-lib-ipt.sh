@@ -305,8 +305,8 @@ rm_ipset() {
 report_fw_state() {
 	direction="$1"
 	set_dir_vars "$direction"
+	source_lib arrays || return 1
 
-	dashes="$(printf '%155s' ' ' | tr ' ' '-')"
 	for family in $families; do
 		f_short="${family#ipv}"
 		set_ipt_cmds "$family"
@@ -334,6 +334,7 @@ report_fw_state() {
 			echo
 		fi
 	done
+	:
 }
 
 # 1 - direction
@@ -367,21 +368,25 @@ print_rules_table() {
 
 	[ "$rules" ] || return 1
 
-	fmt_str="  %-9s%-11s%-8s%-5s%-20s%-10s%-10s%-20s%-17s%-16s%s\n"
-	printf "%s\n${fmt_str}%s\n" \
-		"  $dashes${blue}" packets bytes target prot dports source dest interfaces ipset comment extra "$n_c  $dashes"
+	columns="pkts bytes target proto dports src dest ifaces ipset comment extra"
+
+	line_indexes='' line_index=0
 
 	newifs "$_nl" table
-
-	for rule in $rules; do
-		[ -z "$rule" ] && continue
-		unset pkts bytes target proto dports src dest ifaces ipset comment extra
+	for rule in "-K pkts -B bytes -j target -P proto -p dports -s src -d dest -i ifaces -S ipset -c comment -e extra" \
+			$rules; do
+		[ -n "$rule" ] || continue
 		IFS=' '
+		unset $columns
 		eval "set -- $rule"
 		while getopts ":K:B::e:c:j:s:d:P:p:S:i:o:" opt; do
 			case $opt in
-				K) pkts=$(num2human "$OPTARG") ;;
-				B) bytes=$(num2human "$OPTARG" bytes) ;;
+				K)
+					pkts="$OPTARG"
+					[ "$line_index" != 0 ] && pkts=$(num2human "$OPTARG") ;;
+				B)
+					bytes="$OPTARG"
+					[ "$line_index" != 0 ] && bytes=$(num2human "$OPTARG" bytes) ;;
 				j) target="$OPTARG" ;;
 				P) proto="$OPTARG" ;;
 				p) dports="$OPTARG" ;;
@@ -391,7 +396,7 @@ print_rules_table() {
 				S) ipset="${OPTARG#"${p_name}_"}" ;;
 				c) comment="${OPTARG#"${p_name}_"}"; comment="${comment#aux_}" ;;
 				e) extra="$OPTARG" ;;
-				*) echo "unknown opt: '$OPTARG'"
+				*) echolog -err "unknown opt: '$OPTARG'"; return 1
 			esac
 		done
 
@@ -407,9 +412,46 @@ print_rules_table() {
 		: "${comment:=---}"
 		: "${extra:=}"
 
-		printf "$fmt_str" "$pkts " "$bytes " "$target " "$proto " "$dports " "$src " "$dest " "$ifaces " "$ipset" "$comment " "$extra "
+		for col_name in $columns; do
+			eval "entry_val=\"\${${col_name}}\""
+			get_a_arr_val col_len_arr "$col_name" max_col_len
+			: "${max_col_len:=0}"
+			entry_len=${#entry_val}
+			max_col_len=$(( (max_col_len>=entry_len)*max_col_len + (max_col_len<entry_len)*entry_len ))
+			set_a_arr_el entries_${line_index} "$col_name=$entry_val"
+			set_a_arr_el col_len_arr "$col_name=$max_col_len"
+		done
+		line_indexes="${line_indexes}${line_index} "
+		line_index=$((line_index+1))
 	done
 	oldifs table
+
+	line_len_1=0 line_len_2=0 fmt_str="  "
+	for col_name in $columns; do
+		get_a_arr_val col_len_arr "$col_name" col_len
+		fmt_str="${fmt_str}%-\$(($col_len+pad_len))s"
+		line_len_1=$((line_len_1+col_len+1))
+		line_len_2=$((line_len_2+col_len+2))
+	done
+	line_len_1=$((line_len_1-1))
+	line_len_2=$((line_len_2-2))
+	pad_len=2 line_len=$line_len_2
+	[ $line_len -gt 155 ] && { line_len=$line_len_1; pad_len=1; }
+	eval "fmt_str=\"${fmt_str}\""
+
+	for line_index in $line_indexes; do
+		for col_name in $columns; do
+			get_a_arr_val "entries_${line_index}" "$col_name" entry_val
+			eval "$col_name=\"\${entry_val}\""
+		done
+		[ "$line_index" = 0 ] && {
+			dashes="$(printf "%${line_len}s" ' ' | tr ' ' '-')"
+			printf '%s\n' "  ${blue}${dashes}"
+		}
+		printf "${fmt_str}%s\n" \
+			"$pkts" "$bytes" "$target" "$proto" "$dports" "$src" "$dest" "$ifaces" "$ipset" "$comment" "$extra"
+		[ "$line_index" = 0 ] && printf "%s\n" "  ${dashes}${n_c}"
+	done
 	:
 }
 
@@ -740,11 +782,10 @@ extract_iplists() {
 	[ -f "$bk_file" ] || die "Can not find the backup file '$bk_file'."
 
 	# extract the backup archive into tmp_file
-	tmp_file="/tmp/${p_name}_backup.tmp"
-	$extract_cmd "$bk_file" > "$tmp_file" && [ -s "$tmp_file" ] ||
-		rstr_failed "Backup file '$bk_file' is empty or backup extraction failed."
-
-	grep -m1 "add .*$p_name" "$tmp_file" 1>/dev/null || rstr_failed "IP lists backup appears to be empty or non-existing."
+	tmp_file="$GEOTEMP_DIR/${p_name}_backup.tmp"
+	$extract_cmd "$bk_file" > "$tmp_file" && [ -s "$tmp_file" ] &&
+		grep -m1 "${blank}*add .*$p_name" "$tmp_file" 1>/dev/null ||
+			rstr_failed "Backup file '$bk_file' is empty or backup extraction failed."
 
 	printf '%s\n\n' "Successfully read backup file: '$bk_file'."
 	:
@@ -766,7 +807,7 @@ restore_ipsets() {
 # Saves current ipsets to a backup file
 create_backup() {
 	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
-	bk_failed_file="/tmp/$p_name-backup-failed"
+	bk_failed_file="$GEOTEMP_DIR/$p_name-backup-failed"
 	rm -f "$bk_failed_file"
 	ipsets="$(ipset list -n | grep "$geotag")" || { echolog "create_backup: no ipsets found."; return 0; }
 	for ipset in $ipsets; do
