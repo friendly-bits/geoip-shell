@@ -18,5 +18,5 @@ service_triggers() {
 
 
 start_service() {
-	/bin/sh /usr/bin/geoip-shell-mk-fw-include.sh
+	/bin/sh \"$install_dir/${p_name}-mk-fw-include.sh\"
 }
