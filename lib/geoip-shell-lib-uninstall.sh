@@ -122,42 +122,12 @@ kill_geo_pids() {
 	oldifs kgp
 }
 
-rm_iplists_rules() {
-	case "$iplist_dir" in
-		*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
-		*)
-			# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
-			[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
-				echo "Removing $p_name IP lists..."
-				set +f
-				rm -f "${iplist_dir:?}"/*.iplist
-				set -f
-			}
-	esac
-
-	### Remove geoip firewall rules
-	[ "$_fw_backend" ] && rm_all_georules || {
-		[ "$in_uninstall" ] && echolog -err "$FAIL remove $p_name firewall rules. Please restart the machine after uninstallation."
-	}
-
-	:
-}
-
 rm_cron_jobs() {
 	case "$(crontab -u root -l 2>/dev/null)" in *"${p_name}-run.sh"*)
 		echo "Removing cron jobs..."
 		crontab -u root -l 2>/dev/null | grep -v "${p_name}-run.sh" | crontab -u root -
 	esac
 	:
-}
-
-# 1 - dir path
-# 2 - dir description
-rm_geodir() {
-	[ "${1%/}" ] && [ "${1%/}" != '/' ] && [ -d "${1%/}" ] && {
-		printf '%s\n' "Deleting the $2 directory '$1'..."
-		rm -rf "${1%/}"
-	}
 }
 
 rm_all_data() {
