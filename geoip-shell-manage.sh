@@ -11,14 +11,15 @@ p_name="geoip-shell"
 : "${manmode:=1}"
 export inbound_geomode nolog=1 manmode
 
-. "/usr/bin/${p_name}-geoinit.sh" &&
-script_dir="$install_dir" &&
-. "$_lib-setup.sh" &&
-. "$_lib-uninstall.sh" || exit 1
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
+script_dir="$install_dir"
+source_lib setup &&
+source_lib uninstall || die
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
 
 #### USAGE
 
@@ -119,7 +120,7 @@ ${sp8}Default is 'true' for OpenWrt, 'false' for all other systems.
 
   ${blue}-a <"path">${n_c} :
 ${sp8}Set custom path to directory where backups and the status file will be stored.
-${sp8}Default is '/tmp/$p_name-data' for OpenWrt, '/var/lib/$p_name' for all other systems.
+${sp8}Default is '$GEORUN_DIR/data' for OpenWrt, '/var/lib/$p_name' for all other systems.
 
   ${blue}-L <"path">${n_c} :
 ${sp8}Set custom path to directory where local IP lists will be stored.
@@ -274,8 +275,8 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; 
 		z) nointeract_arg=1 ;;
 		v) verb_mode="-v" ;;
 		d) debugmode_arg=1 ;;
-		V) echo "$curr_ver"; exit 0 ;;
-		h) usage; exit 0 ;;
+		V) echo "$curr_ver"; die 0 ;;
+		h) usage; die 0 ;;
 		*) unknownopt
 	esac
 done
@@ -309,6 +310,7 @@ dir_mv() {
 		printf %s "Moving $dir_cont_desc to the new path... "
 		set +f
 		for mv_file in "$prev_dir_mv"/*; do
+			case "$mv_file" in *"/*") continue; esac
 			if [ ! -d "$mv_file" ]; then
 				mv -- "$mv_file" "$new_dir_mv/" || {
 					mv "$new_dir_mv"/* "$prev_dir_mv/"
@@ -366,7 +368,7 @@ restore_from_config() {
 
 		if nodie=1 export_conf=1 get_config_vars && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
-				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && . "${_lib}-${_fw_backend}.sh"; }; then
+				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
 					restore_from_config && { set_all_config; return 0; }
 		else
 			echolog -err "$FAIL load the previous config."
@@ -506,7 +508,7 @@ unset conf_act rm_conf
 }
 
 [ -s "$conf_file" ] && [ ! "$rm_conf" ] && {
-	tmp_conf_file="/tmp/${p_name}_upd.conf"
+	tmp_conf_file="$GEOTEMP_DIR/${p_name}_upd.conf"
 	main_conf_path="$conf_file"
 
 	# update config vars on first setup
@@ -533,7 +535,7 @@ unset conf_act rm_conf
 	export first_setup=1
 }
 
-[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && . "$_lib-$_fw_backend.sh" || {
+[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && source_lib "$_fw_backend" || {
 	[ "$action" != configure ] && echolog "Firewall backend is not set."
 	_fw_backend=
 	set_first_setup
@@ -569,16 +571,17 @@ run_command="$i_script-run.sh"
 
 #### MAIN
 
-[ "$action" = status ] && { . "$_lib-status.sh"; die $?; }
+dir_mk -n "$GEOTEMP_DIR" || die
+
+[ "$action" = status ] && { source_lib status "$lib_dir"; die $?; }
 
 [ "$action" = lookup ] && {
-	. "$_lib-$_fw_backend.sh" &&
-	. "$_lib-lookup.sh" &&
+	source_lib lookup "$lib_dir" &&
 	lookup "$lookup_addr_arg" "$lookup_addr_file_arg"
 	die $?
 }
 
-[ "$action" != stop ] && mk_lock
+[ "$action" = stop ] || mk_lock || die
 trap 'die' INT TERM HUP QUIT
 
 
@@ -934,25 +937,28 @@ if [ "$_fw_backend_change" ]; then
 		(
 			# use previous backend to remove existing rules
 			export _fw_backend="$_fw_backend_prev"
-			. "$_lib-$_fw_backend.sh" || exit 1
+			source_lib "$_fw_backend_prev" "$lib_dir" || exit 1
 			rm_iplists_rules
 			rm_data
 			:
-		) || die "$FAIL remove firewall rules for the backend '$_fw_backend_prev'."
+		) || die "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
 	fi
 	# source library for the new backend
-	. "$_lib-$_fw_backend.sh" || die
-else
-	case "$conf_act" in
-		backup|run_restore) ;;
-		*)
-			# create backup if it doesn't exist yet
-			if [ "$nobackup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ]; then
-				inbound_iplists="$inbound_iplists_prev" outbound_iplists="$outbound_iplists_prev" \
-					call_script -l "$i_script-backup.sh" create-backup || rm_data
-			fi
-	esac
+	source_lib "$_fw_backend" "$lib_dir" || die
 fi
+
+case "$conf_act" in run_add|reset|apply)
+	# create backup if rules exist and no backup exists yet
+	if [ "$nobackup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ] &&
+		checkutil get_fwrules_iplists &&
+		{
+			nolog=1 get_fwrules_iplists inbound | grep . ||
+			nolog=1 get_fwrules_iplists outbound | grep .
+		} 1>/dev/null 2>/dev/null; then
+		inbound_iplists="$inbound_iplists_prev" outbound_iplists="$outbound_iplists_prev" \
+			call_script -l "$i_script-backup.sh" create-backup || rm_data
+	fi
+esac
 
 set_all_config
 
