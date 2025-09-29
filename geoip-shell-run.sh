@@ -12,7 +12,44 @@ p_name="geoip-shell"
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
+
+run_fail() {
+	rm -f "$fetch_res_file"
+	[ "$RM_IPLISTS" ] && rm_iplists
+	case "$1" in ''|*![0-9]*) ;; *) rf_rv="$1"; shift; esac
+	[ -n "$*" ] && echolog -err "$@"
+	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
+		(
+			. "$custom_script"
+			command -v gs_failure 1>/dev/null || exit 0
+			session_log=
+			[ -s "$GS_LOG_FILE" ] && session_log="$(get_session_log)"
+			gs_failure "${session_log:+"Session log:${_nl}"}${session_log}"
+		)
+	fi
+	rm -f "${GS_LOG_FILE}"
+	die "${rf_rv:-1}"
+}
+
+run_success() {
+	rm -f "$fetch_res_file"
+	[ -n "$*" ] && echolog "$@"
+	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
+		(
+			. "$custom_script"
+			command -v gs_success 1>/dev/null || exit 0
+			session_log=
+			grep -iE '^(\[.*\])*[ 	]*(ERROR|WARNING):' "$GS_LOG_FILE" 1>/dev/null 2>&1 &&
+				session_log="$(get_session_log)"
+			gs_success "${session_log:+"Errors/warnings encountered.${_nl}Session log:${_nl}"}${session_log}"
+		)
+	fi
+	rm -f "${GS_LOG_FILE}"
+	die 0
+}
+
 
 #### USAGE
 
@@ -43,6 +80,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
+RM_IPLISTS=
 daemon_mode=
 
 # check for valid action
@@ -63,8 +101,8 @@ while getopts ":l:faodVh" opt; do
 		a) export daemon_mode=1 ;;
 		o) nobackup_arg=true ;;
 		d) debugmode_arg=1 ;;
-		V) echo "$curr_ver"; exit 0 ;;
-		h) usage; exit 0 ;;
+		V) echo "$curr_ver"; die 0 ;;
+		h) usage; die 0 ;;
 		*) unknownopt
 	esac
 done
@@ -73,7 +111,7 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 is_root_ok
-. "$_lib-$_fw_backend.sh"
+source_lib "$_fw_backend" || die
 
 setdebug
 debugentermsg
@@ -98,38 +136,6 @@ resume_geoblocking() {
 		geoip_on outbound
 		echo
 	}
-}
-
-run_success() {
-	[ -n "$*" ] && echolog "$@"
-	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
-		(
-			. "$custom_script"
-			command -v gs_success 1>/dev/null || exit 0
-			session_log=
-			grep -iE '^(\[.*\])*[ 	]*(ERROR|WARNING):' "$GS_LOG_FILE" 1>/dev/null 2>&1 &&
-				session_log="$(get_session_log)"
-			gs_success "${session_log:+"Errors/warnings encountered.${_nl}Session log:${_nl}"}${session_log}"
-		)
-	fi
-	rm -f "${GS_LOG_FILE}"
-	die 0
-}
-
-run_fail() {
-	case "$1" in ''|*![0-9]*) ;; *) rf_rv="$1"; shift; esac
-	[ -n "$*" ] && echolog -err "$@"
-	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
-		(
-			. "$custom_script"
-			command -v gs_failure 1>/dev/null || exit 0
-			session_log=
-			[ -s "$GS_LOG_FILE" ] && session_log="$(get_session_log)"
-			gs_failure "${session_log:+"Session log:${_nl}"}${session_log}"
-		)
-	fi
-	rm -f "${GS_LOG_FILE}"
-	die "${rf_rv:-1}"
 }
 
 
@@ -176,8 +182,8 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || ru
 
 dir_mk -n "$iplist_dir" || run_fail 1
 
-mk_lock
-trap 'trap - INT TERM HUP QUIT; set +f; rm -f \"$iplist_dir/\"*.iplist; rm -f \"$fetch_res_file\"; run_fail 1' INT TERM HUP QUIT
+mk_lock || die
+trap 'trap - INT TERM HUP QUIT; run_fail 1' INT TERM HUP QUIT
 
 # wait $reboot_sleep seconds after boot, or 0-59 seconds before updating
 [ "$daemon_mode" ] && {
@@ -232,14 +238,13 @@ esac
 
 #### Daemon loop
 
-unset all_fetched_lists missing_lists lists_fetch fetched_lists
+unset all_fetched_lists missing_lists lists_fetch
 
 [ ! "$daemon_mode" ] && max_attempts=1
 case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
 
 dir_mk "$datadir" || run_fail 1
 
-attempt=0 secs=5
 resume_req=
 if [ "$lists_fetch" ]; then
 	[ "$source_ips_policy" = pause ] && [ "$outbound_geomode" != disable ] && {
@@ -253,38 +258,38 @@ if [ "$lists_fetch" ]; then
 		esac
 	}
 
+	RM_IPLISTS=1
+	attempt=0 secs=5
 	while :; do
 		attempt=$((attempt+1))
-		secs=$((secs+5))
-		[ $attempt -gt $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
+		fetched_lists='' failed_lists=''
 
 		### Fetch IP lists
 		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
+		printf '' > "$fetch_res_file"
 		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
-
-		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" -u "$geosource" "$force_run" "$raw_mode"
+		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" \
+			-u "$geosource" "$force_run" "$raw_mode"
 
 		# read fetch results from the status file
-		gs_rv=
-		nodie=1 getstatus "$fetch_res_file" || gs_rv=1
-		rm -f "$fetch_res_file"
-		[ "$gs_rv" = 1 ] && fetch_failed "$FAIL read the fetch results file '$fetch_res_file'"
+		nodie=1 getstatus "$fetch_res_file" 2>/dev/null ||
+			{ echolog -err "$FAIL read the fetch results file '$fetch_res_file'"; failed_lists="$lists_fetch"; }
 
 		add2list all_fetched_lists "$fetched_lists"
+
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 
 			[ "$daemon_mode" ] && {
+				[ $attempt -ge $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
+				san_str lists_fetch "$failed_lists $missing_lists" || fetch_failed
 				echolog "Retrying in $secs seconds"
 				sleep $secs
-				san_str lists_fetch "$failed_lists $missing_lists" || fetch_failed
+				secs=$((secs*4))
 				continue
 			}
 
-			[ "$action_run" = add ] && {
-				set +f; rm -f "$iplist_dir/"*.iplist; set -f
-				fetch_failed 254 "Aborting the action 'add'."
-			}
+			[ "$action_run" = add ] && fetch_failed 254 "Aborting the action 'add'."
 		}
 
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
@@ -317,7 +322,7 @@ echolog "${_nl}${print_action} IP lists '$all_apply_lists'."
 
 call_script "$i_script-apply.sh" "$action_run"
 apply_rv=$?
-set +f; rm -f "$iplist_dir/"*.iplist; set -f
+rm_iplists
 
 case "$apply_rv" in
 	0) ;;
@@ -338,3 +343,5 @@ fi
 
 run_success "Successfully ${print_action_done} IP lists '$apply_lists_req'."
 echo
+
+die 0
