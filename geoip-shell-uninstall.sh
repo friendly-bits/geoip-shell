@@ -16,18 +16,23 @@ manmode=1
 nolog=1
 in_uninstall=1
 
-geoinit="${p_name}-geoinit.sh"
-for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
-	[ -f "$geoinit_path" ] && break
-done
+case "$script_dir" in
+	"/usr/bin"|'')
+		geoinit_dir=/usr/bin
+		lib_src_dir="$lib_dir" ;;
+	*)
+		geoinit_dir="$script_dir"
+		lib_src_dir="$script_dir/lib"
+esac
 
-[ ! "$geoinit_path" ] && die "Cannot uninstall $p_name because ${p_name}-geoinit.sh is missing."
-
-. "$geoinit_path" || exit 1
+geoinit_path="${geoinit_dir}/${p_name}-geoinit.sh"
+[ -f "$geoinit_path" ] && . "$geoinit_path" || { printf '%s\n' "Can not find '${geoinit_path}'." >&2; exit 1; }
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
+
 debugentermsg
 
 #### USAGE
@@ -71,23 +76,20 @@ rm_scripts() {
 while getopts ":rVdh" opt; do
 	case $opt in
 		r) keepdata="-r" ;;
-		V) echo "$curr_ver"; exit 0 ;;
+		V) echo "$curr_ver"; die 0 ;;
 		d) debugmode=1 ;;
-		h) usage; exit 0 ;;
+		h) usage; die 0 ;;
 		*) ;;
 	esac
 done
 shift $((OPTIND-1))
 
-is_root_ok || exit 1
+is_root_ok || die
 
-old_lib_dir="$_lib"
-. "$old_lib_dir-uninstall.sh"  || exit 1
+source_lib uninstall "$lib_src_dir" || die
+
 
 ### VARIABLES
-lib_dir="/usr/lib/$p_name"
-_lib="$lib_dir/$p_name-lib"
-
 old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
 install_dir="${old_install_dir:-"$install_dir"}"
@@ -97,7 +99,7 @@ install_dir="${old_install_dir:-"$install_dir"}"
 [ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	# prevents infinite loop
 	export norecur=1
-	call_script "$install_dir/${p_name}-uninstall.sh" "$keepdata" && exit 0
+	call_script "$install_dir/${p_name}-uninstall.sh" "$keepdata" && die 0
 }
 
 : "${conf_dir:=/etc/$p_name}"
@@ -141,42 +143,10 @@ if [ -z "$_fw_backend" ] && [ -n "$old_install_dir" ] && detect_fw_backends; the
 	esac
 fi
 
-if [ "$_fw_backend" ]; then
-	(
-		for lib_dir in "$old_lib_dir" "$_lib"; do
-			[ -f "$lib_dir-$_fw_backend.sh" ] && . "$lib_dir-$_fw_backend.sh" && break
-			false
-		done || {
-			echolog -err "Failed to source the ${_fw_backend}ables library."
-			exit 1
-		}
-		rm_all_georules || {
-			echolog -err "$FAIL remove $p_name firewall rules."
-			exit 1
-		}
-	)
-elif [ -n "$old_install_dir" ]; then
-	echolog -err "Firewall backend is unknown."
-	false
-else
-	:
-fi || echolog -err "Cannot remove geoblocking rules. Please restart the machine after uninstallation."
-
-case "$iplist_dir" in
-	*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
-	*)
-		# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
-		[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
-			echo "Removing $p_name IP lists..."
-			set +f
-			rm -f "${iplist_dir:?}"/*.iplist
-			set -f
-		}
-esac
-
+lib_src_dir="$lib_src_dir" rm_iplists_rules
 rm_cron_jobs
 
-[ -n "$keepdata" ] && exit 0
+[ -n "$keepdata" ] && die 0
 
 # For OpenWrt
 [ "$_OWRT_install" ] && {
@@ -191,3 +161,5 @@ rm_config
 rm_all_data
 
 printf '%s\n\n' "Uninstall complete."
+
+die 0
