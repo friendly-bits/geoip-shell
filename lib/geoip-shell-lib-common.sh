@@ -125,7 +125,7 @@ extra_args() {
 }
 
 checkutil() {
-	hash "$1" 2>/dev/null
+	command -v "$1" 1>/dev/null
 }
 
 checkvars() {
@@ -278,9 +278,21 @@ call_script() {
 	$use_shell "$script_to_call" "$@"
 	call_rv=$?
 	debugexitmsg
-	[ "$use_lock" ] && mk_lock -f
+	[ -z "$use_lock" ] || mk_lock -f || return 1
 	use_lock=
 	return "$call_rv"
+}
+
+source_lib() {
+	[ -n "$1" ] || { echolog -err "source_lib: invalid args '$*'."; return 1; }
+	src_file="${p_name}-lib-${1}.sh"
+	shift
+	[ -n "$*" ] || set -- "$lib_dir"
+	for dir in "$@"; do
+		[ -f "$dir/$src_file" ] && . "$dir/$src_file" && return 0
+	done
+	echolog -err "Can not find '$src_file'."
+	return 1
 }
 
 check_deps() {
@@ -306,7 +318,7 @@ echolog() {
 		logger -t "$me" -p "user.$2" "$el_msg"
 	}
 
-	unset msg_args __nl msg_prefix o_nolog el_msg
+	unset msg_args nl_print msg_prefix o_nolog el_msg
 
 	highlight="$blue"; err_l=info
 	for arg in "$@"; do
@@ -321,16 +333,18 @@ echolog() {
 
 	# check for newline in the biginning of the line and strip it
 	case "$msg_args" in "$_nl"*)
-		__nl="$_nl"
+		nl_print="$_nl"
 		msg_args="${msg_args#"$_nl"}"
 	esac
 
 	newifs "$delim" ecl
-	set -- $msg_args; oldifs ecl
+	set -- $msg_args
+	oldifs ecl
 
+	first_prefix="${nl_print}${highlight}${me_short}${n_c}: "
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
-			_msg="${__nl}$highlight$me_short$n_c: $msg_prefix$arg"
+			_msg="${first_prefix}${msg_prefix}${arg}"
 			case "$err_l" in
 				info) printf '%s\n' "$_msg" ;;
 				err|warn) printf '%s\n' "$_msg" >&2
@@ -338,9 +352,10 @@ echolog() {
 		}
 
 		if [ ! "$nolog" ] && [ ! "$o_nolog" ]; then
-			write_entry "$msg_prefix$arg" "$err_l" &
+			write_entry "$msg_prefix$arg" "$err_l"
 		fi
-		unset __nl highlight msg_prefix err_l
+		unset first_prefix msg_prefix
+		err_l=info
 	done
 }
 
@@ -1059,6 +1074,44 @@ report_incoherence() {
 	done
 }
 
+# 1 - dir path
+# 2 - dir description
+rm_geodir() {
+	[ "${1%/}" ] && [ "${1%/}" != '/' ] && [ -d "${1%/}" ] && {
+		printf '%s\n' "Deleting the $2 directory '$1'..."
+		rm -rf "${1%/}"
+	}
+}
+
+rm_iplists() { set +f; rm -f "${iplist_dir:-???}"/*.iplist; set -f; }
+
+rm_iplists_rules() {
+	case "$iplist_dir" in
+		*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
+		*)
+			# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
+			[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
+				echo "Removing $p_name IP lists..."
+				rm_iplists
+			}
+	esac
+
+	### Remove geoip firewall rules
+	if [ "$_fw_backend" ]; then
+		(
+			source_lib "${_fw_backend}" "${lib_src_dir:-"$lib_dir"}" &&
+			rm_all_georules || exit 1
+		)
+	elif checkutil "$p_name"; then
+		echolog -err "Firewall backend is unknown."
+		false
+	else
+		:
+	fi || { echolog -err "Cannot remove geoblocking rules."; return 1; }
+
+	:
+}
+
 load_exclusions() {
 	[ -n "$excl_file_lists" ] && return 0
 	[ -s "$excl_file" ] &&
@@ -1144,7 +1197,10 @@ FAIL() { printf '%s\n' "${red}Failed${n_c}." >&2; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
-	[ "$lock_file" ] && echo "$$" > "$lock_file" || die "$FAIL set lock '$lock_file'"
+	[ "$lock_file" ] && dir_mk -n "${lock_file%/*}" && printf '%s\n' "$$" > "$lock_file" || {
+		echolog -err "$FAIL set lock '$lock_file'"
+		return 1
+	}
 	nodie=1
 	die_unlock=1
 }
@@ -1368,10 +1424,6 @@ export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
 	inbound_geochain="${p_name_cap}_IN" outbound_geochain="${p_name_cap}_OUT" \
 	inbound_dir_short=in outbound_dir_short=out
 
-export fetch_res_file="/tmp/${p_name}-fetch-res"
-export staging_local_dir="/tmp/${p-name}-staging"
-export GS_LOG_FILE="/tmp/${p-name}-log"
-
 blank="[ 	]"
 notblank="[^ 	]"
 blanks="${blank}${blank}*"
@@ -1379,8 +1431,6 @@ export _nl='
 '
 export default_IFS="	 $_nl"
 export IFS="$default_IFS"
-
-set -f
 
 [ -z "$geotag" ] && {
 	set_ansi
