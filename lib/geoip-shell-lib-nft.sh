@@ -93,7 +93,9 @@ mk_nft_rm_cmd() {
 # parses an nft array/list and outputs it in human-readable format
 # sets $n to number of elements
 get_nft_list() {
-	n=0; _res=
+	gnl_out_var="$1"
+	shift
+	n=0 _res=
 	[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
 	case "$1" in
 		'{')
@@ -104,6 +106,7 @@ get_nft_list() {
 			done ;;
 		*) _res="$_res$1"
 	esac
+	eval "$gnl_out_var=\"$_res\""
 }
 
 # 1 - direction (inbound|outbound)
@@ -184,10 +187,10 @@ report_fw_state() {
 			pkts='---'; bytes='---'; ipv="$dfam"; verd='---'; prot='all'; dports='all'; in='all'; line=''
 			while [ -n "$1" ]; do
 				case "$1" in
-					iifname|oifname) shift; get_nft_list "$@"; in="$_res"; shift "$n" ;;
+					iifname|oifname) shift; get_nft_list in "$@"; shift "$n" ;;
 					ip) ipv="ipv4" ;;
 					ip6) ipv="ipv6" ;;
-					dport) shift; get_nft_list "$@"; dports="$_res"; shift "$n" ;;
+					dport) shift; get_nft_list dports "$@"; shift "$n" ;;
 					udp|tcp) prot="$1 " ;;
 					packets) pkts=$(num2human "$2"); shift ;;
 					bytes) bytes=$(num2human "$2" bytes); shift ;;
@@ -539,7 +542,7 @@ apply_rules() {
 			ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*${geotag_aux}_ports")"
 
 			IFS=' 	' set -- $ports_line; shift 2
-			get_nft_list "$@"; ports_exp="$_res"
+			get_nft_list ports_exp "$@"
 			unset mp neg
 			case "$ports_exp" in *','*) mp="multiport "; esac
 			case "$ports_exp" in *'!'*) neg='!'; esac
@@ -576,7 +579,7 @@ create_backup() {
 	getstatus "$status_file" || bk_failed
 	for list_id in $iplists; do
 		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
-		eval "list_date=\"\$prev_date_${list_id}\""
+		eval "list_date=\"\$prev_date_${list_id}_${geosource}\""
 		[ -z "$list_date" ] && bk_failed "$FAIL get date for IP list '$list_id'."
 		list_id_short="${list_id%%_*}_${list_id##*ipv}"
 		ipset="${list_id_short}_${list_date}"
