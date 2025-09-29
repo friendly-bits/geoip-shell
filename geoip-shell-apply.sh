@@ -8,12 +8,14 @@
 
 ## Initial setup
 p_name="geoip-shell"
-. "/usr/bin/${p_name}-geoinit.sh" &&
-. "$_lib-arrays.sh" || exit 1
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
+source_lib ip-tools &&
+source_lib arrays || die
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
 
 ## USAGE
 
@@ -41,7 +43,7 @@ EOF
 
 die_a() {
 	destroy_tmp_ipsets
-	set +f; rm -f "$iplist_dir/"*.iplist; set -f
+	rm_iplists
 	die "$@"
 }
 
@@ -118,7 +120,7 @@ get_ipset_id() {
 # assigns result to var named $1
 get_ipset_name() {
 	[ "$2" ] || { echolog -err "get_ipset_name: list_id not specified"; return 1; }
-	eval "list_date=\"\$prev_date_${list_id}\""
+	eval "list_date=\"\$prev_date_${list_id}_${geosource}\""
 	unset prefix_gin date_suffix
 	case "$2" in *dhcp_[46]|*allow_in_[46]|*allow_out_[46]) ;; *)
 		[ "$list_date" ] || {
@@ -188,7 +190,7 @@ checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock ip
 ## MAIN
 
 debugprint "loading the $_fw_backend library..."
-. "$_lib-$_fw_backend.sh" || exit 1
+source_lib "$_fw_backend" || die
 
 debugprint "Starting action '$action'..."
 
@@ -201,9 +203,7 @@ case "$action" in
 		esac
 esac
 
-[ -n "$iplist_dir" ] && { dir_mk -n "$iplist_dir" || die; }
-
-[ -s "${_lib}-ip-tools.sh" ] && . "${_lib}-ip-tools.sh" || die "$FAIL source ${_lib}-ip-tools.sh"
+dir_mk -n "$iplist_dir" || die
 
 ### compile allowlist IPs and write to file
 for family in $families; do
