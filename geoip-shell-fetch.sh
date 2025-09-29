@@ -10,17 +10,24 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
+if [ -n "$root_ok" ]; then
+	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
+else
+	FETCH_TMP_DIR=/tmp/${p_name}-fetch-temp
+fi
+
 geoinit="${p_name}-geoinit.sh"
 for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 
 . "$geoinit_path" &&
-. "$_lib-arrays.sh" || exit 1
+source_lib arrays "$script_dir/lib" "$lib_dir" || die
 
 san_args "$@"
 newifs "$delim"
-set -- $_args; oldifs
+set -- $_args
+oldifs
 
 
 #### USAGE
@@ -105,7 +112,7 @@ reg_server_date() {
 
 # get list time based on the file date on the server
 get_src_dates_ipdeny() {
-	tmp_file_path="/tmp/${p_name}_ipdeny"
+	tmp_file_path="${FETCH_TMP_DIR}/${p_name}_ipdeny"
 
 	_res=
 	for list_id in $valid_lists; do
@@ -153,7 +160,7 @@ get_src_dates_ipdeny() {
 
 # get list time based on the filename on the server
 get_src_dates_ripe() {
-	server_html_file="/tmp/geoip-shell_server_dl_page.tmp"
+	server_html_file="${FETCH_TMP_DIR}/geoip-shell_server_dl_page.tmp"
 
 	[ ! "$ripe_url_stats" ] && { echolog -err "get_src_dates_ripe(): \$ripe_url_stats variable should not be empty!"; return 1; }
 
@@ -234,7 +241,7 @@ parse_ripe_json() {
 
 preparse_maxmind_csv() {
 	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" mm_db_name_parse="$5"
-	mm_countries_tmp_file=/tmp/maxmind_countries.csv
+	mm_countries_tmp_file="$FETCH_TMP_DIR/maxmind_countries.csv"
 	san_str ccodes_parse_regex "$ccodes_parse" " " "|"
 
 	unzip -p "$in_file" "*/${mm_db_name_parse}-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
@@ -300,20 +307,20 @@ check_prev_list() {
 	list_id="$1"
 	unset prev_list_reg prev_date_raw prev_date_compat prev_s_cnt
 
-	eval "prev_s_cnt=\"\$prev_ips_cnt_${list_id}\""
+	eval "prev_s_cnt=\"\$prev_ips_cnt_${list_id}_${dl_src}\""
 	case "$prev_s_cnt" in
 		''|0) prev_s_cnt=''
 			debugprint "Previous subnets count for '$list_id' is 0."
 			;;
 		*)
-			eval "prev_date_compat=\"\$prev_date_${list_id}\""
+			eval "prev_date_compat=\"\$prev_date_${list_id}_${dl_src}\""
 			if [ "$prev_date_compat" ]; then
 				prev_list_reg=true
 				p="$prev_date_compat"
 				mon_temp="${p#?????}"
 				prev_date_raw="${p%??????}${mon_temp%???}${p#????????}"
 			else
-				debugprint "Note: status file '$status_file' has no information for list '$purple$list_id$n_c'."
+				debugprint "Note: status file '$status_file' has no information for list '$purple$list_id$n_c' from $dl_src."
 				prev_s_cnt=
 			fi
 	esac
@@ -397,7 +404,8 @@ fetch_file() {
 	debugprint "fetch command: $1 \"$2\" > \"$3\""
 	$1 "$2" > "$3" || {
 		fetch_rv=$?
-		echolog -err "${fetch_cmd%% *} returned error code $fetch_rv for command:" "$1 \"$2\""
+		err_cmd="$(printf %s "$1" | sed 's/--user=[^ ]*/--user=<redacted>/;s/--password=[^ ]*/--password=<redacted>/')"
+		echolog -err "${fetch_cmd%% *} returned error code $fetch_rv for command:" "$err_cmd \"$2\""
 		return 1
 	}
 	[ -s "$3" ] || return 1
@@ -407,13 +415,13 @@ fetch_file() {
 }
 
 fetch_maxmind() {
-	fetched_db_mm="/tmp/${p_name}_fetched-mm-db_${MM_DB_DATE}.zip"
+	fetched_db_mm="${GEORUN_DIR}/${p_name}_fetched-mm-db_${MM_DB_DATE}.zip"
 	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
 	if [ "$keep_mm_db" = true ] && [ -s "$fetched_db_mm" ]; then
 		printf '%s\n' "Using previously fetched database from MaxMind..."
 	else
-		rm -f "/tmp/${p_name}_fetched-mm-db"*
+		set +f; rm -f "${GEORUN_DIR}/${p_name}_fetched-mm-db"*; set -f
 		printf '%s\n' "Fetching the database from MaxMind..."
 
 		fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || {
@@ -425,7 +433,7 @@ fetch_maxmind() {
 
 	printf '\n%s' "Pre-parsing the database... "
 	for family in $families; do
-		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
+		preparsed_db_mm="$FETCH_TMP_DIR/${p_name}_preparsed-${family}.gz.tmp"
 		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" "$mm_db_name" || {
 			FAIL
 			rm -f "$fetched_db_mm"
@@ -439,11 +447,11 @@ fetch_maxmind() {
 	[ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm"
 
 	for family in $families; do
-		preparsed_db_mm="/tmp/${p_name}_preparsed-${family}.gz.tmp"
+		preparsed_db_mm="$FETCH_TMP_DIR/${p_name}_preparsed-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
 			case " $excl_file_lists " in *" $list_id "*) continue; esac
-			parsed_list_mm="/tmp/${p_name}_fetched-${list_id}.tmp"
+			parsed_list_mm="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
 
 			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" || {
@@ -464,6 +472,7 @@ process_ccode() {
 	curr_ccode="$1"
 	tolower curr_ccode_lc "$curr_ccode"
 	unset list_path fetched_file
+	fetched_path_prefix="$FETCH_TMP_DIR/${p_name}_fetched-"
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
 		case " $excl_file_lists " in *" $list_id "*) continue; esac
@@ -471,14 +480,14 @@ process_ccode() {
 		rm_fetched_list_id=
 		case "$dl_src" in
 			ripe)
-				fetched_file="/tmp/${p_name}_fetched-$curr_ccode.tmp"
+				fetched_file="${fetched_path_prefix}${curr_ccode}.tmp"
 				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
 			maxmind)
-				fetched_file="/tmp/${p_name}_fetched-$list_id.tmp"
+				fetched_file="${fetched_path_prefix}${list_id}.tmp"
 				rm_fetched_list_id=1
 				dl_url="" ;;
 			ipdeny)
-				fetched_file="/tmp/${p_name}_fetched-$list_id.tmp"
+				fetched_file="${fetched_path_prefix}${list_id}.tmp"
 				rm_fetched_list_id=1
 				case "$family" in
 					ipv4) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
@@ -487,10 +496,9 @@ process_ccode() {
 			*) die "Unsupported source: '$dl_src'."
 		esac
 
-		# set list_path to $output_file if it is set, or to $iplist_dir_f/$list_id otherwise
 		list_path="${output_file:-$iplist_dir_f/$list_id.iplist}"
 
-		parsed_list="/tmp/${p_name}_parsed-${list_id}.tmp"
+		parsed_list="$FETCH_TMP_DIR/${p_name}_parsed-${list_id}.tmp"
 
 		valid_s_cnt=0
 		failed_s_cnt=0
@@ -522,7 +530,7 @@ process_ccode() {
 
 		# Validate the parsed list, populate the $valid_s_cnt, $failed_s_cnt
 		printf %s "Validating '$purple$list_id$n_c'... "
-		valid_list="/tmp/validated-${list_id}.tmp"
+		valid_list="$FETCH_TMP_DIR/validated-${list_id}.tmp"
 
 		case "$family" in
 			ipv4) subnet_regex="$subnet_regex_ipv4" ;;
@@ -661,25 +669,10 @@ toupper dl_src_cap "$dl_src"
 
 #### Choose best available DL utility, set options
 ucl_cmd="uclient-fetch -O -"
-curl_cmd="curl -f"
+curl_cmd="curl -f --retry 2"
 wget_cmd="wget -O -"
 
 [ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-unset fetch_cmd ssl_ok wget_no_ssl
-
-if [ -s /etc/ssl/certs/ca-certificates.crt ]; then
-	case "$initsys" in
-		procd|busybox)
-			if [ -s /etc/ssl/cert.pem ] && {
-				[ -s /usr/bin/ssl_client ] ||
-				{ [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ] && checkutil uci; }
-			}
-			then
-				ssl_ok=1
-			fi ;;
-		*) ssl_ok=1
-	esac
-fi
 
 case "$dl_src" in
 	ipdeny|maxmind) main_conn_timeout=16 ;;
@@ -688,44 +681,48 @@ esac
 
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
-	maxmind_str=
+	unset fetch_cmd maxmind_str ssl_util ssl_libs
 	case "$util" in
 		curl)
 			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
+			curl --version 2>/dev/null | grep -E "Protocols:.*${blank}https(${blank}|$)" 1>/dev/null && ssl_util=1
 			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
-			con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --retry 2 --connect-timeout 7 -s --head"
-			fetch_cmd="$curl_cmd$maxmind_str -L -f --retry 3"
-			fetch_cmd_date="$fetch_cmd --connect-timeout 16 -s -S"
-			fetch_cmd="$fetch_cmd --connect-timeout $main_conn_timeout"
+			con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
+			fetch_cmd="$curl_cmd$maxmind_str -L -f --connect-timeout $main_conn_timeout"
+			fetch_cmd_date="$curl_cmd$maxmind_str -L -f --connect-timeout 16 -s -S"
 			fetch_cmd_q="$fetch_cmd -s -S"
 			fetch_cmd="$fetch_cmd --progress-bar"
 			con_check_ok_ptrn="(301|302|403)"
-			break ;;
+			ssl_libs=1 ;;
 		wget)
-			if ! wget --version 2>/dev/null | grep -m1 "GNU Wget" 1>/dev/null; then
-				unset wget_tries wget_tries_con_check wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
+			gnu_wget=
+			wget_ver="$(wget --version 2>/dev/null | head -n6)"
+			case "$wget_ver" in *"GNU Wget"*) gnu_wget=1; esac
+
+			unset wget_tries wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
+			if [ -z "$gnu_wget" ]; then
 				[ "$dl_src" = maxmind ] &&
 					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
 				con_check_ok_ptrn="HTTP error (301|302|403)"
+				ssl_util=1
 			else
 				wget_server_response=" --server-response"
 				wget_show_progress=" --show-progress"
 				wget_max_redirect=" --max-redirect=10"
 				wget_con_check_max_redirect=" --max-redirect=0"
-				wget_tries=" --tries=3"
-				wget_tries_con_check=" --tries=2"
+				wget_tries=" --tries=2"
 				con_check_ok_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
+				ssl_libs=1
 			fi
 
 			[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
-			con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries_con_check} --timeout=7 --spider"
+			con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries} --timeout=7 --spider"
 			fetch_cmd="${wget_cmd}${wget_max_redirect}${wget_tries}${maxmind_str} -q"
 			fetch_cmd_date="${fetch_cmd} --timeout=16"
 			fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
 			fetch_cmd_q="${fetch_cmd}"
 			fetch_cmd="${fetch_cmd}${wget_show_progress}"
-			wget --version 2>/dev/null | grep 'wget-nossl' 1>/dev/null && { wget_no_ssl=1; continue; }
-			break ;;
+			case "$wget_ver" in *"+https"*) ssl_util=1; esac ;;
 		uclient-fetch)
 			[ "$dl_src" = maxmind ] &&
 				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
@@ -734,15 +731,17 @@ for util in curl wget uclient-fetch; do
 			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
 			fetch_cmd="$ucl_cmd -T $main_conn_timeout"
 			con_check_ok_ptrn="HTTP error (301|302|403)"
-			break
+			ssl_util=1
 	esac
+	if [ -n "$ssl_util" ] && [ -n "$_OWRTFW" ]; then
+		if [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] &&
+			{ [ -s /usr/bin/ssl_client ] || [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ]; }
+		then
+			ssl_libs=1
+		fi
+	fi
+	[ -n "$ssl_util" ] && [ -n "$ssl_libs" ] && { ssl_ok=1; break; }
 done
-
-case "${fetch_cmd}" in wget)
-	[ "$wget_no_ssl" ] && ssl_ok=
-esac
-
-[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
 [ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
 
@@ -768,6 +767,10 @@ if [ -z "$ssl_ok" ]; then
 	fi
 fi
 : "${http:=https}"
+
+[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
+
+printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
 
 debugprint "http: '$http', ssl_ok: '$ssl_ok'"
 
@@ -803,11 +806,24 @@ case "$dl_src" in
 		esac
 esac
 
+trap 'rm_tmp_f; rm_mm_tmp_f; \
+	[ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm"; \
+	rm -rf "$FETCH_TMP_DIR"; \
+	trap - INT TERM HUP QUIT; exit' \
+		INT TERM HUP QUIT
+
+out_dir="${output_file%/*}"
+out_dir="${out_dir:-"$iplist_dir_f"}"
+
+rm -rf "$FETCH_TMP_DIR"
+dir_mk -n "$out_dir" &&
+dir_mk -n "$FETCH_TMP_DIR" || die
+
 debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
 printf '\n%s' "Checking connectivity... "
-con_check_file=/tmp/geoip-shell-conn-check
+con_check_file=${FETCH_TMP_DIR}/geoip-shell-conn-check
 $con_check_cmd "${http}://$con_check_url" 1>"$con_check_file" 2>&1 || {
 	rv=$?
 	if ! grep -E "${con_check_ok_ptrn}" "$con_check_file" 1>/dev/null; then
@@ -834,14 +850,9 @@ else
 	:
 fi
 
-trap 'rm_tmp_f; rm_mm_tmp_f; [ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm" \
-	set +f;	rm -f "$server_html_file" "/tmp/${p_name}_ipdeny_plaintext_"*.tmp "/tmp/${p_name}_ipdeny_dl_page_"*.tmp; set -f; \
-	trap - INT TERM HUP QUIT; exit' INT TERM HUP QUIT
-
 check_updates
 
 # process list IDs
-set +f; rm -f "/tmp/${p_name}_"*.tmp; set -f
 if [ "$dl_src" = maxmind ] && [ "$ccodes_need_update" ]; then
 	fetch_maxmind || die
 fi
@@ -863,7 +874,7 @@ if [ "$status_file" ]; then
 	get_a_arr_keys list_date_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val list_date_arr "$list_id" prev_date
-		list_dates_str="${list_dates_str}prev_date_${list_id}=$prev_date$_nl"
+		list_dates_str="${list_dates_str}prev_date_${list_id}_${dl_src}=$prev_date$_nl"
 	done
 
 	ips_cnt_str=
@@ -871,7 +882,7 @@ if [ "$status_file" ]; then
 	get_a_arr_keys subnets_cnt_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val subnets_cnt_arr "$list_id" subnets_cnt
-		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}=$subnets_cnt$_nl"
+		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}_${dl_src}=$subnets_cnt$_nl"
 	done
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
@@ -883,4 +894,4 @@ if [ "$status_file" ]; then
 	}
 fi
 
-:
+die 0
