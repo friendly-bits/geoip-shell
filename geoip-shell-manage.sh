@@ -573,7 +573,7 @@ run_command="$i_script-run.sh"
 
 #### MAIN
 
-[ "$action" = status ] && { source_lib status "$lib_dir"; die $?; }
+[ "$action" = status ] && { source_lib status "$lib_dir" && report_status; die $?; }
 
 [ "$action" = lookup ] && {
 	source_lib lookup "$lib_dir" &&
