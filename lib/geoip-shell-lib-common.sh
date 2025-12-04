@@ -291,7 +291,7 @@ source_lib() {
 	for dir in "$@"; do
 		[ -f "$dir/$src_file" ] && . "$dir/$src_file" && return 0
 	done
-	echolog -err "Can not find '$src_file'."
+	echolog -err "Failed to source '$src_file'."
 	return 1
 }
 
@@ -1390,7 +1390,7 @@ ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_u
 	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
 	mm_license_type mm_acc_id mm_license_key keep_mm_db"
 
-valid_sources="ripe ipdeny maxmind"
+valid_srcs_country="ripe ipdeny maxmind"
 valid_families="ipv4 ipv6"
 
 ripe_url_stats="ftp.ripe.net/pub/stats"
