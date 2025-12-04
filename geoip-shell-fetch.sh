@@ -69,7 +69,7 @@ while getopts ":l:p:o:s:u:rfdVh" opt; do
 		p) iplist_dir_f=$OPTARG ;;
 		s) fetch_res_file=$OPTARG ;;
 		o) output_file=$OPTARG ;;
-		u) source_arg=$OPTARG ;;
+		u) src_arg=$OPTARG ;;
 
 		r) raw_mode=1 ;;
 		f) force_update=1 ;;
@@ -342,22 +342,22 @@ check_updates() {
 
 	unset up_to_date_lists ccodes_need_update families no_date_lists
 	for list_id in $valid_lists; do
-		get_a_arr_val server_dates_arr "$list_id" date_src_raw
-		date_raw_to_compat "$date_src_raw" date_src_compat
+		get_a_arr_val server_dates_arr "$list_id" src_date_raw
+		date_raw_to_compat "$src_date_raw" src_date_compat
 
-		if [ ! "$date_src_compat" ]; then
+		if [ ! "$src_date_compat" ]; then
 			add2list no_date_lists "$list_id"
-			date_src_raw="$(date +%Y%m%d)"; force_update=1
-			date_raw_to_compat "$date_src_raw" date_src_compat
+			src_date_raw="$(date +%Y%m%d)"; force_update=1
+			date_raw_to_compat "$src_date_raw" src_date_compat
 		fi
 
-		time_source="$(date -d "$date_src_compat" +%s)"
+		src_time="$(date -d "$src_date_compat" +%s)"
 
-		time_diff=$(( time_now - time_source ))
+		time_diff=$(( time_now - src_time ))
 
 		# warn the user if the date on the server is older than now by more than a week
 		if [ "$time_diff" -gt 604800 ]; then
-			msg1="Newest IP list for '$list_id' on the $dl_src_cap server is dated '$date_src_compat' which is more than 7 days old."
+			msg1="Newest IP list for '$list_id' on the $dl_src_cap server is dated '$src_date_compat' which is more than 7 days old."
 			msg2="Either your clock is incorrect, or $dl_src_cap is not updating the list for '$list_id'."
 			msg3="If it's the latter, please notify the developer."
 			echolog -warn "$msg1" "$msg2" "$msg3"
@@ -365,7 +365,7 @@ check_updates() {
 
 		check_prev_list "$list_id"
 
-		if [ "$prev_list_reg" ] && [ "$date_src_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$manmode" != 1 ]; then
+		if [ "$prev_list_reg" ] && [ "$src_date_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$manmode" != 1 ]; then
 			add2list up_to_date_lists "$list_id"
 		else
 			add2list ccodes_need_update "${list_id%_*}"
@@ -572,10 +572,10 @@ process_ccode() {
 			printf '%s\n' "}"
 		fi > "$list_path" || { list_failed "$FAIL write to file '$list_path'"; continue; }
 
-		touch -d "$date_src_compat" "$list_path"
+		touch -d "$src_date_compat" "$list_path"
 		add2list fetched_lists "$list_id"
 		set_a_arr_el subnets_cnt_arr "$list_id=$valid_s_cnt"
-		set_a_arr_el list_date_arr "$list_id=$date_src_compat"
+		set_a_arr_el list_date_arr "$list_id=$src_date_compat"
 
 		rm -f "$valid_list"
 		[ "$rm_fetched_list_id" ] && rm -f "$fetched_file"
@@ -660,10 +660,10 @@ done
 load_exclusions
 
 #### Check for valid DL source
-default_source=ripe
-is_alphanum "$source_arg" && tolower source_arg && subtract_a_from_b "$valid_sources" "$source_arg" ||
-	die "Invalid source: '$source_arg'"
-dl_src="${source_arg:-"$default_source"}"
+default_src=ripe
+is_alphanum "$src_arg" && tolower src_arg && subtract_a_from_b "$valid_srcs_country" "$src_arg" ||
+	die "Invalid source: '$src_arg'"
+dl_src="${src_arg:-"$default_src"}"
 checkvars dl_src
 toupper dl_src_cap "$dl_src"
 
