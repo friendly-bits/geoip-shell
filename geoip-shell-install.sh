@@ -420,10 +420,15 @@ for f in uninstall common arrays status setup ip-tools lookup $non_owrt $fw_libs
 done
 lib_files="$lib_files $owrt_comm"
 
+owrt_script_files=
+for f in "$owrt_init" "$owrt_fw_include" "$owrt_mk_fw_inc"; do
+	owrt_script_files="$owrt_script_files${script_dir}/${f} "
+done
+
 
 #### CHECKS
 printf %s "Checking files... "
-check_files "$script_files $lib_files $script_dir/cca2.list $owrt_init $owrt_fw_include $owrt_mk_fw_inc" ||
+check_files "$script_files $lib_files $script_dir/cca2.list $owrt_script_files" ||
 	die "missing files: $missing_files."
 OK
 
