@@ -638,7 +638,7 @@ get_general_prefs() {
 	families="${families_arg:-"$families"}"
 
 	# source
-	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$valid_sources" "$geosource_arg" ||
+	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$valid_srcs_country" "$geosource_arg" ||
 		die "Invalid source: '$geosource_arg'"
 	geosource="${geosource_arg:-$geosource}"
 	if [ "$geosource_arg" = maxmind ]; then
