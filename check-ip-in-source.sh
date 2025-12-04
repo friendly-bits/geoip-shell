@@ -64,7 +64,7 @@ while getopts ":c:i:u:dh" opt; do
 	case $opt in
 	c) ccode_arg=$OPTARG ;;
 	i) ips=$OPTARG ;;
-	u) source_arg=$OPTARG ;;
+	u) src_arg=$OPTARG ;;
 	d) debugmode_arg=1 ;;
 	h) usage; exit 0 ;;
 	*) unknownopt
@@ -98,14 +98,14 @@ validate_ip() {
 
 
 #### Constants
-valid_sources="ripe ipdeny maxmind"
-default_source=ripe
+valid_srcs_country="ripe ipdeny maxmind"
+default_src=ripe
 
 
 #### Variables
 
-tolower source_arg
-dl_source="${source_arg:-"$default_source"}"
+tolower src_arg
+dl_src="${src_arg:-"$default_src"}"
 ip_check_rv=0
 
 
@@ -120,11 +120,11 @@ case $? in
 	*) die_l
 esac
 
-checkvars dl_source
-[ "$(printf %s "$dl_source" | wc -w)" -gt 1 ] && { usage; die_l "Specify only one source."; }
+checkvars dl_src
+[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die_l "Specify only one source."; }
 
-subtract_a_from_b "$valid_sources" "$dl_source" invalid_source
-[ -n "$invalid_source" ] && { usage; die_l "Invalid source: $invalid_source"; }
+subtract_a_from_b "$valid_srcs_country" "$dl_src" invalid_src
+[ -n "$invalid_src" ] && { usage; die_l "Invalid source: $invalid_src"; }
 
 [ -z "$ips" ] && { usage; die_l "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
 
@@ -142,7 +142,7 @@ done
 [ -z "$val_ipv4s$val_ipv6s" ] && die_l "All IP addresses failed validation."
 [ -z "$families" ] && die_l "\$families variable is empty."
 
-if [ "$dl_source" = maxmind ]; then
+if [ "$dl_src" = maxmind ]; then
 	[ -s "$conf_file" ] && [ "$root_ok" ] && {
 		nodie=1 getconfig mm_license_type
 		nodie=1 getconfig mm_acc_id
@@ -176,7 +176,7 @@ for family in $families; do
 	list_file="$GEORUN_DIR/iplist-$list_id.tmp"
 
 	printf '' > "$ciis_fetch_res_file" &&
-	call_script "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$ciis_fetch_res_file" -u "$dl_source" ||
+	call_script "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$ciis_fetch_res_file" -u "$dl_src" ||
 		die_l "$FAIL fetch IP lists."
 
 	# read fetch results from ciis_fetch_res_file
@@ -202,7 +202,7 @@ match="Included"
 nomatch="Not included"
 match_color="$green"
 nomatch_color="$red"
-toupper dl_src_uc "$dl_source"
+toupper dl_src_uc "$dl_src"
 msg_pt2="in ${dl_src_uc}'s IP list for country '$ccode':"
 
 printf '\n%s\n' "${purple}Results:${n_c}"
