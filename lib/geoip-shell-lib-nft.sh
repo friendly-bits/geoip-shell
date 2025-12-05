@@ -10,11 +10,13 @@
 
 ### General
 
-# 1 - family
+# 1 - var for output
+# 2 - family
 get_nft_family() {
-	case "$1" in ipv4|ipv6) ;; *) echolog -err "get_nft_family: unexpected family '$1'"; nft_family=''; return 1; esac
-	nft_family="${1%ipv4}"
-	nft_family="ip${nft_family#ipv}"
+	eval "$1="
+	case "$2" in ipv4|ipv6) ;; *) echolog -err "get_nft_family: unexpected family '$2'"; return 1; esac
+	_family="${2%ipv4}"
+	eval "$1=ip\${_family#ipv}"
 }
 
 ### Tables and chains
@@ -194,7 +196,12 @@ report_fw_state() {
 					udp|tcp) prot="$1 " ;;
 					packets) pkts=$(num2human "$2"); shift ;;
 					bytes) bytes=$(num2human "$2" bytes); shift ;;
-					counter) ;;
+					meta|counter) ;;
+					nfproto)
+						shift
+						case "$1" in
+							ipv4|ipv6) ipv="$1"
+						esac ;;
 					accept) verd="ACCEPT" ;;
 					drop) verd="DROP  " ;;
 					*) line="$line$1 "
@@ -413,7 +420,18 @@ apply_rules() {
 
 			### Create new rules
 
+			allow_family=''
+			case "$families" in
+				ipv4) allow_family=ipv6 ;;
+				ipv6) allow_family=ipv4
+			esac
+
 			## Auxiliary rules
+
+			if [ "$geomode" = whitelist ] && [ -n "$allow_family" ]; then
+				# allowed family
+				printf '%s\n' "add $rule_prefix meta nfproto $allow_family accept comment ${geotag_aux}_allow-$allow_family"
+			fi
 
 			# add rule to allow lo interface
 			[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
@@ -426,14 +444,14 @@ apply_rules() {
 			for family in $families; do
 				set_allow_ipset_vars "$direction" "$family"
 				[ ! -s "$allow_iplist_file" ] && continue
-				get_nft_family "$family" || exit 1
+				get_nft_family nft_family "$family" || exit 1
 				printf '%s\n' "add $rule_prefix $opt_ifaces$nft_family $addr_type @$allow_ipset_name accept comment ${geotag_aux}_allow"
 			done
 
 			# add rules to allow DHCP
 			[ "$geomode" = whitelist ] && {
 				for family in $families; do
-					get_nft_family "$family" || exit 1
+					get_nft_family nft_family "$family" || exit 1
 					f_short="${family#ipv}"
 					case "$f_short" in
 						6)
@@ -480,7 +498,7 @@ apply_rules() {
 			for family in $families; do
 				for ipset in $local_block_ipsets $local_allow_ipsets; do
 					get_ipset_id "$ipset" &&
-					get_nft_family "$ipset_family" || exit 1
+					get_nft_family nft_family "$ipset_family" || exit 1
 					[ "$ipset_family" = "$family" ] || continue
 					rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
 					case "$ipset" in
@@ -496,7 +514,7 @@ apply_rules() {
 			for ipset in $planned_ipsets_direction; do
 				case "$ipset" in local_*) continue; esac
 				get_ipset_id "$ipset" &&
-				get_nft_family "$ipset_family" || exit 1
+				get_nft_family nft_family "$ipset_family" || exit 1
 				rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
 				get_counter_val "$rule_ipset $iplist_verdict"
 				printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $iplist_verdict comment ${geotag}"
