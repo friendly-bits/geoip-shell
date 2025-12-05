@@ -94,16 +94,29 @@ mk_nft_rm_cmd() {
 
 # parses an nft array/list and outputs it in human-readable format
 # sets $n to number of elements
+# sets $gnl_cache to complete string as processed
 get_nft_list() {
 	gnl_out_var="$1"
 	shift
-	n=0 _res=
-	[ "$1" = '!=' ] && { _res='!='; shift; n=$((n+1)); }
+	n=0
+	_res=
+	gnl_cache=
+	[ "$1" = '!=' ] && {
+		gnl_cache="!="
+		_res='!='
+		shift
+		n=$((n+1))
+	}
 	case "$1" in
 		'{')
 			while :; do
-				shift; n=$((n+1))
-				[ "$1" = '}' ] && break
+				gnl_cache="$gnl_cache$1 "
+				shift
+				n=$((n+1))
+				case "$1" in
+					'') break ;;
+					'}') gnl_cache="$gnl_cache$1 "; break
+				esac
 				_res="$_res$1"
 			done ;;
 		*) _res="$_res$1"
@@ -187,6 +200,7 @@ report_fw_state() {
 			set -- $rule
 			case "$families" in "ipv4 ipv6"|"ipv6 ipv4") dfam="both" ;; *) dfam="$families"; esac
 			pkts='---'; bytes='---'; ipv="$dfam"; verd='---'; prot='all'; dports='all'; in='all'; line=''
+			IFS="$default_IFS"
 			while [ -n "$1" ]; do
 				case "$1" in
 					iifname|oifname) shift; get_nft_list in "$@"; shift "$n" ;;
@@ -202,6 +216,25 @@ report_fw_state() {
 						case "$1" in
 							ipv4|ipv6) ipv="$1"
 						esac ;;
+					l4proto)
+						icmp_found=0
+						not_icmp_found=0
+						shift
+						get_nft_list l4proto "$@"
+						newifs ' ,' l4prot
+						for tmp_proto in $l4proto; do
+							case "$tmp_proto" in
+								icmp|ipv6-icmp) icmp_found=1 ;;
+								*) not_icmp_found=1
+							esac
+						done
+						oldifs l4prot
+						case "${icmp_found}${not_icmp_found}" in
+							10) prot="icmp" dports="---" ;;
+							00) ;;
+							*) line="${line}l4proto ${gnl_cache}"
+						esac
+						shift "$n" ;;
 					accept) verd="ACCEPT" ;;
 					drop) verd="DROP  " ;;
 					*) line="$line$1 "
@@ -470,25 +503,28 @@ apply_rules() {
 			}
 
 			# add rules for ports
-			for proto in tcp udp; do
-				eval "ports_exp=\"\${${direction}_${proto}_ports%:*}\" ports=\"\${${direction}_${proto}_ports##*:}\""
-				debugprint "$direction $proto ports_exp: '$ports_exp', ports: '$ports'"
-				case "$ports_exp" in
+			for proto in icmp tcp udp; do
+				get_proto_exp proto_exp ports "$proto" "$direction" || exit 1
+				case "$proto_exp" in
 					skip) continue ;;
-					all) ports_exp="meta l4proto $proto" ;;
-					'') echolog -err "\$ports_exp is empty string for direction '$direction'"; exit 1 ;;
+					all)
+						case "$proto" in
+							icmp) proto_exp="meta l4proto {icmp, ipv6-icmp}" ;;
+							tcp|udp) proto_exp="meta l4proto $proto" ;;
+						esac ;;
+					'') echolog -err "\$proto_exp is empty string for $proto, direction '$direction'"; exit 1 ;;
 					*)
 						unset br1 br2
 						case "$ports" in *','*)
 							br1='{ ' br2=' }'
 							ports="$(printf %s "$ports" | sed 's/,/, /g')"
 						esac
-						ports_exp="$proto $(printf %s "$ports_exp" | sed "s/multiport //;s/!dport/dport !=/") $br1$ports$br2"
+						proto_exp="$proto $(printf %s "$proto_exp" | sed "s/multiport //;s/!dport/dport !=/") $br1$ports$br2"
 				esac
-				rule_ports_pt1="$opt_ifaces$ports_exp"
-				rule_ports_pt2="accept comment \"${geotag_aux}_ports\""
-				get_counter_val "$rule_ports_pt1 $rule_ports_pt2"
-				printf '%s\n' "add $rule_prefix $rule_ports_pt1 counter $counter_val $rule_ports_pt2"
+				rule_proto_pt1="$opt_ifaces$proto_exp"
+				rule_proto_pt2="accept comment \"${geotag_aux}_${proto}\""
+				get_counter_val "$rule_proto_pt1 $rule_proto_pt2"
+				printf '%s\n' "add $rule_prefix $rule_proto_pt1 counter $counter_val $rule_proto_pt2"
 			done
 
 			eval "planned_ipsets_direction=\"\${planned_ipsets_${direction}}\""
@@ -550,21 +586,21 @@ apply_rules() {
 	#### Update ports in config
 	nft_get_geotable -f >/dev/null
 	ports_conf=
-	ports_exp=
+	proto_exp=
 	for direction in inbound outbound; do
 		set_dir_vars "$direction"
 		[ "$geomode" = disable ] && continue
 		for proto in tcp udp; do
-			eval "ports_exp=\"\$${direction}_${proto}_ports\""
-			case "$ports_exp" in skip|all) continue; esac
-			ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*${geotag_aux}_ports")"
+			eval "proto_exp=\"\$${direction}_${proto}_ports\""
+			case "$proto_exp" in skip|all) continue; esac
+			ports_line="$(nft_get_chain "$geochain" | grep -m1 -o "${proto} dport.*${geotag_aux}_${proto}")"
 
 			IFS=' 	' set -- $ports_line; shift 2
-			get_nft_list ports_exp "$@"
+			get_nft_list proto_exp "$@"
 			unset mp neg
-			case "$ports_exp" in *','*) mp="multiport "; esac
-			case "$ports_exp" in *'!'*) neg='!'; esac
-			ports_conf="$ports_conf${direction}_${proto}_ports=$mp${neg}dport:${ports_exp#*"!="}$_nl"
+			case "$proto_exp" in *','*) mp="multiport "; esac
+			case "$proto_exp" in *'!'*) neg='!'; esac
+			ports_conf="$ports_conf${direction}_${proto}_ports=$mp${neg}dport:${proto_exp#*"!="}$_nl"
 		done
 	done
 	[ "$ports_conf" ] && setconfig "${ports_conf%"$_nl"}"

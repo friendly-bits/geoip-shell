@@ -385,10 +385,12 @@ parse_ports() {
 	:
 }
 
-# input format: '[tcp|udp]:[allow|block]:[ports]'
+# input format: '< [tcp|udp]:[allow|block]:[ports] | icmp:[allow|block] >'
 # output format: 'skip|all|<[!]dport:[port-port,port...]>'
-# output via variables: ${_proto}_ports, ${direction}_${_proto}_ports
-setports() {
+# output via variables:
+#   tcp/udp: ${direction}_${_proto}_ports
+#   icmp: ${direction}_icmp
+setprotocols() {
 	tolower _lines "$1"
 	newifs "$_nl" sp
 	for _line in $_lines; do
@@ -397,13 +399,18 @@ setports() {
 		check_edge_chars "$_line" ":" || return 1
 		IFS=':'
 		set -- $_line
-		[ $# != 3 ] && { echolog -err "Invalid syntax '$_line'"; return 1; }
 		_proto="$1"
 		proto_act="$2"
-		_ranges="$3"
-		trimsp _ranges
-		trimsp _proto
+		_ranges_in="$3"
+		trimsp _ranges_in
 		trimsp proto_act
+
+		case "$_proto" in
+			tcp|udp) _ranges="$_ranges_in"; trimsp _proto; [ $# = 3 ] ;;
+			icmp) _ranges=all; [ $# = 2 ] || { [ $# = 3 ] && [ "$_ranges_in" = all ]; } ;;
+			*) false
+		esac || { echolog -err "Invalid syntax '$_line' in protocol expression."; return 1; }
+
 		case "$proto_act" in
 			allow) neg='' ;;
 			block) neg='!' ;;
@@ -412,24 +419,29 @@ setports() {
 		# check for valid protocol
 		eval "reg_proto=\"\$${direction}_reg_proto\""
 		case $_proto in
-			udp|tcp)
+			udp|tcp|icmp)
 				case "$reg_proto" in *"$_proto"*)
-					echolog -err "Can't add protocol '$_proto' twice for direction '$direction'."; return 1
+					echolog -err "Can't add rules for protocol '$_proto' twice for direction '$direction'."; return 1
 				esac
 				eval "${direction}_reg_proto=\"$reg_proto$_proto \"" ;;
 			*) echolog -err "Unsupported protocol '$_proto'."; return 1
 		esac
 
-		if [ "$_ranges" = all ]; then
-			_ports=
-			[ "$neg" ] && ports_exp=skip || ports_exp=all
-		else
-			parse_ports "$_ranges" || return 1
-			ports_exp="$mp${neg}dport"
-		fi
-		trimsp ports_exp
-		eval "${direction}_${_proto}_ports=\"$ports_exp$_ports\" ${_proto}_ports=\"$ports_exp$_ports\""
-		debugprint "$direction $_proto: ports: '$ports_exp$_ports'"
+		case "$_ranges" in
+			all)
+				_ports=
+				[ "$neg" ] && proto_exp=skip || proto_exp=all ;;
+			*)
+				parse_ports "$_ranges" || return 1
+				proto_exp="$mp${neg}dport"
+				trimsp proto_exp
+		esac
+
+		case "$_proto" in
+			tcp|udp) eval "${direction}_${_proto}_ports=\"$proto_exp$_ports\"" ;;
+			icmp) eval "${direction}_icmp=\"$proto_exp\"" ;;
+		esac
+		debugprint "$direction $_proto: expression: '$proto_exp$_ports'"
 	done
 	oldifs sp
 }
@@ -482,8 +494,10 @@ set_defaults() {
 	: "${_fw_backend:="$_FW_BACKEND_DEF"}"
 	: "${inbound_tcp_ports:=skip}"
 	: "${inbound_udp_ports:=skip}"
+	: "${inbound_icmp:=skip}"
 	: "${outbound_tcp_ports:=skip}"
 	: "${outbound_udp_ports:=skip}"
+	: "${outbound_icmp:=skip}"
 	: "${nft_perf:=$nft_perf_def}"
 	: "${reboot_sleep:=30}"
 	: "${max_attempts:=5}"

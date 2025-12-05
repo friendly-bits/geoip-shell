@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034
+# shellcheck disable=SC2317,SC2154,SC2086,SC1090,SC2034,SC2329
 
 # geoip-shell-apply.sh
 
@@ -140,6 +140,23 @@ get_ipset_name() {
 set_allow_ipset_vars() {
 	eval "allow_ipset_name=\"\${allow_ipset_name_${1}_${2}}\""
 	allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+}
+
+# 1 - var name for protocol expression output
+# 2 - var name for ports output
+# 3 - proto: tcp|udp|icmp
+# 4 - direction: inbound|outbound
+get_proto_exp() {
+	unset gpe_exp gpe_ports "$1" "$2"
+	case "$4" in inbound|outbound) : ;;*) false; esac &&
+	case "$3" in
+		tcp|udp) eval "gpe_exp=\"\${${4}_${3}_ports%:*}\" gpe_ports=\"\${${4}_${3}_ports##*:}\"" ;;
+		icmp) eval "gpe_exp=\"\${${4}_${3}}\"" ;;
+		*) false
+	esac &&
+	[ -n "$gpe_exp" ] || { echolog -err "Failed to get protocol expression for protocol '$2', direction '$3'."; return 1; }
+	debugprint "$4 $3 proto_exp: '$gpe_exp', ports: '$gpe_ports'"
+	eval "$1=\"\${gpe_exp}\" $2=\"\${gpe_ports}\""
 }
 
 

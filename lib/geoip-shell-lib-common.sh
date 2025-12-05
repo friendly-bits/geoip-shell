@@ -1384,6 +1384,7 @@ unisleep() {
 
 # config variables
 ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
+	inbound_icmp outbound_icmp \
 	inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
 	custom_script geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \

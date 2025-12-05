@@ -67,7 +67,9 @@ ${sp8}If passing multiple values, use double quotes.
   ${blue}-p <[tcp|udp]:[allow|block]:[all|<ports>]>${n_c} :
 ${sp8}For given protocol (tcp/udp), use 'block' to geoblock traffic on specific ports or on all ports.
 ${sp8}or use 'allow' to geoblock all traffic except on specific ports.
-${sp8}To specify ports for both tcp and udp in one command, use the '-p' option twice.
+  ${blue}-p <icmp:[allow|block]>${n_c} :
+${sp8}For *icmp*, use 'block' to geoblock all traffic, or use 'allow' to allow all icmp traffic through geoblocking filter.
+${sp8}To specify rules for multiple protocols in one command, use the '-p' option multiple times.
 
 ${purple}General options for the 'configure' action${n_c} (affects geoblocking in both directions):
 
@@ -216,7 +218,7 @@ set_directional_opt() {
 		inbound|outbound)
 			case "$opt" in
 				m|c) eval "${direction}_${d_var_name}"='$OPTARG' ;;
-				p) eval "${direction}_ports_arg=\"\${${direction}_ports_arg}$OPTARG$_nl\""
+				p) eval "${direction}_proto_arg=\"\${${direction}_proto_arg}$OPTARG$_nl\""
 			esac ;;
 		*) die "Internal error: unexpected direction '$direction'."
 	esac
@@ -245,7 +247,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; 
 			req_direc_opt=1 ;;
 		m) set_opt geomode_arg ;;
 		c) set_opt ccodes_arg ;;
-		p) set_opt ports_arg ;;
+		p) set_opt proto_arg ;;
 
 		f) set_opt families_arg ;;
 		s) set_opt schedule_arg ;;
@@ -513,13 +515,6 @@ unset conf_act rm_conf
 	tmp_conf_file="$GEOTEMP_DIR/${p_name}_upd.conf"
 	main_conf_path="$conf_file"
 
-	# update config vars on first setup
-	[ "$first_setup" ] && {
-		sed 's/^tcp_ports=/inbound_tcp_ports=/;s/^udp_ports=/inbound_udp_ports=/;s/^geomode=/inbound_geomode=/;
-				s/^iplists=/inbound_iplists=/' "$conf_file" > "$tmp_conf_file" && conf_file="$tmp_conf_file" ||
-					{ FAIL; rm_conf=1; }
-	}
-
 	# load config
 	nodie=1 export_conf=1 get_config_vars || rm_conf=1
 	conf_file="$main_conf_path"
@@ -643,7 +638,7 @@ for opt_ch in datadir local_iplists_dir noblock nobackup schedule no_persist geo
 done
 
 
-unset ccodes_arg_unset iplists_unset geomode_set ports_change geomode_change_g
+unset ccodes_arg_unset iplists_unset geomode_set proto_change geomode_change_g
 [ ! "$inbound_ccodes_arg$outbound_ccodes_arg" ] && ccodes_arg_unset=1
 [ ! "$inbound_iplists$outbound_iplists" ] && iplists_unset=1
 
@@ -664,22 +659,22 @@ for direction in inbound outbound; do
 	}
 done
 
-# set *_ccodes *_ports *_iplists *_geomode
+# set *_ccodes *_ports icmp *_iplists *_geomode
 for direction in inbound outbound; do
 	unset ccodes process_args geomode_change
 	contradicts1="contradicts $direction geoblocking mode 'disable'."
 	contradicts2="To enable geoblocking for direction $direction: '$p_name configure -D $direction -m <whitelist|blacklist>'"
 
-	for _par in geomode iplists tcp_ports udp_ports; do
+	for _par in geomode iplists icmp tcp_ports udp_ports; do
 		eval "${_par}=\"\${${direction}_${_par}}\" ${_par}_prev=\"\${${direction}_${_par}}\" \
 			${direction}_${_par}_prev=\"\${${direction}_${_par}}\""
 	done
 
-	for _par in ccodes_arg ports_arg geomode_arg; do
+	for _par in ccodes_arg proto_arg geomode_arg; do
 		eval "${_par}=\"\$${direction}_${_par}\""
 	done
 
-	[ -n "$ccodes_arg" ] || [ -n "$ports_arg" ] && process_args=1
+	[ -n "$ccodes_arg" ] || [ -n "$proto_arg" ] && process_args=1
 
 	# geoblocking mode
 	[ "$geomode_arg" ] && {
@@ -707,11 +702,11 @@ for direction in inbound outbound; do
 	: "${geomode:=disable}"
 
 	if [ "$geomode" = disable ]; then
-		[ "$ports_arg" ] && die "Option '-p' $contradicts1" "$contradicts2"
+		[ "$proto_arg" ] && die "Option '-p' $contradicts1" "$contradicts2"
 		[ "$ccodes_arg" ] && die "Option '-c' $contradicts1" "$contradicts2"
 		process_args=
 		unset iplists "${direction}_iplists"
-		eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_geomode=disable"
+		eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_icmp=skip ${direction}_geomode=disable"
 	else
 		process_args=1
 	fi
@@ -730,11 +725,11 @@ for direction in inbound outbound; do
 
 	[ ! "$process_args" ] && continue
 
-	# ports
-	[ "$ports_arg" ] && { setports "${ports_arg%"$_nl"}" || die; }
-	for opt_ch in tcp_ports udp_ports; do
-		eval "[ \"\$${direction}_${opt_ch}\" != \"\$${direction}_${opt_ch}_prev\" ] && ${direction}_ports_change=1" &&
-			ports_change=1
+	# protocols
+	[ "$proto_arg" ] && { setprotocols "${proto_arg%"$_nl"}" || die; }
+	for opt_ch in icmp tcp_ports udp_ports; do
+		eval "[ \"\$${direction}_${opt_ch}\" != \"\$${direction}_${opt_ch}_prev\" ] && ${direction}_proto_change=1" &&
+			proto_change=1
 	done
 
 	# country codes
@@ -885,7 +880,7 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 
 [ "$nobackup_change" ] && [ "$nobackup" = false ] && backup_req=1
 
-[ "$ports_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] || [ "$source_ips_policy_change" ] ||
+[ "$proto_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] || [ "$source_ips_policy_change" ] ||
 	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] || [ "$noblock_change" ] ||
 	[ "$lists_change" ] && apply_req=1
 

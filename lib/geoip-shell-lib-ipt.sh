@@ -359,6 +359,7 @@ print_rules_table() {
 			s/-m udp//;
 			s/-p tcp/-P tcp/;
 			s/-m tcp//;
+			s/-p icmp/-P icmp -p ---/;
 			s/\!${blank}*--dports${blanks}/--dports \!=/;
 			s/-m multiport --dports/-p/;
 			s/\!${blank}*--dport${blanks}/--dport \!=/;
@@ -688,21 +689,29 @@ apply_rules() {
 				}
 
 				# add rules for ports
-				for proto in tcp udp; do
-					eval "ports_exp=\"\${${direction}_${proto}_ports%:*}\" ports=\"\${${direction}_${proto}_ports##*:}\""
-					debugprint "$direction $proto ports_exp: '$ports_exp', ports: '$ports'"
-					[ "$ports_exp" = skip ] && continue
-					if [ "$ports_exp" = all ]; then
-						ports_exp=
+				for proto in icmp tcp udp; do
+					proto_exp_ipt=''
+					ports_ipt=''
+					proto_ipt="$proto"
+					get_proto_exp proto_exp ports "$proto" "$direction" || exit 1
+					[ "$proto_exp" = skip ] && continue
+					if [ "$proto_exp" = all ]; then
+						proto_exp_ipt=
 					else
 						dport='--dport'
-						case "$ports_exp" in *multiport*) dport='--dports' ;; '') ;; *) proto="$proto -m $proto"; esac
-						ports="$(printf %s "$ports" | sed 's/-/:/g')"
-						ports_exp="$(printf %s "$ports_exp" | sed "s/all//;s/multiport/-m multiport/;s/!/! /;s/dport/$dport/") $ports"
+						case "$proto_exp" in
+							*multiport*) dport='--dports' ;;
+							'') ;;
+							*) proto_ipt="$proto -m $proto"
+						esac
+						ports_ipt="$(printf %s "$ports" | sed 's/-/:/g')"
+						proto_exp_ipt="$(
+							printf %s "$proto_exp" |
+							sed "s/all//;s/multiport/-m multiport/;s/!/! /;s/dport/$dport/") $ports_ipt"
 					fi
-					trimsp ports_exp
-					[ "$ports_exp" ] && ports_exp=" $ports_exp"
-					rule="$geochain -p $proto$ports_exp $ipt_comm ${geotag_aux}_ports_${f_short} -j ACCEPT"
+					trimsp proto_exp_ipt
+					[ "$proto_exp_ipt" ] && proto_exp_ipt=" $proto_exp_ipt"
+					rule="${geochain} -p ${proto_ipt}${proto_exp_ipt} ${ipt_comm} ${geotag_aux}_${proto}_${f_short} -j ACCEPT"
 					debugprint "$direction rule: '$rule'"
 					get_counter_val "$rule" "$family"
 					printf '%s\n' "$counter_val -I $rule"

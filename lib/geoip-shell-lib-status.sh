@@ -16,23 +16,32 @@ source_lib "$_fw_backend" || die
 # 1 - direction (inbound|outbound)
 report_proto() {
 	printf '\n%s\n' "  Protocols:"
-	for proto in tcp udp; do
-		unset ports ports_act p_sel
-		eval "ports_exp=\"\${${1}_${proto}_ports%:*}\" ports=\"\${${1}_${proto}_ports##*:}\""
+	for proto in icmp tcp udp; do
+		unset ports proto_act p_sel spacer
+		case "$proto" in
+			tcp|udp)
+				eval "proto_exp=\"\${${1}_${proto}_ports%:*}\" ports=\"\${${1}_${proto}_ports##*:}\""
+				spacer=" " ;;
+			icmp) eval "proto_exp=\"\${${1}_${proto}}\""
+		esac
 
-		case "$ports_exp" in
-			all) ports_act="${red}*Geoblocking inactive*"; ports='' ;;
-			skip) ports="${green}all destination ports" ;;
-			*"!dport"*) p_sel="${yellow}only destination ports "; ports="${blue}$ports${n_c}" ;;
-			*) p_sel="${yellow}all destination ports except "; ports="${blue}$ports${n_c}"
+		case "$proto_exp" in
+			all) proto_act="${red}*Geoblocking inactive*"; ports='' ;;
+			skip)
+				case "$proto" in
+					tcp|udp) ports="${green}all destination ports" ;;
+					icmp) ports="${green}all ${1} traffic" ;;
+				esac ;;
+			*"!dport"*) p_sel="${yellow}only destination ports "; ports="${blue}${ports}${n_c}" ;;
+			*) p_sel="${yellow}all destination ports except "; ports="${blue}${ports}${n_c}"
 		esac
 
 		[ "$p_sel" ] && [ ! "$ports" ] && {
-			debugprint "\$ports_exp: '$ports_exp', \$ports_act: '$ports_act', \$ports: '$ports$n_c'."
+			debugprint "\$proto_exp: '$proto_exp', \$proto_act: '$proto_act', \$ports: '$ports$n_c'."
 			die "$FAIL get ports from the config, or the config is invalid."
 		}
-		[ ! "$ports_act" ] && ports_act="Geoblocking "
-		printf '%s\n' "  $proto: $ports_act$p_sel$ports${n_c}"
+		[ ! "$proto_act" ] && proto_act="Geoblocking "
+		printf '%s\n' "  ${proto}: ${spacer}${proto_act}${p_sel}${ports}${n_c}"
 	done
 }
 
