@@ -113,7 +113,11 @@ These options apply to geoblocking direction (inbound or outbound) which you can
 
 `-c <"country codes">`: Change which country codes are included in the whitelist/blacklist (this command replaces all country codes with newly specified ones).
 
-`-p <[tcp|udp]:[allow|block]:[all|<ports>]>`: Specify ports geoblocking will apply (or not apply) to, for tcp or udp. To specify ports for both tcp and udp, use the `-p` option twice. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
+`-p <[tcp|udp]:[allow|block]:[all|<ports>]>`: Specify ports geoblocking will apply (or not apply) to, for tcp or udp. 
+
+`-p <icmp:[allow|block]>`: Configure geoblocking (or not) of ICMP traffic.
+
+To specify ports for any combination of tcp, udp and icmp in one command, use the `-p` option multiple times. For more details, read [NOTES.md](/Documentation/NOTES.md), sections 10-12.
 
 **Example commands:**
 

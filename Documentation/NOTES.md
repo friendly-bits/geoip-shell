@@ -60,57 +60,76 @@
 
 9) Sometimes IP list source servers are temporarily unavailable and if you're unlucky enough to attempt installing geoip-shell during that time frame, the fetch script will fail which will cause the initial setup to fail as well. Try again after some time or use another source. Once the initial setup succeeds, an occasional fetch failure during automatic update won't cause any issues as last successfully fetched IP list will be used until the next update cycle succeeds.
 
-10) How to geoblock or allow specific ports.
-	geoip-shell allows to limit geoblocking to certain **destination** ports.
+10) How to geoblock or allow specific protocols and ports.
+	For TCP and UDP, geoip-shell allows to limit geoblocking to certain **destination** ports.
 
-    The general syntax is: `geoip-shell configure [-D <inbound|outbound>] -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+    The general syntax is:
+	
+	```
+	geoip-shell configure [-D <inbound|outbound>] -p <[tcp|udp]:[allow|block]:[all|<ports>]>
+	```
 
     Where `ports` may be any combination of comma-separated individual ports or port ranges (for example: `125-130` or `5,6` or `3,140-145,8`).
 
 	The `allow` keyword means that **only** specified ports are not geoblocked. The `block` keyword means that **only** specified ports are geoblocked.
 
-	The `all` keyword is self-explanatory. For example, `-p tcp:block:all` will geoblock all tcp traffic for the specified direction (inbound or outbound). `-p udp:allow:all` will **not** geoblock any udp traffic for the specified direction.
+	The `all` keyword is self-explanatory. For example, `-p tcp:block:all` will geoblock all TCP traffic for the specified direction (inbound or outbound). `-p udp:allow:all` will **not** geoblock any UDP traffic for the specified direction.
 
-    You can use the `-p` option twice to cover both tcp and udp, for example: `-p tcp:allow:22,23 -p udp:block:128-256,512`
-
-	When geoblocking direction is not specified via the `-D <inbound|outbound>` option, the command configures ports for **inbound** geoblocking.
-
-	You can configure ports for both directions in one command this way:
-	`geoip-shell configure -D inbound -p <options> [-p <options>] -D outbound -p <options> [-p <options>]`
-
-	Alternatively, you can achieve the same in 2 separate commands:
+	For ICMP, geoip-shell allows to either geoblock all ICMP traffic for given direction, or make all ICMP traffic for that direction bypass the geoblocking filter. The syntax is:
+	
 	```
-	geoip-shell configure -D inbound -p <options> [-p <options>]
-	geoip-shell configure -D outbound -p <options> [-p <options>]
+	geoip-shell configure [-D <inbound|outbound>] -p icmp:[allow|block]
+	```
+
+    You can use the `-p` option multiple times in one command or in consequtive commands to cover any combination of TCP, UDP and ICMP, for example: `-p tcp:allow:22,23 -p udp:block:128-256,512 -p icmp:allow`
+
+	When geoblocking direction is not specified via the `-D <inbound|outbound>` option, the command applies to **inbound** geoblocking.
+
+	You can configure protocols and ports for both directions in one command this way:
+	`geoip-shell configure -D inbound -p <options> [-p <options>] [-p <options>] -D outbound -p <options> [-p <options>] [-p <options>]`
+
+	Alternatively, you can achieve the same in two separate commands:
+	```
+	geoip-shell configure -D inbound -p <options> [-p <options>] [-p <options>]
+	geoip-shell configure -D outbound -p <options> [-p <options>] [-p <options>]
 	```
 
     <details> <summary>Examples</summary>
 
-    `geoip-shell configure -p tcp:block:all` - for inbound tcp traffic, geoblock all packets for all destination ports (default behavior)
+    `geoip-shell configure -p tcp:block:all` - for inbound TCP traffic, geoblock all packets for all destination ports (default behavior)
 
-    `geoip-shell configure -D outbound -p udp:allow:1,5-7,1024` - for outbound udp traffic, geoblock all packets **except** those which have destination ports 1, 5-7, 1024
+    `geoip-shell configure -D outbound -p udp:allow:1,5-7,1024` - for outbound UDP traffic, geoblock all packets **except** those which have destination ports 1, 5-7, 1024
 
-    `geoip-shell configure -D inbound -p tcp:block:125-135,7` - for inbound tcp traffic, only geoblock packets which have destination ports 125-135 and 7, do not geoblock inbound traffic on all other tcp ports
+    `geoip-shell configure -D inbound -p tcp:block:125-135,7` - for inbound TCP traffic, only geoblock packets which have destination ports 125-135 and 7, do not geoblock inbound traffic on all other TCP ports
+
+    `geoip-shell configure -p icmp:allow` - allow all inbound ICMP traffic through the geoblocking filter
+
 	</details>
 
-11) How to remove specific ports assignment:
+11) How to reset protocols and ports configuration to default:
 
     `geoip-shell configure [-D <inbound|outbound>] -p [tcp|udp]:block:all`.
 
+    `geoip-shell configure [-D <inbound|outbound>] -p icmp:block`.
+
     <details> <summary>Examples</summary>
 
-    `geoip-shell configure -p tcp:block:all` will remove prior port-specific rules for the tcp protocol, inbound direction. All inbound tcp packets with all destination ports will now go through geoip filter.
+    `geoip-shell configure -p tcp:block:all` will remove prior port-specific rules for the TCP protocol, inbound direction. All inbound TCP packets with all destination ports will now go through the geoblocking filter.
 
-    `geoip-shell configure -D outbound -p udp:block:all` will remove prior port-specific rules for the udp protocol, outbound direction. All outbound udp packets with all destination ports will now go through geoip filter.
+    `geoip-shell configure -D outbound -p udp:block:all` will remove prior port-specific rules for the UDP protocol, outbound direction. All outbound UDP packets with all destination ports will now go through geoblocking filter.
+
+    `geoip-shell configure -p icmp:block` will reset specific rules for the ICMP protocol to default (geoblock all ICMP traffic).
 	</details>
 
-12) How to make all packets for a specific protocol bypass geoip blocking:
+12) How to make all traffic for a specific protocol bypass the geoblocking filter:
 
     `geoip-shell configure [-D <inbound|outbound>] -p [tcp|udp]:allow:all`
 
+    `geoip-shell configure [-D <inbound|outbound>] -p icmp:allow`
+
     <details> <summary>Example</summary>
 
-    `geoip-shell configure -p udp:allow:all` will allow all inbound udp packets with all destination ports to bypass the geoip filter.
+    `geoip-shell configure -p udp:allow:all` will allow all inbound udp traffic to bypass the geoblocking filter.
 	</details>
 
 13) geoip-shell creates both 'accept' and 'drop' firewall rules, depending on your config. The 'drop' verdict is final: once a packet encounters the 'drop' rule, it is dropped. The 'accept' verdict is not final: a packet accepted by geoip-shell rules may still get dropped by other rules you may have in your firewall. So essentially geoip-shell acts as a filter which is only capable of narrowing down machine's exposure to the Internet but not overriding other blocking rules which you may have.

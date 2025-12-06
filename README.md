@@ -167,9 +167,11 @@ _<details><summary>Example:</summary>_
 - to set countries to Germany and Netherlands: `geoip-shell configure -c "DE NL"`
 </details>
 
-**To geoblock or allow specific ports or ports ranges:**
+**To geoblock or allow specific protocols, ports or ports ranges:**
 
 `geoip-shell configure -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+
+`geoip-shell configure -p <icmp:[allow|block]>`
 
 _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES.md), sections 10-12)_
 
@@ -306,6 +308,8 @@ To configure **inbound and outbound** geoblocking, whitelisting Germany and Ital
 **To change protocols and ports outbound geoblocking applies to:**
 
 `geoip-shell configure -D outbound -p <[tcp|udp]:[allow|block]:[all|<ports>]>`
+
+`geoip-shell configure -D outbound -p <icmp:[allow|block]>`
 
 ## **Local allowlists and blocklists**
 geoip-shell supports importing custom newline-separated IP lists into locally stored files. These files are then used to create additional allow or block rules. Rules for local IP lists will be created regardless of whether geoblocking mode is whitelist or blacklist, and for any enabled geoblocking direction (inbound or outbound or both).
