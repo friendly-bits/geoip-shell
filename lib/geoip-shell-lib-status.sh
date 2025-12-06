@@ -236,15 +236,14 @@ report_status() {
 			*) printf '%s\n' "${blue}${active_families}${n_c}${lists_coherent}"
 		esac
 
+		allow_ipset_prefix=
+		[ "$_fw_backend" = ipt ] && allow_ipset_prefix="${geotag}_"
+
 		for f in $families; do
 			unset allow_ips no_allow_ips "allow_$f"
-			case "$ipsets" in
-				"allow_${f#ipv}"*|"${_nl}allow_${f#ipv}"*) allow_ipset_name="allow_${f#ipv}" ;;
-				*"allow_${direction%bound}_${f#ipv}"*) allow_ipset_name="allow_${direction%bound}_${f#ipv}" ;;
-				*) no_allow_ips=1
-			esac
-			[ "$_fw_backend" = ipt ] && allow_ipset_name="${geotag}_${allow_ipset_name}"
-			[ ! "$no_allow_ips" ] && allow_ips="$(print_ipset_elements "$allow_ipset_name" "$ipsets" | tr '\n' ' ')"
+			get_matching_line "$ipsets" "" "${allow_ipset_prefix}allow_${f#ipv}" "" allow_ipset_name ||
+			get_matching_line "$ipsets" "" "${allow_ipset_prefix}allow_${direction%bound}_${f#ipv}" "" allow_ipset_name &&
+				allow_ips="$(print_ipset_elements "${allow_ipset_name}" "$ipsets" | tr '\n' ' ')"
 			eval "allow_$f=\"${allow_ips% }\""
 		done
 
