@@ -127,17 +127,18 @@ set_archive_type() {
 # checks for diff in new and old config and status files and makes a backup or restores if necessary
 # 1 - restore|backup
 cp_conf() {
-	unset src_f src_d dest_f dest_d compare_d
+	unset src_bak_suffix src_d dest_bak_suffix dest_d compare_d
 	case "$1" in
-		restore) src_f=_bak; src_d="$bk_dir/"; cp_act=Restoring ;;
-		backup) dest_f=_bak; dest_d="$bk_dir_new/" compare_d="$bk_dir/"; cp_act="Creating backup of" ;;
+		restore) src_bak_suffix=_bak; src_d="$bk_dir/"; cp_act=Restoring ;;
+		backup) dest_bak_suffix=_bak; dest_d="$bk_dir_new/" compare_d="$bk_dir/"; cp_act="Creating backup of" ;;
 		*) echolog -err "cp_conf: bad argument '$1'"; return 1
 	esac
 
 	for bak_obj in status config; do
-		eval "cp_src=\"$src_d\$${bak_obj}_file$src_f\" \
-			cp_dest=\"$dest_d\$${bak_obj}_file$dest_f\"
-			dest_compare_f=\"$compare_d\$${bak_obj}_file$dest_f\""
+		eval "cp_src=\"\${src_d}\${${bak_obj}_file${src_bak_suffix}}\" \
+			cp_dest=\"\${dest_d}\${${bak_obj}_file${dest_bak_suffix}}\"
+			dest_compare_f=\"\${compare_d}\${${bak_obj}_file${dest_bak_suffix}}\""
+
 		[ "$cp_src" ] && [ "$cp_dest" ] || { echolog -err "cp_conf: $FAIL set \$cp_src or \$cp_dest"; return 1; }
 		[ -f "$cp_src" ] || continue
 		[ -f "$dest_compare_f" ] && compare_files "$cp_src" "$dest_compare_f" && {

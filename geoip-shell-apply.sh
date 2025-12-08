@@ -132,7 +132,7 @@ get_ipset_name() {
 		[ "$list_date" ] && date_suffix="_${list_date}"
 	esac
 	[ "$_fw_backend" = ipt ] && prefix_gin="${p_name}_"
-	eval "$1=\"${prefix_gin}${2%_*}_${2##*ipv}${date_suffix}\""
+	eval "$1"='${prefix_gin}${2%_*}_${2##*ipv}${date_suffix}'
 }
 
 # 1 - direction
@@ -234,8 +234,8 @@ for family in $families; do
 
 		allow_ipset_name="allow_${direction%bound}_${family#ipv}"
 		allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
-		eval "allow_ipset_name_${direction}_${family}=\"$allow_ipset_name\"
-			allow_iplist_file_${direction}_${family}=\"$allow_iplist_file\"
+		eval "allow_ipset_name_${direction}_${family}=\"\$allow_ipset_name\"
+			allow_iplist_file_${direction}_${family}=\"\$allow_iplist_file\"
 			allow_ipset_type_${direction}_${family}=ip"
 		allow_ipset_type=ip
 
@@ -331,8 +331,8 @@ for family in $families; do
 			allow_ipset_name="allow_${family#ipv}"
 			allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
 			for dir in inbound outbound; do
-				eval "allow_ipset_name_${dir}_${family}=\"$allow_ipset_name\"
-					allow_iplist_file_${dir}_${family}=\"$allow_iplist_file\""
+				eval "allow_ipset_name_${dir}_${family}=\"\$allow_ipset_name\"
+					allow_iplist_file_${dir}_${family}=\"\$allow_iplist_file\""
 			done
 
 			mv "$allow_iplist_file_prev" "$allow_iplist_file" || die "$FAIL rename file '$allow_iplist_file'"
@@ -354,7 +354,7 @@ for family in ipv4 ipv6; do
 		for dir in "$local_iplists_dir" "$staging_local_dir"; do
 			for type in ip net; do
 				[ -s "$dir/$filename.$type" ] || continue
-				eval "${ipset_name}_file=\"$dir/$filename.$type\""
+				eval "${ipset_name}_file"='$dir/$filename.$type'
 				iplist_found=1
 			done
 		done
@@ -385,7 +385,7 @@ for direction in inbound outbound; do
 
 	separate_excl_iplists list_ids "$list_ids" || die
 
-	eval "${direction}_list_ids=\"$list_ids\""
+	eval "${direction}_list_ids"='$list_ids'
 
 	debugprint "$direction list IDs: '$list_ids'"
 

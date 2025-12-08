@@ -182,12 +182,16 @@ pick_opt() {
 		printf '\n'
 	}
 
+	case "$1" in
+		*[!a-zA-Z0-9_\|-]*) echolog -err "pick_opt: invalid args '$*'"; exit 1
+	esac
+
 	while :; do
 		printf %s "$1: "
 		read -r REPLY
 		is_alphanum "$REPLY" || { wrong_opt "$1"; continue; }
 		tolower REPLY
-		eval "case \"$REPLY\" in
+		eval "case \"\$REPLY\" in
 				$1) return ;;
 				*) wrong_opt \"$1\"
 			esac"
@@ -561,7 +565,7 @@ setconfig() {
 	}
 	# join old and new config
 	for config_line in $oldconfig; do
-		eval "case \"$config_line\" in
+		eval "case \"\$config_line\" in
 				''|$keys_test_str) ;;
 				*) newconfig="'$newconfig$config_line$_nl'"
 			esac"
@@ -680,13 +684,13 @@ add2list() {
 	a2l_fs="${3:- }"
 	eval "_curr_list=\"\$$1\""
 	is_included "$2" "$_curr_list" "$a2l_fs" && return 2
-	eval "$1=\"\${$1}$a2l_fs\""'$2'"; $1=\"\${$1#$a2l_fs}\""
+	eval "$1=\"\${$1}\""'${a2l_fs}$2'"; $1=\"\${$1#$a2l_fs}\""
 	return 0
 }
 
 # checks if string $1 is safe to use with eval
 is_str_safe() {
-	case "$1" in *'\'*|*'"'*|*\'*) echolog -err "Invalid string '$1'"; return 1; esac
+	case "$1" in *'\'*|*'"'*|*\'*|*'$'*|*'`'*) echolog -err "Invalid string '$1'"; return 1; esac
 	:
 }
 
@@ -1142,7 +1146,7 @@ separate_excl_iplists() {
 		[ "$excl_cnt" != 1 ] && excl_list_pr="lists" excl_verb="are"
 		echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list_pr '$_excl_lists' $excl_verb in the exclusions file, skipping."
 	}
-	eval "$1=\"$_ok_lists\""
+	eval "$1"='$_ok_lists'
 	:
 }
 
@@ -1176,7 +1180,7 @@ normalize_ccode() {
 
 	case "$ccode_list" in
 		'') echolog -err "Failed to load country codes list from '$cca2_path'."; return 1 ;;
-		*" $nc_in "*) eval "$1=\"$nc_in\""; return 0 ;;
+		*" $nc_in "*) eval "$1"='$nc_in'; return 0 ;;
 		*) return 3
 	esac
 	:

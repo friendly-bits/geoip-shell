@@ -132,7 +132,7 @@ ip_to_int() {
 	done
 
 
-	eval "$out_var_itoint=\"$ip_itoint\""
+	eval "$out_var_itoint=\"\$ip_itoint\""
 
 	:
 }

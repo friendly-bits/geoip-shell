@@ -244,7 +244,7 @@ report_status() {
 			get_matching_line "$ipsets" "" "${allow_ipset_prefix}allow_${f#ipv}" "" allow_ipset_name ||
 			get_matching_line "$ipsets" "" "${allow_ipset_prefix}allow_${direction%bound}_${f#ipv}" "" allow_ipset_name &&
 				allow_ips="$(print_ipset_elements "${allow_ipset_name}" "$ipsets" | tr '\n' ' ')"
-			eval "allow_$f=\"${allow_ips% }\""
+			eval "allow_$f"='${allow_ips% }'
 		done
 
 		includes_server=

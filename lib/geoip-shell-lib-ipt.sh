@@ -761,7 +761,7 @@ apply_rules() {
 			:
 		)" || die_a "$FAIL assemble commands for iptables-restore"
 		debugprint "\nNew $family rules: $_nl$iptr_cmds$_nl"
-		eval "${family}_iptr_cmds=\"$iptr_cmds\""
+		eval "${family}_iptr_cmds=\"\$iptr_cmds\""
 	done
 
 	OK
@@ -773,7 +773,7 @@ apply_rules() {
 		printf_s "Applying new $family firewall rules... "
 		ipt_output="$(printf '%s\n' "$iptr_cmds" | eval "$ipt_restore_cmd -c" 2>&1)" || {
 			echolog -err "$FAIL apply new $family iptables rules"
-			echolog "iptables errors: '$(printf %s "$ipt_output" | head -c 1k | tr '\n' ';')'"
+			echolog "iptables errors: '$(printf %s "$ipt_output" | head -c 1k)'"
 			critical
 		}
 		printf '%s\n' "$iptr_cmds" | eval "$ipt_restore_cmd -c" || critical "$FAIL apply new $family iptables rules"

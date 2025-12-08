@@ -218,7 +218,7 @@ set_directional_opt() {
 		inbound|outbound)
 			case "$opt" in
 				m|c) eval "${direction}_${d_var_name}"='$OPTARG' ;;
-				p) eval "${direction}_proto_arg=\"\${${direction}_proto_arg}$OPTARG$_nl\""
+				p) eval "${direction}_proto_arg=\"\${${direction}_proto_arg}\$OPTARG\$_nl\""
 			esac ;;
 		*) die "Internal error: unexpected direction '$direction'."
 	esac
@@ -352,7 +352,7 @@ restore_from_config() {
 
 	if [ -n "$run_args" ]; then
 		# call the -run script
-		eval "call_script -l \"$run_command\" add -l \"$run_args\" -o" && {
+		call_script -l "$run_command" add -l "$run_args" -o && {
 			printf '%s\n' "$restore_ok_msg"
 			return 0
 		}

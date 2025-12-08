@@ -64,14 +64,14 @@ val_cron_exp() {
 	}
 
 	validateDay() {
-		eval "case \"$1\" in
+		eval "case \"\$1\" in
 			$dow_values) abbr=1; return 0
 		esac"
 		return 1
 	}
 
 	validateMon() {
-		eval "case \"$1\" in
+		eval "case \"\$1\" in
 			$mon_values) abbr=1; return 0
 		esac"
 		return 1

@@ -219,13 +219,13 @@ pick_ips() {
 		[ -z "$pi_ips" ] && continue
 		validate_ip "$pi_ips" "$family" && break
 	done
-	eval "$pi_var=\"$pi_ips\""
+	eval "$pi_var"='$pi_ips'
 }
 
 pick_lan_ips() {
 	confirm_ips() {
 		unset "lan_ips_$family"
-		[ "$lan_ips" ] && eval "lan_ips_$family=\"$ipset_type:$lan_ips\""
+		[ "$lan_ips" ] && eval "lan_ips_$family"='$ipset_type:$lan_ips'
 	}
 
 	debugprint "Processing lan ips..."
@@ -285,7 +285,7 @@ pick_lan_ips() {
 pick_source_ips() {
 	confirm_ips() {
 		unset "source_ips_$family"
-		[ "$source_ips" ] && eval "source_ips_$family=\"$ipset_type:$source_ips\""
+		[ "$source_ips" ] && eval "source_ips_$family"='$ipset_type:$source_ips'
 	}
 
 	debugprint "Processing source ips..."
@@ -423,7 +423,7 @@ setprotocols() {
 				case "$reg_proto" in *"$_proto"*)
 					echolog -err "Can't add rules for protocol '$_proto' twice for direction '$direction'."; return 1
 				esac
-				eval "${direction}_reg_proto=\"$reg_proto$_proto \"" ;;
+				eval "${direction}_reg_proto"='$reg_proto$_proto ' ;;
 			*) echolog -err "Unsupported protocol '$_proto'."; return 1
 		esac
 
@@ -438,8 +438,8 @@ setprotocols() {
 		esac
 
 		case "$_proto" in
-			tcp|udp) eval "${direction}_${_proto}_ports=\"$proto_exp$_ports\"" ;;
-			icmp) eval "${direction}_icmp=\"$proto_exp\"" ;;
+			tcp|udp) eval "${direction}_${_proto}_ports"='$proto_exp$_ports' ;;
+			icmp) eval "${direction}_icmp"='$proto_exp' ;;
 		esac
 		debugprint "$direction $_proto: expression: '$proto_exp$_ports'"
 	done
@@ -670,7 +670,7 @@ get_general_prefs() {
 				ipset_type=net
 				pick_ips trusted "$family" "trusted IP addresses or subnets" || continue
 				unset "trusted_$family"
-				[ "$trusted" ] && eval "trusted_$family=\"$ipset_type:$trusted\""
+				[ "$trusted" ] && eval "trusted_$family"='$ipset_type:$trusted'
 			done
 	esac
 

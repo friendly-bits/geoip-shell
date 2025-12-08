@@ -121,7 +121,7 @@ get_nft_list() {
 			done ;;
 		*) _res="$_res$1"
 	esac
-	eval "$gnl_out_var=\"$_res\""
+	eval "$gnl_out_var"='$_res'
 }
 
 # 1 - direction (inbound|outbound)
