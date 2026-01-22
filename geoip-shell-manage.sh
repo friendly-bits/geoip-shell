@@ -474,6 +474,8 @@ report_lists() {
 }
 
 
+export nointeract="${nointeract_arg:-$nointeract}"
+
 #### showconfig
 [ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0; }
 
@@ -491,7 +493,7 @@ unset conf_act rm_conf
 		set_first_setup
 	}
 
-	[ ! "$nointeract_arg" ] && [ -s "$conf_file" ] && {
+	[ ! "$nointeract" ] && [ -s "$conf_file" ] && {
 		q="[K]eep previous"
 		keep_opt=k
 		for _par in $ALL_CONF_VARS; do
@@ -595,6 +597,11 @@ case "$action" in
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
 	reset)
+		[ -n "${nointeract}" ] || {
+			printf '\n%s\n' "Warning: this will reset $p_name config and remove $p_name IP lists and firewall rules. Continue? (y|n)"
+			pick_opt "y|n"
+			[ "$REPLY" = y ] || die 0
+		}
 		rm_iplists_rules
 		rm_all_data
 		[ -f "$conf_file" ] && { printf '%s\n' "Deleting the config file '$conf_file'..."; rm -f "$conf_file"; }
@@ -621,8 +628,6 @@ for var_name in datadir local_iplists_dir noblock nobackup schedule no_persist g
 	user_ccode lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
 	eval "${var_name}_prev=\"\$$var_name\""
 done
-
-export nointeract="${nointeract_arg:-$nointeract}"
 
 # sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
 #   geosource trusted user_ccode keep_mm_db custom_script
