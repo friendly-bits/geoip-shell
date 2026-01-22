@@ -257,7 +257,7 @@ detect_init() {
 		$awk_cmd 'BEGIN{IGNORECASE=1; rv=1} match($0, /(upstart|systemd|procd|sysvinit|busybox|openrc)/) \
 			{ print substr($0, RSTART, RLENGTH); rv=0; exit; } END{exit rv}' "$1"
 	}
-	set_di_var() { eval "$1=\"$2\""; }
+	set_di_var() { eval "$1"='$2'; }
 
 	set_di_var "$1" ''
 	[ "$_OWRTFW" ] && { set_di_var "$1" procd; [ "$inst_root_gs" ] && return 0; }
@@ -521,12 +521,12 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 	echo "Adding the init script... "
 	{
 		printf '%s\n' "#!/bin/sh /etc/rc.common"
-		eval "printf '%s\n' \"$(cat "$script_dir/$owrt_init")\"" | prep_script -n
+		cat "$script_dir/$owrt_init" | prep_script -n
 	} > "$tmp_init_script" &&
 	add_file "$tmp_init_script" "/etc/init.d/$p_name-init" 555
 
 	echo "Preparing the firewall include... "
-	eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$tmp_fw_include" &&
+	prep_script "$script_dir/$owrt_fw_include" > "$tmp_fw_include" &&
 	{
 		cat <<- EOF
 			#!/bin/sh
