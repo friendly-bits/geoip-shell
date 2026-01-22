@@ -241,7 +241,7 @@ case "$action" in
 		bk_local_lists
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		printf_s "Creating backup of $p_name IP sets... "
-		create_backup && OK
+		create_backup "$bk_ext" "$bk_dir_new" "$iplists" && OK
 		rm -f "$tmp_file"
 		setconfig "bk_ext=${bk_ext:-bak}" &&
 		cp_conf backup || bk_failed

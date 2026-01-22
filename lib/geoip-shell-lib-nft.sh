@@ -630,9 +630,10 @@ extract_iplists() {
 # Saves current firewall state to a backup file
 create_backup() {
 	# back up current IP sets
+	bk_ext_cb="$1" bk_dir_cb="$2" iplists_cb="$3"
 	getstatus "$status_file" || bk_failed
-	for list_id in $iplists; do
-		bk_file="${bk_dir_new}/${list_id}.${bk_ext:-bak}"
+	for list_id in $iplists_cb; do
+		bk_file_cb="${bk_dir_cb}/${list_id}.${bk_ext_cb:-bak}"
 		eval "list_date=\"\$prev_date_${list_id}_${geosource}\""
 		[ -z "$list_date" ] && bk_failed "$FAIL get date for IP list '$list_id'."
 		list_id_short="${list_id%%_*}_${list_id##*ipv}"
@@ -648,8 +649,8 @@ create_backup() {
 		[ "$debugmode" ] && bk_len="$(wc -l < "$tmp_file")"
 		debugprint "\n$list_id backup length: $bk_len"
 
-		$compr_cmd < "$tmp_file" > "$bk_file" || bk_failed "$compr_cmd exited with status $? for IP list '$list_id'."
-		[ -s "$bk_file" ] || bk_failed "resulting compressed file for '$list_id' is empty or doesn't exist."
+		$compr_cmd < "$tmp_file" > "$bk_file_cb" || bk_failed "$compr_cmd exited with status $? for IP list '$list_id'."
+		[ -s "$bk_file_cb" ] || bk_failed "resulting compressed file for '$list_id' is empty or doesn't exist."
 	done
 	:
 }

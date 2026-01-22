@@ -819,19 +819,24 @@ restore_ipsets() {
 
 # Saves current ipsets to a backup file
 create_backup() {
-	bk_file="${bk_dir_new}/${p_name}_backup.${bk_ext:-bak}"
-	bk_failed_file="$GEOTEMP_DIR/$p_name-backup-failed"
-	rm -f "$bk_failed_file"
-	ipsets="$(ipset list -n | grep "$geotag")" || { echolog "create_backup: no ipsets found."; return 0; }
-	for ipset in $ipsets; do
+	bk_ext_cb="$1" bk_dir_cb="$2"
+	bk_file_cb="${bk_dir_cb}/${p_name}_backup.${bk_ext_cb:-bak}"
+	bk_failed_file_cb="$GEOTEMP_DIR/$p_name-backup-failed"
+	rm -f "$bk_failed_file_cb"
+	ipsets_cb="$(ipset list -n | grep "$geotag")" || { echolog "create_backup: no ipsets found."; return 0; }
+
+	debugprint "Backup path: '$bk_file_cb'"
+
+	for ipset in $ipsets_cb; do
+		debugprint "Backup ipset '$ipset'"
 		ipset save "$ipset" || {
-			touch "$bk_failed_file"
+			touch "$bk_failed_file_cb"
 			echolog -err "${_nl}$FAIL create backup of ipset '$ipset'."
 			exit 1
 		}
-	done | eval "$compr_cmd" > "$bk_file" && [ ! -f "$bk_failed_file" ] && [ -s "$bk_file" ] ||
+	done | eval "$compr_cmd" > "$bk_file_cb" && [ ! -f "$bk_failed_file_cb" ] && [ -s "$bk_file_cb" ] ||
 	{
-		rm -f "$bk_failed_file"
+		rm -f "$bk_failed_file_cb"
 		bk_failed "${_nl}$FAIL create backup of $p_name ipsets."
 	}
 	:
