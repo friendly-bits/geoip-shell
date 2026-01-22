@@ -692,7 +692,11 @@ apply_rules() {
 				for proto in icmp tcp udp; do
 					proto_exp_ipt=''
 					ports_ipt=''
-					proto_ipt="$proto"
+					if [ "$proto" = icmp ] && [ "$f_short" = 6 ]; then
+						proto_ipt="icmpv6"
+					else
+						proto_ipt="$proto"
+					fi
 					get_proto_exp proto_exp ports "$proto" "$direction" || exit 1
 					[ "$proto_exp" = skip ] && continue
 					if [ "$proto_exp" = all ]; then
@@ -702,7 +706,7 @@ apply_rules() {
 						case "$proto_exp" in
 							*multiport*) dport='--dports' ;;
 							'') ;;
-							*) proto_ipt="$proto -m $proto"
+							*) proto_ipt="$proto_ipt -m $proto"
 						esac
 						ports_ipt="$(printf %s "$ports" | sed 's/-/:/g')"
 						proto_exp_ipt="$(
