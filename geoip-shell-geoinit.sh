@@ -10,7 +10,7 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.7.7"
+curr_ver="0.7.8.1"
 export _nl='
 '
 export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 $_nl"
