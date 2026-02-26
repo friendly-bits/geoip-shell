@@ -315,6 +315,202 @@ get_nft_geoip_state() {
 	:
 }
 
+mk_apply_cmds() {
+	### Remove current rules
+	for direction in inbound outbound; do
+		set_dir_vars "$direction"
+		for chain in "$base_geochain" "$geochain"; do
+			case "$geotable_cont" in *"chain $chain "*)
+				printf '%s\n%s\n' "flush chain inet $geotable $chain" "delete chain inet $geotable $chain"
+			esac
+		done
+	done
+
+	### Remove old ipsets
+	[ "$rm_ipsets" ] && debugprint "deleting ipsets '$rm_ipsets'"
+	for rm_ipset in $rm_ipsets; do
+		printf '%s\n' "delete set inet $geotable $rm_ipset"
+	done
+
+	### Load ipsets for local iplists, allowed subnets/ips
+	for family in $families; do
+		## local iplists
+		[ "$inbound_geomode" != disable ] || [ "$outbound_geomode" != disable ] && {
+			for ipset in $local_ipsets; do
+				get_ipset_id "$ipset" || exit 1
+				[ "$ipset_family" = "$family" ] || continue
+				print_ipset_rule "$ipset" "$iplist_path" "$ipset_el_type" "$family"
+			done
+		}
+
+		unset allow_iplist_file_prev
+		for direction in inbound outbound; do
+			eval "geomode=\"\$${direction}_geomode\""
+			[ "$geomode" = disable ] && continue
+
+			## allow iplists
+			set_allow_ipset_vars "$direction" "$family"
+			[ "$allow_iplist_file" = "$allow_iplist_file_prev" ] || [ ! -s "$allow_iplist_file" ] && continue
+			allow_iplist_file_prev="$allow_iplist_file"
+			eval "allow_ipset_type=\"\${allow_ipset_type_${direction}_${family}}\""
+
+			print_ipset_rule "$allow_ipset_name" "$allow_iplist_file" "$allow_ipset_type" "$family"
+		done
+	done
+
+	### add ipset for dhcpv4 subnets
+	is_whitelist_present && {
+		case "$families" in *ipv4*)
+			printf '%s%s\n' "add set inet $geotable dhcp_4 { type ipv4_addr; flags interval; auto-merge; elements="\
+				"{ 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 }; }"
+		esac
+	}
+
+	### create new rules
+	for direction in inbound outbound; do
+		set_dir_vars "$direction"
+		geopath="inet $geotable $geochain"
+		rule_prefix="rule $geopath"
+
+		case "$direction" in
+			inbound) hook=prerouting priority=-141 addr_type=saddr iface_keyword=iifname ;;
+			outbound) hook=postrouting priority=0 addr_type=daddr iface_keyword=oifname
+		esac
+		opt_ifaces=
+		[ "$opt_ifaces_gen" ] && opt_ifaces="$iface_keyword $opt_ifaces_gen "
+
+		case "$geomode" in
+			whitelist) iplist_verdict=accept ;;
+			blacklist) iplist_verdict=drop ;;
+			disable)
+				debugprint "$direction geoblocking mode is 'disable'. Skipping rules creation."
+				continue ;;
+			*) echolog -err "Unknown geoblocking mode '$geomode'."; exit 1
+		esac
+
+		### Create new chains
+		printf '%s\n' "add chain inet $geotable $base_geochain { type filter hook $hook priority $priority; policy accept; }"
+		printf '%s\n' "add chain $geopath"
+
+		### Create new rules
+
+		allow_family=''
+		case "$families" in
+			ipv4) allow_family=ipv6 ;;
+			ipv6) allow_family=ipv4
+		esac
+
+		## Auxiliary rules
+
+		if [ "$geomode" = whitelist ] && [ -n "$allow_family" ]; then
+			# allowed family
+			printf '%s\n' "add $rule_prefix meta nfproto $allow_family accept comment ${geotag_aux}_allow-$allow_family"
+		fi
+
+		# add rule to allow lo interface
+		[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
+			printf '%s\n' "add rule $geopath $iface_keyword lo accept comment ${geotag_aux}_loopback"
+
+		# add rule to allow established/related
+		printf '%s\n' "add $rule_prefix ${opt_ifaces}ct state established,related accept comment ${geotag_aux}_est-rel"
+
+		# add rules for allowed subnets/ips
+		for family in $families; do
+			set_allow_ipset_vars "$direction" "$family"
+			[ ! -s "$allow_iplist_file" ] && continue
+			get_nft_family nft_family "$family" || exit 1
+			printf '%s\n' "add $rule_prefix $opt_ifaces$nft_family $addr_type @$allow_ipset_name accept comment ${geotag_aux}_allow"
+		done
+
+		# add rules to allow DHCP
+		[ "$geomode" = whitelist ] && {
+			for family in $families; do
+				get_nft_family nft_family "$family" || exit 1
+				f_short="${family#ipv}"
+				case "$f_short" in
+					6)
+						dhcp_addr="fc00::/6"
+						dhcp_dports="546, 547" ;;
+					4)
+						dhcp_addr="@dhcp_4"
+						dhcp_dports="67, 68"
+				esac
+				rule_DHCP_1="$opt_ifaces$nft_family $addr_type $dhcp_addr udp dport { $dhcp_dports }"
+				rule_DHCP_2="accept comment \"${geotag_aux}_DHCP_${f_short}\""
+				get_counter_val "$rule_DHCP_1 $rule_DHCP_2"
+				printf '%s\n' "add $rule_prefix $rule_DHCP_1 counter $counter_val $rule_DHCP_2"
+
+			done
+		}
+
+		# add rules for ports
+		for proto in icmp tcp udp; do
+			get_proto_exp proto_exp ports "$proto" "$direction" || exit 1
+			case "$proto_exp" in
+				skip) continue ;;
+				all)
+					case "$proto" in
+						icmp) proto_exp="meta l4proto {icmp, ipv6-icmp}" ;;
+						tcp|udp) proto_exp="meta l4proto $proto" ;;
+					esac ;;
+				'') echolog -err "\$proto_exp is empty string for $proto, direction '$direction'"; exit 1 ;;
+				*)
+					unset br1 br2
+					case "$ports" in *','*)
+						br1='{ ' br2=' }'
+						ports="$(printf %s "$ports" | sed 's/,/, /g')"
+					esac
+					proto_exp="$proto $(printf %s "$proto_exp" | sed "s/multiport //;s/!dport/dport !=/") $br1$ports$br2"
+			esac
+			rule_proto_pt1="$opt_ifaces$proto_exp"
+			rule_proto_pt2="accept comment \"${geotag_aux}_${proto}\""
+			get_counter_val "$rule_proto_pt1 $rule_proto_pt2"
+			printf '%s\n' "add $rule_prefix $rule_proto_pt1 counter $counter_val $rule_proto_pt2"
+		done
+
+		eval "planned_ipsets_direction=\"\${planned_ipsets_${direction}}\""
+		debugprint "$direction planned ipsets: '$planned_ipsets_direction'"
+
+		# add rules for local iplists
+		for family in $families; do
+			for ipset in $local_block_ipsets $local_allow_ipsets; do
+				get_ipset_id "$ipset" &&
+				get_nft_family nft_family "$ipset_family" || exit 1
+				[ "$ipset_family" = "$family" ] || continue
+				rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
+				case "$ipset" in
+					*_allow_*) local_verdict=accept ;;
+					*_block_*) local_verdict=drop
+				esac
+				get_counter_val "$rule_ipset $local_verdict"
+				printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $local_verdict comment ${geotag}"
+			done
+		done
+
+		# add rules for country codes
+		for ipset in $planned_ipsets_direction; do
+			case "$ipset" in local_*) continue; esac
+			get_ipset_id "$ipset" &&
+			get_nft_family nft_family "$ipset_family" || exit 1
+			rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
+			get_counter_val "$rule_ipset $iplist_verdict"
+			printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $iplist_verdict comment ${geotag}"
+		done
+
+		# add whitelist blocking rule
+		[ "$geomode" = whitelist ] && {
+			rule_wl_pt2="drop comment \"${geotag}_${direction}_whitelist_block\""
+			get_counter_val "$opt_ifaces$rule_wl_pt2"
+			printf '%s\n' "add $rule_prefix ${opt_ifaces}counter $counter_val $rule_wl_pt2"
+		}
+
+		# add geoblocking enable rule
+		[ "$noblock" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
+	done
+
+	:
+}
+
 apply_rules() {
 	print_ipset_rule() {
 		case "$3" in
@@ -374,207 +570,13 @@ apply_rules() {
 	printf_s "Assembling nftables commands... "
 
 	nft_get_geotable -f 1>/dev/null
-	nft_cmd_chain="$(
-		### Remove current rules
-		for direction in inbound outbound; do
-			set_dir_vars "$direction"
-			for chain in "$base_geochain" "$geochain"; do
-				case "$geotable_cont" in *"chain $chain "*)
-					printf '%s\n%s\n' "flush chain inet $geotable $chain" "delete chain inet $geotable $chain"
-				esac
-			done
-		done
-
-		### Remove old ipsets
-		[ "$rm_ipsets" ] && debugprint "deleting ipsets '$rm_ipsets'"
-		for rm_ipset in $rm_ipsets; do
-			printf '%s\n' "delete set inet $geotable $rm_ipset"
-		done
-
-		### Load ipsets for local iplists, allowed subnets/ips
-		for family in $families; do
-			## local iplists
-			[ "$inbound_geomode" != disable ] || [ "$outbound_geomode" != disable ] && {
-				for ipset in $local_ipsets; do
-					get_ipset_id "$ipset" || exit 1
-					[ "$ipset_family" = "$family" ] || continue
-					print_ipset_rule "$ipset" "$iplist_path" "$ipset_el_type" "$family"
-				done
-			}
-
-			unset allow_iplist_file_prev
-			for direction in inbound outbound; do
-				eval "geomode=\"\$${direction}_geomode\""
-				[ "$geomode" = disable ] && continue
-
-				## allow iplists
-				set_allow_ipset_vars "$direction" "$family"
-				[ "$allow_iplist_file" = "$allow_iplist_file_prev" ] || [ ! -s "$allow_iplist_file" ] && continue
-				allow_iplist_file_prev="$allow_iplist_file"
-				eval "allow_ipset_type=\"\${allow_ipset_type_${direction}_${family}}\""
-
-				print_ipset_rule "$allow_ipset_name" "$allow_iplist_file" "$allow_ipset_type" "$family"
-			done
-		done
-
-		### add ipset for dhcpv4 subnets
-		is_whitelist_present && {
-			case "$families" in *ipv4*)
-				printf '%s%s\n' "add set inet $geotable dhcp_4 { type ipv4_addr; flags interval; auto-merge; elements="\
-					"{ 192.168.0.0/16, 172.16.0.0/12, 10.0.0.0/8 }; }"
-			esac
-		}
-
-		### create new rules
-		for direction in inbound outbound; do
-			set_dir_vars "$direction"
-			geopath="inet $geotable $geochain"
-			rule_prefix="rule $geopath"
-
-			case "$direction" in
-				inbound) hook=prerouting priority=-141 addr_type=saddr iface_keyword=iifname ;;
-				outbound) hook=postrouting priority=0 addr_type=daddr iface_keyword=oifname
-			esac
-			opt_ifaces=
-			[ "$opt_ifaces_gen" ] && opt_ifaces="$iface_keyword $opt_ifaces_gen "
-
-			case "$geomode" in
-				whitelist) iplist_verdict=accept ;;
-				blacklist) iplist_verdict=drop ;;
-				disable)
-					debugprint "$direction geoblocking mode is 'disable'. Skipping rules creation."
-					continue ;;
-				*) echolog -err "Unknown geoblocking mode '$geomode'."; exit 1
-			esac
-
-			### Create new chains
-			printf '%s\n' "add chain inet $geotable $base_geochain { type filter hook $hook priority $priority; policy accept; }"
-			printf '%s\n' "add chain $geopath"
-
-			### Create new rules
-
-			allow_family=''
-			case "$families" in
-				ipv4) allow_family=ipv6 ;;
-				ipv6) allow_family=ipv4
-			esac
-
-			## Auxiliary rules
-
-			if [ "$geomode" = whitelist ] && [ -n "$allow_family" ]; then
-				# allowed family
-				printf '%s\n' "add $rule_prefix meta nfproto $allow_family accept comment ${geotag_aux}_allow-$allow_family"
-			fi
-
-			# add rule to allow lo interface
-			[ "$geomode" = whitelist ] && [ "$ifaces" = all ] &&
-				printf '%s\n' "add rule $geopath $iface_keyword lo accept comment ${geotag_aux}_loopback"
-
-			# add rule to allow established/related
-			printf '%s\n' "add $rule_prefix ${opt_ifaces}ct state established,related accept comment ${geotag_aux}_est-rel"
-
-			# add rules for allowed subnets/ips
-			for family in $families; do
-				set_allow_ipset_vars "$direction" "$family"
-				[ ! -s "$allow_iplist_file" ] && continue
-				get_nft_family nft_family "$family" || exit 1
-				printf '%s\n' "add $rule_prefix $opt_ifaces$nft_family $addr_type @$allow_ipset_name accept comment ${geotag_aux}_allow"
-			done
-
-			# add rules to allow DHCP
-			[ "$geomode" = whitelist ] && {
-				for family in $families; do
-					get_nft_family nft_family "$family" || exit 1
-					f_short="${family#ipv}"
-					case "$f_short" in
-						6)
-							dhcp_addr="fc00::/6"
-							dhcp_dports="546, 547" ;;
-						4)
-							dhcp_addr="@dhcp_4"
-							dhcp_dports="67, 68"
-					esac
-					rule_DHCP_1="$opt_ifaces$nft_family $addr_type $dhcp_addr udp dport { $dhcp_dports }"
-					rule_DHCP_2="accept comment \"${geotag_aux}_DHCP_${f_short}\""
-					get_counter_val "$rule_DHCP_1 $rule_DHCP_2"
-					printf '%s\n' "add $rule_prefix $rule_DHCP_1 counter $counter_val $rule_DHCP_2"
-
-				done
-			}
-
-			# add rules for ports
-			for proto in icmp tcp udp; do
-				get_proto_exp proto_exp ports "$proto" "$direction" || exit 1
-				case "$proto_exp" in
-					skip) continue ;;
-					all)
-						case "$proto" in
-							icmp) proto_exp="meta l4proto {icmp, ipv6-icmp}" ;;
-							tcp|udp) proto_exp="meta l4proto $proto" ;;
-						esac ;;
-					'') echolog -err "\$proto_exp is empty string for $proto, direction '$direction'"; exit 1 ;;
-					*)
-						unset br1 br2
-						case "$ports" in *','*)
-							br1='{ ' br2=' }'
-							ports="$(printf %s "$ports" | sed 's/,/, /g')"
-						esac
-						proto_exp="$proto $(printf %s "$proto_exp" | sed "s/multiport //;s/!dport/dport !=/") $br1$ports$br2"
-				esac
-				rule_proto_pt1="$opt_ifaces$proto_exp"
-				rule_proto_pt2="accept comment \"${geotag_aux}_${proto}\""
-				get_counter_val "$rule_proto_pt1 $rule_proto_pt2"
-				printf '%s\n' "add $rule_prefix $rule_proto_pt1 counter $counter_val $rule_proto_pt2"
-			done
-
-			eval "planned_ipsets_direction=\"\${planned_ipsets_${direction}}\""
-			debugprint "$direction planned ipsets: '$planned_ipsets_direction'"
-
-			# add rules for local iplists
-			for family in $families; do
-				for ipset in $local_block_ipsets $local_allow_ipsets; do
-					get_ipset_id "$ipset" &&
-					get_nft_family nft_family "$ipset_family" || exit 1
-					[ "$ipset_family" = "$family" ] || continue
-					rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
-					case "$ipset" in
-						*_allow_*) local_verdict=accept ;;
-						*_block_*) local_verdict=drop
-					esac
-					get_counter_val "$rule_ipset $local_verdict"
-					printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $local_verdict comment ${geotag}"
-				done
-			done
-
-			# add rules for country codes
-			for ipset in $planned_ipsets_direction; do
-				case "$ipset" in local_*) continue; esac
-				get_ipset_id "$ipset" &&
-				get_nft_family nft_family "$ipset_family" || exit 1
-				rule_ipset="$opt_ifaces$nft_family $addr_type @$ipset"
-				get_counter_val "$rule_ipset $iplist_verdict"
-				printf '%s\n' "add $rule_prefix $rule_ipset counter $counter_val $iplist_verdict comment ${geotag}"
-			done
-
-			# add whitelist blocking rule
-			[ "$geomode" = whitelist ] && {
-				rule_wl_pt2="drop comment \"${geotag}_${direction}_whitelist_block\""
-				get_counter_val "$opt_ifaces$rule_wl_pt2"
-				printf '%s\n' "add $rule_prefix ${opt_ifaces}counter $counter_val $rule_wl_pt2"
-			}
-
-			# add geoblocking enable rule
-			[ "$noblock" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
-		done
-
-		:
-	)" || die_a 254 "$FAIL assemble nftables commands."
+	apply_cmds="$(mk_apply_cmds)" || die_a 254 "$FAIL assemble nftables commands."
 	OK
 
 	#### Apply new rules
-	[ "$debugmode" ] && printf '\n%s\n%s\n\n' "Rules:" "$nft_cmd_chain" >&2
+	[ "$debugmode" ] && printf '\n%s\n%s\n\n' "Rules:" "$apply_cmds" >&2
 	printf_s "Applying new firewall rules... "
-	nft_output="$(printf '%s\n' "$nft_cmd_chain" | nft -f - 2>&1)" || {
+	nft_output="$(printf '%s\n' "$apply_cmds" | nft -f - 2>&1)" || {
 		FAIL
 		echolog -err "$FAIL apply new firewall rules"
 		echolog "nftables errors:${_nl}$(printf %s "$nft_output" | head -c 1k)"
