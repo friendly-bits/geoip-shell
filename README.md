@@ -141,7 +141,7 @@ _(Note that all commands require root privileges, so you will likely need to run
 
 Generally, once the installation completes, you don't have to do anything else for **inbound** geoblocking to work (if you installed via an OpenWrt ipk package, read the [OpenWrt README](/OpenWrt/README.md)).
 
-By default, IP lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-5 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
+By default, IP lists will be updated daily around 4:15am local time (to avoid everyone loading the servers at the same time, the default minute is randomized to +-12 precision at the time of initial setup and the seconds are randomized at the time of automatic update).
 
 If you want to change geoblocking config or check geoblocking status, you can do that via the provided utilities.
 A selection of options is given here, for additional options run `geoip-shell -h` or read [NOTES.md](/Documentation/NOTES.md) and [DETAILS.md](/Documentation/DETAILS.md).
