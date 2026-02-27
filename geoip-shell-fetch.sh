@@ -129,8 +129,8 @@ get_src_dates_ipdeny() {
 
 		server_html_file="${tmp_file_path}_dl_page_${family}.tmp"
 		server_plaintext_file="${tmp_file_path}_plaintext_${family}.tmp"
-		# debugprint "timestamp fetch command: '$fetch_cmd_date \"${http}://${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_date "${http}://$server_url" > "$server_html_file"
+		# debugprint "timestamp fetch command: '$fetch_cmd_date \"https://${server_url}\" > \"$server_html_file\""
+		$fetch_cmd_date "https://$server_url" > "$server_html_file"
 
 		debugprint "Processing $family listing on the IPDENY server..."
 
@@ -170,8 +170,8 @@ get_src_dates_ripe() {
 
 		debugprint "getting listing from url '$server_url'..."
 
-		# debugprint "timestamp fetch command: '$fetch_cmd_date \"${http}://${server_url}\" > \"$server_html_file\""
-		$fetch_cmd_date "${http}://$server_url" > "$server_html_file"
+		# debugprint "timestamp fetch command: '$fetch_cmd_date \"https://${server_url}\" > \"$server_html_file\""
+		$fetch_cmd_date "https://$server_url" > "$server_html_file"
 
 		debugprint "Processing the listing..."
 		# gets a listing and filters it by something like '-xxxxxxxx.md5' where x's are numbers,
@@ -424,7 +424,7 @@ fetch_maxmind() {
 		set +f; rm -f "${GEORUN_DIR}/${p_name}_fetched-mm-db"*; set -f
 		printf '%s\n' "Fetching the database from MaxMind..."
 
-		fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_db_mm" || {
+		fetch_file "$fetch_cmd" "https://$dl_url" "$fetched_db_mm" || {
 			list_failed "$FAIL fetch the database from Maxmind"
 			rm -f "$fetched_db_mm"
 			return 1
@@ -511,7 +511,7 @@ process_ccode() {
 			esac
 			printf '\n%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
 
-			fetch_file "$fetch_cmd" "${http}://$dl_url" "$fetched_file" || {
+			fetch_file "$fetch_cmd" "https://$dl_url" "$fetched_file" || {
 				list_failed "$FAIL fetch the $fetch_subj from $dl_src_cap."
 				return 1
 			}
@@ -667,112 +667,107 @@ dl_src="${src_arg:-"$default_src"}"
 checkvars dl_src
 toupper dl_src_cap "$dl_src"
 
+#### SSL check logic
+unset ssl_ok owrt_ssl_certs ucl_ssl_libs
+
+if [ -n "$_OWRTFW" ]; then
+	[ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] &&
+		owrt_ssl_certs=1
+	{ [ -s /usr/bin/ssl_client ] || [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ]; } &&
+		ucl_ssl_libs=1
+fi
+
 #### Choose best available DL utility, set options
-ucl_cmd="uclient-fetch -O -"
-curl_cmd="curl -f --retry 2"
-wget_cmd="wget -O -"
-
-[ "$script_dir" = "$install_dir" ] && [ "$root_ok" ] && getconfig http
-
 case "$dl_src" in
 	ipdeny|maxmind) main_conn_timeout=16 ;;
 	ripe) main_conn_timeout=22 # ripe api may be slow at processing initial request for a non-ripe region
 esac
 
+gnu_wget_con_check_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
+ucl_con_check_ptrn="HTTP error (301|302|403)"
+curl_con_check_ptrn="(301|302|403)"
+
+ucl_cmd="uclient-fetch -O -"
+curl_cmd="curl -f --retry 2"
+wget_cmd="wget -O -"
+
 for util in curl wget uclient-fetch; do
 	checkutil "$util" || continue
-	unset fetch_cmd maxmind_str ssl_util ssl_libs
-	case "$util" in
-		curl)
-			curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null && curl_cmd="$curl_cmd --fail-early"
-			curl --version 2>/dev/null | grep -E "Protocols:.*${blank}https(${blank}|$)" 1>/dev/null && ssl_util=1
-			[ "$dl_src" = maxmind ] && maxmind_str=" -u $mm_acc_id:$mm_license_key"
-			con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
-			fetch_cmd="$curl_cmd$maxmind_str -L -f --connect-timeout $main_conn_timeout"
-			fetch_cmd_date="$curl_cmd$maxmind_str -L -f --connect-timeout 16 -s -S"
-			fetch_cmd_q="$fetch_cmd -s -S"
-			fetch_cmd="$fetch_cmd --progress-bar"
-			con_check_ok_ptrn="(301|302|403)"
-			ssl_libs=1 ;;
-		wget)
-			gnu_wget=
-			wget_ver="$(wget --version 2>/dev/null | head -n6)"
-			case "$wget_ver" in *"GNU Wget"*) gnu_wget=1; esac
+	unset fetch_cmd maxmind_str ssl_util
+	util_path="$(readlink -f "$(command -v "$util")")"
 
-			unset wget_tries wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
-			if [ -z "$gnu_wget" ]; then
+	if [ "$util" = "uclient-fetch" ] || [ "${util_path##*/}" = "uclient-fetch" ]; then
+		[ "$dl_src" = maxmind ] &&
+			die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
+		con_check_cmd="$ucl_cmd -T 7 -s"
+		fetch_cmd_date="$ucl_cmd -T 16 -q"
+		fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
+		fetch_cmd="$ucl_cmd -T $main_conn_timeout"
+		con_check_ptrn="$ucl_con_check_ptrn"
+		[ -n "${ucl_ssl_libs}" ] && ssl_util=1
+	else
+		case "$util" in
+			curl)
+				curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null &&
+					curl_cmd="$curl_cmd --fail-early"
 				[ "$dl_src" = maxmind ] &&
-					die "Can not fetch from MaxMind with this version of wget. Please install curl or GNU wget."
-				con_check_ok_ptrn="HTTP error (301|302|403)"
-				ssl_util=1
-			else
-				wget_server_response=" --server-response"
-				wget_show_progress=" --show-progress"
-				wget_max_redirect=" --max-redirect=10"
-				wget_con_check_max_redirect=" --max-redirect=0"
-				wget_tries=" --tries=2"
-				con_check_ok_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
-				ssl_libs=1
-			fi
+					maxmind_str=" -u $mm_acc_id:$mm_license_key"
+				con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
+				fetch_cmd="$curl_cmd$maxmind_str -L -f --connect-timeout $main_conn_timeout"
+				fetch_cmd_date="$curl_cmd$maxmind_str -L -f --connect-timeout 16 -s -S"
+				fetch_cmd_q="$fetch_cmd -s -S"
+				fetch_cmd="$fetch_cmd --progress-bar"
+				con_check_ptrn="$curl_con_check_ptrn"
+				curl --version 2>/dev/null | grep -E "Protocols:.*${blank}https(${blank}|$)" 1>/dev/null &&
+					ssl_util=1 ;;
+			wget)
+				unset wget_tries wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
 
-			[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
-			con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries} --timeout=7 --spider"
-			fetch_cmd="${wget_cmd}${wget_max_redirect}${wget_tries}${maxmind_str} -q"
-			fetch_cmd_date="${fetch_cmd} --timeout=16"
-			fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
-			fetch_cmd_q="${fetch_cmd}"
-			fetch_cmd="${fetch_cmd}${wget_show_progress}"
-			case "$wget_ver" in *"+https"*) ssl_util=1; esac ;;
-		uclient-fetch)
-			[ "$dl_src" = maxmind ] &&
-				die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
-			con_check_cmd="$ucl_cmd -T 7 -s"
-			fetch_cmd_date="$ucl_cmd -T 16 -q"
-			fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
-			fetch_cmd="$ucl_cmd -T $main_conn_timeout"
-			con_check_ok_ptrn="HTTP error (301|302|403)"
-			ssl_util=1
-	esac
-	if [ -n "$ssl_util" ] && [ -n "$_OWRTFW" ]; then
-		if [ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] &&
-			{ [ -s /usr/bin/ssl_client ] || [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ]; }
-		then
-			ssl_libs=1
-		fi
+				wget_ver="$(wget --version 2>/dev/null | head -n6)"
+				case "$wget_ver" in
+					*"GNU Wget"*)
+						wget_server_response=" --server-response"
+						wget_show_progress=" --show-progress"
+						wget_max_redirect=" --max-redirect=10"
+						wget_con_check_max_redirect=" --max-redirect=0"
+						wget_tries=" --tries=2"
+						con_check_ptrn="$gnu_wget_con_check_ptrn" ;;
+					*)
+						echolog -warn "Unknown wget version is installed. Fetching with it may or may not work. Install curl or GNU wget to remove this warning."
+						con_check_ptrn="(${ucl_con_check_ptrn}|${gnu_wget_con_check_ptrn})"
+				esac
+
+				[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
+				con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries} --timeout=7 --spider"
+				fetch_cmd="${wget_cmd}${wget_max_redirect}${wget_tries}${maxmind_str} -q"
+				fetch_cmd_date="${fetch_cmd} --timeout=16"
+				fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
+				fetch_cmd_q="${fetch_cmd}"
+				fetch_cmd="${fetch_cmd}${wget_show_progress}"
+				case "$wget_ver" in *"+https"*)
+					ssl_util=1
+				esac ;;
+		esac
 	fi
-	[ -n "$ssl_util" ] && [ -n "$ssl_libs" ] && { ssl_ok=1; break; }
+
+	if [ -n "$ssl_util" ] && { [ -z "${_OWRTFW}" ] || [ -n "$owrt_ssl_certs" ]; }; then
+		ssl_ok=1
+		break
+	fi
 done
 
 [ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
 
 if [ -z "$ssl_ok" ]; then
-	case "$dl_src" in ipdeny|maxmind)
-		echolog -err "SSL support is required to use the ${dl_src_cap} source but no utility with SSL support is available."
-		checkutil uci && echolog "Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
-		die
-	esac
-
-	if [ -z "$http" ]; then
-		if [ "$nointeract" ]; then
-			REPLY=y
-		else
-			[ "$manmode" != 1 ] && die "no fetch utility with SSL support available."
-			printf '\n%s\n' "Can not find download utility with SSL support. Enable insecure downloads?"
-			pick_opt "y|n"
-		fi
-		case "$REPLY" in
-			n) die "No fetch utility available." ;;
-			y) http=http; [ "$script_dir" = "$install_dir" ] && setconfig http
-		esac
-	fi
+	echolog -warn "SSL support is required for download but SSL support was not detected. Fetch may fail."
+	checkutil uci && echolog "Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
 fi
-: "${http:=https}"
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
 printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
 
-debugprint "http: '$http', ssl_ok: '$ssl_ok'"
+debugprint "ssl_ok: '$ssl_ok'"
 
 
 #### VARIABLES
@@ -819,16 +814,16 @@ rm -rf "$FETCH_TMP_DIR"
 dir_mk -n "$out_dir" &&
 dir_mk -n "$FETCH_TMP_DIR" || die
 
-debugprint "conn check command: '$con_check_cmd \"${http}://$con_check_url\"'"
+debugprint "conn check command: '$con_check_cmd \"https://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
 printf '\n%s' "Checking connectivity... "
 con_check_file=${FETCH_TMP_DIR}/geoip-shell-conn-check
-$con_check_cmd "${http}://$con_check_url" 1>"$con_check_file" 2>&1 || {
+$con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 	rv=$?
-	if ! grep -E "${con_check_ok_ptrn}" "$con_check_file" 1>/dev/null; then
+	if ! grep -E "${con_check_ptrn}" "$con_check_file" 1>/dev/null; then
 		rm -f "$con_check_file"
-		echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"${http}://$con_check_url\""
+		echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"https://$con_check_url\""
 		die "Connection attempt to the $dl_src_cap server failed."
 	fi
 }
