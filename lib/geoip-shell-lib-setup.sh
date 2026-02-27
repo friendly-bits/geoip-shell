@@ -167,7 +167,7 @@ pick_ifaces() {
 	ifaces_picked=1
 }
 
-# 1 - input IPs/subnets
+# 1 - input IPs/ranges
 # 2 - output var base name
 # outputs whitespace-delimited validated IPs via $2_$family
 # if a subnet detected in ips of a particular family, output is prefixed with 'net:', otherwise with 'ip:'
@@ -241,7 +241,7 @@ pick_lan_ips() {
 	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan IPs with '-l <\"lan_ips\"|auto|none>'."
 
 	[ ! "$nointeract" ] && {
-		[ ! "$autodetect" ] && echo "You can specify LAN subnets and/or individual IPs to allow."
+		[ ! "$autodetect" ] && echo "You can specify LAN IP addresses and/or IP ranges to allow."
 	}
 
 	source_lib ip-tools || die
@@ -250,7 +250,7 @@ pick_lan_ips() {
 		ipset_type=net
 		echo
 		checkutil get_lan_subnets && {
-			printf %s "Detecting $family LAN subnets..."
+			printf %s "Detecting $family LAN IP ranges..."
 			lan_ips="$(get_lan_subnets "$family")"
 		} || {
 			[ "$nointeract" ] && die
@@ -258,10 +258,10 @@ pick_lan_ips() {
 
 		[ -n "$lan_ips" ] && {
 			nl2sp lan_ips
-			printf '\n%s\n' "Automatically detected $family LAN subnets: '$blue$lan_ips$n_c'."
+			printf '\n%s\n' "Automatically detected $family LAN IP ranges: '$blue$lan_ips$n_c'."
 			[ "$autodetect" ] && { confirm_ips; continue; }
 			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
-				"Verify that correct LAN subnets have been detected in order to avoid accidental lockout or other problems."
+				"Verify that correct LAN IP ranges have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
 			case "$REPLY" in
 				c) confirm_ips; continue ;;
@@ -271,13 +271,13 @@ pick_lan_ips() {
 			esac
 		}
 
-		pick_ips lan_ips "$family" "LAN IP addresses and/or subnets" || continue
+		pick_ips lan_ips "$family" "LAN IP addresses and/or IP ranges" || continue
 		confirm_ips
 	done
 	echo
 
 	[ "$autodetect" ] || [ "$autodetect_off" ] && return
-	printf '%s\n' "${blue}A[u]tomatically detect LAN subnets when updating IP lists or keep this config c[o]nstant?$n_c"
+	printf '%s\n' "${blue}A[u]tomatically detect LAN IP ranges when updating IP lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
 	[ "$REPLY" = u ] && autodetect=1
 }
@@ -448,7 +448,7 @@ setprotocols() {
 
 warn_lockout() {
 	printf '\n\n%s\n' \
-	"${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN subnets will be blocked, unless you whitelist them.$n_c"
+	"${yellow}*NOTE*${n_c}: ${blue}In whitelist mode, traffic from your LAN IP ranges will be blocked, unless you whitelist them.$n_c"
 }
 
 # assigns default values, unless the var is set
@@ -465,13 +465,13 @@ set_defaults() {
 
 	noblock_def=false no_persist_def=false force_cron_persist_def=false
 
-	# randomly select schedule minute between 10 and 19
+	# randomly select schedule minute between 3 and 27
 	[ ! "$schedule" ] && {
-		rand_int="$(tr -cd 0-9 < /dev/urandom | dd bs=1 count=1 2>/dev/null)"
+		get_random_int rand_int 24
 		: "${rand_int:=0}"
 		# for the superstitious
-		[ "$rand_int" = 3 ] && rand_int=10
-		def_sch_minute=$((10+rand_int))
+		[ "$rand_int" = 10 ] && rand_int=25
+		def_sch_minute=$((3+rand_int))
 	}
 
 	if [ "$_OWRTFW" ]; then
@@ -668,7 +668,7 @@ get_general_prefs() {
 			[ "$nointeract" ] && die
 			for family in $families; do
 				ipset_type=net
-				pick_ips trusted "$family" "trusted IP addresses or subnets" || continue
+				pick_ips trusted "$family" "trusted IP addresses or ranges" || continue
 				unset "trusted_$family"
 				[ "$trusted" ] && eval "trusted_$family"='$ipset_type:$trusted'
 			done
