@@ -476,10 +476,26 @@ getallconf() {
 	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; return 1; }
 
 	# check in cache first
-	conf_gac=
-	[ "$2" = "$conf_file" ] && conf_gac="$main_config"
+	main_gac='' conf_gac=''
+	[ "$2" = "$conf_file" ] && conf_gac="$main_config" main_gac=1
 	[ -z "$conf_gac" ] && {
-		conf_gac="$(grep -vE "^(${blank}*#.*\$|\$)" "$2")"
+		conf_gac="$(
+			awk -v c="$ALL_CONF_VARS" -v main="$main_gac" "
+				BEGIN{
+					if (main) {
+						n=split(c,arr)
+						for (el in arr) {key=arr[el]; if (key) keys[key]}
+					}
+				}
+				/^${blank}*(#|$)/ {next}
+				{
+					sub(/^${blank}+/, \"\")
+					sub(/${blank}+$/, \"\")
+					split(\$0,pair,\"=\")
+					if (!main || pair[1] in keys) print pair[1] \"=\" pair[2]
+				}
+			" "$2"
+		)"
 		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
 	}
 	eval "$1"='$conf_gac'
@@ -1391,7 +1407,7 @@ ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_u
 	inbound_icmp outbound_icmp \
 	inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
 	custom_script geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
-	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock http user_ccode schedule families \
+	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock user_ccode schedule families \
 	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
 	mm_license_type mm_acc_id mm_license_key keep_mm_db"
 
