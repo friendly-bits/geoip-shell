@@ -193,13 +193,12 @@ trap 'trap - INT TERM HUP QUIT; run_fail 1' INT TERM HUP QUIT
 		: "${reboot_sleep:=30}"
 		sl_time=$((reboot_sleep-uptime))
 	elif [ "$action_run" = update ]; then
-		rand_int="$(tr -cd 0-9 < /dev/urandom | dd bs=3 count=1 2>/dev/null)"
-		: "${rand_int:=0}"
-		sl_time=$(( $(printf "%.0f" "$rand_int")*60/999 ))
+		get_random_int sl_time 60
 	fi
 	[ $sl_time -gt 0 ] && {
 		echolog "Sleeping for ${sl_time}s..."
-		sleep $sl_time
+		sleep $sl_time &
+		wait $!
 	}
 }
 
@@ -284,7 +283,8 @@ if [ "$lists_fetch" ]; then
 				[ $attempt -ge $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
 				san_str lists_fetch "$failed_lists $missing_lists" || fetch_failed
 				echolog "Retrying in $secs seconds"
-				sleep $secs
+				sleep $secs &
+				wait $!
 				secs=$((secs*4))
 				continue
 			}
