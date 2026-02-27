@@ -217,6 +217,20 @@ is_alphanum() {
 	:
 }
 
+# outputs random int between 0 and $2. max 99 with dd, 65535 with hexdump
+# output via var $1
+get_random_int() {
+    gri_int=
+    if checkutil hexdump; then
+        gri_int="$(hexdump -n 2 -e '"%u"' </dev/urandom)"
+        gri_int_scaled=$(( gri_int * $2 / 65535))
+    elif checkutil dd; then
+        gri_int="$(tr -cd 0-9 < /dev/urandom 2>/dev/null | dd bs=2 count=1 2>/dev/null)"
+        gri_int_scaled=$(($(printf "%.0f" "$gri_int") * $2 / 99))
+    fi
+    eval "$1"='${gri_int_scaled:-0}'
+}
+
 # counts elements in input
 # fast but may work incorrectly if too many elements provided as input
 # ignores empty elements
@@ -1368,7 +1382,7 @@ validate_ip() {
 			ipset_type=net
 			_mb="${i_ip#*/}"
 			case "$_mb" in ''|*[!0-9]*)
-				echolog -err "Invalid mask bits '$_mb' in subnet '$i_ip'."; oldifs; return 1; esac
+				echolog -err "Invalid mask bits '$_mb' in IP range '$i_ip'."; oldifs; return 1; esac
 			i_ip="${i_ip%%/*}"
 			case $(( (_mb<8) | (_mb>ip_len) )) in 1) echolog -err "Invalid $family mask bits '$_mb'."; oldifs; return 1; esac
 		esac
