@@ -78,7 +78,7 @@ report_status() {
 	is_whitelist_present && {
 		autodetect_hr=Off
 		[ "$autodetect" ] && autodetect_hr=On
-		printf '%s\n' "LAN subnets automatic detection: $blue$autodetect_hr$n_c"
+		printf '%s\n' "LAN IP ranges automatic detection: $blue$autodetect_hr$n_c"
 	}
 
 	[ ! "$blocking_disabled" ] && {

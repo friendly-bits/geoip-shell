@@ -334,7 +334,7 @@ detect_lan_subnets() {
 get_lan_subnets() {
 	# debugprint "Starting get_lan_subnets"
 	detect_lan_subnets "$1" |
-	aggregate_subnets "$1" || { echolog -err "$FAIL detect $1 LAN subnets."; return 1; }
+	aggregate_subnets "$1" || { echolog -err "$FAIL detect $1 LAN IP ranges."; return 1; }
 }
 
 :

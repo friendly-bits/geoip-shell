@@ -44,7 +44,7 @@ Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source
 
 Options:
   -l <"list_ids">  : $list_ids_usage
-  -p <path>        : Path to directory where downloaded and compiled subnet lists will be stored.
+  -p <path>        : Path to directory where downloaded and compiled IP lists will be stored.
   -o <output_file> : Path to output file where fetched list will be stored.
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
@@ -310,7 +310,7 @@ check_prev_list() {
 	eval "prev_s_cnt=\"\$prev_ips_cnt_${list_id}_${dl_src}\""
 	case "$prev_s_cnt" in
 		''|0) prev_s_cnt=''
-			debugprint "Previous subnets count for '$list_id' is 0."
+			debugprint "Previous IP ranges count for '$list_id' is 0."
 			;;
 		*)
 			eval "prev_date_compat=\"\$prev_date_${list_id}_${dl_src}\""
@@ -545,13 +545,13 @@ process_ccode() {
 		if [ "$failed_s_cnt" != 0 ]; then
 			failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
 
-			list_failed "${_nl}out of $parsed_s_cnt subnets for IP list '${purple}$list_id${n_c}, $failed_s_cnt subnets ${red}failed validation${n_c}'."
+			list_failed "${_nl}out of $parsed_s_cnt entries in IP list '${purple}$list_id${n_c}, $failed_s_cnt entries ${red}failed validation${n_c}'."
 			if [ $failed_s_cnt -gt 10 ]; then
-					echo "First 10 failed subnets:"
+					echo "First 10 failed entries:"
 					printf '%s\n' "$failed_s" | head -n10
 					printf '\n'
 			else
-				printf '%s\n%s\n\n' "Following subnets failed validation:" "$failed_s"
+				printf '%s\n%s\n\n' "Following entries failed validation:" "$failed_s"
 			fi
 			rm -f "$parsed_list"
 			continue
@@ -560,7 +560,7 @@ process_ccode() {
 			OK
 		fi
 
-		printf '%s\n' "Validated subnets for '$purple$list_id$n_c': $valid_s_cnt."
+		printf '%s\n' "Validated IP ranges for '$purple$list_id$n_c': $valid_s_cnt."
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
@@ -590,7 +590,7 @@ check_subnets_cnt_drop() {
 	list_id="$1"
 
 	if [ "$valid_s_cnt" = 0 ]; then
-		echolog -warn "validated 0 subnets for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?${_nl}"
+		echolog -warn "validated 0 IP ranges for list '$purple$list_id$n_c'. Perhaps the country code is incorrect?${_nl}"
 		return 1
 	fi
 
@@ -600,12 +600,12 @@ check_subnets_cnt_drop() {
 		# compare fetched subnets count to old subnets count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
 		if [ $s_percents -lt 60 ]; then
-			echolog -warn "validated subnets count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
-			"is ${s_percents}% of '$prev_s_cnt' subnets in the existing list dated '$prev_date_compat'." \
+			echolog -warn "validated IP ranges count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
+			"is ${s_percents}% of '$prev_s_cnt' IP ranges in the existing list dated '$prev_date_compat'." \
 			"Not updating the list."
 			return 1
 		else
-			debugprint "Validated $family subnets count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
+			debugprint "Validated $family IP ranges count for list '$purple$list_id$n_c' is ${s_percents}% of the count in the old list."
 			:
 		fi
 	fi

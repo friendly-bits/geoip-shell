@@ -39,7 +39,7 @@ cat <<EOF
 
 Usage: $me -c <country_code> -i <"IP [IP ... IP]"> [-u <ripe|ipdeny|maxmind>] [-d] [-h]
 
-For each of the specified IP addresses, checks whether it belongs to one of the subnets
+For each of the specified IP addresses, checks whether it belongs to one of the IP ranges
     in the list fetched from a source (RIPE or ipdeny or MaxMind) for a given country code.
 Accepts a mix of ipv4 and ipv6 addresses.
 
