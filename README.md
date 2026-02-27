@@ -31,7 +31,7 @@ If you find this project useful, please take a second to give it a star on Githu
 
 * Supports automated interactive setup for easy configuration.
 
-* Automates creating auxiliary firewall rules based on user's preferences (for example, when configuring on a host in whitelist mode, geoip-shell will detect LAN subnets and suggest to add them to the whitelist)
+* Automates creating auxiliary firewall rules based on user's preferences (for example, when configuring on a host in whitelist mode, geoip-shell will detect LAN IP ranges and suggest to add them to the whitelist)
 
 * Implements optional (enabled by default) persistence of geoblocking across system reboots and automatic updates of the IP lists.
 
@@ -181,19 +181,19 @@ _(for detailed description of this feature, read [NOTES.md](/Documentation/NOTES
 
 **To change IP lists source:** `geoip-shell configure -u <ripe|ipdeny|maxmind>`
 
-**To have certain trusted IP addresses or subnets, either in your LAN or anywhere on the Internet, bypass geoblocking:**
+**To have certain trusted IP addresses or IP ranges, either in your LAN or anywhere on the Internet, bypass geoblocking:**
 
 `geoip-shell configure -t <["ip_addresses"]|none>`
 
 `none` removes previously set trusted IP addresses.
 
-**To have certain LAN IP addresses or subnets bypass geoip blocking:**
+**To have certain LAN IP addresses or IP ranges bypass geoip blocking:**
 
 `geoip-shell configure -l <["ip_addresses"]|auto|none>`
 
 LAN addresses can only be configured when geoblocking mode for at least one direction is set to `whitelist`. Otherwise there is no need to whitelist LAN addresses. Also whitelisting LAN addresses is typically only needed if the machine has no dedicated WAN network interfaces. Otherwise you should apply geoblocking only to those WAN interfaces, so traffic from your LAN to the machine will bypass the geoblocking filter without any special rules for that.
 
-`auto` will automatically detect LAN subnets (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN IP addresses.
+`auto` will automatically detect LAN IP ranges (only use this if the machine has no dedicated WAN interfaces). `none` removes previously set LAN IP addresses.
 
 **To check whether certain IP addresses belong to any of the IP sets loaded by geoip-shell:**
 

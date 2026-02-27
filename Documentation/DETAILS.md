@@ -49,8 +49,8 @@ The **lib-arrays** script implements a minimal subset of functions emulating the
 The **lib-uninstall** script has some functions which are used both for uninstallation and for reset if required.
 
 The **lib-ip-tools** script is only used under specific conditions:
-- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN subnets were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN subnets and offers the user to add them to the whitelist, and to enable automatic detection of LAN subnets in the future.
-- At the time of creating/updating firewall rules, and only if LAN subnets automatic detection is enabled. geoip-shell then re-detects LAN subnets automatically.
+- During initial setup, with whitelist mode, and only if wan interfaces were set to 'all', and LAN IP ranges were not specified via command line args. geoip-shell then assumes that it is being configured on a host behind a router and firewall, uses this script to detect the LAN IP ranges and offers the user to add them to the whitelist, and to enable automatic detection of LAN IP ranges in the future.
+- At the time of creating/updating firewall rules, and only if LAN IP ranges automatic detection is enabled. geoip-shell then re-detects LAN IP ranges automatically.
 
 ### OpenWrt-specific scripts
 These are only installed on OpenWrt systems. The .tpl files are "templates" which are used to create the final scripts at the time of installation (when using the install script), or at the time of OpenWrt package preparation.
@@ -141,15 +141,15 @@ These options apply to geoblocking in both directions.
 
 `-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no dedicated WAN network interfaces. The automatic detection occurs only when manually triggered by the user via this command.
 
-`-l <"[lan_ips]"|auto|none>`: Specify LAN IPs or subnets to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN subnets re-detection at every update of the IP lists. When specifying custom IPs or subnets, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
+`-l <"[lan_ips]"|auto|none>`: Specify LAN IP addresses or IP ranges to exclude from blocking (both ipv4 and ipv6). `auto` will trigger LAN IP ranges re-detection at every update of the IP lists. When specifying custom IP addresses or IP ranges, automatic detection is disabled. This option is only avaiable when using geoip-shell in whitelist mode.
 
-`-t <"[trusted_ips]|none">`: Specify trusted IPs or subnets (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
+`-t <"[trusted_ips]|none">`: Specify trusted IP addresses or IP ranges (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
 `-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic IP list updates when outbound geoblocking is enabled. Use `auto` to detect server IP addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching IP list updates.
 Or specify IP addresses for IP lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 Or use `none` to remove previously assigned server IP addresses and disable this feature.
 
-`[-A|-B] <"[path_to_file]"|remove>`: Local IP lists. Specify file containing a list of IPs or subnets to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`). `remove` removes existing local allowlists or blocklists.
+`[-A|-B] <"[path_to_file]"|remove>`: Local IP lists. Specify file containing a list of IP addresses or IP ranges to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`). `remove` removes existing local allowlists or blocklists.
 
 `-L <path>`: Set custom path to directory where local IP lists will be stored. Default is '/etc/geoip-shell' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
 
@@ -271,7 +271,7 @@ Actions: `add`, `update`, `restore`, `on`, `off`
 `geoip-shell-backup.sh restore` : Restores geoip-shell state and config from backup. Used by the `-run` script to implement persistence, and under some conditions by the `-manage` script. If run with the option `-n`, does not restore the config and the status files.
 
 ## **Optional script**
-**check-ip-in-source.sh** can be used to verify that a certain IP address belongs to a subnet found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
+**check-ip-in-source.sh** can be used to verify that a certain IP address belongs to an IP range found in source records for a given country. It is intended for manual use and is not called from other scripts. It requires the grepcidr utility to be installed in your system.
 
 `sh check-ip-in-source.sh -c <country_code> -i <"IP [IP] [IP] ... [IP]"> [-u <source>]`
 
