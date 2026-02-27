@@ -526,7 +526,7 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 	add_file "$tmp_init_script" "/etc/init.d/$p_name-init" 555
 
 	echo "Preparing the firewall include... "
-	prep_script "$script_dir/$owrt_fw_include" > "$tmp_fw_include" &&
+	eval "printf '%s\n' \"$(cat "$script_dir/$owrt_fw_include")\"" | prep_script > "$tmp_fw_include" &&
 	{
 		cat <<- EOF
 			#!/bin/sh
