@@ -230,7 +230,7 @@ for family in $families; do
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 
-		unset all_allow_ips res_subnets trusted lan_ips source_ips ll_addr
+		unset all_allow_ips res_addresses trusted lan_ips source_ips ll_addr
 
 		allow_ipset_name="allow_${direction%bound}_${family#ipv}"
 		allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
@@ -264,7 +264,7 @@ for family in $families; do
 
 			## load or detect lan IPs
 			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
-				lan_ips="$(get_lan_subnets "$family")" || die
+				lan_ips="$(get_lan_addresses "$family")" || die
 				lan_autodetected=1
 				nl2sp "lan_ips_$family" "net:$lan_ips"
 			else
@@ -273,7 +273,7 @@ for family in $families; do
 				sp2nl lan_ips
 			fi
 
-			## set link-local subnets
+			## set link-local addresses
 			case "$family" in
 				ipv6) ll_addr="fe80::/10" ;;
 				ipv4) ll_addr="169.254.0.0/16"
@@ -312,19 +312,19 @@ for family in $families; do
 			all_allow_ips_prev="$all_allow_ips"
 			allow_iplist_file_prev="$allow_iplist_file"
 
-			# aggregate allowed IPs/subnets
-			res_subnets=
+			# aggregate allowed addresses/ranges
+			res_addresses=
 			if [ "$_fw_backend" = ipt ] && [ $cat_cnt -ge 2 ] && [ "$allow_ipset_type" = net ] &&
-				res_subnets="$(printf %s "$all_allow_ips" | aggregate_subnets "$family")" && [ "$res_subnets" ]
+				res_addresses="$(printf %s "$all_allow_ips" | aggregate_addresses "$family")" && [ "$res_addresses" ]
 			then
 				:
 			else
-				res_subnets="$all_allow_ips"
+				res_addresses="$all_allow_ips"
 			fi
 
-			[ "$res_subnets" ] && {
-				printf '%s\n' "$res_subnets" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
-				debugprint "$direction $family allow IPs:${_nl}'$res_subnets'"
+			[ "$res_addresses" ] && {
+				printf '%s\n' "$res_addresses" > "$allow_iplist_file" || die "$FAIL write to file '$allow_iplist_file'"
+				debugprint "$direction $family allow IPs:${_nl}'$res_addresses'"
 			}
 		else
 			# if allow IPs are identical for inbound and outbound, use same ipset for both
