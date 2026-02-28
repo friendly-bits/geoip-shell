@@ -6,22 +6,22 @@
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-# Library for detecting LAN ipv4 and ipv6 subnets and for subnets aggregation
+# Library for detecting LAN ipv4 and ipv6 ranges and for IP ranges aggregation
 
 
-# Only use get_lan_subnets() and detect_lan_subnets() on a machine which has no dedicated WAN interfaces (physical or logical)
+# Only use get_lan_addresses() and detect_lan_addresses() on a machine which has no dedicated WAN interfaces (physical or logical)
 # otherwise WAN subnet may be wrongly detected as LAN subnet
 
-# detect_lan_subnets() and get_lan_subnets() require variables $subnet_regex_[ipv4|ipv6] to be set
+# detect_lan_addresses() and get_lan_addresses() require variables $range_regex_[ipv4|ipv6] to be set
 
-# Usage for lan subnets detection (no aggregation):
-# call detect_lan_subnets (requires family as 1st argument - ipv4|inet|ipv6|inet6)
+# Usage for lan IP addresses/ranges detection (no aggregation):
+# call detect_lan_addresses (requires family as 1st argument - ipv4|inet|ipv6|inet6)
 
-# Usage for lan subnets detection + aggregation:
-# call get_lan_subnets (requires family as 1st argument - ipv4|inet|ipv6|inet6)
+# Usage for lan addresses/ranges detection + aggregation:
+# call get_lan_addresses (requires family as 1st argument - ipv4|inet|ipv6|inet6)
 
-# Usage for subnets/IPs aggregation:
-# pipe input subnets (newline-separated) into aggregate_subnets (requires family as 1st argument - ipv4|inet|ipv6|inet6)
+# Usage for IP addresses/ranges aggregation:
+# pipe input addresses/ranges (newline-separated) into aggregate_addresses (requires family as 1st argument - ipv4|inet|ipv6|inet6)
 
 
 ## Functions
@@ -192,19 +192,19 @@ hex_to_ipv6() {
 }
 
 
-# input via STDIN: newline-separated subnets or IPs
-# output via STDOUT: newline-separated subnets
+# input via STDIN: newline-separated IP addresses or ranges
+# output via STDOUT: newline-separated IP addresses/ranges
 # 1 - family (ipv4|ipv6|inet|inet6)
-aggregate_subnets() {
+aggregate_addresses() {
 	inv_maskbits() {
-		printf '%s\n' "aggregate_subnets: invalid mask bits '$1'" >&2
+		printf '%s\n' "aggregate_addresses: invalid mask bits '$1'" >&2
 	}
 
 	family_ags="$1"
 	case "$1" in
 		ipv4|inet) ip_len_bits=32 ;;
 		ipv6|inet6) ip_len_bits=128 ;;
-		*) echolog -err "aggregate_subnets: invalid family '$1'."; return 1
+		*) echolog -err "aggregate_addresses: invalid family '$1'."; return 1
 	esac
 
 	processed_maskbits=' '
@@ -219,9 +219,9 @@ aggregate_subnets() {
 		printf '%s\n' EOF_AGS
 	} |
 
-	# process subnets
-	while IFS="$_nl" read -r subnet1; do
-		case "$subnet1" in
+	# process IPs
+	while IFS="$_nl" read -r range1; do
+		case "$range1" in
 			'') continue ;;
 			EOF_AGS)
 				[ "$nonempty_ags" ] && exit 0
@@ -229,7 +229,7 @@ aggregate_subnets() {
 		esac
 
 		# get mask bits
-		maskbits="${subnet1%/*}"
+		maskbits="${range1%/*}"
 		case "$maskbits" in *[!0-9]*)
 			inv_maskbits "$maskbits"
 			exit 1
@@ -246,7 +246,7 @@ aggregate_subnets() {
 		esac
 
 		# chop off mask bits
-		ip1_ags="${subnet1#*/}"
+		ip1_ags="${range1#*/}"
 
 		# convert IP to int and trim to mask bits
 		ip_to_int "$ip1_ags" "$family_ags" "$maskbits" ip1_int || exit 1
@@ -312,29 +312,29 @@ aggregate_subnets() {
 	return 1
 }
 
-# Outputs newline-separated subnets
+# Outputs newline-separated IP ranges
 # 1 - family (ipv4|inet|ipv6|inet6)
-detect_lan_subnets() {
+detect_lan_addresses() {
 	case "$1" in
 		ipv4|inet)
-			case "$subnet_regex_ipv4" in '') echolog -err "detect_lan_subnets: regex is not set"; return 1; esac
+			case "$range_regex_ipv4" in '') echolog -err "detect_lan_addresses: regex is not set"; return 1; esac
 			ifaces="dummy_123|$(
 				ip -f inet route show table local scope link |
 				sed -n '/[ 	]lo[ 	]/d;/[ 	]dev[ 	]/{s/.*[ 	]dev[ 	][ 	]*//;s/[ 	].*//;p}' | tr '\n' '|')"
-			ip -o -f inet addr show | grep -E "${ifaces%|}" | grep -oE "$subnet_regex_ipv4" ;;
+			ip -o -f inet addr show | grep -E "${ifaces%|}" | grep -oE "$range_regex_ipv4" ;;
 		ipv6|inet6)
-			case "$subnet_regex_ipv6" in '') echolog -err "detect_lan_subnets: regex is not set"; return 1; esac
+			case "$range_regex_ipv6" in '') echolog -err "detect_lan_addresses: regex is not set"; return 1; esac
 			ip -o -f inet6 addr show |
-				grep -oE 'inet6[ 	]+(fd[0-9a-f]{0,2}:|fe80:)[0-9a-f:/]+' | grep -oE "$subnet_regex_ipv6\$" ;;
-		*) echolog -err "detect_lan_subnets: invalid family '$1'."; return 1
+				grep -oE 'inet6[ 	]+(fd[0-9a-f]{0,2}:|fe80:)[0-9a-f:/]+' | grep -oE "$range_regex_ipv6\$" ;;
+		*) echolog -err "detect_lan_addresses: invalid family '$1'."; return 1
 	esac
 }
 
 # 1 - family (ipv4|ipv6|inet|inet6)
-get_lan_subnets() {
-	# debugprint "Starting get_lan_subnets"
-	detect_lan_subnets "$1" |
-	aggregate_subnets "$1" || { echolog -err "$FAIL detect $1 LAN IP ranges."; return 1; }
+get_lan_addresses() {
+	# debugprint "Starting get_lan_addresses"
+	detect_lan_addresses "$1" |
+	aggregate_addresses "$1" || { echolog -err "$FAIL detect $1 LAN IP ranges."; return 1; }
 }
 
 :
