@@ -332,7 +332,7 @@ mk_apply_cmds() {
 		printf '%s\n' "delete set inet $geotable $rm_ipset"
 	done
 
-	### Load ipsets for local iplists, allowed subnets/ips
+	### Load ipsets for local iplists, allowed addresses/ranges
 	for family in $families; do
 		## local iplists
 		[ "$inbound_geomode" != disable ] || [ "$outbound_geomode" != disable ] && {
@@ -358,7 +358,7 @@ mk_apply_cmds() {
 		done
 	done
 
-	### add ipset for dhcpv4 subnets
+	### add ipset for dhcpv4 IP ranges
 	is_whitelist_present && {
 		case "$families" in *ipv4*)
 			printf '%s%s\n' "add set inet $geotable dhcp_4 { type ipv4_addr; flags interval; auto-merge; elements="\
@@ -414,7 +414,7 @@ mk_apply_cmds() {
 		# add rule to allow established/related
 		printf '%s\n' "add $rule_prefix ${opt_ifaces}ct state established,related accept comment ${geotag_aux}_est-rel"
 
-		# add rules for allowed subnets/ips
+		# add rules for allowed addresses/ranges
 		for family in $families; do
 			set_allow_ipset_vars "$direction" "$family"
 			[ ! -s "$allow_iplist_file" ] && continue
