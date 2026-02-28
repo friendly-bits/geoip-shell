@@ -1226,7 +1226,7 @@ try_read_crontab() {
 	crontab -u root -l 1>/dev/null 2>/dev/null
 }
 
-OK() { printf '%s\n' "${green}Ok${n_c}."; }
+OK() { printf '%s\n' "${green}OK${n_c}"; }
 FAIL() { printf '%s\n' "${red}Failed${n_c}." >&2; }
 
 mk_lock() {
