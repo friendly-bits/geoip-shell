@@ -37,22 +37,22 @@ get_path fetch_path "${p_name}-fetch.sh" /usr/bin
 usage() {
 cat <<EOF
 
-Usage: $me -c <country_code> -i <"IP [IP ... IP]"> [-u <ripe|ipdeny|maxmind>] [-d] [-h]
+Usage: $me -c <country_code> -i <"IP [IP ... IP]"> [-u <ripe|ipdeny|maxmind|ipinfo>] [-d] [-h]
 
 For each of the specified IP addresses, checks whether it belongs to one of the IP ranges
-    in the list fetched from a source (RIPE or ipdeny or MaxMind) for a given country code.
+    in the list fetched from a source (RIPE / ipdeny / MaxMind / IPinfo) for a given country code.
 Accepts a mix of ipv4 and ipv6 addresses.
 
 Requires the 'grepcidr' utility
 
 Options:
-  -c <country_code>        : 2-letter country code
-  -i <"ip_addresses">      : IP addresses to check
-                             if specifying multiple addresses, use double quotes
-  -u <ripe|ipdeny|maxmind> : Source to check in. By default checks in RIPE.
+  -c <country_code>               : 2-letter country code
+  -i <"ip_addresses">             : IP addresses to check
+                                    if specifying multiple addresses, use double quotes
+  -u <ripe|ipdeny|maxmind|ipinfo> : Source to check in. By default checks in RIPE.
 
-  -d                       : Debug
-  -h                       : This help
+  -d  : Debug
+  -h  : This help
 
 EOF
 }
@@ -98,7 +98,7 @@ validate_ip() {
 
 
 #### Constants
-valid_srcs_country="ripe ipdeny maxmind"
+valid_srcs_country="ripe ipdeny maxmind ipinfo"
 default_src=ripe
 
 
@@ -142,18 +142,31 @@ done
 [ -z "$val_ipv4s$val_ipv6s" ] && die_l "All IP addresses failed validation."
 [ -z "$families" ] && die_l "\$families variable is empty."
 
-if [ "$dl_src" = maxmind ]; then
-	[ -s "$conf_file" ] && [ "$root_ok" ] && {
-		nodie=1 getconfig mm_license_type
-		nodie=1 getconfig mm_acc_id
-		nodie=1 getconfig mm_license_key
-		nodie=1 getconfig keep_mm_db
-		export mm_license_type mm_acc_id mm_license_key keep_mm_db
-	}
-	[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || {
-		setup_maxmind || die_l
-	}
-fi
+
+case "${dl_src}" in
+	maxmind)
+		[ -s "$conf_file" ] && [ "$root_ok" ] && {
+			nodie=1 getconfig mm_license_type
+			nodie=1 getconfig mm_acc_id
+			nodie=1 getconfig mm_license_key
+			nodie=1 getconfig keep_fetched_db
+			export mm_license_type mm_acc_id mm_license_key keep_fetched_db
+		}
+
+		[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] ||
+			setup_maxmind || die_l ;;
+	ipinfo)
+		[ -s "$conf_file" ] && [ "$root_ok" ] && {
+			nodie=1 getconfig ipinfo_license_type
+			nodie=1 getconfig ipinfo_token
+			nodie=1 getconfig keep_fetched_db
+			export ipinfo_license_type ipinfo_token keep_fetched_db
+		}
+
+		[ "$ipinfo_token" ] ||
+			setup_ipinfo || die_l ;;
+esac
+
 
 ### Fetch the IP list file
 
