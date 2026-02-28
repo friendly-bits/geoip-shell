@@ -585,7 +585,7 @@ apply_rules() {
 			reg_ipset "$ipset" net "$family" "${iplist_file}" "$curr_ipsets" || die
 		done
 
-		### register ipset for dhcpv4 subnets
+		### register ipset for dhcpv4 ranges
 		is_whitelist_present && [ "$family" = ipv4 ] && {
 			dhcp_ipset="${geotag}_dhcp_4"
 			dhcp_addr="192.168.0.0/16${_nl}172.16.0.0/12${_nl}10.0.0.0/8"
@@ -602,7 +602,7 @@ apply_rules() {
 				reg_ipset "${ipset}" "$ipset_el_type" "$family" "$iplist_path" "$curr_ipsets" || die
 			done
 
-		### register ipsets for allowed subnets/IPs
+		### register ipsets for allowed IP addresses/ranges
 		allow_iplist_file_prev=
 		for direction in inbound outbound; do
 			eval "geomode=\"\$${direction}_geomode\""
@@ -665,7 +665,7 @@ apply_rules() {
 
 				## Auxiliary rules
 
-				# add rule for allowed subnets/ips
+				# add rule for allowed addresses/ranges
 				set_allow_ipset_vars "$direction" "$family"
 				eval "[ \"\${allow_ipset_present_${direction}_${family}}\" ]" && {
 					rule="$geochain -m set --match-set ${geotag}_${allow_ipset_name} $dir_kwrd_ipset $ipt_comm ${geotag_aux}_allow_${f_short} -j ACCEPT"
