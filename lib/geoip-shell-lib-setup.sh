@@ -170,7 +170,7 @@ pick_ifaces() {
 # 1 - input IPs/ranges
 # 2 - output var base name
 # outputs whitespace-delimited validated IPs via $2_$family
-# if a subnet detected in ips of a particular family, output is prefixed with 'net:', otherwise with 'ip:'
+# if a range is detected in addresses of a particular family, output is prefixed with 'net:', otherwise with 'ip:'
 # expects the $families var to be set
 validate_arg_ips() {
 	va_ips_a=
@@ -249,9 +249,9 @@ pick_lan_ips() {
 	for family in $families; do
 		ipset_type=net
 		echo
-		checkutil get_lan_subnets && {
+		checkutil get_lan_addresses && {
 			printf %s "Detecting $family LAN IP ranges..."
-			lan_ips="$(get_lan_subnets "$family")"
+			lan_ips="$(get_lan_addresses "$family")"
 		} || {
 			[ "$nointeract" ] && die
 		}
@@ -482,7 +482,7 @@ set_defaults() {
 		local_iplists_dir_def="$datadir_def/local_iplists"
 	fi
 
-	keep_mm_db_def=false
+	keep_fetched_db_def=false
 
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
@@ -490,7 +490,7 @@ set_defaults() {
 	: "${schedule:="$def_sch_minute 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
-	: "${keep_mm_db:=false}"
+	: "${keep_fetched_db:=false}"
 	: "${_fw_backend:="$_FW_BACKEND_DEF"}"
 	: "${inbound_tcp_ports:=skip}"
 	: "${inbound_udp_ports:=skip}"
@@ -588,8 +588,8 @@ get_general_prefs() {
 	esac
 	nft_perf="${nft_perf_arg:-$nft_perf}"
 
-	# nobackup, noblock, no_persist, force_cron_persist, keep_mm_db
-	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F" "keep_mm_db K"; do
+	# nobackup, noblock, no_persist, force_cron_persist, keep_fetched_db
+	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F" "keep_fetched_db K"; do
 		par_name="${_par% *}" par_opt="${_par#* }"
 		eval "par_val=\"\$$par_name\"
 			par_val_arg=\"\${${par_name}_arg}\"
@@ -655,9 +655,10 @@ get_general_prefs() {
 	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$valid_srcs_country" "$geosource_arg" ||
 		die "Invalid source: '$geosource_arg'"
 	geosource="${geosource_arg:-$geosource}"
-	if [ "$geosource_arg" = maxmind ]; then
-		setup_maxmind || die 253
-	fi
+	case "$geosource_arg" in
+		maxmind) setup_maxmind ;;
+		ipinfo) setup_ipinfo ;;
+	esac || die 253
 
 	# process trusted IPs if specified
 	case "$trusted_arg" in
