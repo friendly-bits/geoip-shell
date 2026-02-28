@@ -259,7 +259,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; 
 		A) set_opt local_allow_arg ;;
 		B) set_opt local_block_arg ;;
 		U) set_opt source_ips_arg ;;
-		K) set_opt keep_mm_db_arg ;;
+		K) set_opt keep_fetched_db_arg ;;
 		a) set_opt datadir_arg ;;
 		L) set_opt local_iplists_dir_arg ;;
 		w) set_opt _fw_backend_arg ;;
@@ -630,7 +630,7 @@ for var_name in datadir local_iplists_dir noblock nobackup schedule no_persist g
 done
 
 # sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
-#   geosource trusted user_ccode keep_mm_db custom_script
+#   geosource trusted user_ccode keep_fetched_db custom_script
 # imports local IP lists if specified
 get_general_prefs || die
 
@@ -791,7 +791,7 @@ san_str all_ccodes_arg "$inbound_ccodes_arg $outbound_ccodes_arg" || die
 [ "$all_ccodes_arg" ] && [ ! "$inbound_lists_req$outbound_lists_req" ] &&
 	die "No applicable IP list IDs could be generated for country codes '$all_ccodes_arg'."
 
-# ifaces and lan subnets
+# ifaces and lan addresses
 unset lan_picked ifaces_picked ifaces_change
 
 for direction in inbound outbound; do
