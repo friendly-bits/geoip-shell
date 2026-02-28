@@ -489,16 +489,36 @@ getallconf() {
 	[ ! "$1" ] && return 1
 	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; return 1; }
 
+	# Config migration
+	# newline-separated list of options to migrate in the format <old_key=new_key>
+	migrate_opts='
+		keep_mm_db=keep_fetched_db
+	'
+
 	# check in cache first
-	main_gac='' conf_gac=''
-	[ "$2" = "$conf_file" ] && conf_gac="$main_config" main_gac=1
+	is_main_gac='' conf_gac=''
+	[ "$2" = "$conf_file" ] && conf_gac="$main_config" is_main_gac=1
 	[ -z "$conf_gac" ] && {
 		conf_gac="$(
-			awk -v c="$ALL_CONF_VARS" -v main="$main_gac" "
+			awk -v c="$ALL_CONF_VARS" -v is_main="$is_main_gac" -v M="${migrate_opts}" "
 				BEGIN{
-					if (main) {
-						n=split(c,arr)
-						for (el in arr) {key=arr[el]; if (key) keys[key]}
+					if (is_main) {
+						# make array of migrated options
+						split(M,migr_tmp,\"\n\")
+						for (el in migr_tmp) {
+							line=migr_tmp[el]
+							sub(/^${blank}+/, \"\", line)
+							sub(/${blank}+$/, \"\", line)
+							n=split(line,migr_pair,\"=\")
+							if (n == 2 ) {
+								old_k=migr_pair[1]
+								new_k=migr_pair[2]
+								migr[old_k]=new_k
+							}
+						}
+						# make array-list of valid options
+						split(c,arr)
+						for (el in arr) {key=arr[el]; if (key) valid_keys[key]}
 					}
 				}
 				/^${blank}*(#|$)/ {next}
@@ -506,7 +526,10 @@ getallconf() {
 					sub(/^${blank}+/, \"\")
 					sub(/${blank}+$/, \"\")
 					split(\$0,pair,\"=\")
-					if (!main || pair[1] in keys) print pair[1] \"=\" pair[2]
+					key=pair[1]
+					val=pair[2]
+					if (is_main && key in migr) key=migr[key]
+					if (!is_main || key in valid_keys) print key \"=\" val
 				}
 			" "$2"
 		)"
@@ -1309,15 +1332,46 @@ resolve_geosource_ips() {
 	case "$geosource" in
 		ripe) src_domains="${ripe_url_api%%/*}${_nl}${ripe_url_stats%%/*}" ;;
 		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}" ;;
+		ipinfo) src_domains="${ipinfo_url%%/*}" ;;
 		maxmind) src_domains="download.maxmind.com${_nl}www.maxmind.com${_nl}mm-prod-geoip-databases.a2649acb697e2c09b632799562c076f2.r2.cloudflarestorage.com"
 	esac
 	resolve_domain_ips "$family" "$src_domains"
 }
 
+setup_ipinfo() {
+	checkutil "gzip" || { echolog -err "IPinfo source requires the 'gzip' utility but it is not found."; return 1; }
+
+	[ "$ipinfo_token" ] ||
+		printf '%s\n' "IPinfo requires a license. You will need to provide IPinfo token."
+	printf '%s\n' "Which IPinfo license do you have: [l]ite, [c]ore or [p]lus? Or type in [a] to abort."
+	pick_opt "l|c|p|a"
+	case "$REPLY" in
+		l) export ipinfo_license_type=lite ;;
+		c) export ipinfo_license_type=core ;;
+		p) export ipinfo_license_type=plus ;;
+		a) return 1
+	esac
+
+	curr_ipinfo_token_msg=
+	[ "$ipinfo_token" ] && curr_ipinfo_token_msg=" or press Enter to use current token '$ipinfo_token'"
+	while :; do
+		printf '%s\n' "Type in IPinfo token${curr_ipinfo_token_msg}: "
+		read -r REPLY
+		case "$REPLY" in
+			'')
+				[ "$ipinfo_token" ] || { printf '%s\n' "Invalid token '$REPLY'."; continue; }
+				break ;;
+			*[!a-zA-Z0-9]*) printf '%s\n' "Invalid token '$REPLY'."; continue
+		esac
+		export ipinfo_token="$REPLY"
+		break
+	done
+}
+
 setup_maxmind() {
-	checkutil unzip || { echolog -err "MaxMind source requires the 'unzip' utility but it is not found."; return 1; }
-	checkutil gzip && checkutil gunzip ||
-		{ echolog -err "MaxMind source requires the 'gzip' and 'gunzip' utilities but either or both are not found."; return 1; }
+	for util in unzip gzip; do
+		checkutil "$util" || { echolog -err "MaxMind source requires the '$util' utility but it is not found."; return 1; }
+	done
 
 	[ "$mm_acc_id" ] && [ "$mm_acc_license" ] ||
 		printf '%s\n' "MaxMind requires a license. You will need account ID and license key."
@@ -1361,9 +1415,9 @@ setup_maxmind() {
 	:
 }
 
-# 1 - input IPs/subnets
+# 1 - input IP addresses/ranges
 # 2 - output via return code (0: all valid; 1: 1 or more invalid)
-# if a subnet detected in ips of a particular family, sets ipset_type to 'net', otherwise to 'ip'
+# if a range is detected in addresses of a particular family, sets ipset_type to 'net', otherwise to 'ip'
 # expects the $family var to be set
 validate_ip() {
 	[ ! "$1" ] && { echolog -err "validate_ip: received an empty string."; return 1; }
@@ -1378,17 +1432,18 @@ validate_ip() {
 
 	newifs "$_nl"
 	for i_ip in $i_ips; do
+		oldifs
 		case "$i_ip" in */*)
 			ipset_type=net
 			_mb="${i_ip#*/}"
 			case "$_mb" in ''|*[!0-9]*)
-				echolog -err "Invalid mask bits '$_mb' in IP range '$i_ip'."; oldifs; return 1; esac
+				echolog -err "Invalid mask bits '$_mb' in IP range '$i_ip'."; return 1; esac
 			i_ip="${i_ip%%/*}"
-			case $(( (_mb<8) | (_mb>ip_len) )) in 1) echolog -err "Invalid $family mask bits '$_mb'."; oldifs; return 1; esac
+			case $(( (_mb<8) | (_mb>ip_len) )) in 1) echolog -err "Invalid $family mask bits '$_mb'."; return 1; esac
 		esac
 
 		ip route get "$i_ip" 1>/dev/null 2>/dev/null
-		case $? in 0|2) ;; *) echolog -err "IP address '$i_ip' failed kernel validation."; oldifs; return 1; esac
+		case $? in 0|2) ;; *) echolog -err "IP address '$i_ip' failed kernel validation."; return 1; esac
 		o_ips="$o_ips$i_ip$_nl"
 	done
 	oldifs
@@ -1423,9 +1478,11 @@ ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_u
 	custom_script geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
 	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock user_ccode schedule families \
 	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
-	mm_license_type mm_acc_id mm_license_key keep_mm_db"
+	keep_fetched_db \
+	mm_license_type mm_acc_id mm_license_key \
+	ipinfo_license_type ipinfo_token"
 
-valid_srcs_country="ripe ipdeny maxmind"
+valid_srcs_country="ripe ipdeny maxmind ipinfo"
 valid_families="ipv4 ipv6"
 
 ripe_url_stats="ftp.ripe.net/pub/stats"
@@ -1433,6 +1490,7 @@ ripe_url_api="stat.ripe.net/data/country-resource-list/data.json?"
 ipdeny_ipv4_url="www.ipdeny.com/ipblocks/data/aggregated"
 ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
 maxmind_url="download.maxmind.com/geoip/databases"
+ipinfo_url="ipinfo.io/data"
 
 # set some vars for debug and logging
 : "${me:="${0##*/}"}"
@@ -1443,7 +1501,7 @@ p_name_cap=GEOIP-SHELL
 # vars for common usage() functions
 sp8="        "
 sp16="$sp8$sp8"
-srcs_syn="<ripe|ipdeny|maxmind>"
+srcs_syn="<ripe|ipdeny|maxmind|ipinfo>"
 direction_syn="<inbound|outbound>"
 direction_usage="direction (inbound|outbound). Only valid for actions add|remove and in combination with the '-l' option."
 list_ids_usage="iplist IDs in the format <country_code>_<family> (if specifying multiple list IDs, use double quotes)"
@@ -1454,8 +1512,11 @@ export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|
 	ipv6_regex='([0-9a-f]{0,4})(:[0-9a-f]{0,4}){2,7}' \
 	maskbits_regex_ipv4='(3[0-2]|([1-2][0-9])|[6-9])' \
 	maskbits_regex_ipv6='(12[0-8]|((1[0-1]|[1-9])[0-9])|[6-9])'
-export subnet_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
-	subnet_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"\
+export \
+	ip_or_range_regex_ipv4="${ipv4_regex}(/${maskbits_regex_ipv4}){0,1}" \
+	ip_or_range_regex_ipv6="${ipv6_regex}(/${maskbits_regex_ipv6}){0,1}"\
+	range_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
+	range_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"\
 	inbound_geochain="${p_name_cap}_IN" outbound_geochain="${p_name_cap}_OUT" \
 	inbound_dir_short=in outbound_dir_short=out
 
