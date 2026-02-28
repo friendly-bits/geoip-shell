@@ -529,7 +529,7 @@ process_ccode() {
 		esac
 
 		# Validate the parsed list, populate the $valid_s_cnt, $failed_s_cnt
-		printf %s "Validating '$purple$list_id$n_c'... "
+		printf %s "Validating              '$purple$list_id$n_c'... "
 		valid_list="$FETCH_TMP_DIR/validated-${list_id}.tmp"
 
 		case "$family" in
@@ -560,7 +560,7 @@ process_ccode() {
 			OK
 		fi
 
-		printf '%s\n' "Validated IP ranges for '$purple$list_id$n_c': $valid_s_cnt."
+		printf '%s\n' "Validated IP ranges for '$purple$list_id$n_c':   $valid_s_cnt"
 		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
@@ -648,12 +648,10 @@ for c in "$@"; do
 		*) continue
 	esac
 	case "$c" in
-		*[!\ =A-Za-z\	]*|*=*=*) die "Unexpected data in cca2.list" ;;
-		*=*)
-	esac
-	case "${c%%=*}" in
-		*[!a-zA-Z]*) die "Unexpected data in cca2.list"
-	esac
+		*[!\ =A-Za-z\	]*|*=*=*|*[!a-zA-Z]*=*) false ;;
+		*=*) ;;
+		*) false ;;
+	esac || die "Unexpected data in cca2.list"
 	set_a_arr_el registry_ccodes_arr "$c"
 done
 
@@ -824,7 +822,7 @@ $con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 	if ! grep -E "${con_check_ptrn}" "$con_check_file" 1>/dev/null; then
 		rm -f "$con_check_file"
 		echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"https://$con_check_url\""
-		die "Connection attempt to the $dl_src_cap server failed."
+		die 254 "Connection attempt to the $dl_src_cap server failed."
 	fi
 }
 OK
@@ -860,8 +858,8 @@ done
 ### Report fetch results via fetch_res_file
 if [ "$fetch_res_file" ]; then
 	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
-	setstatus "$fetch_res_file" "fetched_lists=$fetched_lists" "up_to_date_lists=$up_to_date_lists" \
-		"failed_lists=$failed_lists" || die "$FAIL write to file '$fetch_res_file'."
+	setstatus "$fetch_res_file" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
+		die "$FAIL write to file '$fetch_res_file'."
 fi
 
 if [ "$status_file" ]; then
