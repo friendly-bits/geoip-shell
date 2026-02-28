@@ -494,17 +494,18 @@ getallconf() {
 	migrate_opts='
 		keep_mm_db=keep_fetched_db
 	'
+	san_str migrate_opts "" "$_nl" "$delim"
 
 	# check in cache first
 	is_main_gac='' conf_gac=''
 	[ "$2" = "$conf_file" ] && conf_gac="$main_config" is_main_gac=1
 	[ -z "$conf_gac" ] && {
 		conf_gac="$(
-			awk -v c="$ALL_CONF_VARS" -v is_main="$is_main_gac" -v M="${migrate_opts}" "
+			awk -v c="$ALL_CONF_VARS" -v is_main="$is_main_gac" -v M="${migrate_opts}" -v D="$delim" "
 				BEGIN{
 					if (is_main) {
 						# make array of migrated options
-						split(M,migr_tmp,\"\n\")
+						split(M,migr_tmp,D)
 						for (el in migr_tmp) {
 							line=migr_tmp[el]
 							sub(/^${blank}+/, \"\", line)
