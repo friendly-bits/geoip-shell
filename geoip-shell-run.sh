@@ -18,7 +18,7 @@ oldifs
 run_fail() {
 	rm -f "$fetch_res_file"
 	[ "$RM_IPLISTS" ] && rm_iplists
-	case "$1" in ''|*![0-9]*) ;; *) rf_rv="$1"; shift; esac
+	case "$1" in ''|*[!0-9]*) ;; *) rf_rv="$1"; shift; esac
 	[ -n "$*" ] && echolog -err "$@"
 	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
 		(
@@ -237,9 +237,9 @@ esac
 
 #### Daemon loop
 
-unset all_fetched_lists missing_lists lists_fetch
+unset all_fetched_lists lists_fetch
 
-[ ! "$daemon_mode" ] && max_attempts=1
+[ ! "$daemon_mode" ] && max_attempts=3
 case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
 
 dir_mk "$datadir" || run_fail 1
@@ -270,26 +270,28 @@ if [ "$lists_fetch" ]; then
 		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" \
 			-u "$geosource" "$force_run" "$raw_mode"
 
+		case "$?" in 0|254) ;; *) fetch_failed; esac
+
 		# read fetch results from the status file
 		nodie=1 getstatus "$fetch_res_file" 2>/dev/null ||
-			{ echolog -err "$FAIL read the fetch results file '$fetch_res_file'"; failed_lists="$lists_fetch"; }
+			{ fetch_failed "$FAIL read the fetch results file '$fetch_res_file'"; failed_lists="$lists_fetch"; }
 
 		add2list all_fetched_lists "$fetched_lists"
 
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 
-			[ "$daemon_mode" ] && {
-				[ $attempt -ge $max_attempts ] && fetch_failed "Giving up after $max_attempts fetch attempts."
-				san_str lists_fetch "$failed_lists $missing_lists" || fetch_failed
-				echolog "Retrying in $secs seconds"
-				sleep $secs &
-				wait $!
-				secs=$((secs*4))
-				continue
+			[ $attempt -ge $max_attempts ] && {
+				fetch_rv=1
+				[ "$action_run" = add ] && fetch_rv=254
+				fetch_failed "${fetch_rv}" "Giving up after $max_attempts fetch attempts."
 			}
-
-			[ "$action_run" = add ] && fetch_failed 254 "Aborting the action 'add'."
+			lists_fetch="$failed_lists"
+			echolog "Retrying in $secs seconds"
+			sleep $secs &
+			wait $!
+			secs=$((secs*4))
+			continue
 		}
 
 		fast_el_cnt "$failed_lists" " " failed_lists_cnt
