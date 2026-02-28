@@ -1,5 +1,5 @@
 #!/bin/sh
-# shellcheck disable=SC2154,SC1090,SC2034,SC2086,SC2015
+# shellcheck disable=SC2154,SC1090,SC2034,SC2086,SC2015,SC2016
 
 # geoip-shell-fetch.sh
 
@@ -37,7 +37,7 @@ cat <<EOF
 
 Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
-1) Fetches IP lists for given country codes from RIPE API, or from ipdeny, or from MaxMind
+1) Fetches IP lists for given country codes from either: RIPE API, ipdeny, MaxMind, IPinfo
 	(supports any combination of ipv4 and ipv6 lists)
 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
@@ -49,7 +49,7 @@ Options:
 ${sp16}${sp8}With this option, specify exactly 1 country code.
 ${sp16}${sp8}(use either '-p' or '-o' but not both)
   -s <path>        : Path to a file to register fetch results in.
-  -u $srcs_syn : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
+  -u $srcs_syn : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind, ipinfo.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
@@ -187,7 +187,29 @@ get_src_dates_ripe() {
 	done
 }
 
-# get list time based on the filename on the server
+get_last_modified() {
+	sed -n "/[Ll]ast-[Mm]odified:.*,/{
+		s/\r//g;
+		s/.*[Ll]ast-[Mm]odified${blank}*:${blank}*//;
+		s/^[A-Z][a-z][a-z],${blanks}//;
+		s/${blanks}GMT${blank}*//;
+		s/${blanks}[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$//;
+		p;q;}" |
+		# matches input to date in format 'dd Mon 20yy', then converts to 'yyyymmdd'
+		awk '
+			BEGIN{rv=1}
+			$0 ~ /^[0-3][0-9] ... 20[1-9][0-9]$/ {
+				split($0,d," ");
+				date=sprintf("%04d%02d%02d",d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1])
+				print date
+				rv=0
+				exit
+			}
+			END{exit rv}
+		'
+}
+
+# get list time based on Last Modified string in HTTP response
 get_src_dates_maxmind() {
 	server_url="https://${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
@@ -200,31 +222,37 @@ get_src_dates_maxmind() {
 
 	debugprint "timestamp fetch command: $fetch_cmd_date \"${server_url}\""
 
-	MM_DB_DATE="$(
+	maxmind_db_date="$(
 		$fetch_cmd_date "$server_url" 2>&1 |
-		sed -n "/[Ll]ast-[Mm]odified:.*,/{
-			s/\r//g;
-			s/.*[Ll]ast-[Mm]odified${blank}*:${blank}*//;
-			s/^[A-Z][a-z][a-z],${blanks}//;
-			s/${blanks}GMT${blank}*//;
-			s/${blanks}[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$//;
-			p;q;}" |
-			# matches input to date in format 'dd Mon 20yy', then converts to 'yyyymmdd'
-			awk '
-				BEGIN{rv=1}
-				$0 ~ /^[0-3][0-9] ... 20[1-9][0-9]$/ {
-					split($0,d," ");
-					date=sprintf("%04d%02d%02d",d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1])
-					print date
-					rv=0
-					exit
-				}
-				END{exit rv}
-			'
-	)" || return 1
+		get_last_modified
+	)" && [ -n "${maxmind_db_date}" ] || return 1
 
 	for list_id in $valid_lists; do
-		reg_server_date "$MM_DB_DATE" "$list_id" MAXMIND
+		reg_server_date "$maxmind_db_date" "$list_id" MAXMIND
+	done
+	:
+}
+
+# get list time based on Last Modified string in HTTP response
+get_src_dates_ipinfo() {
+	server_url="https://${ipinfo_url}/ipinfo_${ipinfo_db_name}.csv.gz?token=${ipinfo_token}"
+
+	debugprint "getting date from $server_url..."
+
+	case "$fetch_cmd" in
+		curl*) fetch_cmd_date="$fetch_cmd_date --head" ;;
+		wget*) fetch_cmd_date="$fetch_cmd_date -S --method HEAD"
+	esac
+
+	debugprint "timestamp fetch command: $fetch_cmd_date \"${server_url}\""
+
+	ipinfo_db_date="$(
+		$fetch_cmd_date "$server_url" 2>&1 |
+		get_last_modified
+	)" && [ -n "${ipinfo_db_date}" ] || return 1
+
+	for list_id in $valid_lists; do
+		reg_server_date "$ipinfo_db_date" "$list_id" IPINFO
 	done
 	:
 }
@@ -240,20 +268,20 @@ parse_ripe_json() {
 }
 
 preparse_maxmind_csv() {
-	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" mm_db_name_parse="$5"
+	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" db_name_parse="$5"
 	mm_countries_tmp_file="$FETCH_TMP_DIR/maxmind_countries.csv"
 	san_str ccodes_parse_regex "$ccodes_parse" " " "|"
 
-	unzip -p "$in_file" "*/${mm_db_name_parse}-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
+	unzip -p "$in_file" "*/${db_name_parse}-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
 		rm -f "$mm_countries_tmp_file"
 		return 1
 	}
 
-	unzip -p "$in_file"  "*/${mm_db_name_parse}-Country-Blocks-IPv${family_parse#ipv}.csv" |
+	unzip -p "$in_file"  "*/${db_name_parse}-Country-Blocks-IPv${family_parse#ipv}.csv" |
 		$awk_cmd -F ',' "
 			NR==FNR { if (\$5~/^($ccodes_parse_regex)$/) {ccodes[\$1]=\$5}; next}
-			\$2 in ccodes {print ccodes[\$2], \$1}
-		" "$mm_countries_tmp_file" - | gzip > "$out_file" &&
+			\$2 in ccodes {print ccodes[\$2] \" \" \$1}
+		" "$mm_countries_tmp_file" - | gzip -c > "$out_file" &&
 			[ -s "$out_file" ] && {
 				rm -f "$mm_countries_tmp_file"
 				return 0
@@ -262,10 +290,29 @@ preparse_maxmind_csv() {
 	return 1
 }
 
-parse_maxmind_db() {
+preparse_ipinfo_csv() {
+	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" db_name_parse="$5"
+	preparse_regex=
+	case "$family" in
+		ipv4) preparse_regex="${blank}[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" ;;
+		ipv6) preparse_regex="${blank}[0-9a-fA-F]*:[0-9a-fA-F]*"
+	esac
+
+	gzip -cd "$in_file" |
+		$awk_cmd -F ',' -v c="$ccodes_parse" '
+			BEGIN{split(c,c_arr," "); for (k in c_arr) {ccode=c_arr[k]; if (ccode) ccodes[ccode]} }
+			$3 in ccodes {print $3 " " $1}
+		' |
+		grep "$preparse_regex" |
+		gzip -c > "$out_file" &&
+			[ -s "$out_file" ] && return 0
+	return 1
+}
+
+parse_ipinfo_maxmind_db() {
 	in_file="$1" out_file="$2" ccode_parse="$3"
 
-	gunzip -fc "$in_file" |
+	gzip -cd "$in_file" |
 		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p;}" > "$out_file" &&
 		[ -s "$out_file" ] &&
 			return 0
@@ -337,6 +384,7 @@ check_updates() {
 		ipdeny) get_src_dates_ipdeny ;;
 		ripe) get_src_dates_ripe ;;
 		maxmind) get_src_dates_maxmind ;;
+		ipinfo) get_src_dates_ipinfo ;;
 		*) die "Unknown source: '$dl_src'."
 	esac
 
@@ -382,9 +430,6 @@ check_updates() {
 
 rm_tmp_f() {
 	rm -f "$fetched_file" "$parsed_list" "$valid_list"
-}
-
-rm_mm_tmp_f() {
 	set +f
 	rm -f "/tmp/${p_name}_preparsed"*.tmp
 	set -f
@@ -414,54 +459,70 @@ fetch_file() {
 	:
 }
 
-fetch_maxmind() {
-	fetched_db_mm="${GEORUN_DIR}/${p_name}_fetched-mm-db_${MM_DB_DATE}.zip"
-	dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
 
-	if [ "$keep_mm_db" = true ] && [ -s "$fetched_db_mm" ]; then
-		printf '%s\n' "Using previously fetched database from MaxMind..."
+fetch_ipinfo_maxmind() {
+	case "$dl_src" in
+		maxmind)
+			db_name="$mm_db_name"
+			db_ext=zip
+			dl_url="${maxmind_url}/${mm_db_name}-Country-CSV/download?suffix=zip"
+			src_fname=mm ;;
+		ipinfo)
+			db_name="$ipinfo_db_name"
+			db_ext=gz
+			dl_url="${ipinfo_url}/ipinfo_${ipinfo_db_name}.csv.gz?token=${ipinfo_token}"
+			src_fname=ipinfo ;;
+	esac
+	eval "db_date=\"\${${dl_src}_db_date}\""
+	fetched_db_path="${GEORUN_DIR}/${p_name}_fetched-${src_fname}-db_${db_date}.${db_ext}"
+
+	if [ "$keep_fetched_db" = true ] && [ -s "$fetched_db_path" ]; then
+		printf '%s\n' "Using previously fetched database from ${dl_src_cap}..."
 	else
-		set +f; rm -f "${GEORUN_DIR}/${p_name}_fetched-mm-db"*; set -f
-		printf '%s\n' "Fetching the database from MaxMind..."
+		set +f; rm -f "${GEORUN_DIR}/${p_name}_fetched-${src_fname}-db"*; set -f
+		printf '%s\n' "Fetching the database from ${dl_src_cap}..."
 
-		fetch_file "$fetch_cmd" "https://$dl_url" "$fetched_db_mm" || {
-			list_failed "$FAIL fetch the database from Maxmind"
-			rm -f "$fetched_db_mm"
+		fetch_file "$fetch_cmd" "https://$dl_url" "$fetched_db_path" || {
+			list_failed "$FAIL fetch the database from ${dl_src_cap}"
+			rm -f "$fetched_db_path"
 			return 1
 		}
 	fi
 
 	printf '\n%s' "Pre-parsing the database... "
 	for family in $families; do
-		preparsed_db_mm="$FETCH_TMP_DIR/${p_name}_preparsed-${family}.gz.tmp"
-		preparse_maxmind_csv "$fetched_db_mm" "$preparsed_db_mm" "$ccodes_need_update" "$family" "$mm_db_name" || {
+		preparsed_db="$FETCH_TMP_DIR/${p_name}_preparsed_${dl_src}-${family}.gz.tmp"
+		case "$dl_src" in
+			maxmind) preparse_cmd=preparse_maxmind_csv ;;
+			ipinfo) preparse_cmd=preparse_ipinfo_csv ;;
+		esac
+		$preparse_cmd "$fetched_db_path" "$preparsed_db" "$ccodes_need_update" "$family" "$db_name" || {
 			FAIL
-			rm -f "$fetched_db_mm"
-			rm_mm_tmp_f
-			echolog -err "$FAIL pre-parse the database from MaxMind."
+			rm -f "$fetched_db_path" "$preparsed_db"
+			echolog -err "$FAIL pre-parse the database from ${dl_src_cap}."
 			return 1
 		}
 	done
 	OK
 
-	[ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm"
+	[ "$keep_fetched_db" = true ] || rm -f "$fetched_db_path"
 
 	for family in $families; do
-		preparsed_db_mm="$FETCH_TMP_DIR/${p_name}_preparsed-${family}.gz.tmp"
+		preparsed_db="$FETCH_TMP_DIR/${p_name}_preparsed_${dl_src}-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
 			case " $excl_file_lists " in *" $list_id "*) continue; esac
-			parsed_list_mm="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
-			printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
+			parsed_list="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
+			printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
 
-			parse_maxmind_db "$preparsed_db_mm" "$parsed_list_mm" "$ccode" || {
-				rm_mm_tmp_f
+			parse_ipinfo_maxmind_db "$preparsed_db" "$parsed_list" "$ccode" || {
+				rm -f "$preparsed_db" "$parsed_list"
 				echolog -err "$FAIL parse the IP list for '$list_id'."
 				return 1
 			}
 			OK
 		done
-		rm -f "$preparsed_db_mm"
+		rm -f "$preparsed_db"
 	done
 	echo
 
@@ -482,7 +543,7 @@ process_ccode() {
 			ripe)
 				fetched_file="${fetched_path_prefix}${curr_ccode}.tmp"
 				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
-			maxmind)
+			maxmind|ipinfo)
 				fetched_file="${fetched_path_prefix}${list_id}.tmp"
 				rm_fetched_list_id=1
 				dl_url="" ;;
@@ -506,7 +567,7 @@ process_ccode() {
 		if [ ! -s "$fetched_file" ]; then
 			case "$dl_src" in
 				ripe) fetch_subj="IP list for country '${purple}$curr_ccode${n_c}'" ;;
-				maxmind) list_failed "Fetched file '$fetched_file' for list ID '$list_id' not found"; return 1 ;;
+				maxmind|ipinfo) list_failed "Fetched file '$fetched_file' for list ID '$list_id' not found"; return 1 ;;
 				ipdeny) fetch_subj="IP list for '${purple}$list_id${n_c}'"
 			esac
 			printf '\n%s\n' "Fetching the $fetch_subj from $dl_src_cap..."
@@ -521,29 +582,37 @@ process_ccode() {
 
 		case "$dl_src" in
 			ripe)
-				printf %s "Parsing the IP list for '${purple}$list_id${n_c}'... "
+				printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
 				parse_ripe_json "$fetched_file" "$parsed_list" "$family" ||
 					{ list_failed "$FAIL parse the IP list for '$list_id'."; continue; }
 				OK ;;
-			maxmind|ipdeny) mv "$fetched_file" "$parsed_list"
+			maxmind|ipinfo|ipdeny) mv "$fetched_file" "$parsed_list"
 		esac
 
 		# Validate the parsed list, populate the $valid_s_cnt, $failed_s_cnt
-		printf %s "Validating              '$purple$list_id$n_c'... "
+		printf %s "Validating      '$purple$list_id$n_c':  "
 		valid_list="$FETCH_TMP_DIR/validated-${list_id}.tmp"
 
-		case "$family" in
-			ipv4) subnet_regex="$subnet_regex_ipv4" ;;
-			*) subnet_regex="$subnet_regex_ipv6"
+		case "${dl_src}" in
+			ipinfo)
+				case "$family" in
+					ipv4) addr_regex="$ip_or_range_regex_ipv4" ;;
+					ipv6) addr_regex="$ip_or_range_regex_ipv6"
+				esac ;;
+			*)
+				case "$family" in
+					ipv4) addr_regex="$range_regex_ipv4" ;;
+					ipv6) addr_regex="$range_regex_ipv6"
+				esac ;;
 		esac
-		grep -E "^$subnet_regex$" "$parsed_list" > "$valid_list"
+		grep -E "^$addr_regex$" "$parsed_list" > "$valid_list"
 
 		parsed_s_cnt=$(wc -w < "$parsed_list")
 		valid_s_cnt=$(wc -w < "$valid_list")
 		failed_s_cnt=$(( parsed_s_cnt - valid_s_cnt ))
 
 		if [ "$failed_s_cnt" != 0 ]; then
-			failed_s="$(grep -Ev  "$subnet_regex" "$parsed_list")"
+			failed_s="$(grep -Ev  "$addr_regex" "$parsed_list")"
 
 			list_failed "${_nl}out of $parsed_s_cnt entries in IP list '${purple}$list_id${n_c}, $failed_s_cnt entries ${red}failed validation${n_c}'."
 			if [ $failed_s_cnt -gt 10 ]; then
@@ -560,8 +629,8 @@ process_ccode() {
 			OK
 		fi
 
-		printf '%s\n' "Validated IP ranges for '$purple$list_id$n_c':   $valid_s_cnt"
-		check_subnets_cnt_drop "$list_id" || { list_failed; continue; }
+		printf '%s\n' "IP ranges in    '$purple$list_id$n_c':  $valid_s_cnt"
+		check_entries_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
 		if [ "$raw_mode" ]; then
@@ -574,7 +643,7 @@ process_ccode() {
 
 		touch -d "$src_date_compat" "$list_path"
 		add2list fetched_lists "$list_id"
-		set_a_arr_el subnets_cnt_arr "$list_id=$valid_s_cnt"
+		set_a_arr_el entries_cnt_arr "$list_id=$valid_s_cnt"
 		set_a_arr_el list_date_arr "$list_id=$src_date_compat"
 
 		rm -f "$valid_list"
@@ -585,8 +654,8 @@ process_ccode() {
 	:
 }
 
-# compares current validated subnets count to previous one
-check_subnets_cnt_drop() {
+# compares current validated entries count to previous one
+check_entries_cnt_drop() {
 	list_id="$1"
 
 	if [ "$valid_s_cnt" = 0 ]; then
@@ -594,10 +663,10 @@ check_subnets_cnt_drop() {
 		return 1
 	fi
 
-	# Check if subnets count decreased dramatically compared to the old list
+	# Check if entries count decreased dramatically compared to the old list
 	check_prev_list "$list_id"
 	if [ "$prev_s_cnt" ] && [ "$prev_s_cnt" != 0 ]; then
-		# compare fetched subnets count to old subnets count, get result in %
+		# compare fetched entries count to old entries count, get result in %
 		s_percents="$((valid_s_cnt * 100 / prev_s_cnt))"
 		if [ $s_percents -lt 60 ]; then
 			echolog -warn "validated IP ranges count '$valid_s_cnt' in the fetched list '$purple$list_id$n_c'" \
@@ -677,7 +746,7 @@ fi
 
 #### Choose best available DL utility, set options
 case "$dl_src" in
-	ipdeny|maxmind) main_conn_timeout=16 ;;
+	ipdeny|maxmind|ipinfo) main_conn_timeout=16 ;;
 	ripe) main_conn_timeout=22 # ripe api may be slow at processing initial request for a non-ripe region
 esac
 
@@ -796,11 +865,18 @@ case "$dl_src" in
 			free) mm_db_name=GeoLite2 ;;
 			paid) mm_db_name=GeoIP2 ;;
 			*) die "unexpected MaxMind license type '$mm_license_type'"
+		esac ;;
+	ipinfo)
+		checkvars ipinfo_url ipinfo_license_type ipinfo_token
+		con_check_url="${ipinfo_url%%/*}"
+		case "$ipinfo_license_type" in
+			lite|core|plus) ipinfo_db_name="$ipinfo_license_type" ;;
+			*) die "unexpected IPinfo license type '$ipinfo_license_type'"
 		esac
 esac
 
-trap 'rm_tmp_f; rm_mm_tmp_f; \
-	[ "$keep_mm_db" = true ] || rm -f "$fetched_db_mm"; \
+trap 'rm_tmp_f; \
+	[ "$keep_fetched_db" = true ] || rm -f "$fetched_db_path"; \
 	rm -rf "$FETCH_TMP_DIR"; \
 	trap - INT TERM HUP QUIT; exit' \
 		INT TERM HUP QUIT
@@ -846,8 +922,8 @@ fi
 check_updates
 
 # process list IDs
-if [ "$dl_src" = maxmind ] && [ "$ccodes_need_update" ]; then
-	fetch_maxmind || die
+if [ "$ccodes_need_update" ] && { [ "$dl_src" = maxmind ] || [ "$dl_src" = ipinfo ]; }; then
+	fetch_ipinfo_maxmind || { rm_tmp_f; die; }
 fi
 
 for ccode in $ccodes_need_update; do
@@ -872,10 +948,10 @@ if [ "$status_file" ]; then
 
 	ips_cnt_str=
 	# convert array contents to formatted multi-line string for writing to the status file
-	get_a_arr_keys subnets_cnt_arr list_ids
+	get_a_arr_keys entries_cnt_arr list_ids
 	for list_id in $list_ids; do
-		get_a_arr_val subnets_cnt_arr "$list_id" subnets_cnt
-		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}_${dl_src}=$subnets_cnt$_nl"
+		get_a_arr_val entries_cnt_arr "$list_id" entries_cnt
+		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}_${dl_src}=$entries_cnt$_nl"
 	done
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
