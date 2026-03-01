@@ -156,7 +156,7 @@ ${sp8}See README for specifics.
 
   ${blue}-P <true|false>${n_c} : Force cron-based persistence even when the system may not support it. Default is false.
 
-  ${blue}-K <true|false>${n_c} : Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
+  ${blue}-K <true|false>${n_c} : Keep and re-use the complete downloaded MaxMind/IPinfo database until it's changed upstream.
 
 ${purple}Options for the 'lookup' action${n_c}:
   ${blue}-I <"ip_addresses">${n_c} : Look up specified IP addresses in loaded IP sets
