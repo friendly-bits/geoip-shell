@@ -479,12 +479,12 @@ set_defaults() {
 	if [ "$_OWRTFW" ]; then
 		geosource_def=ipdeny datadir_def="$GEORUN_DIR/data" nobackup_def=true
 		local_iplists_dir_def="$conf_dir/local_iplists"
+		keep_fetched_db_def=false
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
 		local_iplists_dir_def="$datadir_def/local_iplists"
+		keep_fetched_db_def=true
 	fi
-
-	keep_fetched_db_def=false
 
 	: "${nobackup:="$nobackup_def"}"
 	: "${datadir:="$datadir_def"}"
