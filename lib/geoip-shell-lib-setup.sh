@@ -41,9 +41,10 @@ pick_user_ccode() {
 
 # asks the user to entry country codes, then validates against known-good list
 pick_ccodes() {
-	[ "$nointeract" ] && [ ! "$ccodes_arg" ] && die "Specify country codes with '-c <\"country_codes\">'."
-	[ ! "$ccodes_arg" ] && printf '\n%s\n' "${blue}Please enter country codes to include in $direction geoblocking $geomode.$n_c"
-	REPLY="$ccodes_arg"
+	out_var_pc="$1" ccodes_arg_pc="$2"
+	[ "$nointeract" ] && [ ! "$ccodes_arg_pc" ] && die "Specify country codes with '-c <\"country_codes\">'."
+	[ ! "$ccodes_arg_pc" ] && printf '\n%s\n' "${blue}Please enter country codes to include in $direction geoblocking $geomode.$n_c"
+	REPLY="$ccodes_arg_pc"
 	while :; do
 		unset bad_ccodes ok_ccodes
 		[ ! "$REPLY" ] && {
@@ -87,7 +88,8 @@ pick_ccodes() {
 					REPLY=
 					continue
 				}
-				ccodes="${ok_ccodes% }"; break
+				eval "$out_var_pc"='${ok_ccodes% }'
+				return 0
 		esac
 	done
 }
@@ -675,12 +677,281 @@ get_general_prefs() {
 			done
 	esac
 
+	[ ! "$user_ccode" ] || [ "$user_ccode_arg" ] && pick_user_ccode
+	:
+}
+
+do_configure() {
+	prev_config="$main_config"
+
+	[ ! -s "$conf_file" ] && {
+		touch "$conf_file" && chmod 600 "$conf_file" && chown root:root "$conf_file" || {
+			rm -f "$conf_file"
+			die "$FAIL create the config file."
+		}
+		[ "$_fw_backend" ] && rm_iplists_rules
+	}
+
+	debugprint "first_setup: '$first_setup'"
+
+	for var_name in datadir local_iplists_dir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf \
+		user_ccode lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
+		eval "${var_name}_prev=\"\$$var_name\""
+	done
+
+	# sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
+	#   geosource trusted user_ccode keep_fetched_db custom_script
+	# imports local IP lists if specified
+	get_general_prefs || die
+
+	checkvars _fw_backend datadir
+
+	for opt_ch in datadir local_iplists_dir noblock nobackup schedule no_persist geosource families \
+			_fw_backend nft_perf user_ccode source_ips_policy; do
+		unset "${opt_ch}_change"
+		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
+	done
+
+
+	# determine if interactive geomode dialog is needed
+	geomode_set=
+	for direction in inbound outbound; do
+		[ -n "$geomode" ] && geomode_set=1
+		eval "geomode_arg=\"\$${direction}_geomode_arg\"
+				geomode=\"\$${direction}_geomode\""
+
+		[ "$geomode" ] && geomode_set=1
+
+		[ "$geomode_arg" ] && {
+			tolower geomode_arg
+			case "$geomode_arg" in whitelist|blacklist|disable)
+				geomode_set=1
+				eval "${direction}_geomode_arg=\"$geomode_arg\""
+			esac
+		}
+	done
+
+	# set *_ccodes *_ports icmp *_iplists *_geomode
+	unset proto_change geomode_change_g
+
+	for direction in inbound outbound; do
+		unset ccodes process_args geomode_change
+		contradicts1="contradicts $direction geoblocking mode 'disable'."
+		contradicts2="To enable geoblocking for direction $direction: '$p_name configure -D $direction -m <whitelist|blacklist>'"
+
+		for _par in geomode iplists icmp tcp_ports udp_ports; do
+			eval "${_par}=\"\${${direction}_${_par}}\" ${_par}_prev=\"\${${direction}_${_par}}\" \
+				${direction}_${_par}_prev=\"\${${direction}_${_par}}\""
+		done
+
+		san_str "${direction}_ccodes_arg" || die
+		toupper "${direction}_ccodes_arg"
+
+		for _par in ccodes_arg proto_arg geomode_arg; do
+			eval "${_par}=\"\${${direction}_${_par}}\""
+		done
+
+		[ -n "$ccodes_arg" ] || [ -n "$proto_arg" ] && process_args=1
+
+		# geomode
+		[ "$geomode_arg" ] && {
+			case "$geomode_arg" in
+				whitelist|blacklist|disable) geomode="$geomode_arg" ;;
+				'') ;;
+				*)
+					echolog -err "Invalid geoblocking mode '$geomode_arg'."
+					[ "$nointeract" ] && die
+					pick_geomode
+			esac
+		}
+
+		[ ! "$geomode_set" ] && {
+			if [ "$nointeract" ]; then
+				[ "$direction" = outbound ] && die "Specify geoblocking mode with -m $mode_syn"
+				geomode=disable
+			elif [ "$direction" = inbound ]; then
+				pick_geomode
+			elif [ "$direction" = outbound ]; then
+				echolog "${_nl}${yellow}NOTE${n_c}: You can set up *outbound* geoblocking later by running 'geoip-shell configure -D outbound -m <whitelist|blacklist>'."
+			fi
+		}
+
+		: "${geomode:=disable}"
+
+		if [ "$geomode" = disable ]; then
+			[ "$proto_arg" ] && die "Option '-p' $contradicts1" "$contradicts2"
+			[ "$ccodes_arg" ] && die "Option '-c' $contradicts1" "$contradicts2"
+			process_args=
+			unset iplists "${direction}_iplists"
+			eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_icmp=skip ${direction}_geomode=disable"
+		else
+			process_args=1
+		fi
+
+		[ "$geomode" != "$geomode_prev" ] && { geomode_change=1; geomode_change_g=1; }
+
+		eval "${direction}_geomode"='$geomode' "${direction}_geomode_change"='$geomode_change'
+
+		[ -n "$geomode_change" ] && unset iplists "${direction}_iplists"
+
+		[ "$direction" = outbound ] && ! is_whitelist_present && {
+			[ "$lan_ips_arg" ] && die "Option '-l' can only be used in whitelist geoblocking mode."
+			if [ -n "$lan_ips_ipv4$lan_ips_ipv6" ]; then
+				echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing LAN IPs from config." # TODO: do not remove?
+				unset lan_ips_ipv4 lan_ips_ipv6
+			fi
+		}
+
+		[ ! "$process_args" ] && continue
+
+		# protocols
+		[ "$proto_arg" ] && { setprotocols "${proto_arg%"$_nl"}" || die; }
+		for opt_ch in icmp tcp_ports udp_ports; do
+			eval "[ \"\$${direction}_${opt_ch}\" != \"\$${direction}_${opt_ch}_prev\" ] && ${direction}_proto_change=1" &&
+				proto_change=1
+		done
+
+		# country codes
+		if [ -n "$ccodes_arg" ]; then
+			norm_ccodes='' bad_ccodes=''
+			toupper ccodes_arg
+			for ccode in $ccodes_arg; do
+				normalize_ccode norm_ccode "$ccode"
+				case $? in
+					1) die "Internal error while validating country codes." ;;
+					3) bad_ccodes="$bad_ccodes$ccode "
+				esac
+				norm_ccodes="${norm_ccodes}${norm_ccode} "
+			done
+			[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
+			ccodes_arg="${norm_ccodes% }"
+		fi
+
+		if [ "$ccodes_arg" ] || { [ -z "$ccodes_arg" ] && [ -z "$iplists" ]; }; then
+			pick_ccodes ccodes "$ccodes_arg"
+		fi
+
+		[ "$families_change" ] && [ ! "$ccodes" ] &&
+			for list_id in $iplists; do
+				add2list ccodes "${list_id%_*}"
+			done
+
+		# generate a list of requested iplists
+		lists_req=
+		for ccode in $ccodes; do
+			for f in $families; do
+				add2list lists_req "${ccode}_$f"
+			done
+		done
+
+		separate_excl_iplists lists_req "$lists_req" || die
+
+		eval "${direction}_lists_req"='$lists_req' \
+			"${direction}_ccodes"='$ccodes'
+	done
+
+	san_str all_ccodes_arg "$inbound_ccodes_arg $outbound_ccodes_arg" || die
+
+	[ "$excl_list_ids" ] && report_excluded_lists "$excl_list_ids"
+
+	[ "$all_ccodes_arg" ] && [ ! "$inbound_lists_req$outbound_lists_req" ] &&
+		die "No applicable IP list IDs could be generated for country codes '$all_ccodes_arg'."
+
+	# ifaces and lan addresses
+	unset lan_picked ifaces_picked ifaces_change
+
+	for direction in inbound outbound; do
+		eval "geomode=\"\$${direction}_geomode\" geomode_change=\"\$${direction}_geomode_change\""
+		[ "$geomode" = disable ] && continue
+		if [ ! "$ifaces" ] && [ ! "$ifaces_arg" ]; then
+			[ "$nointeract" ] && die "Specify interfaces with -i <\"ifaces\"|auto|all>."
+			printf '\n%s\n%s\n%s\n%s\n' "${blue}Does this machine have dedicated WAN network interface(s)?$n_c [y|n] or [a] to abort." \
+				"For example, a router or a virtual private server may have it." \
+				"A machine connected to a LAN behind a router is unlikely to have it." \
+				"It is important to answer this question correctly."
+			pick_opt "y|n|a"
+			case "$REPLY" in
+				a) die 130 ;;
+				y) pick_ifaces ;;
+				n) ifaces=all; is_whitelist_present && [ ! "$lan_picked" ] && { warn_lockout; pick_lan_ips; }
+			esac
+			ifaces_change=1
+		fi
+
+		if [ "$ifaces_arg" ] && [ ! "$ifaces_picked" ]; then
+			ifaces=
+			case "$ifaces_arg" in
+				all) ifaces=all
+					is_whitelist_present && [ ! "$lan_picked" ] &&
+						{ [ "$first_setup" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+							{ warn_lockout; pick_lan_ips; } ;;
+				auto) ifaces_arg=''; pick_ifaces -a ;;
+				*) pick_ifaces
+			esac
+		fi
+
+		[ ! "$ifaces" ] && ifaces=all
+
+		get_difference "$ifaces" "$ifaces_prev" || ifaces_change=1
+
+		if [ ! "$lan_picked" ] && [ ! "$lan_ips_ipv4$lan_ips_ipv6" ] && is_whitelist_present && [ "$geomode_change" ] &&
+			[ "$ifaces" = all ]; then
+			warn_lockout; pick_lan_ips
+		fi
+	done
+
+	[ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
+
+	[ "$geosource_change" ] && unset source_ips_ipv4 source_ips_ipv6
+
+	# source IPs
+	if [ "$source_ips_arg" ] || {
+			[ "$outbound_geomode" != disable ] && [ ! "$source_ips_ipv4$source_ips_ipv6" ] && [ "$source_ips_policy" != pause ] &&
+			{
+				[ ! "$source_ips_policy" ] ||
+				[ "$geosource_change" ] ||
+				{ [ "$outbound_geomode_change" ] && [ "$outbound_geomode_prev" = disable ]; }
+			}
+		}
+	then
+		pick_source_ips
+	fi
+
+	for opt_ch in lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6; do
+		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ]" && eval "${opt_ch%_ipv*}_change=1"
+	done
+
+	[ "$source_ips_policy_change" ] && [ "$source_ips_policy" = true ] && source_ips_change=1
+
+	unset all_iplists all_iplists_prev all_add_iplists
+	for direction in inbound outbound; do
+		eval "lists_req=\"\$${direction}_lists_req\" iplists=\"\$${direction}_iplists\" iplists_prev=\"\$${direction}_iplists_prev\""
+		: "${lists_req:="$iplists"}"
+		iplists="$lists_req"
+
+		! get_difference "$iplists_prev" "$iplists" && {
+			lists_change=1
+			eval "${direction}_lists_change=1"
+		}
+		eval "${direction}_iplists"='$iplists'
+
+		add2list all_iplists_prev "$iplists_prev"
+		add2list all_iplists "$iplists"
+	done
+
+	subtract_a_from_b "$all_iplists_prev" "$all_iplists" all_add_iplists
+
+	debugprint "all_add_iplists: '$all_add_iplists'"
+}
+
+import_local_iplists() {
 	# sanitization for local IP lists
 	sed_san() {
 		{ cat "$1"; printf '\n'; } | sed 's/\r/\n/g;s/\n$//' | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
 	}
 
-	# process and import local IP lists if specified
+	rm -rf "$staging_local_dir"
+
 	for iplist_type in allow block; do
 		eval "file=\"\$local_${iplist_type}_arg\""
 		case "$file" in
@@ -692,7 +963,9 @@ get_general_prefs() {
 				continue
 		esac
 
-		printf %s "Checking local ${iplist_type}list file '$file'... "
+		dir_mk -n "$staging_local_dir"
+
+		printf '\n%s' "Checking local ${iplist_type}list file '$file'... "
 		[ -s "$file" ] || die "${_nl}IP list file '$file' is empty or doesn't exist."
 
 		# detect family
@@ -701,9 +974,6 @@ get_general_prefs() {
 			local_f_name="local_${iplist_type}_ipv${iplist_family}"
 			perm_file="${local_iplists_dir}/${local_f_name}"
 			staging_file="$staging_local_dir/${local_f_name}"
-
-			rm -rf "$staging_local_dir"
-			dir_mk -n "$staging_local_dir"
 
 			eval "ip_regex=\"\${ipv${iplist_family}_regex}\"
 				mb_regex=\"\${maskbits_regex_ipv${iplist_family}}\""
@@ -714,8 +984,8 @@ get_general_prefs() {
 					ip) detect_regex="${ip_regex}"
 				esac
 				if sed_san "$file" | grep -E "^${detect_regex}$" > "$staging_file.$el_type"; then
-					local_ips_found=1
 					[ "$el_type" = net ] && import_el_type=net
+					local_ips_found=1
 					continue
 				else
 					rm -f "$staging_file.$el_type"
@@ -741,7 +1011,7 @@ get_general_prefs() {
 				4) check_family=6 ;;
 				6) check_family=4
 			esac
-			eval "iplist_regex=\"^\${ipv${check_family}_regex}(/\${maskbits_regex_ipv${check_family}}|)$\""
+			eval "iplist_regex=\"^\${ip_or_range_regex_ipv${check_family}}$\""
 			if printf '%s\n' "$invalid_ip" | grep -E "$iplist_regex" 1>/dev/null; then
 				die "${_nl}IP list file '$file' contains both IPv4 and IPv6 addresses - this is not supported."
 			else
@@ -769,7 +1039,7 @@ get_general_prefs() {
 		{
 			for el_type in net ip; do
 				if [ -f "$perm_file.$el_type" ] && compare_files "$perm_file.$el_type" "$staging_file"; then
-					echolog "${_nl}All IP's in file '$file' have been previously imported."
+					echolog "${_nl}Local ${iplist_type}list already contains all IP's in file '$file'."
 					set +f
 					rm -f "$staging_file"*
 					set -f
@@ -791,13 +1061,10 @@ get_general_prefs() {
 			mv "$staging_file" "$staging_file.ip"
 		fi
 		rm -f "$staging_local_dir/net"
-
 		printf '%s\n' "${yellow}You can delete the file '$file' to free up space.${n_c}"
 		lists_change=1
 	done
-
-	[ ! "$user_ccode" ] || [ "$user_ccode_arg" ] && pick_user_ccode
-	:
+	[ -n "$lists_change" ] || die 0
 }
 
 [ "$script_dir" = "$install_dir" ] && _script="$i_script" || _script="$p_script"
