@@ -725,7 +725,7 @@ trimsp() {
 # result via return status
 is_included() {
 	_fs_ii="${3:- }"
-	case "$2" in "$1"|"$1$_fs_ii"*|*"$_fs_ii$1"|*"$_fs_ii$1$_fs_ii"*) return 0 ;; *) return 1; esac
+	case "${_fs_ii}${2}${_fs_ii}" in *"${_fs_ii}${1}${_fs_ii}"*) return 0 ;; *) return 1; esac
 }
 
 # adds a string to a list if it's not included yet
