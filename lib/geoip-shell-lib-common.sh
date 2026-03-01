@@ -1327,18 +1327,6 @@ resolve_domain_ips() {
 	:
 }
 
-# outpus newline-separated list of ips
-# 1 - family
-resolve_geosource_ips() {
-	case "$geosource" in
-		ripe) src_domains="${ripe_url_api%%/*}${_nl}${ripe_url_stats%%/*}" ;;
-		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}" ;;
-		ipinfo) src_domains="${ipinfo_url%%/*}" ;;
-		maxmind) src_domains="download.maxmind.com${_nl}www.maxmind.com${_nl}mm-prod-geoip-databases.a2649acb697e2c09b632799562c076f2.r2.cloudflarestorage.com"
-	esac
-	resolve_domain_ips "$family" "$src_domains"
-}
-
 setup_ipinfo() {
 	checkutil "gzip" || { echolog -err "IPinfo source requires the 'gzip' utility but it is not found."; return 1; }
 

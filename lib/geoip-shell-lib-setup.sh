@@ -319,10 +319,17 @@ pick_source_ips() {
 		esac
 	fi
 
+	case "$geosource" in
+		ripe) src_domains="${ripe_url_api%%/*}${_nl}${ripe_url_stats%%/*}" ;;
+		ipdeny) src_domains="${ipdeny_ipv4_url%%/*}" ;;
+		ipinfo) src_domains="${ipinfo_url%%/*}" ;;
+		maxmind) src_domains="download.maxmind.com${_nl}www.maxmind.com${_nl}mm-prod-geoip-databases.a2649acb697e2c09b632799562c076f2.r2.cloudflarestorage.com"
+	esac
+
 	for family in $families; do
 		ipset_type=ip
 		echo
-		source_ips="$(resolve_geosource_ips "$family")"
+		source_ips="$(resolve_domain_ips "$family" "$src_domains")"
 
 		if [ -n "$source_ips" ]; then
 			nl2sp source_ips
