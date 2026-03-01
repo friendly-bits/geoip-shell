@@ -342,8 +342,8 @@ pick_source_ips() {
 				h) ;;
 				a) die 253
 			esac
-		elif [ "$geosource" = ipdeny ] && [ "$family" = ipv6 ]; then
-				printf '%s\n' "At this time the 'ipdeny' servers do not have ipv6 addresses - skipping."
+		elif [ "$family" = ipv6 ] && { [ "$geosource" = ipdeny ] || [ "$geosource" = ipinfo ]; }; then
+				printf '%s\n' "At this time the $geosource servers do not have ipv6 addresses - skipping."
 				continue
 		else
 			printf '%s\n' "$FAIL automatically detect $family addresses for source '$geosource'."
