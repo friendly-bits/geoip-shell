@@ -73,9 +73,11 @@ ${sp8}To specify rules for multiple protocols in one command, use the '-p' optio
 
 ${purple}General options for the 'configure' action${n_c} (affects geoblocking in both directions):
 
-  ${blue}-f <ipv4|ipv6|"ipv4 ipv6">${n_c} : IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
+  ${blue}-f <ipv4|ipv6|"ipv4 ipv6">${n_c} :
+${sp8}IP families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-  ${blue}-u $srcs_syn${n_c} : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
+  ${blue}-u <ripe|ipdeny|maxmind|ipinfo>${n_c} :
+${sp8}Specify IP list source.
 
   ${blue}-i <"[ifaces]"|auto|all>${n_c} :
 ${sp8}Changes which network interface(s) geoblocking firewall rules will be applied to.
