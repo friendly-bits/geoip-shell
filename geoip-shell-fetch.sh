@@ -43,10 +43,10 @@ Usage: $me -l <"list_ids"> -p <path> [-s <path>] [-u <"source">] [-f] [-d] [-V] 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-  -l <"list_ids">         ${sp8}: $list_ids_usage
-  -p <path>               ${sp8}: Path to directory where downloaded and compiled IP lists will be stored.
-  -s <path>               ${sp8}: Path to a file to register fetch results in.
-  -u $srcs_syn : Specify IP list source for download.
+  -l <"list_ids"> $sp16: $list_ids_usage
+  -p <path>       $sp16: Path to directory where downloaded and compiled IP lists will be stored.
+  -s <path>       $sp16: Path to a file to register fetch results in.
+  -u <ripe|ipdeny|maxmind|ipinfo> : Specify IP list source.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
