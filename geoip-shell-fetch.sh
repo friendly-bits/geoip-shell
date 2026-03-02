@@ -299,6 +299,7 @@ preparse_ipinfo_csv() {
 	esac
 
 	gzip -cd "$in_file" |
+		sed 's/"[^"]*"//' | # ipinfo has entries with commas enclosed in double-quotes
 		$awk_cmd -F ',' -v c="$ccodes_parse" '
 			BEGIN{split(c,c_arr," "); for (k in c_arr) {ccode=c_arr[k]; if (ccode) ccodes[ccode]} }
 			$3 in ccodes {print $3 " " $1}
@@ -590,7 +591,7 @@ process_ccode() {
 		esac
 
 		# Validate the parsed list, populate the $valid_s_cnt, $failed_s_cnt
-		printf %s "Validating      '$purple$list_id$n_c':  "
+		printf_s "Validating '$purple$list_id$n_c'... "
 		valid_list="$FETCH_TMP_DIR/validated-${list_id}.tmp"
 
 		case "${dl_src}" in
@@ -626,10 +627,9 @@ process_ccode() {
 			continue
 		else
 			rm -f "$parsed_list"
-			OK
+			printf '%s\n' "${green}OK${n_c} (IP ranges: $valid_s_cnt)"
 		fi
 
-		printf '%s\n' "IP ranges in    '$purple$list_id$n_c':  $valid_s_cnt"
 		check_entries_cnt_drop "$list_id" || { list_failed; continue; }
 
 		debugprint "Updating $list_path... "
