@@ -1521,7 +1521,9 @@ export IFS="$default_IFS"
 	set_ansi
 	export WARN="${yellow}Warning${n_c}:" ERR="${red}Error${n_c}:" FAIL="${red}Failed${n_c} to"
 
-	if checkutil gawk; then
+	if checkutil mawk; then
+		awk_cmd=mawk
+	elif checkutil gawk; then
 		awk_cmd="gawk"
 	else
 		awk_cmd="awk"
