@@ -1490,7 +1490,6 @@ p_name_cap=GEOIP-SHELL
 # vars for common usage() functions
 sp8="        "
 sp16="$sp8$sp8"
-srcs_syn="<ripe|ipdeny|maxmind|ipinfo>"
 direction_syn="<inbound|outbound>"
 direction_usage="direction (inbound|outbound). Only valid for actions add|remove and in combination with the '-l' option."
 list_ids_usage="iplist IDs in the format <country_code>_<family> (if specifying multiple list IDs, use double quotes)"
