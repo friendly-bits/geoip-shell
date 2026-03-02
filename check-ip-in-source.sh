@@ -80,7 +80,7 @@ setdebug
 #### Functions
 
 die_l() {
-	rm -f "$list_file" "$ciis_fetch_res_file"
+	rm -rf "$ciis_dir"
 	die "$@"
 }
 
@@ -179,17 +179,18 @@ fi
 
 trap 'die_l' INT TERM HUP QUIT
 
-dir_mk -n "$GEORUN_DIR" || die_l
+ciis_dir="${GEORUN_DIR:?}/ciis"
+dir_mk -n "$ciis_dir" || die_l
 
 for family in $families; do
 	eval "val_ips=\"\$val_${family}s\""
 
 	list_id="${ccode}_${family}"
-	ciis_fetch_res_file="$GEORUN_DIR/fetch-res-$list_id.tmp"
-	list_file="$GEORUN_DIR/iplist-$list_id.tmp"
+	ciis_fetch_res_file="$ciis_dir/fetch-res-$list_id.tmp"
+	list_file="$ciis_dir/$list_id.iplist"
 
 	printf '' > "$ciis_fetch_res_file" &&
-	call_script "$fetch_path" -r -l "$list_id" -o "$list_file" -s "$ciis_fetch_res_file" -u "$dl_src" ||
+	call_script "$fetch_path" -r -l "$list_id" -p "$ciis_dir" -s "$ciis_fetch_res_file" -u "$dl_src" ||
 		die_l "$FAIL fetch IP lists."
 
 	# read fetch results from ciis_fetch_res_file
@@ -210,6 +211,8 @@ for family in $families; do
 	done
 	rm -f "$list_file" "$ciis_fetch_res_file"
 done
+
+rm -rf "$ciis_dir"
 
 match="Included"
 nomatch="Not included"
