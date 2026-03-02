@@ -35,7 +35,7 @@ oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
+Usage: $me -l <"list_ids"> -p <path> [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
 1) Fetches IP lists for given country codes from either: RIPE API, ipdeny, MaxMind, IPinfo
 	(supports any combination of ipv4 and ipv6 lists)
@@ -43,13 +43,10 @@ Usage: $me -l <"list_ids"> -p <path> [-o <output_file>] [-s <path>] [-u <"source
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-  -l <"list_ids">  : $list_ids_usage
-  -p <path>        : Path to directory where downloaded and compiled IP lists will be stored.
-  -o <output_file> : Path to output file where fetched list will be stored.
-${sp16}${sp8}With this option, specify exactly 1 country code.
-${sp16}${sp8}(use either '-p' or '-o' but not both)
-  -s <path>        : Path to a file to register fetch results in.
-  -u $srcs_syn : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind, ipinfo.
+  -l <"list_ids">         ${sp8}: $list_ids_usage
+  -p <path>               ${sp8}: Path to directory where downloaded and compiled IP lists will be stored.
+  -s <path>               ${sp8}: Path to a file to register fetch results in.
+  -u $srcs_syn : Specify IP list source for download.
  
   -r : Raw mode (outputs newline-delimited lists rather than nftables-ready ones)
   -f : Force using fetched lists even if list timestamp didn't change compared to existing list
@@ -68,7 +65,6 @@ while getopts ":l:p:o:s:u:rfdVh" opt; do
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir_f=$OPTARG ;;
 		s) fetch_res_file=$OPTARG ;;
-		o) output_file=$OPTARG ;;
 		u) src_arg=$OPTARG ;;
 
 		r) raw_mode=1 ;;
@@ -534,7 +530,7 @@ process_ccode() {
 	curr_ccode="$1"
 	tolower curr_ccode_lc "$curr_ccode"
 	unset list_path fetched_file
-	fetched_path_prefix="$FETCH_TMP_DIR/${p_name}_fetched-"
+	fetched_path_prefix="${FETCH_TMP_DIR:?}/${p_name}_fetched-"
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
 		case " $excl_file_lists " in *" $list_id "*) continue; esac
@@ -558,7 +554,7 @@ process_ccode() {
 			*) die "Unsupported source: '$dl_src'."
 		esac
 
-		list_path="${output_file:-$iplist_dir_f/$list_id.iplist}"
+		list_path="${iplist_dir_f:?}/$list_id.iplist"
 
 		parsed_list="$FETCH_TMP_DIR/${p_name}_parsed-${list_id}.tmp"
 
@@ -681,19 +677,11 @@ check_entries_cnt_drop() {
 }
 
 
-#### Set output file/s
+#### Output dir
 
-# check that either $iplist_dir_f or $output_file is set
-[ ! "$iplist_dir_f" ] && [ ! "$output_file" ] &&
-	die "Specify iplist directory with '-p <path-to-dir>' or output file with '-o <output_file>'."
-# ... but not both
-[ "$iplist_dir_f" ] && [ "$output_file" ] && die "Use either '-p <path-to-dir>' or '-o <output_file>' but not both."
+[ "$iplist_dir_f" ] || die "Specify iplist directory with '-p <path-to-dir>'."
 
 fast_el_cnt "$lists_arg" " " lists_arg_cnt
-
-# if $output_file is set, make sure that no more than 1 list is specified
-[ "$output_file" ] && [ "$lists_arg_cnt" -gt 1 ] &&
-	die "To fetch multiple lists, use '-p <path-to-dir>' instead of '-o <output_file>'."
 
 [ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] && die "Directory '$iplist_dir_f' doesn't exist!"
 iplist_dir_f="${iplist_dir_f%/}"
@@ -881,11 +869,8 @@ trap 'rm_tmp_f; \
 	trap - INT TERM HUP QUIT; exit' \
 		INT TERM HUP QUIT
 
-out_dir="${output_file%/*}"
-out_dir="${out_dir:-"$iplist_dir_f"}"
-
 rm -rf "$FETCH_TMP_DIR"
-dir_mk -n "$out_dir" &&
+dir_mk -n "$iplist_dir_f" &&
 dir_mk -n "$FETCH_TMP_DIR" || die
 
 debugprint "conn check command: '$con_check_cmd \"https://$con_check_url\"'"
@@ -904,8 +889,8 @@ $con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 OK
 rm -f "$con_check_file"
 
-for f in "$status_file" "$fetch_res_file" "$output_file"; do
-	[ "$f" ] && [ ! -f "$f" ] && { touch "$f" || die "$FAIL create file '$f'."; }
+for f in "$status_file" "$fetch_res_file"; do
+	[ -z "$f" ] || [ -f "$f" ] || touch "$f" || die "$FAIL create file '$f'."
 done
 
 
