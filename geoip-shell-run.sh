@@ -121,7 +121,7 @@ debugentermsg
 
 reg_last_update() {
 	case "$action_run" in update|add)
-		[ ! "$failed_lists" ] && setstatus "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)"
+		[ ! "$failed_lists" ] && setstatus main_status "$status_file" "last_update=$(date +%h-%d-%Y' '%H:%M:%S)"
 	esac
 }
 
@@ -143,7 +143,7 @@ rm -f "${GS_LOG_FILE}"
 
 #### VARIABLES
 
-export_conf=1 nodie=1 get_config_vars || run_fail 1
+export_conf=1 nodie=1 get_config_vars main || run_fail 1
 
 CUSTOM_SCRIPT_OK=
 [ -n "$custom_script" ] && [ -n "$daemon_mode" ] && check_custom_script "$custom_script" && CUSTOM_SCRIPT_OK=1
@@ -266,14 +266,14 @@ if [ "$lists_fetch" ]; then
 		### Fetch IP lists
 		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
 		printf '' > "$fetch_res_file"
-		setstatus "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
-		call_script "$i_script-fetch.sh" -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" \
+		setstatus fetch_res "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
+		call_script "$i_script-fetch.sh" -t country -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" \
 			-u "$geosource" "$force_run" "$raw_mode"
 
 		case "$?" in 0|254) ;; *) fetch_failed; esac
 
 		# read fetch results from the status file
-		nodie=1 getstatus "$fetch_res_file" 2>/dev/null ||
+		nodie=1 getstatus fetch_res "$fetch_res_file" 2>/dev/null ||
 			{ fetch_failed "$FAIL read the fetch results file '$fetch_res_file'"; failed_lists="$lists_fetch"; }
 
 		add2list all_fetched_lists "$fetched_lists"
