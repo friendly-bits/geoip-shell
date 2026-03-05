@@ -763,7 +763,10 @@ trimsp() {
 # result via return status
 is_included() {
 	_fs_ii="${3:- }"
-	case "${_fs_ii}${2}${_fs_ii}" in *"${_fs_ii}${1}${_fs_ii}"*) return 0 ;; *) return 1; esac
+	case "${1}" in *"${_fs_ii}"*) false ;; *) :; esac &&
+	case "${_fs_ii}${2}${_fs_ii}" in *"${_fs_ii}${1}${_fs_ii}"*) : ;; *) false; esac &&
+		return 0
+	return 1
 }
 
 # adds a string to a list if it's not included yet
@@ -1072,14 +1075,14 @@ get_active_iplists() {
 	inc=0
 	subtract_a_from_b "$ipset_iplists_sp" "$exp_iplists_gai" missing_ipsets ||
 		ignore_allow missing_ipsets ipset_iplists_sp "$direction" ||
-		subtract_a_from_b "$excl_file_lists" "$missing_ipsets" missing_ipsets || inc=1
+		subtract_a_from_b "$EXCL_FILE_LISTS" "$missing_ipsets" missing_ipsets || inc=1
 
 	subtract_a_from_b "$exp_iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
 		ignore_allow unexpected_lists exp_iplists_gai "$direction"|| inc=1
 
 	subtract_a_from_b "$fwrules_iplists_sp" "$exp_iplists_gai" missing_lists ||
 		ignore_allow missing_lists fwrules_iplists_sp "$direction" ||
-		subtract_a_from_b "$excl_file_lists" "$missing_lists" missing_lists || inc=1
+		subtract_a_from_b "$EXCL_FILE_LISTS" "$missing_lists" missing_lists || inc=1
 
 	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
 	nl2sp "$gai_out_var" "$active_iplists_nl"
@@ -1209,42 +1212,15 @@ rm_iplists_rules() {
 }
 
 load_exclusions() {
-	[ -n "$excl_file_lists" ] && return 0
-	[ -s "$excl_file" ] &&
-		nodie=1 getconfig exclusions excl_file_lists exclude_iplists "$excl_file" &&
-			export excl_file_lists
-}
-
-separate_excl_iplists() {
-	unset _excl_lists _ok_lists
-	load_exclusions
-
-	for _list_id in $2; do
-		case "$_list_id" in
-			*_*) toupper cc_up "${_list_id%%_*}"; tolower fml_lo "_${_list_id#*_}" ;;
-			*) echolog -err "invalid list ID '$_list_id'."; return 1
-		esac
-		_list_id="$cc_up$fml_lo"
-		case "$excl_file_lists" in *"$_list_id"*)
-			add2list _excl_lists "$_list_id"
-			continue
-		esac
-		add2list _ok_lists "$_list_id"
-	done
-
-	[ "$_excl_lists" ] && {
-		fast_el_cnt "$_excl_lists" ' ' excl_cnt
-		excl_list_pr="list" excl_verb="is"
-		[ "$excl_cnt" != 1 ] && excl_list_pr="lists" excl_verb="are"
-		echolog -nolog "${yellow}NOTE:${n_c} Ip $excl_list_pr '$_excl_lists' $excl_verb in the exclusions file, skipping."
-	}
-	eval "$1"='$_ok_lists'
-	:
+	[ -n "$EXCL_FILE_LISTS" ] && return 0
+	[ -s "$EXCL_FILE" ] &&
+		nodie=1 getconfig exclusions EXCL_FILE_LISTS exclude_iplists "$EXCL_FILE" &&
+			export EXCL_FILE_LISTS || { echolog -err "$FAIL read the exclusions file '$EXCL_FILE'."; return 1; }
 }
 
 load_cca2() {
 	[ "$ALL_CCODES" ] && return 0
-	for cca2_path in "$@"; do
+	for cca2_path in "$@" "$conf_dir/cca2.list"; do
 		[ -n "$cca2_path" ] || continue
 		[ -s "$cca2_path" ] && { cca2_found=1; break; }
 	done
@@ -1253,6 +1229,18 @@ load_cca2() {
 	export_conf=1 getstatus cca2 "$cca2_path" || return 1
 	export ${VALID_REGISTRIES?} \
 		ALL_CCODES="$RIPENCC $ARIN $APNIC $AFRINIC $LACNIC"
+}
+
+is_valid_list() {
+	case "$1" in
+		asn|country) ;;
+		*) bad_args is_valid_list "$@"; die
+	esac
+	case "$2" in
+		[A-Z][A-Z]_ipv[46]) return 0
+	esac
+	echolog -err "Invalid list ID '$2' for type '$1'."
+	return 1
 }
 
 validate_ccode() {
@@ -1266,6 +1254,92 @@ validate_ccode() {
 		return 1
 	}
 	eval "${1:-_}"='$vc_ccode'
+}
+
+# normalizes to 'AA_ipv[4|6]', validates format, validates against prefixes list (country codes), removes excluded list ID's, deduplicates
+# outputs space-separated list
+san_list_ids() {
+	sli_out_var="$1" sli_lists="$2" sli_type="$3"
+	excl_reg_file="${GEOTEMP_DIR:-"/tmp"}/$p_name-excluded"
+	eval "$sli_out_var="
+	case "$sli_type" in
+		country)
+			load_exclusions || return 1
+			[ -n "$ALL_CCODES" ] || die "san_list_ids: \$ALL_CCODES is empty."
+			val_prefixes="$ALL_CCODES" ;;
+		asn) val_prefixes="" ;; # TODO
+		*) bad_args san_list_ids "$@"; die ;;
+	esac
+
+	rm -f "$excl_reg_file"
+	res_ids="$(
+		$awk_cmd -v ids_str="$sli_lists" -v val_prefixes="$val_prefixes" -v excl_ids_str="$EXCL_FILE_LISTS" -v excl_reg_file="$excl_reg_file" '
+			BEGIN{
+				rv=0
+				i=0
+				e=0
+				gsub(/[ 	]/,"|",val_prefixes)
+				val_prefixes="^" val_prefixes "$"
+
+				sub(/^[ 	]+/,"",ids_str)
+				sub(/[ 	]+$/,"",ids_str)
+				gsub(/[ 	]+/," ",ids_str)
+				ids_str_uc=toupper(ids_str)
+				ids_str_lc=tolower(ids_str)
+				cnt=split(ids_str_uc,ids_arr_uc," ")
+				split(ids_str_lc,ids_arr_lc," ")
+
+				split(excl_ids_str,t_arr," ")
+				for (l in t_arr) excl_arr[t_arr[l]]
+
+				for (i=1; i <= cnt; i++) {
+					uc_id=ids_arr_uc[i]
+					lc_id=ids_arr_lc[i]
+					match(uc_id,"_")
+					ccode=substr(uc_id,1,RSTART-1)
+					fml=substr(lc_id,RSTART+RLENGTH)
+					id = ccode "_" fml
+					if ( ccode !~ val_prefixes || fml !~ /^ipv[46]$/)
+						{b=i; bad_ids[b]=id; rv=1}
+					else if (!seen[id]) {
+						seen[id]
+						if (id in excl_arr) {excluded=excluded " " id}
+						else san_ids[i]=id
+					}
+				}
+				exit
+			}
+			END{
+				if (rv == 1 || cnt == 0) {
+					for (n=1; n <= b; n++) {
+						if (! bad_ids[n]) continue
+						printf "%s ",bad_ids[n]
+					}
+					exit 1
+				}
+				for (n=1; n <= i; n++) {
+					if (! san_ids[n]) continue
+					printf "%s ",san_ids[n]
+				}
+				if (excluded) {
+					print excluded > excl_reg_file
+				}
+				printf "\n"
+				exit 0
+			}'
+	)" && {
+		eval "$1"='${res_ids% }'
+		[ -s "$excl_reg_file" ] && {
+			sli_excluded="$(cat "$excl_reg_file")"
+			echolog -nolog "${yellow}NOTE:${n_c} Following IP lists are in the exclusions file, skipping: '${sli_excluded# }'"
+		}
+		rm -f "$excl_reg_file"
+		return 0
+	}
+	rm -f "$excl_reg_file"
+	res_ids="${res_ids% }"
+	echolog -err "Invalid list ID's '${res_ids:-"$2"}' or no list ID's specified."
+	return 1
 }
 
 # detects all network interfaces known to the kernel, except the loopback interface
@@ -1283,8 +1357,8 @@ FAIL() { printf '%s\n' "${red}Failed${n_c}." >&2; }
 
 mk_lock() {
 	[ "$1" != '-f' ] && check_lock
-	[ "$lock_file" ] && dir_mk -n "${lock_file%/*}" && printf '%s\n' "$$" > "$lock_file" || {
-		echolog -err "$FAIL set lock '$lock_file'"
+	[ "$LOCK_FILE" ] && dir_mk -n "${LOCK_FILE%/*}" && printf '%s\n' "$$" > "$LOCK_FILE" || {
+		echolog -err "$FAIL set lock '$LOCK_FILE'"
 		return 1
 	}
 	nodie=1
@@ -1292,20 +1366,20 @@ mk_lock() {
 }
 
 rm_lock() {
-	[ -f "$lock_file" ] && { unset nodie die_unlock; rm -f "$lock_file" || return 1; }
+	[ -f "$LOCK_FILE" ] && { unset nodie die_unlock; rm -f "$LOCK_FILE" || return 1; }
 	:
 }
 
 check_lock() {
-	checkvars lock_file
-	[ ! -f "$lock_file" ] && return 0
-	read -r used_pid < "$lock_file"
+	checkvars LOCK_FILE
+	[ ! -f "$LOCK_FILE" ] && return 0
+	read -r used_pid < "$LOCK_FILE"
 	case "$used_pid" in
-		''|*![0-9]*) echolog -err "Lock file '$lock_file' is empty or contains unexpected string." ;;
+		''|*![0-9]*) echolog -err "Lock file '$LOCK_FILE' is empty or contains unexpected string." ;;
 		*) kill -0 "$used_pid" 2>/dev/null &&
 			die 0 "$p_name (PID $used_pid) is doing something in the background. Refusing to open another instance."
 	esac
-	echolog "Removing stale lock file ${lock_file}."
+	echolog "Removing stale lock file ${LOCK_FILE}."
 	rm_lock
 	:
 }
