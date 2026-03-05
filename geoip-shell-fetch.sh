@@ -38,7 +38,7 @@ Usage: $me -t <"country"|"asn"> -l <"list_ids"> -p <path> [-s <path>] [-u <"sour
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
-  -t <"country"|"asn">    $sp8: Type: "country" or "asn" 
+  -t <"country"|"asn">    $sp8: Type: "country" or "asn"
   -l <"list_ids"> $sp16: $list_ids_usage
   -p <path>       $sp16: Path to directory where downloaded and compiled IP lists will be stored.
   -s <path>       $sp16: Path to a file to register fetch results in.
