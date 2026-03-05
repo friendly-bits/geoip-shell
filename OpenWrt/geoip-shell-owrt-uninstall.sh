@@ -43,9 +43,9 @@ done || _fw_backend=''
 
 : "${conf_dir:=/etc/$p_name}"
 [ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -s "$conf_file" ] && nodie=1 getconfig datadir
+[ -s "$conf_file" ] && nodie=1 get_main_config datadir
 : "${datadir:="$GEORUN_DIR/data"}"
-[ -s "$conf_file" ] && nodie=1 getconfig local_iplists_dir
+[ -s "$conf_file" ] && nodie=1 get_main_config local_iplists_dir
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 rm_setupdone
