@@ -201,10 +201,12 @@ pick_opt() {
 # 1 - key
 # 2 - value to add
 add2config_entry() {
-	getconfig "$1" a2c_e
+	a2c_type="$1"
+	shift
+	getconfig "$a2c_type" "$1" a2c_e
 	is_included "$2" "$a2c_e" && return 0
 	add2list a2c_e "$2"
-	setconfig "$1" "$a2c_e"
+	setconfig "$a2c_type" "$1" "$a2c_e"
 }
 
 # checks if $1 is alphanumeric (underlines allowed)
@@ -465,15 +467,20 @@ get_matching_line() {
 	return $_rv
 }
 
-# 1 - var name for output
-# 2 - optional key (otherwise uses var name as key)
-# 3 - optional path to config file
+get_main_config() { getconfig main "$@"; }
+
+# 1: type
+# 2: var name for output
+# 3: optional key (otherwise uses var name as key)
+# 4: optional path to config file
 getconfig() {
+	gc_type="$1"
+	shift``
 	key_conf="$1"
 	[ $# -gt 1 ] && key_conf="$2"
 	target_file="${3:-$conf_file}"
 	[ "$1" ] && [ "$target_file" ] &&
-	getallconf conf "$target_file" &&
+	read_conf_file conf "$gc_type" "$target_file" &&
 	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || {
 		eval "$1="
 		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
@@ -483,11 +490,24 @@ getconfig() {
 	:
 }
 
-# 1 - var name for output
-# 2 - conf file path
-getallconf() {
-	[ ! "$1" ] && return 1
-	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; return 1; }
+# 1: var name for output
+# 2: type
+# 3: conf file path
+read_conf_file() {
+	eval "${1:-_}="
+	rcf_is_main=
+	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] &&
+	rcf_type="$2" &&
+	case "$rcf_type" in
+		main) rcf_is_main=1 rcf_keys="$ALL_CONF_VARS" ;;
+		exclusions) rcf_keys=exclude_iplists ;;
+		cca2) rcf_keys="$VALID_REGISTRIES" ;;
+		main_status) rcf_keys="last_update prev_date_* prev_ips_cnt_*" ;;
+		fetch_res) rcf_keys="fetched_lists failed_lists" ;;
+		*) false ;;
+	esac || { bad_args read_conf_file "$@"; return 1; }
+
+	[ ! -f "$3" ] && { echolog -err "Config/status file '$3' is missing!"; return 1; }
 
 	# Config migration
 	# newline-separated list of options to migrate in the format <old_key=new_key>
@@ -497,11 +517,11 @@ getallconf() {
 	san_str migrate_opts "" "$_nl" "$delim"
 
 	# check in cache first
-	is_main_gac='' conf_gac=''
-	[ "$2" = "$conf_file" ] && conf_gac="$main_config" is_main_gac=1
-	[ -z "$conf_gac" ] && {
-		conf_gac="$(
-			awk -v c="$ALL_CONF_VARS" -v is_main="$is_main_gac" -v M="${migrate_opts}" -v D="$delim" "
+	rcf_conf=
+	[ "$3" = "$conf_file" ] && rcf_conf="$main_config"
+	[ -z "$rcf_conf" ] && {
+		rcf_conf="$(
+			awk -v valid_keys="$rcf_keys" -v is_main="$rcf_is_main" -v M="${migrate_opts}" -v D="$delim" "
 				BEGIN{
 					if (is_main) {
 						# make array of migrated options
@@ -517,10 +537,8 @@ getallconf() {
 								migr[old_k]=new_k
 							}
 						}
-						# make array-list of valid options
-						split(c,arr)
-						for (el in arr) {key=arr[el]; if (key) valid_keys[key]}
 					}
+					gsub(/${blanks}/,\"|\",valid_keys)
 				}
 				/^${blank}*(#|$)/ {next}
 				{
@@ -530,65 +548,75 @@ getallconf() {
 					key=pair[1]
 					val=pair[2]
 					if (is_main && key in migr) key=migr[key]
-					if (!is_main || key in valid_keys) print key \"=\" val
+					if (key ~ valid_keys) {print key \"=\" val}
 				}
-			" "$2"
+			" "$3"
 		)"
-		[ "$2" = "$conf_file" ] && export main_config="$conf_gac"
+		[ "$3" = "$conf_file" ] && export main_config="$rcf_conf"
 	}
-	eval "$1"='$conf_gac'
+	eval "$1"='$rcf_conf'
 	:
 }
 
 # gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
-# 1 - (optional) -v to load from variable $2
-# 1 - (optional) path to config/status file
+# 0: (optional) -v to load from variable $2
+# 1: type
+# 2: var name or path to config/status file or empty for main cfg file
 # if $export_conf is set, exports the vars
 get_config_vars() {
 	inval_e() {
 		oldifs gcv
-		echolog -err "Invalid entry '$entry' in $src_gcv."
+		echolog -err "get_config_vars: Invalid entry '$gcv_entry' in $gcv_src_pr."
 		[ ! "$nodie" ] && die
 	}
 
-	unset entries_gcv _exp
+	unset gcv_entries gcv_from_var gcv_var _exp
 	[ "$export_conf" ] && _exp="export "
 
-	if [ "$1" = '-v' ]; then
-		eval "entries_gcv=\"\$${2}\""
-		[ "$entries_gcv" ] || return 1
-		src_gcv="variable '$2'"
+	[ "$1" = '-v' ] && { gcv_from_var=1; gcv_var="$2"; shift; }
+
+	gcv_type="$1"
+
+	if [ -n "$gcv_from_var" ]; then
+		eval "gcv_entries=\"\$${gcv_var}\""
+		[ "$gcv_entries" ] || return 1
+		gcv_src_pr="variable '$gcv_var'"
 	else
-		target_f_gcv="${1:-"$conf_file"}"
-		src_gcv="file '$2'"
-		getallconf entries_gcv "$target_f_gcv" || {
-			echolog -err "$FAIL get config from '$target_f_gcv'."
+		gcv_f="${2:-"$conf_file"}"
+		gcv_src_pr="file '$gcv_f'"
+		read_conf_file gcv_entries "$gcv_type" "$gcv_f" "$gcv_keys" || {
+			echolog -err "$FAIL get config from '$gcv_f'."
 			[ ! "$nodie" ] && die
 			return 1
 		}
 	fi
 
 	newifs "$_nl" gcv
-	for entry in $entries_gcv; do
-		case "$entry" in
+	for gcv_entry in $gcv_entries; do
+		case "$gcv_entry" in
 			'') continue ;;
 			*=*=*) { inval_e; return 1; } ;;
 			*=*) ;;
 			*) { inval_e; return 1; } ;;
 		esac
-		key_conf="${entry%=*}"
+		key_conf="${gcv_entry%=*}"
 		! is_alphanum "$key_conf" || [ ${#key_conf} -gt 128 ] && { inval_e; return 1; }
-		eval "$_exp$key_conf"='${entry#${key_conf}=}'
+		eval "$_exp$key_conf"='${gcv_entry#${key_conf}=}'
 	done
 	oldifs gcv
 	:
 }
 
+set_main_config() { setconfig main "$@"; }
+
+# 1: type
 # Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
 # if no '=' included, gets value of var with named the same as the key
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
 	unset args_lines args_target_file keys_test_str newconfig
+	sc_type="$1"
+	shift
 	newifs "$_nl" sc
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
@@ -615,7 +643,7 @@ setconfig() {
 	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
 
 	[ -f "$target_file" ] && {
-		getallconf oldconfig "$target_file" || { sc_failed "$FAIL read '$target_file'."; return 1; }
+		read_conf_file oldconfig "$sc_type" "$target_file" || { sc_failed "$FAIL read '$target_file'."; return 1; }
 	}
 	# join old and new config
 	for config_line in $oldconfig; do
@@ -645,7 +673,7 @@ setconfig() {
 }
 
 set_all_config() {
-	setconfig $ALL_CONF_VARS
+	set_main_config $ALL_CONF_VARS
 }
 
 sc_failed() {
@@ -654,29 +682,39 @@ sc_failed() {
 	[ ! "$nodie" ] && die
 }
 
+bad_args() {
+	ba_func="$1" ba_args=
+	shift
+	for ba_arg in "$@"; do
+		ba_args="${ba_args}${ba_args:+ ,}'${ba_arg}'"
+	done
+	echolog -err "${ba_func}(): bad args $ba_args"
+}
+
 # utilizes getconfig() but intended for reading status from status files
-# 1 - status file
+# 1: type
+# 2: status file
 getstatus() {
-	[ ! "$1" ] && {
-		echolog -err "getstatus: target file not specified!"
+	[ -n "$1" ] && [ -n "$2" ] || {
+		bad_args getstatus "$@"
 		[ ! "$nodie" ] && die
 		return 1
 	}
-	nodie=1 get_config_vars "$1"
+	nodie=1 get_config_vars "$1" "$2"
 }
 
 # utilizes setconfig() for writing to status files
 # 1 - path to the status file
 # extra args are passed as is to setconfig
 setstatus() {
-	target_file="$1"
+	st_type="$1" target_file="$2"
 	shift 1
 	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}" &&
 		[ "$root_ok" ] && chmod -R 600 "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file" &&
 		[ "$root_ok" ] && chmod 600 "$target_file"
-	setconfig target_file "$@"
+	setconfig "$st_type" target_file "$@"
 }
 
 awk_cmp() {
@@ -1065,7 +1103,7 @@ check_lists_coherence() {
 
 	[ -z "$no_reload_conf" ] && {
 		main_config=
-		nodie=1 get_config_vars || { r_no_l; return 1; }
+		nodie=1 get_config_vars main || { r_no_l; return 1; }
 	}
 
 	iplists_incoherent=
@@ -1073,7 +1111,7 @@ check_lists_coherence() {
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 
-		getconfig exp_iplists "${direction}_iplists"
+		get_main_config exp_iplists "${direction}_iplists"
 		for family in $families; do
 			[ "$direction" = outbound ] && eval "[ \"\$source_ips_${family}\" ]" && exp_iplists="${exp_iplists} allow_$family"
 			case "$geomode" in
@@ -1173,7 +1211,7 @@ rm_iplists_rules() {
 load_exclusions() {
 	[ -n "$excl_file_lists" ] && return 0
 	[ -s "$excl_file" ] &&
-		nodie=1 getconfig excl_file_lists exclude_iplists "$excl_file" &&
+		nodie=1 getconfig exclusions excl_file_lists exclude_iplists "$excl_file" &&
 			export excl_file_lists
 }
 
@@ -1204,40 +1242,30 @@ separate_excl_iplists() {
 	:
 }
 
-# validate reg. name or country code against cca2.list, translate reg. name to country code
-# 1 - var name for output
-# 2 - input
-# return codes:
-# 0 - country code
-# 1 - error
-# 2 - registry name
-# 3 - neither
-normalize_ccode() {
-	cca2_path="$conf_dir/cca2.list" nc_in="$2"
-	if [ -z "$ccode_list" ]; then
-		[ -s "$cca2_path" ] || cca2_path="$script_dir/cca2.list"
-		[ -s "$cca2_path" ] || { echolog -err "File 'cca2.list' does not exist or is empty."; return 1; }
-		getstatus "$cca2_path" || return 1
-		RIPE="$RIPENCC"
-		export RIPE ARIN APNIC AFRINIC LACNIC \
-			ccode_list="$RIPE$ARIN$APNIC$AFRINIC$LACNIC"
-	fi
+load_cca2() {
+	[ "$ALL_CCODES" ] && return 0
+	for cca2_path in "$@"; do
+		[ -n "$cca2_path" ] || continue
+		[ -s "$cca2_path" ] && { cca2_found=1; break; }
+	done
+	[ -n "$cca2_found" ] || { echolog -err "Can not find cca2.list or it is empty."; return 1; }
 
-	toupper nc_in
-	case "$nc_in" in ''|*" "*) return 3; esac
-	# shellcheck disable=SC2194
-	case " RIPE ARIN APNIC AFRINIC LACNIC " in *" $nc_in "*)
-		eval "nc_out=\"\${$nc_in% }\"
-			$1=\"\${nc_out# }\""
-		return 2
-	esac
+	export_conf=1 getstatus cca2 "$cca2_path" || return 1
+	export ${VALID_REGISTRIES?} \
+		ALL_CCODES="$RIPENCC $ARIN $APNIC $AFRINIC $LACNIC"
+}
 
-	case "$ccode_list" in
-		'') echolog -err "Failed to load country codes list from '$cca2_path'."; return 1 ;;
-		*" $nc_in "*) eval "$1"='$nc_in'; return 0 ;;
-		*) return 3
-	esac
-	:
+validate_ccode() {
+	vc_ccode="$2"
+	eval "${1:-_}="
+	toupper vc_ccode &&
+	load_cca2 "$conf_dir/cca2.list" || die
+	case "$vc_ccode" in ''|*" "*) false ;; *) :; esac &&
+	is_included "$vc_ccode" "$ALL_CCODES" || {
+		echolog -err "Invalid 2-letter country code: '$vc_ccode'."
+		return 1
+	}
+	eval "${1:-_}"='$vc_ccode'
 }
 
 # detects all network interfaces known to the kernel, except the loopback interface
@@ -1341,10 +1369,10 @@ setup_ipinfo() {
 		a) return 1
 	esac
 
-	curr_ipinfo_token_msg=
-	[ "$ipinfo_token" ] && curr_ipinfo_token_msg=" or press Enter to use current token '$ipinfo_token'"
+	curr_token_msg=
+	[ "$ipinfo_token" ] && curr_token_msg=" or press Enter to use current token '$ipinfo_token'"
 	while :; do
-		printf '%s\n' "Type in IPinfo token${curr_ipinfo_token_msg}: "
+		printf '%s\n' "Type in IPinfo token${curr_token_msg}: "
 		read -r REPLY
 		case "$REPLY" in
 			'')
@@ -1372,10 +1400,10 @@ setup_maxmind() {
 		a) return 1
 	esac
 
-	curr_mm_acc_msg=
-	[ "$mm_acc_id" ] && curr_mm_acc_msg=" or press Enter to use current account ID '$mm_acc_id'"
+	curr_acc_msg=
+	[ "$mm_acc_id" ] && curr_acc_msg=" or press Enter to use current account ID '$mm_acc_id'"
 	while :; do
-		printf '%s\n' "Type in MaxMind account ID (numerical)${curr_mm_acc_msg}: "
+		printf '%s\n' "Type in MaxMind account ID (numerical)${curr_acc_msg}: "
 		read -r REPLY
 		case "$REPLY" in
 			'')
@@ -1387,10 +1415,10 @@ setup_maxmind() {
 		break
 	done
 
-	curr_mm_license_msg=
-	[ "$mm_license_key" ] && curr_mm_license_msg=" or press Enter to use current license key '$mm_license_key'"
+	curr_key_msg=
+	[ "$mm_license_key" ] && curr_key_msg=" or press Enter to use current license key '$mm_license_key'"
 	while :; do
-		printf '%s\n' "Type in MaxMind License key${curr_mm_license_msg}: "
+		printf '%s\n' "Type in MaxMind License key${curr_key_msg}: "
 		read -r REPLY
 		case "$REPLY" in
 			'')
@@ -1450,7 +1478,7 @@ get_counters() {
 	case "$_fw_backend" in
 		ipt) get_counters_ipt ;;
 		nft) get_counters_nft
-	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings && counters_set=1
+	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counters counter_strings && counters_set=1
 	# debugprint "counter strings:${_nl}$counter_strings"
 	:
 }
@@ -1471,15 +1499,19 @@ ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_u
 	mm_license_type mm_acc_id mm_license_key \
 	ipinfo_license_type ipinfo_token"
 
-valid_srcs_country="ripe ipdeny maxmind ipinfo"
-valid_families="ipv4 ipv6"
+san_str ALL_CONF_VARS "$ALL_CONF_VARS" " 	" || exit 1
 
-ripe_url_stats="ftp.ripe.net/pub/stats"
+VALID_REGISTRIES="RIPENCC ARIN APNIC AFRINIC LACNIC"
+valid_families="ipv4 ipv6"
+VALID_SRCS_COUNTRY="ripe ipdeny maxmind ipinfo"
+VALID_SRCS_ASN=ipinfo_app
+ripe_url_stats=ftp.ripe.net/pub/stats
 ripe_url_api="stat.ripe.net/data/country-resource-list/data.json?"
-ipdeny_ipv4_url="www.ipdeny.com/ipblocks/data/aggregated"
-ipdeny_ipv6_url="www.ipdeny.com/ipv6/ipaddresses/aggregated"
-maxmind_url="download.maxmind.com/geoip/databases"
-ipinfo_url="ipinfo.io/data"
+ipdeny_ipv4_url=www.ipdeny.com/ipblocks/data/aggregated
+ipdeny_ipv6_url=www.ipdeny.com/ipv6/ipaddresses/aggregated
+maxmind_url=download.maxmind.com/geoip/databases
+ipinfo_url=ipinfo.io/data
+ipinfo_app_url=ipinfo.app/api/text/list
 
 # set some vars for debug and logging
 : "${me:="${0##*/}"}"
@@ -1530,7 +1562,7 @@ export IFS="$default_IFS"
 	export awk_cmd
 
 	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
-		getconfig datadir
+		get_main_config datadir
 		export datadir status_file="$datadir/status"
 	}
 
