@@ -15,5 +15,5 @@ LOCK_FILE=\"$LOCK_FILE\"
 	return 0
 }
 
-$curr_sh_g \"$install_dir/${p_name}-run.sh\" restore -a 1>/dev/null &
+$curr_sh_g \"$INSTALL_DIR/${p_name}-run.sh\" restore -a 1>/dev/null &
 :

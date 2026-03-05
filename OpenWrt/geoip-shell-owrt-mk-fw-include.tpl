@@ -39,10 +39,10 @@ mk_fw_include() {
 	reload_config
 }
 
-[ ! -f "$conf_dir/setupdone" ] &&
+[ ! -f "$CONF_DIR/setupdone" ] &&
 	die "$p_name has not been configured. Please run '$p_name configure'."
 
-if [ -f "$conf_dir/no_persist" ]; then
+if [ -f "$CONF_DIR/no_persist" ]; then
 	$init_script enabled 2>/dev/null && {
 		logger -s -t "$me" -p user.warn "no_persist file exists. Disabling the init script."
 		$init_script disable
