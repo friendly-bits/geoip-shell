@@ -90,7 +90,7 @@ validate_ip() {
 		eval "regex=\"^\$${family}_regex$\""
 		[ -z "$regex" ] && die_l "$FAIL load regex's."
 		printf '%s\n' "$1" | grep -Ei "$regex" 1>/dev/null &&
-			{ add2list families "$family "; add2list "val_${family}s" "$1"; val_ip="$1"; return 0; }
+			{ add2list families "$family"; add2list "val_${family}s" "$1"; val_ip="$1"; return 0; }
 	done
 
 	return 1
@@ -108,7 +108,7 @@ ip_check_rv=0
 
 check_deps grepcidr || die
 
-validate_ccode ccode "$ccode_arg" || die "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'."
+validate_ccode ccode "$ccode_arg" || die "Specify one country code with '-c <country_code>'."
 
 checkvars dl_src
 [ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
