@@ -354,9 +354,9 @@ dir_mk -n "$tmp_dir" || die
 [ ! "$inst_root_gs" ] && {
 	add2list PATH "$install_dir" ':'
 
-	[ -s "$conf_file"  ] && nodie=1 get_config_vars &&
+	[ -s "$conf_file"  ] && nodie=1 get_config_vars main &&
 		export datadir status_file="$datadir/status" &&
-		nodie=1 getconfig _fw_backend_prev _fw_backend
+		nodie=1 get_main_config _fw_backend_prev _fw_backend
 
 	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
 		[ -s "$f" ] && continue
@@ -415,7 +415,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in uninstall common arrays status setup ip-tools lookup $non_owrt $fw_libs; do
+for f in fetch uninstall common arrays status setup ip-tools lookup $non_owrt $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -490,7 +490,7 @@ $set_owrt_install
 
 case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) in_configure=1; esac
 
-[ -s "\$conf_file" ] && nodie=1 getconfig _fw_backend
+[ -s "\$conf_file" ] && nodie=1 get_main_config _fw_backend
 if [ ! "\$_fw_backend" ]; then
 	rm -f "\$conf_dir/setupdone"
 	[ "\$first_setup" ] || [ "\$in_uninstall" ] || [ "\$in_configure" ] && return 0
