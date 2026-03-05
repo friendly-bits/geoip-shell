@@ -13,8 +13,8 @@ manmode=1
 nolog=1
 in_uninstall=1
 
-lib_dir="/usr/lib/$p_name"
-_lib="$lib_dir/$p_name-lib"
+LIB_DIR="/usr/lib/$p_name"
+_lib="$LIB_DIR/$p_name-lib"
 
 geoinit="${p_name}-geoinit.sh"
 geoinit_path="/usr/bin/$geoinit"
@@ -41,11 +41,11 @@ done || _fw_backend=''
 [ "$_fw_backend" ] && source_lib "$_fw_backend" ||
 	echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules."
 
-: "${conf_dir:=/etc/$p_name}"
-[ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -s "$conf_file" ] && nodie=1 get_main_config datadir
+: "${CONF_DIR:=/etc/$p_name}"
+[ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
+[ -s "$CONF_FILE" ] && nodie=1 get_main_config datadir
 : "${datadir:="$GEORUN_DIR/data"}"
-[ -s "$conf_file" ] && nodie=1 get_main_config local_iplists_dir
+[ -s "$CONF_FILE" ] && nodie=1 get_main_config local_iplists_dir
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 rm_setupdone

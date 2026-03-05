@@ -16,7 +16,7 @@ set -- $_args
 oldifs
 
 run_fail() {
-	rm -f "$fetch_res_file"
+	rm -f "$FETCH_RES_FILE"
 	[ "$RM_IPLISTS" ] && rm_iplists
 	case "$1" in ''|*[!0-9]*) ;; *) rf_rv="$1"; shift; esac
 	[ -n "$*" ] && echolog -err "$@"
@@ -34,7 +34,7 @@ run_fail() {
 }
 
 run_success() {
-	rm -f "$fetch_res_file"
+	rm -f "$FETCH_RES_FILE"
 	[ -n "$*" ] && echolog "$@"
 	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
 		(
@@ -170,18 +170,18 @@ failed_lists_cnt=0
 
 #### CHECKS
 
-checkvars i_script iplist_dir inbound_geomode outbound_geomode _fw_backend _lib
+checkvars i_script IPLIST_DIR inbound_geomode outbound_geomode _fw_backend _lib
 check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || run_fail 1
 
 # check that the config file exists
-[ ! -f "$conf_file" ] && run_fail 1 "Config file '$conf_file' doesn't exist! Please run '$p_name configure'."
+[ ! -f "$CONF_FILE" ] && run_fail 1 "Config file '$CONF_FILE' doesn't exist! Please run '$p_name configure'."
 
 
 #### MAIN
 
 [ "$manmode" != 1 ] && echolog "Starting action '$action_run'."
 
-dir_mk -n "$iplist_dir" || run_fail 1
+dir_mk -n "$IPLIST_DIR" || run_fail 1
 
 mk_lock || die
 trap 'trap - INT TERM HUP QUIT; run_fail 1' INT TERM HUP QUIT
@@ -266,16 +266,16 @@ if [ "$lists_fetch" ]; then
 
 		### Fetch IP lists
 		# mark all lists as failed in the fetch_res file before calling fetch. fetch resets this on success
-		printf '' > "$fetch_res_file"
-		setstatus fetch_res "$fetch_res_file" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
-		call_script "$i_script-fetch.sh" -t country -l "$lists_fetch" -p "$iplist_dir" -s "$fetch_res_file" \
+		printf '' > "$FETCH_RES_FILE"
+		setstatus fetch_res "$FETCH_RES_FILE" "failed_lists=$lists_fetch" "fetched_lists=" || fetch_failed
+		call_script "$i_script-fetch.sh" -t country -l "$lists_fetch" -p "$IPLIST_DIR" -s "$FETCH_RES_FILE" \
 			-u "$geosource" "$force_run" "$raw_mode"
 
 		case "$?" in 0|254) ;; *) fetch_failed; esac
 
 		# read fetch results from the status file
-		nodie=1 getstatus fetch_res "$fetch_res_file" 2>/dev/null ||
-			{ fetch_failed "$FAIL read the fetch results file '$fetch_res_file'"; failed_lists="$lists_fetch"; }
+		nodie=1 getstatus fetch_res "$FETCH_RES_FILE" 2>/dev/null ||
+			{ fetch_failed "$FAIL read the fetch results file '$FETCH_RES_FILE'"; failed_lists="$lists_fetch"; }
 
 		add2list all_fetched_lists "$fetched_lists"
 

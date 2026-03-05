@@ -18,7 +18,7 @@
 normalize_ccodes() {
 	nc_in="$2"
 	eval "$1="
-	load_cca2 "$conf_dir/cca2.list" || die
+	load_cca2 "$CONF_DIR/cca2.list" || die
 	toupper nc_in
 	nc_out=
 	newifs "${3:- }" ncc
@@ -485,7 +485,7 @@ set_defaults() {
 
 	if [ "$_OWRTFW" ]; then
 		geosource_def=ipdeny datadir_def="$GEORUN_DIR/data" nobackup_def=true
-		local_iplists_dir_def="$conf_dir/local_iplists"
+		local_iplists_dir_def="$CONF_DIR/local_iplists"
 		keep_fetched_db_def=false
 	else
 		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
@@ -522,7 +522,7 @@ get_general_prefs() {
 		[ ! "$dir_new" ] && die "Invalid directory '$dir_arg'."
 		case "$dir_new" in /*) ;; *) die "Invalid directory '$dir_arg'."; esac
 		[ "$dir_new"  = "$dir_old" ] && { eval "$1"='$dir_old'; return 0; }
-		case "$dir_new" in "$datadir"|"$local_iplists_dir"|"$iplist_dir"|"$conf_dir")
+		case "$dir_new" in "$datadir"|"$local_iplists_dir"|"$IPLIST_DIR"|"$CONF_DIR")
 			die "Directory '$dir_new' is reserved. Please pick another one."
 		esac
 		is_dir_empty "$dir_new" || die "Can not use directory '$dir_arg': it exists and is not empty."
@@ -691,9 +691,9 @@ get_general_prefs() {
 do_configure() {
 	prev_config="$main_config"
 
-	[ ! -s "$conf_file" ] && {
-		touch "$conf_file" && chmod 600 "$conf_file" && chown root:root "$conf_file" || {
-			rm -f "$conf_file"
+	[ ! -s "$CONF_FILE" ] && {
+		touch "$CONF_FILE" && chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" || {
+			rm -f "$CONF_FILE"
 			die "$FAIL create the config file."
 		}
 		[ "$_fw_backend" ] && rm_iplists_rules
@@ -946,7 +946,7 @@ import_local_iplists() {
 		{ cat "$1"; printf '\n'; } | sed 's/\r/\n/g;s/\n$//' | sed "s/#.*//;s/^${blanks}//;s/${blanks}$//;/^$/d"
 	}
 
-	rm -rf "$staging_local_dir"
+	rm -rf "$STAGING_LOCAL_DIR"
 
 	for iplist_type in allow block; do
 		eval "file=\"\$local_${iplist_type}_arg\""
@@ -959,7 +959,7 @@ import_local_iplists() {
 				continue
 		esac
 
-		dir_mk -n "$staging_local_dir"
+		dir_mk -n "$STAGING_LOCAL_DIR"
 
 		printf '\n%s' "Checking local ${iplist_type}list file '$file'... "
 		[ -s "$file" ] || die "${_nl}IP list file '$file' is empty or doesn't exist."
@@ -969,7 +969,7 @@ import_local_iplists() {
 		for iplist_family in 4 6; do
 			local_f_name="local_${iplist_type}_ipv${iplist_family}"
 			perm_file="${local_iplists_dir}/${local_f_name}"
-			staging_file="$staging_local_dir/${local_f_name}"
+			staging_file="$STAGING_LOCAL_DIR/${local_f_name}"
 
 			eval "ip_regex=\"\${ipv${iplist_family}_regex}\"
 				mb_regex=\"\${maskbits_regex_ipv${iplist_family}}\""
@@ -1002,7 +1002,7 @@ import_local_iplists() {
 		)" &&
 		# found invalid line
 		{
-			rm -rf "$staging_local_dir"
+			rm -rf "$STAGING_LOCAL_DIR"
 			case "$iplist_family" in
 				4) check_family=6 ;;
 				6) check_family=4
@@ -1023,11 +1023,11 @@ import_local_iplists() {
 			for el_type in net ip; do
 				[ -f "$perm_file.$el_type" ] && {
 					cat "$perm_file.$el_type"
-					[ "$el_type" = net ] && touch "$staging_local_dir/net"
+					[ "$el_type" = net ] && touch "$STAGING_LOCAL_DIR/net"
 				}
 				[ -f "$staging_file.$el_type" ] && {
 					cat "$staging_file.$el_type"
-					[ "$el_type" = net ] && touch "$staging_local_dir/net"
+					[ "$el_type" = net ] && touch "$STAGING_LOCAL_DIR/net"
 				}
 			done
 			:
@@ -1045,24 +1045,24 @@ import_local_iplists() {
 			:
 		} || {
 				FAIL
-				rm -rf "$staging_local_dir"
+				rm -rf "$STAGING_LOCAL_DIR"
 				die "$FAIL import the IP list into file '$staging_file'."
 			}
 		OK
 
 		rm -f "$staging_file.net" "$staging_file.ip"
-		if [ -f "$staging_local_dir/net" ]; then
+		if [ -f "$STAGING_LOCAL_DIR/net" ]; then
 			mv "$staging_file" "$staging_file.net"
 		else
 			mv "$staging_file" "$staging_file.ip"
 		fi
-		rm -f "$staging_local_dir/net"
+		rm -f "$STAGING_LOCAL_DIR/net"
 		printf '%s\n' "${yellow}You can delete the file '$file' to free up space.${n_c}"
 		lists_change=1
 	done
 	[ -n "$lists_change" ] || die 0
 }
 
-[ "$script_dir" = "$install_dir" ] && _script="$i_script" || _script="$p_script"
+[ "$script_dir" = "$INSTALL_DIR" ] && _script="$i_script" || _script="$p_script"
 
 :

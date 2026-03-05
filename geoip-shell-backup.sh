@@ -211,7 +211,7 @@ get_main_config families
 
 bk_dir="$datadir/backup"
 bk_dir_new="${GEOTEMP_DIR:?}/bk_new"
-config_file="$conf_file"
+config_file="$CONF_FILE"
 config_file_bak="${p_name}.conf.bak"
 status_file="$datadir/status"
 status_file_bak="status.bak"

@@ -36,9 +36,9 @@ case "$_OWRTFW" in "3 4"|"4 3") _OWRTFW=all; esac
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 src_dir="${script_dir%/*}"
-install_dir="/usr/bin"
-lib_dir="/usr/lib/$p_name"
-conf_dir="/etc/$p_name"
+INSTALL_DIR="/usr/bin"
+LIB_DIR="/usr/lib/$p_name"
+CONF_DIR="/etc/$p_name"
 init_dir="/etc/init.d"
 
 curr_ver="$(grep -o -m 1 'curr_ver=.*$' "$src_dir/${p_name}-geoinit.sh" | cut -d\" -f2)"
@@ -60,7 +60,7 @@ printf '\n%s\n\n' "*** Preparing $p_name for OpenWrt... ***"
 
 rm -rf "$build_dir"
 
-mkdir -p "$files_dir$install_dir" "$files_dir$lib_dir" "$files_dir$init_dir" ||
+mkdir -p "$files_dir$INSTALL_DIR" "$files_dir$LIB_DIR" "$files_dir$init_dir" ||
 	die "*** Failed to create directories for $p_name build. ***"
 
 
@@ -70,12 +70,12 @@ sh "$src_dir/$p_name-install.sh" || die "*** Failed to run the -install script o
 echo
 export PATH="$PATH_orig"
 
-cp "$script_dir/$p_name-owrt-uninstall.sh" "${files_dir}${lib_dir}" ||
-	die "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${lib_dir}'. ***"
+cp "$script_dir/$p_name-owrt-uninstall.sh" "${files_dir}${LIB_DIR}" ||
+	die "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${LIB_DIR}'. ***"
 
 echo "*** Sanitizing the build... ***"
-rm -f "${files_dir}${install_dir}/${p_name}-uninstall.sh"
-rm -f "${files_dir}${conf_dir}/${p_name}.conf"
+rm -f "${files_dir}${INSTALL_DIR}/${p_name}-uninstall.sh"
+rm -f "${files_dir}${CONF_DIR}/${p_name}.conf"
 
 # remove debug stuff
 sed -Ei '/\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&/d;
@@ -89,14 +89,14 @@ sed -Ei '/\[[[:blank:]]*"\$debugmode"[[:blank:]]*\][[:blank:]]*&&/d;
 	s/^[[:blank:]]*(setdebug|debugentermsg|debugexitmsg)$//g;
 	s/ debugmode_arg=1//g;' \
 	$(find -- "$build_dir"/* -print | grep '.sh$')
-sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${lib_dir}/$p_name-lib-common.sh" || exit 1
+sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files_dir}${LIB_DIR}/$p_name-lib-common.sh" || exit 1
 
 # prepare Makefile
 printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
 cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 {
-	awk '{gsub(/\$p_name/,p); gsub(/\$install_dir/,i); gsub(/\$conf_dir/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$lib_dir/,L)}1' \
-		p="$p_name" c="$conf_dir" v="$curr_ver" r="${pkg_ver#r}" i="$install_dir" L="$lib_dir" "$script_dir/makefile.tpl"
+	awk '{gsub(/\$p_name/,p); gsub(/\$INSTALL_DIR/,i); gsub(/\$CONF_DIR/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$LIB_DIR/,L)}1' \
+		p="$p_name" c="$CONF_DIR" v="$curr_ver" r="${pkg_ver#r}" i="$INSTALL_DIR" L="$LIB_DIR" "$script_dir/makefile.tpl"
 
 	printf '\n%s\n' "define Package/$p_name/install/Default"
 
@@ -106,8 +106,8 @@ cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
 		$0~a {print "\t$(INSTALL_BIN) ./files/" $0 " $(1)" s i} \
 		$0~t {print "\t$(INSTALL_BIN) ./files/" $0 " $(1)" s n} \
 		$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
-			c="${conf_dir#"/"}" i="${install_dir#"/"}" n="${init_dir#"/"}" l="${lib_dir#"/"}" s="/" \
-			f="${conf_dir#"/"}/" a="${install_dir#"/"}/" t="${init_dir#"/"}/" b="${lib_dir#"/"}/"
+			c="${CONF_DIR#"/"}" i="${INSTALL_DIR#"/"}" n="${init_dir#"/"}" l="${LIB_DIR#"/"}" s="/" \
+			f="${CONF_DIR#"/"}/" a="${INSTALL_DIR#"/"}/" t="${init_dir#"/"}/" b="${LIB_DIR#"/"}/"
 	printf '\n%s\n\n' "endef"
 } > "$build_dir/Makefile"
 
@@ -125,10 +125,10 @@ for _fw_ver in $_OWRTFW; do
 		printf '\n%s\n%s\n' "define Package/$p_name$_ipt/install" \
 			"\$(call Package/$p_name/install/Default,\$(1))"
 
-		printf '\t%s\n' "\$(INSTALL_DIR) \$(1)$lib_dir"
+		printf '\t%s\n' "\$(INSTALL_DIR) \$(1)$LIB_DIR"
 		find -- * -print | grep -E "$_fw" |
 		awk '$0~b {print "\t$(INSTALL_CONF) ./files/" $0 " $(1)" s l}' \
-			l="${lib_dir#"/"}" s="/" b="${lib_dir#"/"}/"
+			l="${LIB_DIR#"/"}" s="/" b="${LIB_DIR#"/"}/"
 		printf '\n%s\n\n' "endef"
 	} >> "$build_dir/Makefile"
 done

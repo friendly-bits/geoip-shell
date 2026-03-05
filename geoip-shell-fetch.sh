@@ -16,8 +16,8 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 done
 
 . "$geoinit_path" &&
-source_lib arrays "$script_dir/lib" "$lib_dir" &&
-source_lib fetch "$script_dir/lib" "$lib_dir" || die
+source_lib arrays "$script_dir/lib" "$LIB_DIR" &&
+source_lib fetch "$script_dir/lib" "$LIB_DIR" || die
 
 san_args "$@"
 newifs "$delim"
@@ -61,7 +61,7 @@ while getopts ":t:l:p:o:s:u:rfdVh" opt; do
 		t) src_type=$OPTARG ;;
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir_f=$OPTARG ;;
-		s) fetch_res_file=$OPTARG ;;
+		s) FETCH_RES_FILE=$OPTARG ;;
 		u) src_arg=$OPTARG ;;
 
 		r) raw_mode=1 ;;
@@ -784,7 +784,7 @@ $con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 OK
 rm -f "$con_check_file"
 
-for f in "$status_file" "$fetch_res_file"; do
+for f in "$status_file" "$FETCH_RES_FILE"; do
 	[ -z "$f" ] || [ -f "$f" ] || touch "$f" || die "$FAIL create file '$f'."
 done
 
@@ -811,11 +811,11 @@ for ccode in $ccodes_need_update; do
 done
 
 
-### Report fetch results via fetch_res_file
-if [ "$fetch_res_file" ]; then
+### Report fetch results via FETCH_RES_FILE
+if [ "$FETCH_RES_FILE" ]; then
 	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
-	setstatus fetch_res "$fetch_res_file" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
-		die "$FAIL write to file '$fetch_res_file'."
+	setstatus fetch_res "$FETCH_RES_FILE" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
+		die "$FAIL write to file '$FETCH_RES_FILE'."
 fi
 
 if [ "$status_file" ]; then

@@ -323,7 +323,7 @@ prep_script() {
 }
 
 
-checkvars GEOTEMP_DIR install_dir lib_dir p_script i_script _lib lock_file _nl
+checkvars GEOTEMP_DIR INSTALL_DIR LIB_DIR p_script i_script _lib LOCK_FILE _nl
 
 #### Detect the init system
 detect_init initsys
@@ -336,7 +336,7 @@ export nointeract_arg debugmode
 tmp_dir="${inst_root_gs}${GEOTEMP_DIR}/install-tmp"
 
 reg_file_ok=
-reg_file="$lib_dir/${p_name}-components"
+reg_file="$LIB_DIR/${p_name}-components"
 reg_permissions="$tmp_dir/${p_name}-permissions"
 reg_tmp="$tmp_dir/${p_name}-components"
 cp_files_reg="$tmp_dir/${p_name}-components-replace"
@@ -352,9 +352,9 @@ rm -rf "$tmp_dir"
 dir_mk -n "$tmp_dir" || die
 
 [ ! "$inst_root_gs" ] && {
-	add2list PATH "$install_dir" ':'
+	add2list PATH "$INSTALL_DIR" ':'
 
-	[ -s "$conf_file"  ] && nodie=1 get_config_vars main &&
+	[ -s "$CONF_FILE"  ] && nodie=1 get_config_vars main &&
 		export datadir status_file="$datadir/status" &&
 		nodie=1 get_main_config _fw_backend_prev _fw_backend
 
@@ -436,14 +436,14 @@ OK
 
 ## add scripts
 printf '%s\n' "Preparing to install $p_name for firewall backends: $_fw_backend..."
-add_scripts "$script_files" "$install_dir" 555
-add_scripts "$lib_files" "$lib_dir" 444
+add_scripts "$script_files" "$INSTALL_DIR" 555
+add_scripts "$lib_files" "$LIB_DIR" 444
 
 # create the .const file
 cat <<- EOF > "$tmp_dir/${p_name}.const" || preinstall_failed "$FAIL create file '"$tmp_dir/${p_name}.const"'."
 	export PATH="$PATH" initsys="$initsys" use_shell="$curr_sh_g"
 EOF
-add_file "$tmp_dir/${p_name}.const" "$conf_dir/${p_name}.const" 600
+add_file "$tmp_dir/${p_name}.const" "$CONF_DIR/${p_name}.const" 600
 
 export PATH initsys use_shell="$curr_sh_g"
 
@@ -460,19 +460,19 @@ export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
 export p_name="$p_name"
 GEORUN_DIR="\${GEORUN_DIR:-"/tmp/$p_name-run"}" GEOTEMP_DIR="\${GEOTEMP_DIR:-"/tmp/$p_name-tmp"}"
 
-export conf_dir="/etc/$p_name" \
-	install_dir="/usr/bin" \
-	lib_dir="/usr/lib/$p_name" \
-	iplist_dir="\$GEORUN_DIR/iplists" \
-	staging_local_dir="\$GEORUN_DIR/staging"
+export CONF_DIR="/etc/$p_name" \
+	INSTALL_DIR="/usr/bin" \
+	LIB_DIR="/usr/lib/$p_name" \
+	IPLIST_DIR="\$GEORUN_DIR/iplists" \
+	STAGING_LOCAL_DIR="\$GEORUN_DIR/staging"
 
-export lock_file="\$GEORUN_DIR/lock" \
+export LOCK_FILE="\$GEORUN_DIR/lock" \
 	GS_LOG_FILE="\$GEORUN_DIR/log" \
-	fetch_res_file="\$GEORUN_DIR/fetch-res" \
-	excl_file="\$conf_dir/iplist-exclusions.conf" \
-	conf_file="\$conf_dir/$p_name.conf"
+	FETCH_RES_FILE="\$GEORUN_DIR/fetch-res" \
+	EXCL_FILE="\$CONF_DIR/iplist-exclusions.conf" \
+	CONF_FILE="\$CONF_DIR/$p_name.conf"
 
-export _lib="\$lib_dir/$p_name-lib" i_script="\$install_dir/$p_name"
+export _lib="\$LIB_DIR/$p_name-lib" i_script="\$INSTALL_DIR/$p_name"
 export _fw_backend
 in_configure=
 
@@ -485,18 +485,18 @@ $init_non_owrt
 $set_owrt_install
 . "\${_lib}-common.sh" || exit 1
 [ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
-[ -f "\$conf_dir/\${p_name}.const" ] && { . "\$conf_dir/\${p_name}.const" || die; } ||
-	{ [ ! "\$in_uninstall" ] && die "\$conf_dir/\${p_name}.const is missing. Please reinstall \$p_name."; }
+[ -f "\$CONF_DIR/\${p_name}.const" ] && { . "\$CONF_DIR/\${p_name}.const" || die; } ||
+	{ [ ! "\$in_uninstall" ] && die "\$CONF_DIR/\${p_name}.const is missing. Please reinstall \$p_name."; }
 
 case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) in_configure=1; esac
 
-[ -s "\$conf_file" ] && nodie=1 get_main_config _fw_backend
+[ -s "\$CONF_FILE" ] && nodie=1 get_main_config _fw_backend
 if [ ! "\$_fw_backend" ]; then
-	rm -f "\$conf_dir/setupdone"
+	rm -f "\$CONF_DIR/setupdone"
 	[ "\$first_setup" ] || [ "\$in_uninstall" ] || [ "\$in_configure" ] && return 0
 	die "Firewall backend is not configured. Please run '\$p_name configure'."
 elif ! check_fw_backend -nolog "\$_fw_backend" 1>/dev/null; then
-	[ "\$in_uninstall" ] || [ "\$in_configure" ] && { rm -f "\$conf_dir/setupdone"; _fw_backend=''; return 0; }
+	[ "\$in_uninstall" ] || [ "\$in_configure" ] && { rm -f "\$CONF_DIR/setupdone"; _fw_backend=''; return 0; }
 	check_fw_backend "\$_fw_backend"
 	die
 fi
@@ -504,13 +504,13 @@ export fwbe_ok=1
 :
 EOF
 
-add_scripts "$tmp_dir/$p_name-geoinit.sh" "$install_dir" 444
+add_scripts "$tmp_dir/$p_name-geoinit.sh" "$INSTALL_DIR" 444
 
 # add cca2.list
-add_file "$script_dir/cca2.list" "$conf_dir/cca2.list" 444
+add_file "$script_dir/cca2.list" "$CONF_DIR/cca2.list" 444
 
 # add iplist-exclusions.conf
-add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf" 444
+add_file "$script_dir/iplist-exclusions.conf" "$CONF_DIR/iplist-exclusions.conf" 444
 
 # OpenWrt-specific stuff
 [ "$_OWRTFW" ] && {
@@ -531,8 +531,8 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 		cat <<- EOF
 			#!/bin/sh
 			p_name=$p_name
-			install_dir="$install_dir"
-			conf_dir="$conf_dir"
+			INSTALL_DIR="$INSTALL_DIR"
+			CONF_DIR="$CONF_DIR"
 			fw_include_path="$i_script-fw-include.sh"
 			_lib="$_lib"
 		EOF
@@ -554,7 +554,7 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 		[ -n "$_fw_backend_prev" ] && [ -s "${_lib}-$_fw_backend_prev.sh" ] &&
 		(
 			_fw_backend="$_fw_backend_prev"
-			source_lib "$_fw_backend_prev" "$lib_dir" &&
+			source_lib "$_fw_backend_prev" "$LIB_DIR" &&
 			kill_geo_pids &&
 			rm_lock &&
 			rm_all_georules
@@ -565,13 +565,13 @@ add_file "$script_dir/iplist-exclusions.conf" "$conf_dir/iplist-exclusions.conf"
 		echolog "Cleaning up previous installation (if any)..."
 		call_script "$p_script-uninstall.sh" -r || die "Pre-install cleanup failed."
 	fi
-	rm -f "$conf_dir/setupdone"
+	rm -f "$CONF_DIR/setupdone"
 }
 
 #### Install files
 
 printf %s "Creating directories... "
-for dir in "$inst_root_gs$lib_dir" "$inst_root_gs$conf_dir"; do
+for dir in "$inst_root_gs$LIB_DIR" "$inst_root_gs$CONF_DIR"; do
 	mkdir -p "$dir" || preinstall_failed "$FAIL create directory '$dir'."
 done
 OK
@@ -592,7 +592,7 @@ OK
 
 # set permissions
 printf %s "Setting permissions... "
-chmod 755 "$conf_dir" && chown -R root:root "$conf_dir" || install_failed "$FAIL set permissions for '$conf_dir'."
+chmod 755 "$CONF_DIR" && chown -R root:root "$CONF_DIR" || install_failed "$FAIL set permissions for '$CONF_DIR'."
 set_permissions
 OK
 
@@ -600,7 +600,7 @@ OK
 [ "$prev_reg_file_cont" ] && {
 	rm_files=
 	subtract_a_from_b "$(cat "$reg_tmp")" "$(printf '%s\n' "$prev_reg_file_cont" | grep -v '[^[:alnum:]/.-]' | \
-			grep -E "^${i_script}|${lib_dir}|${conf_dir}|/etc/init.d/${p_name}-init")" rm_files "$_nl" || {
+			grep -E "^${i_script}|${LIB_DIR}|${CONF_DIR}|/etc/init.d/${p_name}-init")" rm_files "$_nl" || {
 		printf '%s\n' "Removing files from previous installation..."
 		# shellcheck disable=SC2046
 		rm -f $(printf %s "$rm_files" | tr '\n' ' ')

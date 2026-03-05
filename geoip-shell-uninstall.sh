@@ -19,7 +19,7 @@ in_uninstall=1
 case "$script_dir" in
 	"/usr/bin"|'')
 		geoinit_dir=/usr/bin
-		lib_src_dir="$lib_dir" ;;
+		lib_src_dir="$LIB_DIR" ;;
 	*)
 		geoinit_dir="$script_dir"
 		lib_src_dir="$script_dir/lib"
@@ -59,14 +59,14 @@ EOF
 rm_scripts() {
 	printed=
 	for script_name in fetch apply manage cronsetup run backup mk-fw-include fw-include uninstall geoinit; do
-		s_path="${install_dir}/${p_name}-$script_name.sh"
+		s_path="${INSTALL_DIR}/${p_name}-$script_name.sh"
 		[ -f "$s_path" ] && {
-			[ ! "$printed" ] && { printf '%s\n' "Deleting $p_name main scripts from $install_dir..."; printed=1; }
+			[ ! "$printed" ] && { printf '%s\n' "Deleting $p_name main scripts from $INSTALL_DIR..."; printed=1; }
 			rm -f "$s_path"
 		}
 	done
 
-	rm_geodir "$lib_dir" "library scripts"
+	rm_geodir "$LIB_DIR" "library scripts"
 	:
 }
 
@@ -91,26 +91,26 @@ source_lib uninstall "$lib_src_dir" || die
 ### VARIABLES
 old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
-install_dir="${old_install_dir:-"$install_dir"}"
+INSTALL_DIR="${old_install_dir:-"$INSTALL_DIR"}"
 
-[ ! "$install_dir" ] && die "Can not determine installation directory. Try setting \$install_dir manually."
+[ ! "$INSTALL_DIR" ] && die "Can not determine installation directory. Try setting \$INSTALL_DIR manually."
 
-[ "$script_dir" != "$install_dir" ] && [ -f "$install_dir/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
+[ "$script_dir" != "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/${p_name}-uninstall.sh" ] && [ ! "$norecur" ] && {
 	# prevents infinite loop
 	export norecur=1
-	call_script "$install_dir/${p_name}-uninstall.sh" "$keepdata" && die 0
+	call_script "$INSTALL_DIR/${p_name}-uninstall.sh" "$keepdata" && die 0
 }
 
-: "${conf_dir:=/etc/$p_name}"
-[ -d "$conf_dir" ] && : "${conf_file:="$conf_dir/$p_name.conf"}"
-[ -s "$conf_file" ] && nodie=1 get_main_config datadir ||
+: "${CONF_DIR:=/etc/$p_name}"
+[ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
+[ -s "$CONF_FILE" ] && nodie=1 get_main_config datadir ||
 	{
 		[ ! "$first_setup" ] &&
 			echolog -warn "Config file doesn't exist or failed to read config." \
 				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
 	}
 : "${datadir:="/var/lib/$p_name"}"
-[ -s "$conf_file" ] && nodie=1 get_main_config local_iplists_dir
+[ -s "$CONF_FILE" ] && nodie=1 get_main_config local_iplists_dir
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 #### MAIN

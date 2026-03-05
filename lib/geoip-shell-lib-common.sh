@@ -307,7 +307,7 @@ source_lib() {
 	[ -n "$1" ] || { echolog -err "source_lib: invalid args '$*'."; return 1; }
 	src_file="${p_name}-lib-${1}.sh"
 	shift
-	[ -n "$*" ] || set -- "$lib_dir"
+	[ -n "$*" ] || set -- "$LIB_DIR"
 	for dir in "$@"; do
 		[ -f "$dir/$src_file" ] && . "$dir/$src_file" && return 0
 	done
@@ -478,7 +478,7 @@ getconfig() {
 	shift``
 	key_conf="$1"
 	[ $# -gt 1 ] && key_conf="$2"
-	target_file="${3:-$conf_file}"
+	target_file="${3:-$CONF_FILE}"
 	[ "$1" ] && [ "$target_file" ] &&
 	read_conf_file conf "$gc_type" "$target_file" &&
 	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || {
@@ -518,7 +518,7 @@ read_conf_file() {
 
 	# check in cache first
 	rcf_conf=
-	[ "$3" = "$conf_file" ] && rcf_conf="$main_config"
+	[ "$3" = "$CONF_FILE" ] && rcf_conf="$main_config"
 	[ -z "$rcf_conf" ] && {
 		rcf_conf="$(
 			awk -v valid_keys="$rcf_keys" -v is_main="$rcf_is_main" -v M="${migrate_opts}" -v D="$delim" "
@@ -552,13 +552,13 @@ read_conf_file() {
 				}
 			" "$3"
 		)"
-		[ "$3" = "$conf_file" ] && export main_config="$rcf_conf"
+		[ "$3" = "$CONF_FILE" ] && export main_config="$rcf_conf"
 	}
 	eval "$1"='$rcf_conf'
 	:
 }
 
-# gets all config from file $1 or $conf_file if unsecified, and assigns to vars named same as keys in the file
+# gets all config from file $1 or $CONF_FILE if unsecified, and assigns to vars named same as keys in the file
 # 0: (optional) -v to load from variable $2
 # 1: type
 # 2: var name or path to config/status file or empty for main cfg file
@@ -582,7 +582,7 @@ get_config_vars() {
 		[ "$gcv_entries" ] || return 1
 		gcv_src_pr="variable '$gcv_var'"
 	else
-		gcv_f="${2:-"$conf_file"}"
+		gcv_f="${2:-"$CONF_FILE"}"
 		gcv_src_pr="file '$gcv_f'"
 		read_conf_file gcv_entries "$gcv_type" "$gcv_f" "$gcv_keys" || {
 			echolog -err "$FAIL get config from '$gcv_f'."
@@ -610,7 +610,7 @@ get_config_vars() {
 set_main_config() { setconfig main "$@"; }
 
 # 1: type
-# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $conf_file
+# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $CONF_FILE
 # if no '=' included, gets value of var with named the same as the key
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
@@ -638,7 +638,7 @@ setconfig() {
 	done
 	keys_test_str="${keys_test_str%\|}"
 	[ ! "$keys_test_str" ] && { sc_failed "no valid args passed."; return 1; }
-	target_file="${args_target_file:-$inst_root_gs$conf_file}"
+	target_file="${args_target_file:-$inst_root_gs$CONF_FILE}"
 
 	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
 
@@ -657,16 +657,16 @@ setconfig() {
 	# don't write to file if config didn't change
 	[ -f "$target_file" ] && old_conf_exists=1 || old_conf_exists=
 	if [ ! "$old_conf_exists" ] || ! compare_file2str "$target_file" "$newconfig"; then
-		[ "$target_file" = "$conf_file" ] && printf %s "Updating the config file... " >&2
+		[ "$target_file" = "$CONF_FILE" ] && printf %s "Updating the config file... " >&2
 		printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
-		[ "$target_file" = "$conf_file" ] && OK >&2
+		[ "$target_file" = "$CONF_FILE" ] && OK >&2
 	fi
 
-	[ "$target_file" = "$conf_file" ] && {
+	[ "$target_file" = "$CONF_FILE" ] && {
 		export main_config="$newconfig"
 		[ ! "$old_conf_exists" ] && {
-			chmod 600 "$conf_file" && chown root:root "$conf_file" ||
-				echolog -warn "$FAIL update permissions for file '$conf_file'."
+			chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" ||
+				echolog -warn "$FAIL update permissions for file '$CONF_FILE'."
 		}
 	}
 	:
@@ -1182,14 +1182,14 @@ rm_geodir() {
 	}
 }
 
-rm_iplists() { set +f; rm -f "${iplist_dir:-???}"/*.iplist; set -f; }
+rm_iplists() { set +f; rm -f "${IPLIST_DIR:-???}"/*.iplist; set -f; }
 
 rm_iplists_rules() {
-	case "$iplist_dir" in
-		*"$p_name"*) rm_geodir "$iplist_dir" iplist ;;
+	case "$IPLIST_DIR" in
+		*"$p_name"*) rm_geodir "$IPLIST_DIR" iplist ;;
 		*)
-			# remove individual iplist files if iplist_dir is shared with non-geoip-shell files
-			[ "$iplist_dir" ] && [ -d "$iplist_dir" ] && {
+			# remove individual iplist files if IPLIST_DIR is shared with non-geoip-shell files
+			[ "$IPLIST_DIR" ] && [ -d "$IPLIST_DIR" ] && {
 				echo "Removing $p_name IP lists..."
 				rm_iplists
 			}
@@ -1198,7 +1198,7 @@ rm_iplists_rules() {
 	### Remove geoip firewall rules
 	if [ "$_fw_backend" ]; then
 		(
-			source_lib "${_fw_backend}" "${lib_src_dir:-"$lib_dir"}" &&
+			source_lib "${_fw_backend}" "${lib_src_dir:-"$LIB_DIR"}" &&
 			rm_all_georules || exit 1
 		)
 	elif checkutil "$p_name"; then
@@ -1220,7 +1220,7 @@ load_exclusions() {
 
 load_cca2() {
 	[ "$ALL_CCODES" ] && return 0
-	for cca2_path in "$@" "$conf_dir/cca2.list"; do
+	for cca2_path in "$@" "$CONF_DIR/cca2.list"; do
 		[ -n "$cca2_path" ] || continue
 		[ -s "$cca2_path" ] && { cca2_found=1; break; }
 	done
@@ -1247,7 +1247,7 @@ validate_ccode() {
 	vc_ccode="$2"
 	eval "${1:-_}="
 	toupper vc_ccode &&
-	load_cca2 "$conf_dir/cca2.list" || die
+	load_cca2 "$CONF_DIR/cca2.list" || die
 	case "$vc_ccode" in ''|*" "*) false ;; *) :; esac &&
 	is_included "$vc_ccode" "$ALL_CCODES" || {
 		echolog -err "Invalid 2-letter country code: '$vc_ccode'."
@@ -1635,7 +1635,7 @@ export IFS="$default_IFS"
 	fi
 	export awk_cmd
 
-	[ "$conf_file" ] && [ -s "$conf_file" ] && [ "$root_ok" ] && {
+	[ "$CONF_FILE" ] && [ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
 		get_main_config datadir
 		export datadir status_file="$datadir/status"
 	}

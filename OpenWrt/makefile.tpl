@@ -57,13 +57,13 @@ endef
 
 define Package/$p_name/postinst/Default
 #!/bin/sh
-rm -f "$install_dir/$p_name"
-ln -s "$install_dir/$p_name-manage.sh" "$install_dir/$p_name" ||
-	{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$install_dir/$p_name'."; exit 1; }
-chmod 555 "$install_dir/$p_name" && chown root:root "$install_dir/$p_name" ||
-	logger -s -t "$p_name" -p err "Error: failed to set permissions for '$install_dir/$p_name'."
-if [ -s "$conf_dir/$p_name.conf" ]; then
-	$install_dir/$p_name configure -z
+rm -f "$INSTALL_DIR/$p_name"
+ln -s "$INSTALL_DIR/$p_name-manage.sh" "$INSTALL_DIR/$p_name" ||
+	{ logger -s -t "$p_name" -p err "Error: failed to create symlink '$INSTALL_DIR/$p_name'."; exit 1; }
+chmod 555 "$INSTALL_DIR/$p_name" && chown root:root "$INSTALL_DIR/$p_name" ||
+	logger -s -t "$p_name" -p err "Error: failed to set permissions for '$INSTALL_DIR/$p_name'."
+if [ -s "$CONF_DIR/$p_name.conf" ]; then
+	$INSTALL_DIR/$p_name configure -z
 else
 	logger -s -t "$p_name" "Please run '$p_name configure' to complete the setup."
 fi
@@ -80,7 +80,7 @@ endef
 
 define Package/$p_name/prerm/Default
 #!/bin/sh
-sh $lib_dir/$p_name-owrt-uninstall.sh
+sh $LIB_DIR/$p_name-owrt-uninstall.sh
 return 0
 endef
 

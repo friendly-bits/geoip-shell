@@ -15,7 +15,7 @@ enable_owrt_persist() {
 		return 1
 	}
 
-	rm -f "$conf_dir/no_persist"
+	rm -f "$CONF_DIR/no_persist"
 	! check_owrt_init && {
 		[ -s "$init_script" ] || {
 			echolog -err "The init script '$init_script' is missing. Please reinstall $p_name."
@@ -26,11 +26,11 @@ enable_owrt_persist() {
 		check_owrt_init || { FAIL; echolog -err "$FAIL enable '$init_script'."; return 1; }
 		OK
 	}
-	/bin/sh "$install_dir/${p_name}-mk-fw-include.sh"
+	/bin/sh "$INSTALL_DIR/${p_name}-mk-fw-include.sh"
 }
 
 disable_owrt_persist() {
-	[ ! -f "$conf_dir/no_persist" ] && touch "$conf_dir/no_persist"
+	[ ! -f "$CONF_DIR/no_persist" ] && touch "$CONF_DIR/no_persist"
 	[ ! -s "$init_script" ] ||
 	{
 		printf %s "Disabling the init script... "
@@ -183,7 +183,7 @@ me="${0##*/}"
 p_name_c="${p_name%%-*}_${p_name#*-}"
 _OWRTFW=
 init_script="/etc/init.d/${p_name}-init"
-conf_dir="/etc/$p_name"
+CONF_DIR="/etc/$p_name"
 
 # check for OpenWrt firewall version
 checkutil uci && checkutil procd && for i in 3 4; do

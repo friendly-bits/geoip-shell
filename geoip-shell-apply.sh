@@ -110,7 +110,7 @@ get_ipset_id() {
 			ipset_el_type="${iplist_path##*.}" ;;
 		*)
 			ipset_el_type=net
-			iplist_path="${iplist_dir}/${list_id}.iplist"
+			iplist_path="${IPLIST_DIR}/${list_id}.iplist"
 	esac
 	:
 }
@@ -139,7 +139,7 @@ get_ipset_name() {
 # 2 - family
 set_allow_ipset_vars() {
 	eval "allow_ipset_name=\"\${allow_ipset_name_${1}_${2}}\""
-	allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+	allow_iplist_file="$IPLIST_DIR/$allow_ipset_name.iplist"
 }
 
 # 1 - var name for protocol expression output
@@ -195,7 +195,7 @@ geotag_aux="${geotag}_aux"
 
 ## CHECKS
 
-checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock iplist_dir
+checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock IPLIST_DIR
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
@@ -220,7 +220,7 @@ case "$action" in
 		esac
 esac
 
-dir_mk -n "$iplist_dir" || die
+dir_mk -n "$IPLIST_DIR" || die
 
 ### compile allowlist IPs and write to file
 for family in $families; do
@@ -233,7 +233,7 @@ for family in $families; do
 		unset all_allow_ips res_addresses trusted lan_ips source_ips ll_addr
 
 		allow_ipset_name="allow_${direction%bound}_${family#ipv}"
-		allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+		allow_iplist_file="$IPLIST_DIR/$allow_ipset_name.iplist"
 		eval "allow_ipset_name_${direction}_${family}=\"\$allow_ipset_name\"
 			allow_iplist_file_${direction}_${family}=\"\$allow_iplist_file\"
 			allow_ipset_type_${direction}_${family}=ip"
@@ -329,7 +329,7 @@ for family in $families; do
 		else
 			# if allow IPs are identical for inbound and outbound, use same ipset for both
 			allow_ipset_name="allow_${family#ipv}"
-			allow_iplist_file="$iplist_dir/$allow_ipset_name.iplist"
+			allow_iplist_file="$IPLIST_DIR/$allow_ipset_name.iplist"
 			for dir in inbound outbound; do
 				eval "allow_ipset_name_${dir}_${family}=\"\$allow_ipset_name\"
 					allow_iplist_file_${dir}_${family}=\"\$allow_iplist_file\""
@@ -351,7 +351,7 @@ for family in ipv4 ipv6; do
 		ipset_name="local_${local_type}_${family#ipv}"
 
 		iplist_found=
-		for dir in "$local_iplists_dir" "$staging_local_dir"; do
+		for dir in "$local_iplists_dir" "$STAGING_LOCAL_DIR"; do
 			for type in ip net; do
 				[ -s "$dir/$filename.$type" ] || continue
 				eval "${ipset_name}_file"='$dir/$filename.$type'

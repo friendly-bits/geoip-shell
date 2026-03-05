@@ -17,19 +17,19 @@ export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 $_nl"
 export p_name=geoip-shell
 export GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run"}" GEOTEMP_DIR="${GEOTEMP_DIR:-"/tmp/$p_name-tmp"}"
 
-export conf_dir="/etc/$p_name" \
-	install_dir="/usr/bin" \
-	lib_dir="/usr/lib/$p_name" \
-	iplist_dir="$GEORUN_DIR/iplists" \
-	staging_local_dir="$GEORUN_DIR/staging"
+export CONF_DIR="/etc/$p_name" \
+	INSTALL_DIR="/usr/bin" \
+	LIB_DIR="/usr/lib/$p_name" \
+	IPLIST_DIR="$GEORUN_DIR/iplists" \
+	STAGING_LOCAL_DIR="$GEORUN_DIR/staging"
 
-export lock_file="$GEORUN_DIR/lock" \
+export LOCK_FILE="$GEORUN_DIR/lock" \
 	GS_LOG_FILE="$GEORUN_DIR/log" \
-	fetch_res_file="$GEORUN_DIR/fetch-res" \
-	excl_file="$script_dir/iplist-exclusions.conf" \
-	conf_file="$conf_dir/$p_name.conf"
+	FETCH_RES_FILE="$GEORUN_DIR/fetch-res" \
+	EXCL_FILE="$script_dir/iplist-exclusions.conf" \
+	CONF_FILE="$CONF_DIR/$p_name.conf"
 
-export _lib="$lib_dir/$p_name-lib" p_script="${script_dir:?}/$p_name" i_script="$install_dir/$p_name"
+export _lib="$LIB_DIR/$p_name-lib" p_script="${script_dir:?}/$p_name" i_script="$INSTALL_DIR/$p_name"
 set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
 set -f
 

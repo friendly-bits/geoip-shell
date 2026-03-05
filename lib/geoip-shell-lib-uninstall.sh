@@ -145,16 +145,16 @@ rm_data() {
 }
 
 rm_symlink() {
-	rm -f "${install_dir}/${p_name}"
+	rm -f "${INSTALL_DIR}/${p_name}"
 }
 
 rm_config() {
-	rm_geodir "$conf_dir" config
+	rm_geodir "$CONF_DIR" config
 	:
 }
 
 rm_setupdone() {
-	rm -f "$conf_dir/setupdone"
+	rm -f "$CONF_DIR/setupdone"
 }
 
 :

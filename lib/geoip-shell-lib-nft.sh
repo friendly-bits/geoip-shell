@@ -613,10 +613,10 @@ apply_rules() {
 # extracts IP lists from backup
 extract_iplists() {
 	printf_s "Restoring IP lists from backup... "
-	dir_mk -n "$iplist_dir" || rstr_failed
+	dir_mk -n "$IPLIST_DIR" || rstr_failed
 	for list_id in $iplists; do
 		bk_file="$bk_dir/$list_id.$bk_ext"
-		iplist_file="$iplist_dir/${list_id}.iplist"
+		iplist_file="$IPLIST_DIR/${list_id}.iplist"
 
 		[ ! -s "$bk_file" ] && rstr_failed "'$bk_file' is empty or doesn't exist."
 

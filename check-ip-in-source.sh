@@ -134,7 +134,7 @@ done
 
 case "${dl_src}" in
 	maxmind)
-		[ -s "$conf_file" ] && [ "$root_ok" ] && {
+		[ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
 			nodie=1 get_main_config mm_license_type
 			nodie=1 get_main_config mm_acc_id
 			nodie=1 get_main_config mm_license_key
@@ -145,7 +145,7 @@ case "${dl_src}" in
 		[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] ||
 			setup_maxmind || die ;;
 	ipinfo)
-		[ -s "$conf_file" ] && [ "$root_ok" ] && {
+		[ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
 			nodie=1 get_main_config ipinfo_license_type
 			nodie=1 get_main_config ipinfo_token
 			nodie=1 get_main_config keep_fetched_db

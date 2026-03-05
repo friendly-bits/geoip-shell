@@ -12,7 +12,7 @@ p_name="geoip-shell"
 export inbound_geomode nolog=1 manmode
 
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
-script_dir="$install_dir"
+script_dir="$INSTALL_DIR"
 source_lib setup &&
 source_lib uninstall || die
 
@@ -439,7 +439,7 @@ set_first_setup() {
 }
 
 report_lists() {
-	unset iplists_incoherent lists_reported local_lists_rl
+	unset iplists_incoherent local_lists_rl
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
@@ -453,7 +453,6 @@ report_lists() {
 		subtract_a_from_b "$local_lists_rl" "$verified_lists" ccode_lists
 		verified_lists_sp="$local_lists_rl"
 		[ "$ccode_lists" ] && verified_lists_sp="$verified_lists_sp $ccode_lists"
-		[ ! "$lists_reported" ] && printf '\n'
 		report_lists=
 		for list_id in $verified_lists_sp; do
 			case "$list_id" in
@@ -466,8 +465,7 @@ report_lists() {
 		else
 			report_lists="${red}None${n_c}"
 		fi
-		printf '%s\n' "Final IP lists in $direction $geomode: $report_lists."
-		lists_reported=1
+		printf '\n%s\n' "Final IP lists in $direction $geomode: $report_lists."
 	done
 }
 
@@ -475,7 +473,7 @@ report_lists() {
 export nointeract="${nointeract_arg:-$nointeract}"
 
 #### showconfig
-[ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $conf_file:"; cat "$conf_file"; die 0; }
+[ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $CONF_FILE:"; cat "$CONF_FILE"; die 0; }
 
 
 #### Handle first setup and/or missing config
@@ -484,20 +482,20 @@ dir_mk -n "$GEOTEMP_DIR" || die
 
 rm_conf=
 
-[ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$conf_dir/setupdone" ]; } && {
+[ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$CONF_DIR/setupdone" ]; } && {
 	export first_setup=1
 	[ "$action" != configure ] && {
 		echolog "${_nl}Setup has not been completed."
 		set_first_setup
 	}
 
-	[ ! "$nointeract" ] && [ -s "$conf_file" ] && {
+	[ ! "$nointeract" ] && [ -s "$CONF_FILE" ] && {
 		q="[K]eep previous"
 		keep_opt=k
 		for _par in $ALL_CONF_VARS; do
 			eval "arg_val=\"\$${_par}_arg\""
 			[ "$arg_val" ] && {
-				nodie=1 get_main_config prev_val "$_par" "$conf_file" 2>/dev/null
+				nodie=1 get_main_config prev_val "$_par" "$CONF_FILE" 2>/dev/null
 				[ "$arg_val" != "$prev_val" ] && { q="[M]erge previous and new"; keep_opt=m; break; }
 			}
 		done
@@ -511,18 +509,18 @@ rm_conf=
 	}
 }
 
-[ -s "$conf_file" ] && [ ! "$rm_conf" ] && {
+[ -s "$CONF_FILE" ] && [ ! "$rm_conf" ] && {
 	tmp_conf_file="$GEOTEMP_DIR/${p_name}_upd.conf"
-	main_conf_path="$conf_file"
+	main_conf_path="$CONF_FILE"
 
 	# load config
 	nodie=1 export_conf=1 get_config_vars main || rm_conf=1
-	conf_file="$main_conf_path"
+	CONF_FILE="$main_conf_path"
 	rm -f "$tmp_conf_file"
 }
 
-[ ! -s "$conf_file" ] || [ "$rm_conf" ] && {
-	rm -f "$conf_file"
+[ ! -s "$CONF_FILE" ] || [ "$rm_conf" ] && {
+	rm -f "$CONF_FILE"
 	rm_data
 	for _conf_var in $ALL_CONF_VARS; do
 		is_alphanum "$_conf_var" || die "Internal error."
@@ -564,7 +562,7 @@ done
 # actions which do not require lock
 case "$action" in
 	status)
-		source_lib status "$lib_dir" && report_status
+		source_lib status "$LIB_DIR" && report_status
 		die $? ;;
 	stop)
 		kill_geo_pids
@@ -578,7 +576,7 @@ trap 'die' INT TERM HUP QUIT
 
 case "$action" in
 	lookup)
-		source_lib lookup "$lib_dir" &&
+		source_lib lookup "$LIB_DIR" &&
 		lookup "$lookup_addr_arg" "$lookup_addr_file_arg"
 		die $? ;;
 	on|off)
@@ -597,7 +595,7 @@ case "$action" in
 		}
 		rm_iplists_rules
 		rm_all_data
-		[ -f "$conf_file" ] && { printf '%s\n' "Deleting the config file '$conf_file'..."; rm -f "$conf_file"; }
+		[ -f "$CONF_FILE" ] && { printf '%s\n' "Deleting the config file '$CONF_FILE'..."; rm -f "$CONF_FILE"; }
 		rm_setupdone
 		die 0 ;;
 	restore) restore_from_config; die $? ;;
@@ -666,14 +664,14 @@ if [ "$_fw_backend_change" ]; then
 		(
 			# use previous backend to remove existing rules
 			export _fw_backend="$_fw_backend_prev"
-			source_lib "$_fw_backend_prev" "$lib_dir" || exit 1
+			source_lib "$_fw_backend_prev" "$LIB_DIR" || exit 1
 			rm_iplists_rules
 			rm_data
 			:
 		) || die "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
 	fi
 	# source library for the new backend
-	source_lib "$_fw_backend" "$lib_dir" || die
+	source_lib "$_fw_backend" "$LIB_DIR" || die
 fi
 
 case "$conf_act" in run_add|reset|apply)
@@ -733,24 +731,24 @@ if [ "$rv_conf" = 0 ]; then
 		for family in ipv4 ipv6; do
 			for local_type in allow block; do
 				filename="local_${local_type}_${family}"
-				if [ -s "$staging_local_dir/$filename.ip" ] || [ -s "$staging_local_dir/$filename.net" ]; then
+				if [ -s "$STAGING_LOCAL_DIR/$filename.ip" ] || [ -s "$STAGING_LOCAL_DIR/$filename.net" ]; then
 					set +f
 					rm -f "$local_iplists_dir/$filename".*
-					mv "$staging_local_dir/$filename".* "$local_iplists_dir/"
+					mv "$STAGING_LOCAL_DIR/$filename".* "$local_iplists_dir/"
 					set -f
 				else
 					continue
 				fi
 			done
 		done
-		rm -rf "${staging_local_dir:-???}"
+		rm -rf "${STAGING_LOCAL_DIR:-???}"
 	}
 
 	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
 		check_lists_coherence || restore_from_config || die
 	}
 else
-	rm -rf "${staging_local_dir:-???}"
+	rm -rf "${STAGING_LOCAL_DIR:-???}"
 	backup_req=1
 fi
 
@@ -778,7 +776,7 @@ esac || die
 	[ "$backup_req" ] && [ "$nobackup" != true ] && [ "$inbound_iplists$outbound_iplists" ] &&
 		call_script -l "$i_script-backup.sh" create-backup "$bk_conf_only"
 
-	[ "$first_setup" ] && touch "$conf_dir/setupdone"
+	[ "$first_setup" ] && touch "$CONF_DIR/setupdone"
 	if [ "$cron_req" ]; then
 		call_script "$i_script-cronsetup.sh" || echolog -err "$FAIL update cron jobs."
 		[ "$_OWRTFW" ] && {
@@ -786,21 +784,21 @@ esac || die
 				true) disable_owrt_persist ;;
 				false)
 					if [ -z "$inbound_iplists$outbound_iplists" ]; then
-						[ ! -f "$conf_dir/no_persist" ] && touch "$conf_dir/no_persist"
+						[ ! -f "$CONF_DIR/no_persist" ] && touch "$CONF_DIR/no_persist"
 						echolog "Countries list in the config file is empty! No point in creating firewall include."
 					else
-						rm -f "$conf_dir/no_persist"
+						rm -f "$CONF_DIR/no_persist"
 						check_owrt_init && check_owrt_include || {
 							rm_lock
 							enable_owrt_persist
 							rv_conf=$?
-							[ -f "$lock_file" ] && {
+							[ -f "$LOCK_FILE" ] && {
 								echo "Waiting for background processes to complete..."
 								for i in $(seq 1 30); do
-									[ ! -f "$lock_file" ] && break
+									[ ! -f "$LOCK_FILE" ] && break
 									sleep 1
 								done
-								[ $i = 30 ] && echolog -warn "Lock file '$lock_file' is still in place. Please check system log."
+								[ $i = 30 ] && echolog -warn "Lock file '$LOCK_FILE' is still in place. Please check system log."
 							}
 						}
 					fi

@@ -154,7 +154,7 @@ critical() {
 	FAIL
 	echolog -err "Removing geoip rules..."
 	rm_all_georules
-	set +f; rm -f "$iplist_dir/"*.iplist; set -f
+	set +f; rm -f "$IPLIST_DIR/"*.iplist; set -f
 	die "$1"
 }
 
@@ -581,7 +581,7 @@ apply_rules() {
 			get_ipset_id "$ipset" || die
 			case "$list_id" in *_*) ;; *) die "Invalid iplist ID '$list_id'."; esac
 			[ "${ipset_family}" != "$family" ] && continue
-			iplist_file="${iplist_dir}/${list_id}.iplist"
+			iplist_file="${IPLIST_DIR}/${list_id}.iplist"
 			reg_ipset "$ipset" net "$family" "${iplist_file}" "$curr_ipsets" || die
 		done
 
@@ -589,7 +589,7 @@ apply_rules() {
 		is_whitelist_present && [ "$family" = ipv4 ] && {
 			dhcp_ipset="${geotag}_dhcp_4"
 			dhcp_addr="192.168.0.0/16${_nl}172.16.0.0/12${_nl}10.0.0.0/8"
-			dhcp_iplist_file="${iplist_dir}/${dhcp_ipset}.iplist"
+			dhcp_iplist_file="${IPLIST_DIR}/${dhcp_ipset}.iplist"
 			printf '%s\n' "$dhcp_addr" > "$dhcp_iplist_file"
 			reg_ipset "$dhcp_ipset" net "$family" "${dhcp_iplist_file}" "$curr_ipsets" || die
 		}
