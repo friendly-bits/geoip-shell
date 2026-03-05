@@ -763,7 +763,7 @@ trimsp() {
 # result via return status
 is_included() {
 	_fs_ii="${3:- }"
-	case "${1}" in *"${_fs_ii}"*) false ;; *) :; esac &&
+	case "${1}" in *[!"${_fs_ii}"]*"${_fs_ii}"*[!"${_fs_ii}"]*) false ;; *) :; esac &&
 	case "${_fs_ii}${2}${_fs_ii}" in *"${_fs_ii}${1}${_fs_ii}"*) : ;; *) false; esac &&
 		return 0
 	return 1
