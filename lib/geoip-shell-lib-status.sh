@@ -103,7 +103,7 @@ report_status() {
 			printf '%s\n' "Update cron job: $upd_job_status"
 			[ "$upd_schedule" ] && printf '%s\n' "Update schedule: '${blue}${upd_schedule% }${n_c}'"
 
-			getstatus "$status_file"
+			getstatus main_status "$status_file"
 			[ "$last_update" ] && last_update="$blue$last_update$n_c" || { last_update="${red}Unknown $_X"; incr_issues; }
 			printf '%s\n' "Last successful update: $last_update"
 
