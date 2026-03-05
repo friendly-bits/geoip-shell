@@ -18,6 +18,7 @@
 normalize_ccodes() {
 	nc_in="$2"
 	eval "$1="
+	nc_inval=
 	load_cca2 "$CONF_DIR/cca2.list" || die
 	toupper nc_in
 	nc_out=
@@ -77,7 +78,7 @@ pick_ccodes() {
 	while :; do
 		unset ok_ccodes
 		[ ! "$REPLY" ] && {
-			printf %s "Enter whitespace-separated country codes (2 letters) and/or region codes (RIPE, ARIN, APNIC, AFRINIC, LACNIC) or [a] to abort: "
+			printf %s "Enter whitespace-separated country codes (2 letters) and/or regions (RIPE, ARIN, APNIC, AFRINIC, LACNIC) or [a] to abort: "
 			read -r REPLY
 		}
 		case "$REPLY" in
