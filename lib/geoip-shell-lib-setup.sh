@@ -11,6 +11,41 @@
 
 #### FUNCTIONS
 
+# validate reg. names or country codes against cca2.list, translate reg. names to country codes
+# 1: var name for output
+# 2: input
+# 3 (optional): list of delimiters
+normalize_ccodes() {
+	nc_in="$2"
+	eval "$1="
+	load_cca2 "$conf_dir/cca2.list" || die
+	toupper nc_in
+	nc_out=
+	newifs "${3:- }" ncc
+	for nc_code in $nc_in; do
+		oldifs ncc
+		[ "$nc_code" = RIPE ] && nc_code=RIPENCC
+		is_included "$nc_code" "$VALID_REGISTRIES" && {
+			eval "nc_reg_ccodes=\"\${$nc_code}\""
+			nc_ccodes="${nc_ccodes}${nc_ccodes:+ }${nc_reg_ccodes}"
+			continue
+		}
+		is_included "$nc_code" "$ALL_CCODES" && {
+			add2list nc_ccodes "$nc_code"
+			continue
+		}
+		add2list nc_inval "$nc_code"
+	done
+	oldifs ncc
+
+	[ -n "$nc_inval" ] && {
+		echolog -err "'$nc_inval' are not valid region names or 2-letter country codes."
+		return 1
+	}
+
+	eval "$1"='$nc_ccodes'
+}
+
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=none; return 0; }
@@ -26,15 +61,9 @@ pick_user_ccode() {
 		case "$REPLY" in
 			'') printf '%s\n\n' "Skipped."; user_ccode=none; return 0 ;;
 			*)
-				normalize_ccode REPLY "$REPLY"
-				case "$?" in
-					0) user_ccode="$REPLY"; break ;;
-					1) die "Internal error while trying to validate country codes." ;;
-					2|3) printf '\n%s\n' "'$REPLY' is not a valid 2-letter country code."
-						[ "$nointeract" ] && die 1
-						printf '%s\n\n' "Try again or press Enter to skip this check."
-						REPLY=
-				esac
+				validate_ccode REPLY "$REPLY" && { user_ccode="$REPLY"; break; }
+				printf '%s\n\n' "Try again or press Enter to skip this check."
+				REPLY=
 		esac
 	done
 }
@@ -46,45 +75,16 @@ pick_ccodes() {
 	[ ! "$ccodes_arg_pc" ] && printf '\n%s\n' "${blue}Please enter country codes to include in $direction geoblocking $geomode.$n_c"
 	REPLY="$ccodes_arg_pc"
 	while :; do
-		unset bad_ccodes ok_ccodes
+		unset ok_ccodes
 		[ ! "$REPLY" ] && {
 			printf %s "Enter whitespace-separated country codes (2 letters) and/or region codes (RIPE, ARIN, APNIC, AFRINIC, LACNIC) or [a] to abort: "
 			read -r REPLY
 		}
-		case "$REPLY" in *[!A-Za-z\ ,\;]*)
-			msg="Invalid country codes: '$REPLY'."
-			[ "$nointeract" ] && die "$msg"
-			printf '%s\n' "$msg" >&2
-			REPLY=
-			continue
-		esac
-		toupper REPLY
-		trimsp REPLY
 		case "$REPLY" in
 			a|A) die 253 ;;
 			*)
-				newifs ' ;,' pcc
-				for ccode in $REPLY; do
-					[ "$ccode" ] || continue
-					normalize_ccode ccode "$ccode"
-						case $? in
-							0|2) ok_ccodes="$ok_ccodes$ccode " ;;
-							1) die "Failed to process input." ;;
-							3) bad_ccodes="$bad_ccodes$ccode "
-						esac
-				done
-				oldifs pcc
-				[ "$bad_ccodes" ] && {
-					msg="Invalid 2-letter country codes: '${bad_ccodes% }'."
-					[ "$nointeract" ] && die "$msg"
-					printf '%s\n' "$msg" >&2
-					REPLY=
-					continue
-				}
-				[ ! "$ok_ccodes" ] && {
-					msg="No valid country codes detected in '$REPLY'."
-					[ "$nointeract" ] && die "$msg"
-					printf '%s\n' "$msg" >&2
+				normalize_ccodes ok_ccodes "$REPLY" " ;," || {
+					[ "$nointeract" ] && die
 					REPLY=
 					continue
 				}
@@ -661,7 +661,7 @@ get_general_prefs() {
 	families="${families_arg:-"$families"}"
 
 	# source
-	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$valid_srcs_country" "$geosource_arg" ||
+	is_alphanum "$geosource_arg" && tolower geosource_arg && subtract_a_from_b "$VALID_SRCS_COUNTRY" "$geosource_arg" ||
 		die "Invalid source: '$geosource_arg'"
 	geosource="${geosource_arg:-$geosource}"
 	case "$geosource_arg" in
@@ -819,21 +819,6 @@ do_configure() {
 		done
 
 		# country codes
-		if [ -n "$ccodes_arg" ]; then
-			norm_ccodes='' bad_ccodes=''
-			toupper ccodes_arg
-			for ccode in $ccodes_arg; do
-				normalize_ccode norm_ccode "$ccode"
-				case $? in
-					1) die "Internal error while validating country codes." ;;
-					3) bad_ccodes="$bad_ccodes$ccode "
-				esac
-				norm_ccodes="${norm_ccodes}${norm_ccode} "
-			done
-			[ "$bad_ccodes" ] && die "Invalid 2-letters country codes: '${bad_ccodes% }'."
-			ccodes_arg="${norm_ccodes% }"
-		fi
-
 		if [ "$ccodes_arg" ] || { [ -z "$ccodes_arg" ] && [ -z "$iplists" ]; }; then
 			pick_ccodes ccodes "$ccodes_arg"
 		fi
