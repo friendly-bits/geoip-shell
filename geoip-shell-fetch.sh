@@ -315,19 +315,26 @@ parse_ipinfo_maxmind_db() {
 
 # populates $registries, "fetch_lists_arr" array)
 group_lists_by_registry() {
-	valid_lists=
+	unset valid_lists registries
 	# group lists by registry
 	for registry in $VALID_REGISTRIES; do
 		list_ids=
+		eval "registry_ccodes=\"\${${registry}}\""
+
+		case "$registry_ccodes" in
+			''|*[!\ A-Z]*) die "Failed to load cca2.list or it has unexpected data."
+		esac
+
 		for list_id in $san_lists; do
 			ccode="${list_id%_*}"
-			get_a_arr_val registry_ccodes_arr "$registry" ccodes
-			is_included "$ccode" "$ccodes" && {
-				add2list registries "$registry"
+			is_included "$ccode" "$registry_ccodes" && {
 				add2list list_ids "$list_id"
-				add2list valid_lists "$list_id"
 			}
 		done
+		[ -n "$list_ids" ] || continue
+
+		registries="${registries}${registries:+ }${registry}"
+		valid_lists="${valid_lists}${valid_lists:+ }${list_ids}"
 		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
 	done
 
@@ -505,7 +512,7 @@ fetch_ipinfo_maxmind() {
 		preparsed_db="$FETCH_TMP_DIR/${p_name}_preparsed_${dl_src}-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
-			case " $excl_file_lists " in *" $list_id "*) continue; esac
+			is_included "$list_id" "$EXCL_FILE_LISTS" && continue
 			parsed_list="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
 
@@ -530,7 +537,7 @@ process_ccode() {
 	fetched_path_prefix="${FETCH_TMP_DIR:?}/${p_name}_fetched-"
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
-		case " $excl_file_lists " in *" $list_id "*) continue; esac
+		is_included "$list_id" "$EXCL_FILE_LISTS" && continue
 
 		rm_fetched_list_id=
 		case "$dl_src" in
@@ -674,21 +681,6 @@ check_entries_cnt_drop() {
 }
 
 
-#### Load cca2.list
-load_cca2 "$script_dir/cca2.list" "$conf_dir/cca2.list" || die
-
-for registry in $VALID_REGISTRIES; do
-	registry_ccodes=
-	eval "registry_ccodes=\"\${$registry}\"" &&
-	case "$registry_ccodes" in
-		*[!\ A-Z]*) false ;;
-		*) : ;;
-	esac || die "Unexpected data in cca2.list"
-	set_a_arr_el registry_ccodes_arr "$registry=$registry_ccodes"
-done
-
-load_exclusions
-
 #### Check for valid DL source
 case "${src_type}" in
 	country)
@@ -701,10 +693,29 @@ case "${src_type}" in
 esac
 
 dl_src="${src_arg:-"$def_src"}"
-is_alphanum "$dl_src" && tolower dl_src && subtract_a_from_b "$valid_srcs" "$dl_src" ||
+is_alphanum "$dl_src" && tolower dl_src && is_included "$dl_src" "$valid_srcs" ||
 	die "Invalid source for type '${src_type}': '$dl_src'"
 toupper dl_src_cap "$dl_src"
 
+
+#### List ID's
+[ "$src_type" != country ] || load_cca2 "$script_dir/cca2.list" || die
+san_list_ids san_lists "$lists_arg" "$src_type" "$EXCL_FILE_LISTS" || die
+unset failed_lists fetched_lists
+case "$src_type" in
+	country)
+		# groups lists by registry
+		# populates $registries, fetch_lists_arr
+		group_lists_by_registry
+		[ "$registries" ] || die "$FAIL determine relevant regions." ;;
+	asn)
+		for list_id in ${lists_arg}; do
+			is_valid_list asn "$list_id" || exit 1
+		done
+esac
+
+
+#### Fetch util
 get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn "$dl_src" "$dl_src_cap"
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
@@ -712,29 +723,8 @@ get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn
 printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
 
 
-#### VARIABLES
 
-separate_excl_iplists san_lists "$lists_arg" || die
-
-unset failed_lists fetched_lists
-
-
-#### Checks
-
-case "$src_type" in
-	country)
-		# groups lists by registry
-		# populates $registries, fetch_lists_arr
-		group_lists_by_registry ;;
-	asn)
-		for list_id in ${lists_arg}; do
-			is_valid_list asn "$list_id" || exit 1
-		done
-esac
-
-[ "$registries" ] || die "$FAIL determine relevant regions."
-
-# check connectivity
+# Check connectivity
 case "$dl_src" in
 	ripe) con_check_url="${ripe_url_api%%/*}" ;;
 	ipdeny) con_check_url="${ipdeny_ipv4_url%%/*}" ;;
