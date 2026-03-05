@@ -373,6 +373,8 @@ done
 
 getstatus main_status "$status_file" || die "$FAIL read the status file '$status_file'."
 
+load_cca2 || die
+
 curr_ipsets="$(get_ipsets)"
 
 nl2sp curr_ipsets_sp "$curr_ipsets"
@@ -383,18 +385,18 @@ for direction in inbound outbound; do
 		list_ids=\"\$${direction}_iplists\"
 		geomode=\"\$${direction}_geomode\""
 
-	separate_excl_iplists list_ids "$list_ids" || die
-
-	eval "${direction}_list_ids"='$list_ids'
-
-	debugprint "$direction list IDs: '$list_ids'"
-
 	unset "planned_ipsets_$direction"
 
 	[ "$geomode" = disable ] && {
 		debugprint "$direction geomode is disable - skipping adding ipsets for it"
 		continue
 	}
+
+	san_list_ids list_ids "$list_ids" "country" || die
+
+	eval "${direction}_list_ids"='$list_ids'
+
+	debugprint "$direction list IDs: '$list_ids'"
 
 	# process list_ids
 	for list_id in $list_ids; do
