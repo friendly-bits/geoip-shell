@@ -29,7 +29,7 @@ get_path() {
 get_path geoinit_path "${p_name}-geoinit.sh" /usr/bin
 get_path fetch_path "${p_name}-fetch.sh" /usr/bin
 
-. "$geoinit_path" || exit 1
+. "$geoinit_path"
 
 
 #### USAGE
@@ -97,39 +97,29 @@ validate_ip() {
 }
 
 
-#### Constants
-valid_srcs_country="ripe ipdeny maxmind ipinfo"
-default_src=ripe
-
-
 #### Variables
 
 tolower src_arg
-dl_src="${src_arg:-"$default_src"}"
+dl_src="${src_arg:-"$DEF_SRC_COUNTRY"}"
 ip_check_rv=0
 
 
 #### Checks
 
-check_deps grepcidr || die_l
+check_deps grepcidr || die
 
-normalize_ccode ccode "$ccode_arg"
-case $? in
-	0) ;;
-	2|3) usage; die_l "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'." ;;
-	*) die_l
-esac
+validate_ccode ccode "$ccode_arg" || die "Invalid country code '$ccode_arg'. Specify one country code with '-c <country_code>'."
 
 checkvars dl_src
-[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die_l "Specify only one source."; }
+[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
 
-subtract_a_from_b "$valid_srcs_country" "$dl_src" invalid_src
-[ -n "$invalid_src" ] && { usage; die_l "Invalid source: $invalid_src"; }
+subtract_a_from_b "$VALID_SRCS_COUNTRY" "$dl_src" invalid_src
+[ -n "$invalid_src" ] && { usage; die "Invalid source: $invalid_src"; }
 
-[ -z "$ips" ] && { usage; die_l "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
+[ -z "$ips" ] && { usage; die "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
 
 # remove duplicates etc
-san_str ips || die_l
+san_str ips || die
 
 
 #### Main
@@ -139,32 +129,31 @@ for ip in $ips; do
 	validate_ip "$ip" || add2list invalid_ips "$ip"
 done
 
-[ -z "$val_ipv4s$val_ipv6s" ] && die_l "All IP addresses failed validation."
-[ -z "$families" ] && die_l "\$families variable is empty."
-
+[ -z "$val_ipv4s$val_ipv6s" ] && die "All IP addresses failed validation."
+[ -z "$families" ] && die "\$families variable is empty."
 
 case "${dl_src}" in
 	maxmind)
 		[ -s "$conf_file" ] && [ "$root_ok" ] && {
-			nodie=1 getconfig mm_license_type
-			nodie=1 getconfig mm_acc_id
-			nodie=1 getconfig mm_license_key
-			nodie=1 getconfig keep_fetched_db
+			nodie=1 get_main_config mm_license_type
+			nodie=1 get_main_config mm_acc_id
+			nodie=1 get_main_config mm_license_key
+			nodie=1 get_main_config keep_fetched_db
 			export mm_license_type mm_acc_id mm_license_key keep_fetched_db
 		}
 
 		[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] ||
-			setup_maxmind || die_l ;;
+			setup_maxmind || die ;;
 	ipinfo)
 		[ -s "$conf_file" ] && [ "$root_ok" ] && {
-			nodie=1 getconfig ipinfo_license_type
-			nodie=1 getconfig ipinfo_token
-			nodie=1 getconfig keep_fetched_db
+			nodie=1 get_main_config ipinfo_license_type
+			nodie=1 get_main_config ipinfo_token
+			nodie=1 get_main_config keep_fetched_db
 			export ipinfo_license_type ipinfo_token keep_fetched_db
 		}
 
 		[ "$ipinfo_token" ] ||
-			setup_ipinfo || die_l ;;
+			setup_ipinfo || die ;;
 esac
 
 
@@ -190,11 +179,11 @@ for family in $families; do
 	list_file="$ciis_dir/$list_id.iplist"
 
 	printf '' > "$ciis_fetch_res_file" &&
-	call_script "$fetch_path" -r -l "$list_id" -p "$ciis_dir" -s "$ciis_fetch_res_file" -u "$dl_src" ||
+	call_script "$fetch_path" -t country -r -l "$list_id" -p "$ciis_dir" -s "$ciis_fetch_res_file" -u "$dl_src" ||
 		die_l "$FAIL fetch IP lists."
 
 	# read fetch results from ciis_fetch_res_file
-	getstatus "$ciis_fetch_res_file" || die_l "$FAIL read fetch results from file '$ciis_fetch_res_file'."
+	getstatus fetch_res "$ciis_fetch_res_file" || die_l "$FAIL read fetch results from file '$ciis_fetch_res_file'."
 
 	[ -n "$failed_lists" ] && die_l "IP list fetch failed."
 
