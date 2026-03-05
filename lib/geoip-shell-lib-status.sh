@@ -302,7 +302,7 @@ report_status() {
 							list_empty=
 							eval "el_cnt=\"\${${list_id}_el_cnt}\""
 							[ "$el_cnt" = 0 ] && {
-								if is_included "$list_id" "$excl_file_lists"; then
+								if is_included "$list_id" "$EXCL_FILE_LISTS"; then
 									list_empty=" (excluded)"
 								else
 									list_empty=" $_X"
@@ -324,8 +324,8 @@ report_status() {
 		*) printf '\n%s\n\n' "${red}Problems detected: $issues.${n_c}"
 	esac
 
-	[ "$issues" != 0 ] && [ -f "$lock_file" ] &&
-		echo "NOTE: $lock_file lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
+	[ "$issues" != 0 ] && [ -f "$LOCK_FILE" ] &&
+		echo "NOTE: $LOCK_FILE lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
 
 	return $issues
 }
