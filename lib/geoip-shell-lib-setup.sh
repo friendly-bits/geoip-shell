@@ -738,6 +738,8 @@ do_configure() {
 		}
 	done
 
+	load_cca2 || die
+
 	# set *_ccodes *_ports icmp *_iplists *_geomode
 	unset proto_change geomode_change_g
 
@@ -836,7 +838,9 @@ do_configure() {
 			done
 		done
 
-		separate_excl_iplists lists_req "$lists_req" || die
+		[ -n "$lists_req" ] && {
+			san_list_ids lists_req "$lists_req" "country" || die
+		}
 
 		eval "${direction}_lists_req"='$lists_req' \
 			"${direction}_ccodes"='$ccodes'
