@@ -203,11 +203,11 @@ restore_local_lists() {
 
 #### VARIABLES
 
-getconfig families
-[ ! "$inbound_iplists" ] && getconfig inbound_iplists
-[ ! "$geosource" ] && getconfig geosource
-[ ! "$outbound_iplists" ] && getconfig outbound_iplists
-[ ! "$local_iplists_dir" ] && getconfig local_iplists_dir
+get_main_config families
+[ ! "$inbound_iplists" ] && get_main_config inbound_iplists
+[ ! "$geosource" ] && get_main_config geosource
+[ ! "$outbound_iplists" ] && get_main_config outbound_iplists
+[ ! "$local_iplists_dir" ] && get_main_config local_iplists_dir
 
 bk_dir="$datadir/backup"
 bk_dir_new="${GEOTEMP_DIR:?}/bk_new"
@@ -243,7 +243,7 @@ case "$action" in
 		printf_s "Creating backup of $p_name IP sets... "
 		create_backup "$bk_ext" "$bk_dir_new" "$iplists" && OK
 		rm -f "$tmp_file"
-		setconfig "bk_ext=${bk_ext:-bak}" &&
+		set_main_config "bk_ext=${bk_ext:-bak}" &&
 		cp_conf backup || bk_failed
 		rm -rf "$bk_dir"
 		mv "$bk_dir_new" "$bk_dir" || bk_failed
@@ -266,9 +266,9 @@ case "$action" in
 		}
 		echolog "${_nl}Preparing to restore $p_name IP lists$and_config from backup..."
 		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
-		getconfig inbound_iplists inbound_iplists "$bk_conf_file" &&
-		getconfig outbound_iplists outbound_iplists "$bk_conf_file" &&
-		getconfig bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
+		get_main_config inbound_iplists inbound_iplists "$bk_conf_file" &&
+		get_main_config outbound_iplists outbound_iplists "$bk_conf_file" &&
+		get_main_config bk_ext bk_ext "$bk_conf_file" || rstr_failed "$FAIL get backup config."
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
 		set_extract_cmd "$bk_ext"
 
