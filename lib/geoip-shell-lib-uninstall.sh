@@ -79,7 +79,7 @@ kill_geo_pids() {
 		[ "$debugmode" ] && debugprint "_geo_ps:${_nl}$(printf %s "$_geo_ps" | awk '{print $1 " " $2 " " $3 " " $4}')"
 
 		_dl_ps="$(
-			pgrep -fa "($ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url)" | \
+			pgrep -fa "($ripe_url_stats|$ripe_url_api|$ipdeny_ipv4_url|$ipdeny_ipv6_url|$ipinfo_url)" | \
 			grep -v pgrep | grep -E "${blank}(curl|wget|uclient-fetch)(${blank}|$)"
 		)"
 
