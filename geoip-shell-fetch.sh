@@ -10,19 +10,14 @@
 p_name="geoip-shell"
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-if [ -n "$root_ok" ]; then
-	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
-else
-	FETCH_TMP_DIR=/tmp/${p_name}-fetch-temp
-fi
-
 geoinit="${p_name}-geoinit.sh"
 for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 	[ -f "$geoinit_path" ] && break
 done
 
 . "$geoinit_path" &&
-source_lib arrays "$script_dir/lib" "$lib_dir" || die
+source_lib arrays "$script_dir/lib" "$lib_dir" &&
+source_lib fetch "$script_dir/lib" "$lib_dir" || die
 
 san_args "$@"
 newifs "$delim"
@@ -35,7 +30,7 @@ oldifs
 usage() {
 cat <<EOF
 
-Usage: $me -l <"list_ids"> -p <path> [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
+Usage: $me -t <"country"|"asn"> -l <"list_ids"> -p <path> [-s <path>] [-u <"source">] [-f] [-d] [-V] [-h]
 
 1) Fetches IP lists for given country codes from either: RIPE API, ipdeny, MaxMind, IPinfo
 	(supports any combination of ipv4 and ipv6 lists)
@@ -43,6 +38,7 @@ Usage: $me -l <"list_ids"> -p <path> [-s <path>] [-u <"source">] [-f] [-d] [-V] 
 2) Parses, validates the downloaded lists, and saves each one to a separate file.
 
 Options:
+  -t <"country"|"asn">    $sp8: Type: "country" or "asn" 
   -l <"list_ids"> $sp16: $list_ids_usage
   -p <path>       $sp16: Path to directory where downloaded and compiled IP lists will be stored.
   -s <path>       $sp16: Path to a file to register fetch results in.
@@ -60,8 +56,9 @@ EOF
 
 #### Parse args
 
-while getopts ":l:p:o:s:u:rfdVh" opt; do
+while getopts ":t:l:p:o:s:u:rfdVh" opt; do
 	case $opt in
+		t) src_type=$OPTARG ;;
 		l) lists_arg=$OPTARG ;;
 		p) iplist_dir_f=$OPTARG ;;
 		s) fetch_res_file=$OPTARG ;;
@@ -320,16 +317,16 @@ parse_ipinfo_maxmind_db() {
 group_lists_by_registry() {
 	valid_lists=
 	# group lists by registry
-	for registry in $all_registries; do
+	for registry in $VALID_REGISTRIES; do
 		list_ids=
 		for list_id in $san_lists; do
 			ccode="${list_id%_*}"
 			get_a_arr_val registry_ccodes_arr "$registry" ccodes
-			case "$ccodes" in *" ${ccode} "*)
+			is_included "$ccode" "$ccodes" && {
 				add2list registries "$registry"
 				add2list list_ids "$list_id"
 				add2list valid_lists "$list_id"
-			esac
+			}
 		done
 		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
 	done
@@ -677,152 +674,42 @@ check_entries_cnt_drop() {
 }
 
 
-#### Output dir
-
-[ "$iplist_dir_f" ] || die "Specify iplist directory with '-p <path-to-dir>'."
-
-fast_el_cnt "$lists_arg" " " lists_arg_cnt
-
-[ "$iplist_dir_f" ] && [ ! -d "$iplist_dir_f" ] && die "Directory '$iplist_dir_f' doesn't exist!"
-iplist_dir_f="${iplist_dir_f%/}"
-
-
 #### Load cca2.list
-all_registries="ARIN RIPENCC APNIC AFRINIC LACNIC"
-cca2_f=cca2.list
-for cca2_path in "$script_dir/$cca2_f" "$conf_dir/$cca2_f"; do
-	[ -f "$cca2_path" ] && break
-done
+load_cca2 "$script_dir/cca2.list" "$conf_dir/cca2.list" || die
 
-[ -f "$cca2_path" ] && cca2_list="$(cat "$cca2_path")" || die "$FAIL load the cca2 list."
-newifs "$_nl" cca
-set -- $cca2_list
-oldifs cca
-for c in "$@"; do
-	case "$c" in
-		'') continue ;;
-		*[!\ \	]*) ;;
-		*) continue
-	esac
-	case "$c" in
-		*[!\ =A-Za-z\	]*|*=*=*|*[!a-zA-Z]*=*) false ;;
-		*=*) ;;
-		*) false ;;
+for registry in $VALID_REGISTRIES; do
+	registry_ccodes=
+	eval "registry_ccodes=\"\${$registry}\"" &&
+	case "$registry_ccodes" in
+		*[!\ A-Z]*) false ;;
+		*) : ;;
 	esac || die "Unexpected data in cca2.list"
-	set_a_arr_el registry_ccodes_arr "$c"
+	set_a_arr_el registry_ccodes_arr "$registry=$registry_ccodes"
 done
 
 load_exclusions
 
 #### Check for valid DL source
-default_src=ripe
-is_alphanum "$src_arg" && tolower src_arg && subtract_a_from_b "$valid_srcs_country" "$src_arg" ||
-	die "Invalid source: '$src_arg'"
-dl_src="${src_arg:-"$default_src"}"
-checkvars dl_src
-toupper dl_src_cap "$dl_src"
-
-#### SSL check logic
-unset ssl_ok owrt_ssl_certs ucl_ssl_libs
-
-if [ -n "$_OWRTFW" ]; then
-	[ -s /etc/ssl/certs/ca-certificates.crt ] && [ -s /etc/ssl/cert.pem ] &&
-		owrt_ssl_certs=1
-	{ [ -s /usr/bin/ssl_client ] || [ -s /usr/lib/libustream-ssl.so ] || [ -s /lib/libustream-ssl.so ]; } &&
-		ucl_ssl_libs=1
-fi
-
-#### Choose best available DL utility, set options
-case "$dl_src" in
-	ipdeny|maxmind|ipinfo) main_conn_timeout=16 ;;
-	ripe) main_conn_timeout=22 # ripe api may be slow at processing initial request for a non-ripe region
+case "${src_type}" in
+	country)
+		valid_srcs="${VALID_SRCS_COUNTRY}"
+		def_src="${DEF_SRC_COUNTRY}" ;;
+	asn)
+		valid_srcs="${VALID_SRCS_ASN}"
+		def_src="${DEF_SRC_ASN}" ;;
+	*) die "Invalid source type '${src_type}'."
 esac
 
-gnu_wget_con_check_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
-ucl_con_check_ptrn="HTTP error (301|302|403)"
-curl_con_check_ptrn="(301|302|403)"
+dl_src="${src_arg:-"$def_src"}"
+is_alphanum "$dl_src" && tolower dl_src && subtract_a_from_b "$valid_srcs" "$dl_src" ||
+	die "Invalid source for type '${src_type}': '$dl_src'"
+toupper dl_src_cap "$dl_src"
 
-ucl_cmd="uclient-fetch -O -"
-curl_cmd="curl -f --retry 2"
-wget_cmd="wget -O -"
-
-for util in curl wget uclient-fetch; do
-	checkutil "$util" || continue
-	unset fetch_cmd maxmind_str ssl_util
-	util_path="$(readlink -f "$(command -v "$util")")"
-
-	if [ "$util" = "uclient-fetch" ] || [ "${util_path##*/}" = "uclient-fetch" ]; then
-		[ "$dl_src" = maxmind ] &&
-			die "Can not fetch from MaxMind with uclient-fetch. Please install curl or GNU wget."
-		con_check_cmd="$ucl_cmd -T 7 -s"
-		fetch_cmd_date="$ucl_cmd -T 16 -q"
-		fetch_cmd_q="$ucl_cmd -T $main_conn_timeout -q"
-		fetch_cmd="$ucl_cmd -T $main_conn_timeout"
-		con_check_ptrn="$ucl_con_check_ptrn"
-		[ -n "${ucl_ssl_libs}" ] && ssl_util=1
-	else
-		case "$util" in
-			curl)
-				curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null &&
-					curl_cmd="$curl_cmd --fail-early"
-				[ "$dl_src" = maxmind ] &&
-					maxmind_str=" -u $mm_acc_id:$mm_license_key"
-				con_check_cmd="$curl_cmd -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
-				fetch_cmd="$curl_cmd$maxmind_str -L -f --connect-timeout $main_conn_timeout"
-				fetch_cmd_date="$curl_cmd$maxmind_str -L -f --connect-timeout 16 -s -S"
-				fetch_cmd_q="$fetch_cmd -s -S"
-				fetch_cmd="$fetch_cmd --progress-bar"
-				con_check_ptrn="$curl_con_check_ptrn"
-				curl --version 2>/dev/null | grep -E "Protocols:.*${blank}https(${blank}|$)" 1>/dev/null &&
-					ssl_util=1 ;;
-			wget)
-				unset wget_tries wget_show_progress wget_max_redirect wget_con_check_max_redirect wget_server_response
-
-				wget_ver="$(wget --version 2>/dev/null | head -n6)"
-				case "$wget_ver" in
-					*"GNU Wget"*)
-						wget_server_response=" --server-response"
-						wget_show_progress=" --show-progress"
-						wget_max_redirect=" --max-redirect=10"
-						wget_con_check_max_redirect=" --max-redirect=0"
-						wget_tries=" --tries=2"
-						con_check_ptrn="$gnu_wget_con_check_ptrn" ;;
-					*)
-						echolog -warn "Unknown wget version is installed. Fetching with it may or may not work. Install curl or GNU wget to remove this warning."
-						con_check_ptrn="(${ucl_con_check_ptrn}|${gnu_wget_con_check_ptrn})"
-				esac
-
-				[ "$dl_src" = maxmind ] && maxmind_str=" --user=${mm_acc_id} --password=${mm_license_key}"
-				con_check_cmd="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries} --timeout=7 --spider"
-				fetch_cmd="${wget_cmd}${wget_max_redirect}${wget_tries}${maxmind_str} -q"
-				fetch_cmd_date="${fetch_cmd} --timeout=16"
-				fetch_cmd="${fetch_cmd} --timeout=${main_conn_timeout}"
-				fetch_cmd_q="${fetch_cmd}"
-				fetch_cmd="${fetch_cmd}${wget_show_progress}"
-				case "$wget_ver" in *"+https"*)
-					ssl_util=1
-				esac ;;
-		esac
-	fi
-
-	if [ -n "$ssl_util" ] && { [ -z "${_OWRTFW}" ] || [ -n "$owrt_ssl_certs" ]; }; then
-		ssl_ok=1
-		break
-	fi
-done
-
-[ -z "$fetch_cmd" ] && die "Compatible download utilites (curl/wget/uclient-fetch) unavailable."
-
-if [ -z "$ssl_ok" ]; then
-	echolog -warn "SSL support is required for download but SSL support was not detected. Fetch may fail."
-	checkutil uci && echolog "Please install the package 'ca-bundle' and one of the packages: libustream-mbedtls, libustream-openssl, libustream-wolfssl."
-fi
+get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn "$dl_src" "$dl_src_cap"
 
 [ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
 
 printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
-
-debugprint "ssl_ok: '$ssl_ok'"
 
 
 #### VARIABLES
@@ -834,10 +721,16 @@ unset failed_lists fetched_lists
 
 #### Checks
 
-
-# groups lists by registry
-# populates $registries, fetch_lists_arr
-group_lists_by_registry
+case "$src_type" in
+	country)
+		# groups lists by registry
+		# populates $registries, fetch_lists_arr
+		group_lists_by_registry ;;
+	asn)
+		for list_id in ${lists_arg}; do
+			is_valid_list asn "$list_id" || exit 1
+		done
+esac
 
 [ "$registries" ] || die "$FAIL determine relevant regions."
 
@@ -863,16 +756,28 @@ case "$dl_src" in
 		esac
 esac
 
-trap 'rm_tmp_f; \
+trap 'trap - INT TERM HUP QUIT; \
+	rm_tmp_f; \
 	[ "$keep_fetched_db" = true ] || rm -f "$fetched_db_path"; \
 	rm -rf "$FETCH_TMP_DIR"; \
-	trap - INT TERM HUP QUIT; exit' \
+	exit' \
 		INT TERM HUP QUIT
 
-rm -rf "$FETCH_TMP_DIR"
-dir_mk -n "$iplist_dir_f" &&
-dir_mk -n "$FETCH_TMP_DIR" || die
+#### Output dirs
+iplist_dir_f="${iplist_dir_f%/}"
+[ "$iplist_dir_f" ] || die "Specify iplist directory with '-p <path-to-dir>'."
 
+if [ -n "$root_ok" ]; then
+	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
+else
+	FETCH_TMP_DIR=/tmp/${p_name}-fetch-temp
+fi
+
+rm -rf "$FETCH_TMP_DIR"
+dir_mk -n "${iplist_dir_f:?}" &&
+dir_mk -n "${FETCH_TMP_DIR:?}" || die
+
+#### Connectivity check
 debugprint "conn check command: '$con_check_cmd \"https://$con_check_url\"'"
 [ "$dl_src" = ipdeny ] && printf '\n%s' "Note: IPDENY server may be unresponsive at round hours."
 
@@ -898,7 +803,7 @@ done
 
 # read info about previous fetch from the status file
 if [ "$status_file" ] && [ -s "$status_file" ]; then
-	getstatus "$status_file"
+	getstatus main_status "$status_file"
 else
 	debugprint "Status file '$status_file' is empty or doesn't exist."
 	:
@@ -919,7 +824,7 @@ done
 ### Report fetch results via fetch_res_file
 if [ "$fetch_res_file" ]; then
 	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
-	setstatus "$fetch_res_file" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
+	setstatus fetch_res "$fetch_res_file" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
 		die "$FAIL write to file '$fetch_res_file'."
 fi
 
@@ -940,7 +845,7 @@ if [ "$status_file" ]; then
 	done
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
-		setstatus "$status_file" "$list_dates_str" "$ips_cnt_str" || die "$FAIL write to file '$status_file'."
+		setstatus main_status "$status_file" "$list_dates_str" "$ips_cnt_str" || die "$FAIL write to file '$status_file'."
 		[ "$root_ok" ] && [ "$datadir" ] &&
 			case "$status_file" in "$datadir"*)
 				chmod 600 "$status_file" && chown -R root:root "$status_file"
