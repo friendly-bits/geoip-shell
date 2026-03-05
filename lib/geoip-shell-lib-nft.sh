@@ -605,7 +605,7 @@ apply_rules() {
 			ports_conf="$ports_conf${direction}_${proto}_ports=$mp${neg}dport:${proto_exp#*"!="}$_nl"
 		done
 	done
-	[ "$ports_conf" ] && setconfig "${ports_conf%"$_nl"}"
+	[ "$ports_conf" ] && set_main_config "${ports_conf%"$_nl"}"
 
 	:
 }
@@ -633,7 +633,7 @@ extract_iplists() {
 create_backup() {
 	# back up current IP sets
 	bk_ext_cb="$1" bk_dir_cb="$2" iplists_cb="$3"
-	getstatus "$status_file" || bk_failed
+	getstatus main_status "$status_file" || bk_failed
 	for list_id in $iplists_cb; do
 		bk_file_cb="${bk_dir_cb}/${list_id}.${bk_ext_cb:-bak}"
 		eval "list_date=\"\$prev_date_${list_id}_${geosource}\""
