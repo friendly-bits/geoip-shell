@@ -2,12 +2,10 @@
 
 export \
 	DEF_SRC_COUNTRY="ripe" \
-	DEF_SRC_ASN="ipinfo_app" \
-	\
-	maxmind_wget_opts=
+	DEF_SRC_ASN="ipinfo_app"
 
-
-#### Get cmd's and opts for best available DL utility
+# Get cmd's and opts for best available DL utility
+# shellcheck disable=SC2034,SC2154
 get_fetch_util() {
 	gfu_src="$6" gfu_src_cap="$7"
 	gfu_main_timeout=16
@@ -45,7 +43,6 @@ get_fetch_util() {
 			is_included "$util" "$forced_utils" || die "Can not fetch from $gfu_src_cap with $util. Please install $forced_utils_pr."
 		}
 		eval "extra_opts=\"\${extra_opts_${util}}\""
-		eval "$1=\"\${gs_opts_${3}}\""
 
 		# cmds and opts
 		if [ "$util" = "uclient-fetch" ]; then
