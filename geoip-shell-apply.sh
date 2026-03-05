@@ -188,7 +188,7 @@ debugentermsg
 
 ## VARIABLES
 
-get_config_vars
+get_config_vars main
 
 geotag_aux="${geotag}_aux"
 
@@ -371,7 +371,7 @@ done
 # rm_ipsets - ipsets to remove
 # ipsets_to_load - ipsets to load from file
 
-getstatus "$status_file" || die "$FAIL read the status file '$status_file'."
+getstatus main_status "$status_file" || die "$FAIL read the status file '$status_file'."
 
 curr_ipsets="$(get_ipsets)"
 
@@ -459,7 +459,7 @@ echo
 		[ "$lan_ips_ipv4" ] && setconf_ips=lan_ips_ipv4
 		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6"
 	}
-	[ "$setconf_ips" ] && setconfig $setconf_ips
+	[ "$setconf_ips" ] && set_main_config $setconf_ips
 }
 
 [ "$noblock" = true ] && { echolog -warn "Geoblocking is disabled via config."; echo; }
