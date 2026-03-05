@@ -366,7 +366,7 @@ restore_from_config() {
 		prev_config_try=1
 		export main_config="$prev_config"
 
-		if nodie=1 export_conf=1 get_config_vars && _prev="previous " &&
+		if nodie=1 export_conf=1 get_config_vars main && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
 				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
 					restore_from_config && { set_all_config; return 0; }
@@ -378,7 +378,7 @@ restore_from_config() {
 	# recover from backup
 	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && {
 		unset main_config
-		get_config_vars
+		get_config_vars main
 		check_lists_coherence && return 0
 	}
 
@@ -497,7 +497,7 @@ rm_conf=
 		for _par in $ALL_CONF_VARS; do
 			eval "arg_val=\"\$${_par}_arg\""
 			[ "$arg_val" ] && {
-				nodie=1 getconfig prev_val "$_par" "$conf_file" 2>/dev/null
+				nodie=1 get_main_config prev_val "$_par" "$conf_file" 2>/dev/null
 				[ "$arg_val" != "$prev_val" ] && { q="[M]erge previous and new"; keep_opt=m; break; }
 			}
 		done
@@ -516,7 +516,7 @@ rm_conf=
 	main_conf_path="$conf_file"
 
 	# load config
-	nodie=1 export_conf=1 get_config_vars || rm_conf=1
+	nodie=1 export_conf=1 get_config_vars main || rm_conf=1
 	conf_file="$main_conf_path"
 	rm -f "$tmp_conf_file"
 }
@@ -584,8 +584,8 @@ case "$action" in
 	on|off)
 		case "$action" in
 			on) [ ! "$inbound_iplists$outbound_iplists" ] && die "No IP lists registered. Refusing to enable geoblocking."
-				setconfig "noblock=false" ;;
-			off) setconfig "noblock=true" ;;
+				set_main_config "noblock=false" ;;
+			off) set_main_config "noblock=true" ;;
 		esac
 		call_script "$i_script-apply.sh" $action
 		die $? ;;
@@ -722,7 +722,7 @@ case "$conf_act" in
 		call_script "$i_script-apply.sh" restore
 		rv_conf=$?
 		main_config=
-		nodie=1 export_conf=1 get_config_vars || rv_conf=1
+		nodie=1 export_conf=1 get_config_vars main || rv_conf=1
 		;;
 	'') rv_conf=0 ;;
 esac
@@ -759,7 +759,7 @@ case "$rv_conf" in
 	254)
 		echolog "Restoring previous config."
 		main_config="$prev_config"
-		nodie=1 export_conf=1 get_config_vars && check_lists_coherence ||
+		nodie=1 export_conf=1 get_config_vars main && check_lists_coherence ||
 			{
 				_prev="previous "
 				prev_config_try=1
