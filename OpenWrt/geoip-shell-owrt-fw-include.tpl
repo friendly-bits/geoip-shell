@@ -9,9 +9,9 @@
 
 # the -install script replaces variables with values
 
-lock_file=\"$lock_file\"
-[ -f \"\$lock_file\" ] && {
-	logger -t \"${p_name}-fw-include.sh\" -p \"user.info\" \"Lock file \$lock_file exists, refusing to open another instance.\"
+LOCK_FILE=\"$LOCK_FILE\"
+[ -f \"\$LOCK_FILE\" ] && {
+	logger -t \"${p_name}-fw-include.sh\" -p \"user.info\" \"Lock file \$LOCK_FILE exists, refusing to open another instance.\"
 	return 0
 }
 
