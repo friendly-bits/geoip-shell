@@ -82,6 +82,8 @@ debugentermsg
 
 #### FUNCTIONS
 
+die_f() { rm -rf "$FETCH_TMP_DIR"; die "$@"; }
+
 # converts yyyymmdd to yyyy-mm-dd
 # 1 - raw date
 # 2 - var name for output
@@ -322,7 +324,7 @@ group_lists_by_registry() {
 		eval "registry_ccodes=\"\${${registry}}\""
 
 		case "$registry_ccodes" in
-			''|*[!\ A-Z]*) die "Failed to load cca2.list or it has unexpected data."
+			''|*[!\ A-Z]*) die_f "Failed to load cca2.list or it has unexpected data."
 		esac
 
 		for list_id in $san_lists; do
@@ -343,9 +345,9 @@ group_lists_by_registry() {
 		for invalid_list in $invalid_lists; do
 			add2list invalid_ccodes "${invalid_list%_*}"
 		done
-		die "Invalid country codes: '$invalid_ccodes'."
+		die_f "Invalid country codes: '$invalid_ccodes'."
 	}
-	[ ! "$valid_lists" ] && die "No applicable IP list IDs found in '$lists_arg'."
+	[ ! "$valid_lists" ] && die_f "No applicable IP list IDs found in '$lists_arg'."
 	failed_lists="$valid_lists"
 }
 
@@ -386,7 +388,7 @@ check_updates() {
 		ripe) get_src_dates_ripe ;;
 		maxmind) get_src_dates_maxmind ;;
 		ipinfo) get_src_dates_ipinfo ;;
-		*) die "Unknown source: '$dl_src'."
+		*) die_f "Unknown source: '$dl_src'."
 	esac
 
 	unset up_to_date_lists ccodes_need_update families no_date_lists
@@ -432,7 +434,7 @@ check_updates() {
 rm_tmp_f() {
 	rm -f "$fetched_file" "$parsed_list" "$valid_list"
 	set +f
-	rm -f "/tmp/${p_name}_preparsed"*.tmp
+	rm -f "$FETCH_TMP_DIR/${p_name}_preparsed"*.tmp
 	set -f
 }
 
@@ -555,7 +557,7 @@ process_ccode() {
 					ipv4) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
 					*) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
 				esac ;;
-			*) die "Unsupported source: '$dl_src'."
+			*) die_f "Unsupported source: '$dl_src'."
 		esac
 
 		list_path="${iplist_dir_f:?}/$list_id.iplist"
@@ -689,25 +691,25 @@ case "${src_type}" in
 	asn)
 		valid_srcs="${VALID_SRCS_ASN}"
 		def_src="${DEF_SRC_ASN}" ;;
-	*) die "Invalid source type '${src_type}'."
+	*) die_f "Invalid source type '${src_type}'."
 esac
 
 dl_src="${src_arg:-"$def_src"}"
 is_alphanum "$dl_src" && tolower dl_src && is_included "$dl_src" "$valid_srcs" ||
-	die "Invalid source for type '${src_type}': '$dl_src'"
+	die_f "Invalid source for type '${src_type}': '$dl_src'"
 toupper dl_src_cap "$dl_src"
 
 
 #### List ID's
-[ "$src_type" != country ] || load_cca2 "$script_dir/cca2.list" || die
-san_list_ids san_lists "$lists_arg" "$src_type" "$EXCL_FILE_LISTS" || die
+[ "$src_type" != country ] || load_cca2 "$script_dir/cca2.list" || die_f
+san_list_ids san_lists "$lists_arg" "$src_type" "$EXCL_FILE_LISTS" || die_f
 unset failed_lists fetched_lists
 case "$src_type" in
 	country)
 		# groups lists by registry
 		# populates $registries, fetch_lists_arr
 		group_lists_by_registry
-		[ "$registries" ] || die "$FAIL determine relevant regions." ;;
+		[ "$registries" ] || die_f "$FAIL determine relevant regions." ;;
 	asn)
 		for list_id in ${lists_arg}; do
 			is_valid_list asn "$list_id" || exit 1
@@ -735,14 +737,14 @@ case "$dl_src" in
 		case "$mm_license_type" in
 			free) mm_db_name=GeoLite2 ;;
 			paid) mm_db_name=GeoIP2 ;;
-			*) die "unexpected MaxMind license type '$mm_license_type'"
+			*) die_f "unexpected MaxMind license type '$mm_license_type'"
 		esac ;;
 	ipinfo)
 		checkvars ipinfo_url ipinfo_license_type ipinfo_token
 		con_check_url="${ipinfo_url%%/*}"
 		case "$ipinfo_license_type" in
 			lite|core|plus) ipinfo_db_name="$ipinfo_license_type" ;;
-			*) die "unexpected IPinfo license type '$ipinfo_license_type'"
+			*) die_f "unexpected IPinfo license type '$ipinfo_license_type'"
 		esac
 esac
 
@@ -755,17 +757,17 @@ trap 'trap - INT TERM HUP QUIT; \
 
 #### Output dirs
 iplist_dir_f="${iplist_dir_f%/}"
-[ "$iplist_dir_f" ] || die "Specify iplist directory with '-p <path-to-dir>'."
+[ "$iplist_dir_f" ] || die_f "Specify iplist directory with '-p <path-to-dir>'."
 
 if [ -n "$root_ok" ]; then
 	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
 else
-	FETCH_TMP_DIR=/tmp/${p_name}-fetch-temp
+	FETCH_TMP_DIR=/tmp/${p_name}-fetch-noroot
 fi
 
 rm -rf "$FETCH_TMP_DIR"
 dir_mk -n "${iplist_dir_f:?}" &&
-dir_mk -n "${FETCH_TMP_DIR:?}" || die
+dir_mk -n "${FETCH_TMP_DIR:?}" || die_f
 
 #### Connectivity check
 debugprint "conn check command: '$con_check_cmd \"https://$con_check_url\"'"
@@ -778,14 +780,14 @@ $con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 	if ! grep -E "${con_check_ptrn}" "$con_check_file" 1>/dev/null; then
 		rm -f "$con_check_file"
 		echolog -err "${_nl}${con_check_cmd%% *} returned error code $rv for command:" "$con_check_cmd \"https://$con_check_url\""
-		die 254 "Connection attempt to the $dl_src_cap server failed."
+		die_f 254 "Connection attempt to the $dl_src_cap server failed."
 	fi
 }
 OK
 rm -f "$con_check_file"
 
 for f in "$status_file" "$FETCH_RES_FILE"; do
-	[ -z "$f" ] || [ -f "$f" ] || touch "$f" || die "$FAIL create file '$f'."
+	[ -z "$f" ] || [ -f "$f" ] || touch "$f" || die_f "$FAIL create file '$f'."
 done
 
 
@@ -803,7 +805,7 @@ check_updates
 
 # process list IDs
 if [ "$ccodes_need_update" ] && { [ "$dl_src" = maxmind ] || [ "$dl_src" = ipinfo ]; }; then
-	fetch_ipinfo_maxmind || { rm_tmp_f; die; }
+	fetch_ipinfo_maxmind || { rm_tmp_f; die_f; }
 fi
 
 for ccode in $ccodes_need_update; do
@@ -815,7 +817,7 @@ done
 if [ "$FETCH_RES_FILE" ]; then
 	subtract_a_from_b "$fetched_lists $up_to_date_lists" "$failed_lists" failed_lists
 	setstatus fetch_res "$FETCH_RES_FILE" "fetched_lists=$fetched_lists" "failed_lists=$failed_lists" ||
-		die "$FAIL write to file '$FETCH_RES_FILE'."
+		die_f "$FAIL write to file '$FETCH_RES_FILE'."
 fi
 
 if [ "$status_file" ]; then
@@ -835,7 +837,7 @@ if [ "$status_file" ]; then
 	done
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
-		setstatus main_status "$status_file" "$list_dates_str" "$ips_cnt_str" || die "$FAIL write to file '$status_file'."
+		setstatus main_status "$status_file" "$list_dates_str" "$ips_cnt_str" || die_f "$FAIL write to file '$status_file'."
 		[ "$root_ok" ] && [ "$datadir" ] &&
 			case "$status_file" in "$datadir"*)
 				chmod 600 "$status_file" && chown -R root:root "$status_file"
@@ -843,4 +845,4 @@ if [ "$status_file" ]; then
 	}
 fi
 
-die 0
+die_f 0
