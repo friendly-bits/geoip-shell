@@ -29,13 +29,14 @@ run_fail() {
 			gs_failure "${session_log:+"Session log:${_nl}"}${session_log}"
 		)
 	fi
-	rm -f "${GS_LOG_FILE}"
+	rm -f "$GS_LOG_FILE"
+	rm -rf "$GEOTEMP_DIR"
 	die "${rf_rv:-1}"
 }
 
 run_success() {
 	rm -f "$FETCH_RES_FILE"
-	[ -n "$*" ] && echolog "$@"
+	[ -n "$*" ] && { printf '\n'; echolog "$@"; }
 	if [ -n "$CUSTOM_SCRIPT_OK" ]; then
 		(
 			. "$custom_script"
@@ -346,5 +347,7 @@ fi
 
 run_success "Successfully ${print_action_done} IP lists '$apply_lists_req'."
 echo
+
+rm -rf "$GEOTEMP_DIR"
 
 die 0
