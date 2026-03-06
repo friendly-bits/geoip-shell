@@ -10,12 +10,30 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.8.0-pre3"
-export _nl='
+curr_ver="0.8.0-pre4"
+
+set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
+set -f
+
+export p_name=geoip-shell \
+	LC_ALL=C POSIXLY_CORRECT=YES \
+	_nl='
 '
-export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 $_nl"
-export p_name=geoip-shell
-export GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run"}" GEOTEMP_DIR="${GEOTEMP_DIR:-"/tmp/$p_name-tmp"}"
+export default_IFS="	 $_nl"
+
+. "$script_dir/lib/${p_name}-lib-non-owrt.sh" || exit 1
+check_common_deps
+check_shell
+
+if [ "$root_ok" ] || [ "$(id -u)" = 0 ]; then
+	export root_ok=1 \
+		GEOTEMP_DIR="/tmp/$p_name-tmp" \
+		GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run"}"
+else
+	export \
+		GEOTEMP_DIR="/tmp/$p_name-tmp-noroot" \
+		GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run-noroot"}"
+fi
 
 export CONF_DIR="/etc/$p_name" \
 	INSTALL_DIR="/usr/bin" \
@@ -30,14 +48,7 @@ export LOCK_FILE="$GEORUN_DIR/lock" \
 	CONF_FILE="$CONF_DIR/$p_name.conf"
 
 export _lib="$LIB_DIR/$p_name-lib" p_script="${script_dir:?}/$p_name" i_script="$INSTALL_DIR/$p_name"
-set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
-set -f
 
-. "$script_dir/lib/${p_name}-lib-non-owrt.sh" || exit 1
-check_common_deps
-check_shell
-
-[ "$root_ok" ] || { [ "$(id -u)" = 0 ] && export root_ok=1; }
 . "$script_dir/lib/${p_name}-lib-common.sh" || exit 1
 
 :
