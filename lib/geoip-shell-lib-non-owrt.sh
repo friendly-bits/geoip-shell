@@ -11,7 +11,7 @@
 # check for common deps
 check_common_deps() {
 	for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
-		hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'"; exit 1; }
+		hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
 	done
 }
 
