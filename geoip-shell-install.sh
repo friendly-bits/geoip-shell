@@ -202,6 +202,7 @@ manage_interr() {
 	trap - INT TERM HUP QUIT
 	printf '\n\n%s\n' "${yellow}Configuration was interrupted.${n_c} $please_configure" >&2
 	rm -f "$status_file"
+	rm -rf "$GEOTEMP_DIR"
 	die $manage_rv
 }
 
@@ -333,7 +334,7 @@ debugprint "Detected init: '$initsys'."
 
 export nointeract_arg debugmode
 
-tmp_dir="${inst_root_gs}${GEOTEMP_DIR}/install-tmp"
+tmp_dir="${inst_root_gs}/tmp/$p_name-install-tmp"
 
 reg_file_ok=
 reg_file="$LIB_DIR/${p_name}-components"
@@ -383,16 +384,16 @@ unset _fw_backend_def set_posix non_owrt init_non_owrt
 } || {
 	non_owrt="non-owrt"
 	set_posix="
-	if [ -z \"\$posix_o_set\" ]; then
-		if set -o | grep '^posix[ \t]' 1>/dev/null; then
-			set -o posix
-			export posix_o_set=1
-		else
-			export posix_o_set=0
-		fi
-	elif [ \"\$posix_o_set\" = 1 ]; then
+if [ -z \"\$posix_o_set\" ]; then
+	if set -o | grep '^posix[ \t]' 1>/dev/null; then
 		set -o posix
-	fi"
+		export posix_o_set=1
+	else
+		export posix_o_set=0
+	fi
+elif [ \"\$posix_o_set\" = 1 ]; then
+	set -o posix
+fi"
 
 	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
 	_fw_backend_def=all
@@ -453,37 +454,46 @@ cat <<EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create fil
 
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
-
-export _nl='
-'
-export LC_ALL=C POSIXLY_CORRECT=YES default_IFS="	 \$_nl"
-export p_name="$p_name"
-GEORUN_DIR="\${GEORUN_DIR:-"/tmp/$p_name-run"}" GEOTEMP_DIR="\${GEOTEMP_DIR:-"/tmp/$p_name-tmp"}"
-
-export CONF_DIR="/etc/$p_name" \
-	INSTALL_DIR="/usr/bin" \
-	LIB_DIR="/usr/lib/$p_name" \
-	IPLIST_DIR="\$GEORUN_DIR/iplists" \
-	STAGING_LOCAL_DIR="\$GEORUN_DIR/staging"
-
-export LOCK_FILE="\$GEORUN_DIR/lock" \
-	GS_LOG_FILE="\$GEORUN_DIR/log" \
-	FETCH_RES_FILE="\$GEORUN_DIR/fetch-res" \
-	EXCL_FILE="\$CONF_DIR/iplist-exclusions.conf" \
-	CONF_FILE="\$CONF_DIR/$p_name.conf"
-
-export _lib="\$LIB_DIR/$p_name-lib" i_script="\$INSTALL_DIR/$p_name"
-export _fw_backend
-in_configure=
-
-$set_posix
+${set_posix:+"${_nl}${set_posix}"}
 set -f
 
-$init_non_owrt
+export p_name=geoip-shell \\
+	LC_ALL=C POSIXLY_CORRECT=YES \\
+	_nl='
+'
 
-[ "\$root_ok" ] || { [ "\$(id -u)" = 0 ] && export root_ok="1"; }
-$set_owrt_install
+export default_IFS="	 \$_nl" \\
+	CONF_DIR="/etc/\$p_name" \\
+	INSTALL_DIR="/usr/bin" \\
+	LIB_DIR="/usr/lib/\$p_name"
+
+export _lib="\$LIB_DIR/\$p_name-lib" i_script="\$INSTALL_DIR/\$p_name"
+${init_non_owrt:+"${_nl}${init_non_owrt}"}
+
+if [ "\$root_ok" ] || [ "\$(id -u)" = 0 ]; then
+	export root_ok=1 \
+		GEOTEMP_DIR="/tmp/\$p_name-tmp" \
+		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run"}"
+else
+	export \
+		GEOTEMP_DIR="/tmp/\$p_name-tmp-noroot" \
+		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run-noroot"}"
+fi
+
+export IPLIST_DIR="\$GEORUN_DIR/iplists" \\
+	STAGING_LOCAL_DIR="\$GEORUN_DIR/staging"
+
+export LOCK_FILE="\$GEORUN_DIR/lock" \\
+	GS_LOG_FILE="\$GEORUN_DIR/log" \\
+	FETCH_RES_FILE="\$GEORUN_DIR/fetch-res" \\
+	EXCL_FILE="\$CONF_DIR/iplist-exclusions.conf" \\
+	CONF_FILE="\$CONF_DIR/\$p_name.conf"
+
+export _fw_backend
+in_configure=
+${set_owrt_install:+"${_nl}${set_owrt_uninstall}"}
 . "\${_lib}-common.sh" || exit 1
+
 [ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
 [ -f "\$CONF_DIR/\${p_name}.const" ] && { . "\$CONF_DIR/\${p_name}.const" || die; } ||
 	{ [ ! "\$in_uninstall" ] && die "\$CONF_DIR/\${p_name}.const is missing. Please reinstall \$p_name."; }
