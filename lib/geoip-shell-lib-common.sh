@@ -1271,6 +1271,7 @@ san_list_ids() {
 		*) bad_args san_list_ids "$@"; die ;;
 	esac
 
+	dir_mk -n "${excl_reg_file%/*}" || return 1
 	rm -f "$excl_reg_file"
 	res_ids="$(
 		$awk_cmd -v main_ids_str="$sli_lists" -v val_prefixes="$val_prefixes" -v excl_ids_str="$EXCL_FILE_LISTS" -v excl_reg_file="$excl_reg_file" '
@@ -1585,7 +1586,10 @@ san_str ALL_CONF_VARS "$ALL_CONF_VARS" " 	" || exit 1
 VALID_REGISTRIES="RIPENCC ARIN APNIC AFRINIC LACNIC"
 valid_families="ipv4 ipv6"
 VALID_SRCS_COUNTRY="ripe ipdeny maxmind ipinfo"
+DEF_SRC_COUNTRY="ripe"
 VALID_SRCS_ASN=ipinfo_app
+DEF_SRC_ASN="ipinfo_app"
+
 ripe_url_stats=ftp.ripe.net/pub/stats
 ripe_url_api="stat.ripe.net/data/country-resource-list/data.json?"
 ipdeny_ipv4_url=www.ipdeny.com/ipblocks/data/aggregated
