@@ -179,6 +179,7 @@ EOF
 
 #### PARSE ARGUMENTS
 
+configure_opts_req=
 configure_opts="m|c|p|f|s|i|l|t|r|u|U|K|a|L|w|O|o|n|N|P|S"
 lookup_opts="I|F"
 status_opts="v"
@@ -202,6 +203,8 @@ set_opt() {
 			die "Option '-$opt' can not be used twice${fordirection}."
 		}
 	}
+
+	[ "$action" = configure ] && configure_opts_req=1
 
 	# set vars
 	case "$opt" in
@@ -488,6 +491,8 @@ esac
 
 dir_mk -n "$GEOTEMP_DIR" || die
 
+conf_file_found=
+[ -s "$CONF_FILE" ] && conf_file_found=1
 rm_conf=
 
 [ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$CONF_DIR/setupdone" ]; } && {
@@ -496,16 +501,11 @@ rm_conf=
 
 	set_first_setup
 
-	[ ! "$nointeract" ] && [ -s "$CONF_FILE" ] && {
+	[ ! "$nointeract" ] && [ -n "$conf_file_found" ] && {
 		q="[K]eep previous"
 		keep_opt=k
-		for _par in $ALL_CONF_VARS; do
-			eval "arg_val=\"\$${_par}_arg\""
-			[ "$arg_val" ] && {
-				nodie=1 get_main_config prev_val "$_par" "$CONF_FILE" 2>/dev/null
-				[ "$arg_val" != "$prev_val" ] && { q="[M]erge previous and new"; keep_opt=m; break; }
-			}
-		done
+		[ -n "$configure_opts_req" ] &&
+			{ q="[M]erge previous and new"; keep_opt=m; }
 
 		printf '\n%s\n' "Existing config file found. $q config or [f]orget the old config? [$keep_opt|f] or [a] to abort setup."
 		pick_opt "$keep_opt|f|a"
@@ -516,27 +516,17 @@ rm_conf=
 	}
 }
 
-[ -s "$CONF_FILE" ] && [ ! "$rm_conf" ] && {
-	tmp_conf_file="$GEOTEMP_DIR/${p_name}_upd.conf"
-	main_conf_path="$CONF_FILE"
-
-	# load config
-	nodie=1 export_conf=1 get_config_vars main || rm_conf=1
-	CONF_FILE="$main_conf_path"
-	rm -f "$tmp_conf_file"
-}
-
-[ ! -s "$CONF_FILE" ] || [ "$rm_conf" ] && {
-	rm -f "$CONF_FILE"
-	rm_data
-	main_config=
-	for _conf_var in $ALL_CONF_VARS; do
-		is_alphanum "$_conf_var" || die_m "Internal error."
-		eval "$_conf_var="
-	done
-	rm_setupdone
-	export first_setup=1
-}
+#### Load config
+[ "$conf_file_found" ] && [ ! "$rm_conf" ] &&
+	nodie=1 export_conf=1 get_config_vars main || {
+		rm -f "$CONF_FILE"
+		rm_data
+		main_config=
+		for _conf_var in $ALL_CONF_VARS; do
+			eval "$_conf_var="
+		done
+		set_first_setup
+	}
 
 [ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && source_lib "$_fw_backend" || {
 	[ "$action" != configure ] && echolog "Firewall backend is not set."
