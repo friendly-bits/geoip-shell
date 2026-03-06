@@ -27,18 +27,18 @@ get_fetch_util() {
 		[ "${util_path##*/}" = "uclient-fetch" ] && util="uclient-fetch"
 
 		# source-specific fetch opts
-		unset extra_opts extra_opts_wget extra_opts_curl
+		unset auth_opts auth_opts_wget auth_opts_curl
 		case "$gfu_src" in
 			maxmind)
 				forced_utils="wget curl"
-				extra_opts_wget=" --user=${mm_acc_id} --password=${mm_license_key}"
-				extra_opts_curl=" -u $mm_acc_id:$mm_license_key" ;;
+				auth_opts_wget=" --user=${mm_acc_id} --password=${mm_license_key}"
+				auth_opts_curl=" -u $mm_acc_id:$mm_license_key" ;;
 		esac
 		[ -n "$forced_utils" ] && {
 			san_str forced_utils_pr "$forced_utils" " " " or "
 			is_included "$util" "$forced_utils" || die "Can not fetch from $gfu_src_cap with $util. Please install $forced_utils_pr."
 		}
-		eval "extra_opts=\"\${extra_opts_${util}}\""
+		eval "auth_opts=\"\${auth_opts_${util}}\""
 
 		# cmds and opts
 		if [ "$util" = "uclient-fetch" ]; then
@@ -54,9 +54,19 @@ get_fetch_util() {
 				curl)
 					curl --help curl 2>/dev/null | grep '\--fail-early' 1>/dev/null &&
 						curl_cmd="${curl_cmd} --fail-early"
-					gfu_cmd_con_check="${curl_cmd} -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
-					gfu_cmd_main="${curl_cmd}${extra_opts} -L -f --connect-timeout ${gfu_main_timeout}"
-					gfu_cmd_date="${curl_cmd}${extra_opts} -L -f --connect-timeout 16 -s -S"
+					unset curl_con_check_extra curl_main_extra
+					curl --help connection 2>/dev/null | $awk_cmd '
+						/--speed-limit/ {l=1; next}
+						/--speed-time/ {t=1; next}
+						END{if (l && t) exit 0; exit 1}
+					' &&
+					{
+						curl_con_check_extra=" --speed-limit 512 --speed-time 15"
+						curl_main_extra=" --speed-limit 4096 --speed-time 15"
+					}
+					gfu_cmd_con_check="${curl_cmd}${curl_con_check_extra} -o /dev/null --write-out '%{http_code}' --connect-timeout 7 -s --head"
+					gfu_cmd_main="${curl_cmd}${auth_opts}${curl_main_extra} -L -f --connect-timeout ${gfu_main_timeout}"
+					gfu_cmd_date="${curl_cmd}${auth_opts}${curl_con_check_extra} -L -f --connect-timeout 16 -s -S"
 					gfu_cmd_q="${gfu_cmd_main} -s -S"
 					gfu_cmd_main="${gfu_cmd_main} --progress-bar"
 					gfu_con_check_ptrn="${curl_con_check_ptrn}"
@@ -80,7 +90,7 @@ get_fetch_util() {
 					esac
 
 					gfu_cmd_con_check="${wget_cmd}${wget_server_response}${wget_con_check_max_redirect}${wget_tries} --timeout=7 --spider"
-					gfu_cmd_main="${wget_cmd}${wget_max_redirect}${wget_tries}${extra_opts} -q"
+					gfu_cmd_main="${wget_cmd}${wget_max_redirect}${wget_tries}${auth_opts} -q"
 					gfu_cmd_date="${gfu_cmd_main} --timeout=16"
 					gfu_cmd_main="${gfu_cmd_main} --timeout=${gfu_main_timeout}"
 					gfu_cmd_q="${gfu_cmd_main}"
