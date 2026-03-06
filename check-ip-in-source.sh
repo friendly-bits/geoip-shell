@@ -80,7 +80,7 @@ setdebug
 #### Functions
 
 die_l() {
-	rm -rf "$ciis_dir"
+	rm -rf "$GEOTEMP_DIR"
 	die "$@"
 }
 
@@ -97,29 +97,14 @@ validate_ip() {
 }
 
 
-#### Variables
-
-tolower src_arg
-dl_src="${src_arg:-"$DEF_SRC_COUNTRY"}"
-ip_check_rv=0
-
-
 #### Checks
 
 check_deps grepcidr || die
 
 validate_ccode ccode "$ccode_arg" || die "Specify one country code with '-c <country_code>'."
 
-checkvars dl_src
-[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one source."; }
-
-subtract_a_from_b "$VALID_SRCS_COUNTRY" "$dl_src" invalid_src
-[ -n "$invalid_src" ] && { usage; die "Invalid source: $invalid_src"; }
-
-[ -z "$ips" ] && { usage; die "Specify the IP addresses to check with '-i <\"ip_addresses\">'."; }
-
-# remove duplicates etc
 san_str ips || die
+[ -z "$ips" ] && { usage; die "Specify IP addresses to check with '-i <\"ip_addresses\">'."; }
 
 
 #### Main
@@ -129,12 +114,25 @@ for ip in $ips; do
 	validate_ip "$ip" || add2list invalid_ips "$ip"
 done
 
-[ -z "$val_ipv4s$val_ipv6s" ] && die "All IP addresses failed validation."
-[ -z "$families" ] && die "\$families variable is empty."
+[ -n "$val_ipv4s$val_ipv6s" ] || die "All IP addresses failed validation."
+[ -n "$families" ] || die "\$families variable is empty."
+
+#### DL Source
+if [ -n "$src_arg" ]; then
+	dl_src="$src_arg"
+	[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one IP list source."; }
+else
+	[ "$root_ok" ] && [ -s "$CONF_FILE" ] && nodie=1 get_main_config geosource &&
+		[ -n "$geosource" ] && dl_src="$geosource"
+fi
+: "${dl_src:="$DEF_SRC_COUNTRY"}"
+tolower dl_src
+checkvars dl_src
+is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: $dl_src"; }
 
 case "${dl_src}" in
 	maxmind)
-		[ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
+		[ "$root_ok" ] && [ -s "$CONF_FILE" ] && {
 			nodie=1 get_main_config mm_license_type
 			nodie=1 get_main_config mm_acc_id
 			nodie=1 get_main_config mm_license_key
@@ -145,7 +143,7 @@ case "${dl_src}" in
 		[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] ||
 			setup_maxmind || die ;;
 	ipinfo)
-		[ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
+		[ "$root_ok" ] && [ -s "$CONF_FILE" ] && {
 			nodie=1 get_main_config ipinfo_license_type
 			nodie=1 get_main_config ipinfo_token
 			nodie=1 get_main_config keep_fetched_db
@@ -159,18 +157,19 @@ esac
 
 ### Fetch the IP list file
 
+ciis_dir="${GEOTEMP_DIR:?}/ciis"
+
 if [ -n "$root_ok" ] && [ -n "$GEORUN_DIR" ]; then
 	mk_lock || die_l
 else
-	export GEORUN_DIR="/tmp/check-ip-in-source"
-	export GEOTEMP_DIR="$GEORUN_DIR"
+	export GEORUN_DIR="$ciis_dir"
 fi
 
 trap 'die_l' INT TERM HUP QUIT
 
-ciis_dir="${GEORUN_DIR:?}/ciis"
 dir_mk -n "$ciis_dir" || die_l
 
+ip_check_rv=0
 for family in $families; do
 	printf '\n%s\n' "Checking $family IP addresses..."
 
@@ -202,8 +201,6 @@ for family in $families; do
 	done
 	rm -f "$list_file" "$ciis_fetch_res_file"
 done
-
-rm -rf "$ciis_dir"
 
 match="Included"
 nomatch="Not included"
