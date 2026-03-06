@@ -1,9 +1,5 @@
 #!/bin/sh
 
-export \
-	DEF_SRC_COUNTRY="ripe" \
-	DEF_SRC_ASN="ipinfo_app"
-
 # Get cmd's and opts for best available DL utility
 # shellcheck disable=SC2034,SC2154
 get_fetch_util() {
