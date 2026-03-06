@@ -252,7 +252,7 @@ case "$action" in
 		chmod -R 600 "$bk_dir" && chown -R root:root "$bk_dir" ||
 			echolog -err "$FAIL set permissions for the backup directory '$bk_dir'."
 
-		printf '%s\n\n' "Successfully created backup of $p_name state." ;;
+		printf '%s\n' "Successfully created backup of $p_name state." ;;
 	restore)
 		trap 'trap - INT TERM HUP QUIT; rm_rstr_tmp; die' INT TERM HUP QUIT
 		if [ "$restore_conf" ]; then
