@@ -1294,7 +1294,7 @@ san_list_ids() {
 						if (type == "main") {bad_cnt=i; bad_ids[i]=id; rv=1}
 					}
 					else if (!loc_seen[id]) {
-						loc_seen[id]
+						loc_seen[id]=1
 						if (type == "main" && id in excl_arr) {excluded=excluded " " id}
 						else if (type == "main") main_arr[i]=id
 						else excl_arr[id]
@@ -1316,6 +1316,7 @@ san_list_ids() {
 				exit
 			}
 			END{
+
 				if (rv == 1 || main_cnt == 0) {
 					for (n=1; n <= bad_cnt; n++) {
 						if (! bad_ids[n]) continue
@@ -1334,17 +1335,17 @@ san_list_ids() {
 				exit 0
 			}'
 	)" && {
-		eval "$1"='${res_ids% }'
+		eval "$sli_out_var"='${res_ids% }'
 		[ -s "$excl_reg_file" ] && {
 			sli_excluded="$(cat "$excl_reg_file")"
-			echolog -nolog "${yellow}NOTE:${n_c} Following IP lists are in the exclusions file, skipping: '${sli_excluded# }'"
+			echolog -nolog "${_nl}${yellow}NOTE:${n_c} Following IP lists are in the exclusions file, skipping: '${sli_excluded# }'"
 		}
 		rm -f "$excl_reg_file"
 		return 0
 	}
 	rm -f "$excl_reg_file"
 	res_ids="${res_ids% }"
-	echolog -err "Invalid list ID's '${res_ids:-"$2"}' or no list ID's specified."
+	echolog -err "Invalid list ID's '${res_ids:-"$sli_lists"}' or no list ID's specified."
 	return 1
 }
 
