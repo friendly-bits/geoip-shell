@@ -159,6 +159,8 @@ rm_scripts
 rm_config
 rm_all_data
 
+rm -rf "$GEOTEMP_DIR" "$GEORUN_DIR"
+
 printf '%s\n\n' "Uninstall complete."
 
 die 0
