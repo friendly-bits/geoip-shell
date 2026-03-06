@@ -172,9 +172,13 @@ ciis_dir="${GEORUN_DIR:?}/ciis"
 dir_mk -n "$ciis_dir" || die_l
 
 for family in $families; do
+	printf '\n%s\n' "Checking $family IP addresses..."
+
 	eval "val_ips=\"\$val_${family}s\""
 
-	list_id="${ccode}_${family}"
+	san_list_ids list_id "${ccode}_${family}" "country" || die_l
+	[ -n "$list_id" ] || continue
+
 	ciis_fetch_res_file="$ciis_dir/fetch-res-$list_id.tmp"
 	list_file="$ciis_dir/$list_id.iplist"
 
@@ -188,8 +192,6 @@ for family in $families; do
 	[ -n "$failed_lists" ] && die_l "IP list fetch failed."
 
 	### Test the fetched list for specified IPs
-
-	printf '\n%s\n' "Checking $family IP addresses..."
 
 	for val_ip in $val_ips; do
 		unset match no
