@@ -185,6 +185,8 @@ status_opts="v"
 import_opts="A|B"
 
 
+die_m() { rm -rf "$GEOTEMP_DIR"; die "$@"; }
+
 set_opt() {
 	var_name="$1"
 
@@ -303,7 +305,7 @@ dir_mv() {
 	[ -n "$new_dir_mv" ] || return 1
 
 	rm -rf "$new_dir_mv"
-	dir_mk "$new_dir_mv" || die
+	dir_mk "$new_dir_mv" || die_m
 	[ -d "$prev_dir_mv" ] || return 0
 
 	if ! is_dir_empty "$prev_dir_mv"; then
@@ -316,7 +318,7 @@ dir_mv() {
 					mv "$new_dir_mv"/* "$prev_dir_mv/"
 					set -f
 					rm -rf "$new_dir_mv"
-					die "$FAIL move the $dir_cont_desc."
+					die_m "$FAIL move the $dir_cont_desc."
 				}
 			fi
 		done
@@ -360,7 +362,7 @@ restore_from_config() {
 	fi
 
 	# Handle failure
-	[ "$first_setup" ] && die
+	[ "$first_setup" ] && die_m
 
 	[ ! "$prev_config_try" ] && [ "$prev_config" ] && {
 		prev_config_try=1
@@ -382,7 +384,7 @@ restore_from_config() {
 		check_lists_coherence && return 0
 	}
 
-	die "$FAIL restore $p_name state. If it's a bug then please report it."
+	die_m "$FAIL restore $p_name state. If it's a bug then please report it."
 }
 
 # tries to prevent the user from locking themselves out
@@ -426,14 +428,14 @@ check_for_lockout() {
 			[ ! "$first_setup" ] && report_lists
 			echo
 			echolog "Aborted action '$action'."
-			die 130
+			die_m 130
 	esac
 	:
 }
 
 set_first_setup() {
 	rm_setupdone
-	[ "$action" = configure ] || die 0 "Please run '$p_name configure'."
+	[ "$action" = configure ] || die_m 0 "Please run '$p_name configure'."
 	export first_setup=1
 	reset_req=1
 }
@@ -472,8 +474,14 @@ report_lists() {
 
 export nointeract="${nointeract_arg:-$nointeract}"
 
-#### showconfig
-[ "$action" = showconfig ] && { printf '\n%s\n\n' "Config in $CONF_FILE:"; cat "$CONF_FILE"; die 0; }
+#### Make lock if needed
+case "$action" in
+	showconfig)
+		printf '\n%s\n\n' "Config in $CONF_FILE:"; cat "$CONF_FILE"; die 0 ;;
+	lookup|on|off|reset|restore|import|configure)
+		mk_lock || die
+		trap 'die_m' INT TERM HUP QUIT
+esac
 
 
 #### Handle first setup and/or missing config
@@ -484,10 +492,9 @@ rm_conf=
 
 [ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$CONF_DIR/setupdone" ]; } && {
 	export first_setup=1
-	[ "$action" != configure ] && {
-		echolog "${_nl}Setup has not been completed."
-		set_first_setup
-	}
+	[ "$action" = configure ] || echolog "${_nl}Setup has not been completed."
+
+	set_first_setup
 
 	[ ! "$nointeract" ] && [ -s "$CONF_FILE" ] && {
 		q="[K]eep previous"
@@ -522,8 +529,9 @@ rm_conf=
 [ ! -s "$CONF_FILE" ] || [ "$rm_conf" ] && {
 	rm -f "$CONF_FILE"
 	rm_data
+	main_config=
 	for _conf_var in $ALL_CONF_VARS; do
-		is_alphanum "$_conf_var" || die "Internal error."
+		is_alphanum "$_conf_var" || die_m "Internal error."
 		eval "$_conf_var="
 	done
 	rm_setupdone
@@ -568,37 +576,34 @@ case "$action" in
 		kill_geo_pids
 		mk_lock -f
 		rm_iplists_rules
-		die ;;
+		die_m ;;
 esac
-
-mk_lock || die
-trap 'die' INT TERM HUP QUIT
 
 case "$action" in
 	lookup)
 		source_lib lookup "$LIB_DIR" &&
 		lookup "$lookup_addr_arg" "$lookup_addr_file_arg"
-		die $? ;;
+		die_m $? ;;
 	on|off)
 		case "$action" in
-			on) [ ! "$inbound_iplists$outbound_iplists" ] && die "No IP lists registered. Refusing to enable geoblocking."
+			on) [ ! "$inbound_iplists$outbound_iplists" ] && die_m "No IP lists registered. Refusing to enable geoblocking."
 				set_main_config "noblock=false" ;;
 			off) set_main_config "noblock=true" ;;
 		esac
 		call_script "$i_script-apply.sh" $action
-		die $? ;;
+		die_m $? ;;
 	reset)
 		[ -n "${nointeract}" ] || {
 			printf '\n%s\n' "Warning: this will reset $p_name config and remove $p_name IP lists and firewall rules. Continue? (y|n)"
 			pick_opt "y|n"
-			[ "$REPLY" = y ] || die 0
+			[ "$REPLY" = y ] || die_m 0
 		}
 		rm_iplists_rules
 		rm_all_data
 		[ -f "$CONF_FILE" ] && { printf '%s\n' "Deleting the config file '$CONF_FILE'..."; rm -f "$CONF_FILE"; }
 		rm_setupdone
-		die 0 ;;
-	restore) restore_from_config; die $? ;;
+		die_m 0 ;;
+	restore) restore_from_config; die_m $? ;;
 	import) import_local_iplists ;;
 	configure) do_configure ;;
 esac
@@ -626,7 +631,7 @@ check_for_lockout
 [ "$nobackup_change" ] && [ -n "$datadir_prev" ] && {
 	[ -d "$datadir_prev/backup" ] && {
 		printf %s "Removing old backup... "
-		rm -rf "$datadir_prev/backup" || die "$FAIL remove old backup."
+		rm -rf "$datadir_prev/backup" || die_m "$FAIL remove old backup."
 		OK
 	}
 }
@@ -636,7 +641,7 @@ if [ "$datadir_change" ]; then
 		dir_mv "$datadir_prev" "$datadir" data
 		dir_mv "$datadir_prev/backup" "$datadir/backup" backup
 		rm -rf "$datadir_prev/backup"
-		rm_dir_if_empty "$datadir_prev" || die
+		rm_dir_if_empty "$datadir_prev" || die_m
 	fi
 	status_file="$datadir/status"
 fi
@@ -668,10 +673,10 @@ if [ "$_fw_backend_change" ]; then
 			rm_iplists_rules
 			rm_data
 			:
-		) || die "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
+		) || die_m "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
 	fi
 	# source library for the new backend
-	source_lib "$_fw_backend" "$LIB_DIR" || die
+	source_lib "$_fw_backend" "$LIB_DIR" || die_m
 fi
 
 case "$conf_act" in run_add|reset|apply)
@@ -700,14 +705,14 @@ case "$conf_act" in
 	*)
 esac
 
-dir_mk "$datadir" || die
+dir_mk "$datadir" || die_m
 
 case "$conf_act" in
 	reset)
 		restore_from_config
 		rv_conf=$? ;;
 	run_add)
-		[ "$all_add_iplists" ] || die "conf_act is 'run_add' but \$all_add_iplists is empty string"
+		[ "$all_add_iplists" ] || die_m "conf_act is 'run_add' but \$all_add_iplists is empty string"
 		get_counters
 		call_script -l "$i_script-run.sh" add -l "$all_add_iplists" -o
 		rv_conf=$? ;;
@@ -745,7 +750,7 @@ if [ "$rv_conf" = 0 ]; then
 	}
 
 	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
-		check_lists_coherence || restore_from_config || die
+		check_lists_coherence || restore_from_config || die_m
 	}
 else
 	rm -rf "${STAGING_LOCAL_DIR:-???}"
@@ -762,13 +767,13 @@ case "$rv_conf" in
 				_prev="previous "
 				prev_config_try=1
 				restore_from_config
-				die $?
+				die_m $?
 			}
 		set_all_config
 		backup_req=
 		rv_conf=0 ;;
 	*) restore_from_config
-esac || die
+esac || die_m
 
 [ "$rv_conf" = 0 ] && {
 	bk_conf_only=
@@ -813,4 +818,4 @@ esac || die
 	statustip
 }
 
-die $rv_conf
+die_m $rv_conf
