@@ -140,7 +140,7 @@ is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: '$d
 
 case "${dl_src}" in maxmind|ipinfo)
 	[ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ] && [ -z "$ciis_conf_ok" ] &&
-		export_conf=1 nodie=1 getconfig main "" $ciis_cfg_keys
+		EXPORT_CONF=1 nodie=1 getconfig main "" $ciis_cfg_keys
 esac
 
 case "${dl_src}" in
