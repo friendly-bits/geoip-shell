@@ -480,31 +480,15 @@ getconfig() {
 	done
 
 
-	SCV_QUIET=1 nodie=1 parse_config "$gc_type" "$gc_file" "$gc_query" || {
+	nodie=1 parse_config "$gc_type" "$gc_file" "$gc_query" || {
 		echolog -err "$FAIL read entries for '$*' from $gc_file."
 		[ ! "$nodie" ] && die
 		return 1
 	}
 }
 
-get_valid_keys() {
-	eval "$1"=
-	case "$2" in
-		main) gvk_keys="$ALL_CONF_VARS" ;;
-		exclusions) gvk_keys=exclude_iplists ;;
-		cca2) gvk_keys="$VALID_REGISTRIES" ;;
-		main_status) gvk_keys="last_update prev_date_[a-zA-Z0-9_]* prev_ips_cnt_[a-zA-Z0-9_]*" ;;
-		fetch_res) gvk_keys="fetched_lists failed_lists" ;;
-		counters) gvk_keys="[a-zA-Z0-9_]*" ;;
-		*) false ;;
-	esac || { bad_args get_valid_keys "$@"; return 1; }
-	eval "$1"='$gvk_keys'
-}
-
 set_config_vars() {
 	unset scv_ok scv_fail
-	scv_set_cmd="eval"
-	[ "$EXPORT_CONF" ] && scv_set_cmd="export"
 
 	scv_src_pr="$1" scv_lines="$2"
 
@@ -512,40 +496,20 @@ set_config_vars() {
 	newifs "$_nl" gcv &&
 	for scv_line in $scv_lines; do
 		oldifs gcv
-		scv_var=
-		case "$scv_line" in
-			'') continue ;;
-			*=*=*) false ;;
-			*=*) : ;;
-			*) false
-		esac &&
-		scv_key="${scv_line%%=*}" &&
-		[ -n "$scv_key" ] || { [ -n "$SCV_QUIET" ] || echolog -err "Invalid line '$scv_line' in $scv_src_pr."; scv_fail=1; break; }
-
-		if [ -z "$scv_req_pairs" ]; then
-			scv_var="$scv_key"
-		else
-			case "$scv_req_pairs" in
-				*"=${scv_key}")
-					scv_var="${scv_req_pairs%%"=$scv_key"}" ;;
-				*"=${scv_key} "*)
-					scv_var="${scv_req_pairs%%"=${scv_key} "*}" ;;
-				*) false
-			esac || continue
-			scv_var="${scv_var##*" "}"
-			[ -n "$scv_var" ]
-		fi &&
+		scv_var="${scv_line%%=*}"
+		[ -n "$scv_var" ] &&
 		is_alphanum "$scv_var" &&
-		case "$scv_set_cmd" in
-			eval) eval "${scv_var}"='${scv_line#*=}' ;;
-			export) export "${scv_var}=${scv_line#*=}" ;;
-		esac || { [ -n "$SCV_QUIET" ] || echolog -err "Failed to parse line '$scv_line'."; scv_fail=1; break; }
+		if [ "$EXPORT_CONF" ]; then
+			export "${scv_var}=${scv_line#*=}"
+		else
+			eval "${scv_var}"='${scv_line#*=}'
+		fi || { echolog -err "set_config_vars: Invalid line '$scv_line' in $scv_src_pr."; scv_fail=1; break; }
 		scv_ok=1
 	done || scv_fail=1
 	oldifs gcv
 
 	[ -n "$scv_ok" ] || {
-		[ -z "$scv_fail" ] && [ -z "$SCV_QUIET" ] && echolog -err "No valid entries in $scv_src_pr."
+		[ -z "$scv_fail" ] && echolog -err "set_config_vars: No valid entries in $scv_src_pr."
 		scv_fail=1
 	}
 
@@ -578,12 +542,10 @@ parse_config() {
 		pco_src_pr="file '$pco_f'"
 	fi
 
-	get_valid_keys pco_all_keys "$pco_type" || { parse_fail; die; }
-
 	if [ -n "$pco_from_var" ]; then
 		eval "pco_lines=\"\$${pco_src}\""
 	else
-		read_conf_file "" pco_lines "$pco_f" "$pco_all_keys"
+		read_conf_file "" pco_lines "$pco_f" "$pco_type"
 	fi &&
 	set_config_vars "$pco_src_pr" "$pco_lines" ||
 	{
@@ -602,16 +564,26 @@ parse_config() {
 # 1: var name for old config output
 # 2: var name for new config output
 # 3: conf file path
-# 4: list of keys
+# 4: type
 # extra args (optional): new key=value pairs to override old config
 read_conf_file() {
 	rcf_fail() { eval "${rcf_new_conf_var:-_}=''"; }
 
-	rcf_old_conf_var="$1" rcf_new_conf_var="$2" rcf_path="$3" rcf_valid_keys="$4"
+	rcf_old_conf_var="$1" rcf_new_conf_var="$2" rcf_path="$3" rcf_type="$4"
 
 	[ $# -ge 4 ] &&
 	case "$*" in *"$_nl"*|*"$delim"*) false ;; *) :; esac &&
-	[ -n "$rcf_new_conf_var" ] && [ -n "$rcf_path" ] && [ -n "$rcf_valid_keys" ] || { bad_args read_conf_file "$@"; rcf_fail; die; }
+	[ -n "$rcf_new_conf_var" ] && [ -n "$rcf_path" ] && [ -n "$rcf_type" ] &&
+	case "$rcf_type" in
+		main) rcf_valid_keys="$ALL_CONF_VARS" ;;
+		exclusions) rcf_valid_keys=exclude_iplists ;;
+		cca2) rcf_valid_keys="$VALID_REGISTRIES" ;;
+		main_status) rcf_valid_keys="last_update prev_date_[a-zA-Z0-9_]* prev_ips_cnt_[a-zA-Z0-9_]*" ;;
+		fetch_res) rcf_valid_keys="fetched_lists failed_lists" ;;
+		counters) rcf_valid_keys="[a-zA-Z0-9_]*" ;;
+		*) false ;;
+	esac || { bad_args read_conf_file "$@"; die; }
+	[ -n "$rcf_valid_keys" ] || { echolog -err "read_conf_file: no valid keys assigned for type '$rcf_type'."; die; }
 
 	shift 4
 
@@ -758,9 +730,7 @@ setconfig() {
 
 	[ "$sc_path" ] || { sc_failed "'\$sc_path' variable is not set."; die; }
 
-	get_valid_keys sc_all_keys "$sc_type" || { sc_failed; die; }
-
-	RCF_IGNORE_MISSING_FILE=1 RCF_IGNORE_MISSING_KEYS=1 read_conf_file oldconfig newconfig "$sc_path" "$sc_all_keys" "$@" &&
+	RCF_IGNORE_MISSING_FILE=1 RCF_IGNORE_MISSING_KEYS=1 read_conf_file oldconfig newconfig "$sc_path" "$sc_type" "$@" &&
 	[ "$sc_path" != "${CONF_FILE}" ] || set_config_vars "file '$sc_path'" "$newconfig" ||
 		{ sc_failed "$FAIL process config from file '$sc_path'."; return 1; }
 
