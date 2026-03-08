@@ -716,17 +716,17 @@ case "$src_type" in
 		done
 esac
 
+#### Output dirs
+iplist_dir_f="${iplist_dir_f%/}"
+[ "$iplist_dir_f" ] || die_f "Specify iplist directory with '-p <path-to-dir>'."
 
-#### Fetch util
-get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn "$dl_src" "$dl_src_cap"
+if [ "$ROOT_OK" = 1 ]; then
+	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
+else
+	FETCH_TMP_DIR=/tmp/${p_name}-fetch-noroot
+fi
 
-[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
-
-printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
-
-
-
-# Check connectivity
+# Conn check url
 case "$dl_src" in
 	ripe) con_check_url="${ripe_url_api%%/*}" ;;
 	ipdeny) con_check_url="${ipdeny_ipv4_url%%/*}" ;;
@@ -748,6 +748,11 @@ case "$dl_src" in
 		esac
 esac
 
+#### Fetch util
+get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn "$dl_src" "$dl_src_cap"
+[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
+
+
 trap 'trap - INT TERM HUP QUIT; \
 	rm_tmp_f; \
 	[ "$keep_fetched_db" = true ] || rm -f "$fetched_db_path"; \
@@ -755,19 +760,11 @@ trap 'trap - INT TERM HUP QUIT; \
 	exit' \
 		INT TERM HUP QUIT
 
-#### Output dirs
-iplist_dir_f="${iplist_dir_f%/}"
-[ "$iplist_dir_f" ] || die_f "Specify iplist directory with '-p <path-to-dir>'."
-
-if [ "$ROOT_OK" = 1 ]; then
-	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
-else
-	FETCH_TMP_DIR=/tmp/${p_name}-fetch-noroot
-fi
-
 rm -rf "$FETCH_TMP_DIR"
 dir_mk -n "${iplist_dir_f:?}" &&
 dir_mk -n "${FETCH_TMP_DIR:?}" || die_f
+
+printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
 
 #### Connectivity check
 debugprint "conn check command: '$con_check_cmd \"https://$con_check_url\"'"
