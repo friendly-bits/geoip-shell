@@ -1348,49 +1348,51 @@ san_list_ids() {
 	rm -f "$excl_reg_file"
 	res_ids="$(
 		$awk_cmd -v main_ids_str="$sli_lists" -v val_prefixes="$val_prefixes" -v excl_ids_str="$EXCL_FILE_LISTS" -v excl_reg_file="$excl_reg_file" '
-			function norm_ids(ids_str, type,        loc_ids_arr_uc, loc_ids_arr_lc, loc_seen, loc_cnt) {
-				sub(/^[ 	]+/,"",ids_str)
-				sub(/[ 	]+$/,"",ids_str)
-				gsub(/[ 	]+/," ",ids_str)
+			function san_spaces(line,san_delim) {
+				if (!san_delim) san_delim=" "
+				sub(/^[ 	]+/, "", line); sub(/[ 	]+$/, "", line); gsub(/[ 	]+/,san_delim,line); return line
+			}
+			function norm_ids(ids_str, type,        ids_arr_uc, ids_arr_lc, seen, cnt) {
+				ids_str=san_spaces(ids_str)
 				ids_str_uc=toupper(ids_str)
 				ids_str_lc=tolower(ids_str)
-				loc_cnt=split(ids_str_uc,loc_ids_arr_uc," ")
-				split(ids_str_lc,loc_ids_arr_lc," ")
+				split(ids_str,ids_arr_orig," ")
+				split(ids_str_lc,ids_arr_lc," ")
+				cnt=split(ids_str_uc,ids_arr_uc," ")
 
-				for (i=1; i <= loc_cnt; i++) {
-					uc_id=loc_ids_arr_uc[i]
-					lc_id=loc_ids_arr_lc[i]
+				for (i=1; i <= cnt; i++) {
+					uc_id=ids_arr_uc[i]
+					lc_id=ids_arr_lc[i]
 					match(uc_id,"_")
-					ccode=substr(uc_id,1,RSTART-1)
+					prefix=substr(uc_id,1,RSTART-1)
 					fml=substr(lc_id,RSTART+RLENGTH)
-					id = ccode "_" fml
-					if ( ccode !~ val_prefixes || fml !~ /^ipv[46]$/) {
-						if (type == "main") {bad_cnt=i; bad_ids[i]=id; rv=1}
+					id = prefix "_" fml
+					if ( prefix !~ val_prefixes || fml !~ /^ipv[46]$/ ) {
+						if (type == "main") {bad_cnt=i; bad_ids[i]=ids_arr_orig[i]; rv=1}
 					}
-					else if (!loc_seen[id]) {
-						loc_seen[id]=1
+					else if (!seen[id]) {
+						seen[id]=1
 						if (type == "main" && id in excl_arr) {excluded=excluded " " id}
-						else if (type == "main") main_arr[i]=id
+						else if (type == "main") res_arr[i]=id
 						else excl_arr[id]
 					}
 				}
-				if (type == "main") {main_cnt=loc_cnt}
+				if (type == "main") {main_cnt=cnt}
 			}
 
-			BEGIN{
+			BEGIN {
 				rv=0
 				i=0
 				e=0
 				main_cnt=0
-				gsub(/[ 	]/,"|",val_prefixes)
-				val_prefixes="^" val_prefixes "$"
+				val_prefixes="^" san_spaces(val_prefixes,"|") "$"
 
 				norm_ids(excl_ids_str,"excl")
 				norm_ids(main_ids_str,"main")
 				exit
 			}
-			END{
 
+			END {
 				if (rv == 1 || main_cnt == 0) {
 					for (n=1; n <= bad_cnt; n++) {
 						if (! bad_ids[n]) continue
@@ -1399,8 +1401,8 @@ san_list_ids() {
 					exit 1
 				}
 				for (n=1; n <= i; n++) {
-					if (! main_arr[n]) continue
-					printf "%s ",main_arr[n]
+					if (! res_arr[n]) continue
+					printf "%s ",res_arr[n]
 				}
 				if (excluded) {
 					print excluded > excl_reg_file
