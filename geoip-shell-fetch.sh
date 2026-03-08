@@ -759,7 +759,7 @@ trap 'trap - INT TERM HUP QUIT; \
 iplist_dir_f="${iplist_dir_f%/}"
 [ "$iplist_dir_f" ] || die_f "Specify iplist directory with '-p <path-to-dir>'."
 
-if [ -n "$root_ok" ]; then
+if [ "$ROOT_OK" = 1 ]; then
 	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
 else
 	FETCH_TMP_DIR=/tmp/${p_name}-fetch-noroot
@@ -838,7 +838,7 @@ if [ "$status_file" ]; then
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
 		setstatus main_status "$status_file" "$list_dates_str" "$ips_cnt_str" || die_f "$FAIL write to file '$status_file'."
-		[ "$root_ok" ] && [ "$datadir" ] &&
+		[ "$ROOT_OK" = 1 ] && [ "$datadir" ] &&
 			case "$status_file" in "$datadir"*)
 				chmod 600 "$status_file" && chown -R root:root "$status_file"
 			esac
