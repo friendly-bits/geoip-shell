@@ -286,9 +286,7 @@ rm_cron_job() {
 
 #### Variables
 
-for entry in schedule no_persist inbound_iplists outbound_iplists; do
-	get_main_config "$entry"
-done
+get_config_vars main
 
 run_cmd="$i_script-run.sh"
 
