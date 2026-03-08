@@ -89,6 +89,10 @@ is_root_ok || die
 source_lib uninstall "$lib_src_dir" || die
 
 ### VARIABLES
+: "${INSTALL_DIR:="/usr/bin"}"
+: "${CONF_DIR:="/etc/$p_name"}"
+: "${GEORUN_DIR:="/tmp/$p_name-run"}"
+
 old_install_dir="$(command -v "$p_name")"
 old_install_dir="${old_install_dir%/*}"
 INSTALL_DIR="${old_install_dir:-"$INSTALL_DIR"}"
@@ -101,16 +105,15 @@ INSTALL_DIR="${old_install_dir:-"$INSTALL_DIR"}"
 	call_script "$INSTALL_DIR/${p_name}-uninstall.sh" "$keepdata" && die 0
 }
 
-: "${CONF_DIR:=/etc/$p_name}"
 [ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
-[ -s "$CONF_FILE" ] && nodie=1 get_main_config datadir ||
+[ -s "$CONF_FILE" ] && nodie=1 getconfig main "" datadir local_iplits_dir ||
 	{
 		[ ! "$first_setup" ] &&
 			echolog -warn "Config file doesn't exist or failed to read config." \
 				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
 	}
+
 : "${datadir:="/var/lib/$p_name"}"
-[ -s "$CONF_FILE" ] && nodie=1 get_main_config local_iplists_dir
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 #### MAIN
