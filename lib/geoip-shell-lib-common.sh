@@ -47,6 +47,15 @@ debugexitmsg() {
 }
 #@
 
+bad_args() {
+	ba_func="$1" ba_args=
+	shift
+	for ba_arg in "$@"; do
+		ba_args="${ba_args}${ba_args:+ ,}'${ba_arg}'"
+	done
+	echolog -err "${ba_func}(): bad args $ba_args"
+}
+
 printf_s() {
 	printf %s "$1"
 	case "$debugmode" in '') ;; *) echo >&2; esac
@@ -183,7 +192,7 @@ pick_opt() {
 	}
 
 	case "$1" in
-		*[!a-zA-Z0-9_\|-]*) echolog -err "pick_opt: invalid args '$*'"; exit 1
+		*[!a-zA-Z0-9_\|-]*) bad_args pick_opt "$@"; exit 1
 	esac
 
 	while :; do
@@ -281,7 +290,7 @@ call_script() {
 	: "${use_shell:=sh}"
 
 	# call the daughter script, then forget cached config
-	[ ! "$script_to_call" ] && { echolog -err "call_script: received empty string."; return 1 ; }
+	[ ! "$script_to_call" ] && { bad_args call_script "$@"; return 1 ; }
 
 	[ "$use_lock" ] && rm_lock
 	$use_shell "$script_to_call" "$@"
@@ -293,7 +302,7 @@ call_script() {
 }
 
 source_lib() {
-	[ -n "$1" ] || { echolog -err "source_lib: invalid args '$*'."; return 1; }
+	[ -n "$1" ] || { bad_args source_lib "$@"; return 1; }
 	src_file="${p_name}-lib-${1}.sh"
 	shift
 	[ -n "$*" ] || set -- "$LIB_DIR"
@@ -420,7 +429,7 @@ die() {
 num2human() {
 	i=${1:-0} s=0 d=0
 	case "$2" in bytes) m=1024 ;; '') m=1000 ;; *) return 1; esac
-	case "$i" in *[!0-9]*) echolog -err "num2human: Invalid unsigned integer '$i'."; return 1; esac
+	case "$i" in *[!0-9]*) bad_args num2human "$@"; return 1; esac
 	for S in B KiB MiB GiB TiB; do
 		[ $((i > m && s < 4)) = 0 ] && break
 		d=$i
@@ -784,15 +793,6 @@ set_all_config() {
 	set_main_config "$@"
 }
 
-bad_args() {
-	ba_func="$1" ba_args=
-	shift
-	for ba_arg in "$@"; do
-		ba_args="${ba_args}${ba_args:+ ,}'${ba_arg}'"
-	done
-	echolog -err "${ba_func}(): bad args $ba_args"
-}
-
 # utilizes getconfig() but intended for reading status from status files
 # 1: type
 # 2: file path
@@ -812,7 +812,7 @@ getstatus() {
 setstatus() {
 	st_type="$1" st_file="$2"
 	shift 2
-	[ ! "$st_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
+	[ "$st_file" ] || { bad_args setstatus "$@"; die; }
 	[ ! -d "${st_file%/*}" ] && mkdir -p "${st_file%/*}" &&
 		[ "$ROOT_OK" = 1 ] && chmod -R 600 "${st_file%/*}"
 	[ -f "$st_file" ] || touch "$st_file" &&
@@ -1622,14 +1622,14 @@ setup_maxmind() {
 # if a range is detected in addresses of a particular family, sets ipset_type to 'net', otherwise to 'ip'
 # expects the $family var to be set
 validate_ip() {
-	[ ! "$1" ] && { echolog -err "validate_ip: received an empty string."; return 1; }
-	ipset_type=ip; family="$2"; o_ips=
+	ipset_type=ip family="$2" o_ips=
 	sp2nl i_ips "$1"
+	[ -n "$i_ips" ] &&
 	case "$family" in
 		inet|ipv4) family=ipv4 ip_len=32 ;;
 		inet6|ipv6) family=ipv6 ip_len=128 ;;
-		*) echolog -err "Invalid family '$family'."; return 1
-	esac
+		*) false
+	esac || { bad_args validate_ip "$@"; return 1; }
 	eval "ip_regex=\"\$${family}_regex\""
 
 	newifs "$_nl"
