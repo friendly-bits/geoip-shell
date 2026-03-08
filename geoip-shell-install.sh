@@ -357,7 +357,7 @@ dir_mk -n "$tmp_dir" || die
 
 	export datadir status_file &&
 	_fw_backend_prev=
-	[ -s "$CONF_FILE"  ] && nodie=1 get_config_vars main &&
+	[ -s "$CONF_FILE"  ] && nodie=1 parse_config main &&
 		_fw_backend_prev="$_fw_backend"
 
 	[ -n "$datadir" ] && status_file="$datadir/status"
