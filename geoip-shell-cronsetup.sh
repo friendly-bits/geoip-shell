@@ -286,7 +286,7 @@ rm_cron_job() {
 
 #### Variables
 
-get_config_vars main
+parse_config main
 
 run_cmd="$i_script-run.sh"
 
