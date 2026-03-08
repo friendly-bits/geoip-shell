@@ -189,14 +189,14 @@ import_opts="A|B"
 die_m() { rm -rf "$GEOTEMP_DIR"; die "$@"; }
 
 set_opt() {
-	var_name="$1"
+	sop_var="$1"
 
 	# Check opt sanity
 	eval "action_opts=\"\${${action}_opts}\""
 	is_included "$opt" "$action_opts" "|" || die "action '$action' is incompatible with option '-$opt'."
 
 	[ "$opt" != p ] && {
-		eval "oldval=\"\$${1}\""
+		eval "oldval=\"\$${sop_var}\""
 		[ -n "$oldval" ] && {
 			fordirection=
 			case "$opt" in m|c) fordirection=" for direction '$direction'"; esac
@@ -208,19 +208,19 @@ set_opt() {
 
 	# set vars
 	case "$opt" in
-		m|c|p) set_directional_opt "$var_name" ;;
-		*) eval "$var_name"='$OPTARG'; return 0
+		m|c|p) set_directional_opt "$sop_var" ;;
+		*) eval "$sop_var"='$OPTARG'; return 0
 	esac
 }
 
 set_directional_opt() {
-	[ ! "$1" ] && die "set_direction_opt: arg is unset"
-	d_var_name="$1"
+	[ "$1" ] || bad_args set_direction_opt "$@"
+	sdo_var="$1"
 	[ "$action" != configure ] && { usage; die "Option '-$opt' must be used with the 'configure' action."; }
 	case "$direction" in
 		inbound|outbound)
 			case "$opt" in
-				m|c) eval "${direction}_${d_var_name}"='$OPTARG' ;;
+				m|c) eval "${direction}_${sdo_var}"='$OPTARG' ;;
 				p) eval "${direction}_proto_arg=\"\${${direction}_proto_arg}\$OPTARG\$_nl\""
 			esac ;;
 		*) die "Internal error: unexpected direction '$direction'."
