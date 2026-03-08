@@ -355,9 +355,12 @@ dir_mk -n "$tmp_dir" || die
 [ ! "$inst_root_gs" ] && {
 	add2list PATH "$INSTALL_DIR" ':'
 
+	export datadir status_file &&
+	_fw_backend_prev=
 	[ -s "$CONF_FILE"  ] && nodie=1 get_config_vars main &&
-		export datadir status_file="$datadir/status" &&
-		nodie=1 get_main_config _fw_backend_prev _fw_backend
+		_fw_backend_prev="$_fw_backend"
+
+	[ -n "$datadir" ] && status_file="$datadir/status"
 
 	[ -s "$reg_file" ] && reg_file_ok=1 && while read -r f; do
 		[ -s "$f" ] && continue
@@ -470,12 +473,12 @@ export default_IFS="	 \$_nl" \\
 export _lib="\$LIB_DIR/\$p_name-lib" i_script="\$INSTALL_DIR/\$p_name"
 ${init_non_owrt:+"${_nl}${init_non_owrt}"}
 
-if [ "\$root_ok" ] || [ "\$(id -u)" = 0 ]; then
-	export root_ok=1 \
+if [ "\$ROOT_OK" = 1 ] || [ "\$(id -u)" = 0 ]; then
+	export ROOT_OK=1 \
 		GEOTEMP_DIR="/tmp/\$p_name-tmp" \
 		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run"}"
 else
-	export \
+	export ROOT_OK=0 \
 		GEOTEMP_DIR="/tmp/\$p_name-tmp-noroot" \
 		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run-noroot"}"
 fi
@@ -494,13 +497,13 @@ in_configure=
 ${set_owrt_install:+"${_nl}${set_owrt_uninstall}"}
 . "\${_lib}-common.sh" || exit 1
 
-[ "\$fwbe_ok" ] || [ ! "\$root_ok" ] && return 0
+[ "\$fwbe_ok" ] || [ "\$ROOT_OK" != 1 ] && return 0
 [ -f "\$CONF_DIR/\${p_name}.const" ] && { . "\$CONF_DIR/\${p_name}.const" || die; } ||
 	{ [ ! "\$in_uninstall" ] && die "\$CONF_DIR/\${p_name}.const is missing. Please reinstall \$p_name."; }
 
 case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) in_configure=1; esac
 
-[ -s "\$CONF_FILE" ] && nodie=1 get_main_config _fw_backend
+[ -s "\$CONF_FILE" ] && getconfig main "" _fw_backend
 if [ ! "\$_fw_backend" ]; then
 	rm -f "\$CONF_DIR/setupdone"
 	[ "\$first_setup" ] || [ "\$in_uninstall" ] || [ "\$in_configure" ] && return 0
