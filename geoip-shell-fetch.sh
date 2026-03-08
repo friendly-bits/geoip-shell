@@ -447,7 +447,7 @@ list_failed() {
 # 2 - url
 # 3 - output file
 fetch_file() {
-	[ $# = 3 ] || { echolog -err "fetch_file: invalid arguments."; return 1; }
+	[ $# = 3 ] || { bad_args fetch_file "$@"; return 1; }
 
 	debugprint "fetch command: $1 \"$2\" > \"$3\""
 	$1 "$2" > "$3" || {
