@@ -76,7 +76,7 @@ dir_mk() {
 	[ -d "$1" ] && return 0
 	[ -z "$dmk_nolog" ] && printf %s "Creating directory '$1'... "
 	mkdir -p "$1" && {
-		[ -n "$inst_root_gs" ] || [ ! "$root_ok" ] || { chmod -R 600 "$1" && chown -R root:root "$1"; }
+		[ -n "$inst_root_gs" ] || [ "$ROOT_OK" != 1 ] || { chmod -R 600 "$1" && chown -R root:root "$1"; }
 	} || { echolog -err "$FAIL create '$1'."; return 1; }
 	[ -z "$dmk_nolog" ] && OK
 	:
@@ -104,7 +104,7 @@ oldifs() {
 }
 
 is_root_ok() {
-	[ "$root_ok" ] && return 0
+	[ "$ROOT_OK" = 1 ] && return 0
 	rv=1
 	[ "$manmode" = 1 ] && { rv=0; tip=" For usage, run '$me -h'."; }
 	die $rv "$me needs to be run as root.$tip"
@@ -467,47 +467,16 @@ get_matching_line() {
 	return $_rv
 }
 
-get_main_config() { getconfig main "$@"; }
-
-# 1: type
-# 2: var name for output
-# 3: optional key (otherwise uses var name as key)
-# 4: optional path to config file
-getconfig() {
-	gc_type="$1"
-	shift``
-	key_conf="$1"
-	[ $# -gt 1 ] && key_conf="$2"
-	target_file="${3:-$CONF_FILE}"
-	[ "$1" ] && [ "$target_file" ] &&
-	read_conf_file conf "$gc_type" "$target_file" &&
-	get_matching_line "$conf" "" "$key_conf=" "*" "conf_line" || {
-		eval "$1="
-		[ ! "$nodie" ] && die "$FAIL read value for '$key_conf' from file '$target_file'."
-		return 2
-	}
-	eval "$1"='${conf_line#"${key_conf}"=}'
-	:
-}
-
 # 1: var name for output
-# 2: type
-# 3: conf file path
+# 2: conf file path
+# 3: list of keys
 read_conf_file() {
-	eval "${1:-_}="
 	rcf_is_main=
-	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] &&
-	rcf_type="$2" &&
-	case "$rcf_type" in
-		main) rcf_is_main=1 rcf_keys="$ALL_CONF_VARS" ;;
-		exclusions) rcf_keys=exclude_iplists ;;
-		cca2) rcf_keys="$VALID_REGISTRIES" ;;
-		main_status) rcf_keys="last_update prev_date_* prev_ips_cnt_*" ;;
-		fetch_res) rcf_keys="fetched_lists failed_lists" ;;
-		*) false ;;
-	esac || { bad_args read_conf_file "$@"; return 1; }
+	[ "$2" = "$CONF_FILE" ] && rcf_is_main=1
 
-	[ ! -f "$3" ] && { echolog -err "Config/status file '$3' is missing!"; return 1; }
+	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] || { bad_args read_conf_file "$@"; eval "${1:-_}=''"; return 1; }
+
+	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; eval "${1:-_}=''"; return 1; }
 
 	# Config migration
 	# newline-separated list of options to migrate in the format <old_key=new_key>
@@ -518,92 +487,188 @@ read_conf_file() {
 
 	# check in cache first
 	rcf_conf=
-	[ "$3" = "$CONF_FILE" ] && rcf_conf="$main_config"
-	[ -z "$rcf_conf" ] && {
-		rcf_conf="$(
-			awk -v valid_keys="$rcf_keys" -v is_main="$rcf_is_main" -v M="${migrate_opts}" -v D="$delim" "
-				BEGIN{
-					if (is_main) {
-						# make array of migrated options
-						split(M,migr_tmp,D)
-						for (el in migr_tmp) {
-							line=migr_tmp[el]
-							sub(/^${blank}+/, \"\", line)
-							sub(/${blank}+$/, \"\", line)
-							n=split(line,migr_pair,\"=\")
-							if (n == 2 ) {
-								old_k=migr_pair[1]
-								new_k=migr_pair[2]
-								migr[old_k]=new_k
-							}
+	[ "$2" = "$CONF_FILE" ] && rcf_conf="$main_config"
+	[ -n "$rcf_conf" ] ||
+	rcf_conf="$(
+		$awk_cmd -v valid_keys="$3" -v is_main="$rcf_is_main" -v migr_opts="$migrate_opts" -v ignore_missing="$RCF_IGNORE_MISSING" -v migr_delim="$delim" "
+			BEGIN{
+				rv=0
+				if (is_main) {
+					# array of migrated options
+					split(migr_opts,migr_tmp,migr_delimt)
+					for (el in migr_tmp) {
+						line=migr_tmp[el]
+						sub(/^${blank}+/, \"\", line)
+						sub(/${blank}+$/, \"\", line)
+						n=split(line,migr_pair,\"=\")
+						if (n == 2) {
+							old_k=migr_pair[1]
+							new_k=migr_pair[2]
+							migr[old_k]=new_k
 						}
 					}
-					gsub(/${blanks}/,\"|\",valid_keys)
 				}
-				/^${blank}*(#|$)/ {next}
-				{
-					sub(/^${blank}+/, \"\")
-					sub(/${blank}+$/, \"\")
-					split(\$0,pair,\"=\")
-					key=pair[1]
-					val=pair[2]
-					if (is_main && key in migr) key=migr[key]
-					if (key ~ valid_keys) {print key \"=\" val}
+				# regex valid keys, array of req keys
+				sub(/^${blanks}/,\"\",valid_keys)
+				sub(/${blanks}\$/,\"\",valid_keys)
+				gsub(/${blanks}/,\"|\",valid_keys)
+				split(valid_keys,t_arr,\"|\")
+				for (el in t_arr) {
+					key=t_arr[el]; if (key && ! index(key,\"*\")) req_keys[key]
 				}
-			" "$3"
-		)"
-		[ "$3" = "$CONF_FILE" ] && export main_config="$rcf_conf"
+				valid_keys= \"^(\" valid_keys \")\$\"
+			}
+			/^${blank}*(#|$)/ {next}
+			{
+				sub(/^${blanks}/, \"\")
+				sub(/${blanks}$/, \"\")
+				n=split(\$0,pair,\"=\")
+				key=pair[1]
+				val=pair[2]
+				if (n == 2 && key ~ /^[a-zA-Z0-9_]+$/ && val !~ /.*[\$()'\"\`].*/) {}
+					else {print \"Failed to parse line '\" \$0 \"' in file '$2'.\"; rv=1; exit}
+				if (is_main && key in migr) key=migr[key]
+				if (seen_keys[key] == 1) {print \"Duplicate key '\" key \"' in file '$2'.\"; rv=1; exit}
+				if (key ~ valid_keys) {seen_keys[key] = 1; req_keys[key] = 1; out = out key \"=\" val \"\n\"}
+					else {print \"\nWarning: Ignoring unknown key '\" key \"' in file '$2'.\" > \"/dev/stderr\"}
+			}
+			END {
+				if (rv == 1) exit 1
+				if (ignore_missing) {print out; exit 0}
+				for (key in req_keys) {if (req_keys[key] != 1) {print \"Missing key '\" key \"' in file '$2'.\"; exit 1} }
+				print out
+				exit 0
+			}
+		" "$2"
+	)" || {
+		echolog -err "$rcf_conf"
+		eval "${1:-_}=''"
+		return 1
 	}
+
+	[ -n "$rcf_is_main" ] && {
+		main_config="$rcf_conf"
+		[ "$export_conf" ] && export main_config
+	}
+
 	eval "$1"='$rcf_conf'
 	:
+}
+
+# 1: type
+# 2: path to config file (or defaults to main)
+# 3: key names/var names for output
+getconfig() {
+	gc_type="$1"
+	gc_file="${2:-"$CONF_FILE"}"
+	shift 2
+	gc_query=
+
+	for gc_var in "$@"; do
+		eval "$gc_var="
+		gc_query="${gc_query}${gc_query:+ }${gc_var}=${gc_var}"
+	done
+
+
+	GCV_QUIET=1 nodie=1 get_config_vars "$gc_type" "$gc_file" "$gc_query" || {
+		echolog -err "$FAIL read entries for '$*' from $gc_file."
+		[ ! "$nodie" ] && die
+		return 1
+	}
+}
+
+get_valid_keys() {
+	eval "$1"=
+	case "$2" in
+		main) gvk_keys="$ALL_CONF_VARS" ;;
+		exclusions) gvk_keys=exclude_iplists ;;
+		cca2) gvk_keys="$VALID_REGISTRIES" ;;
+		main_status) gvk_keys="last_update prev_date_[a-zA-Z0-9_]* prev_ips_cnt_[a-zA-Z0-9_]*" ;;
+		fetch_res) gvk_keys="fetched_lists failed_lists" ;;
+		counters) gvk_keys="[a-zA-Z0-9_]*" ;;
+		*) false ;;
+	esac || { bad_args get_valid_keys "$@"; return 1; }
+	eval "$1"='$gvk_keys'
 }
 
 # gets all config from file $1 or $CONF_FILE if unsecified, and assigns to vars named same as keys in the file
 # 0: (optional) -v to load from variable $2
 # 1: type
 # 2: var name or path to config/status file or empty for main cfg file
+# 3 (optional): list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
 # if $export_conf is set, exports the vars
 get_config_vars() {
-	inval_e() {
-		oldifs gcv
-		echolog -err "get_config_vars: Invalid entry '$gcv_entry' in $gcv_src_pr."
-		[ ! "$nodie" ] && die
-	}
+	unset gcv_lines gcv_from_var gcv_var gcv_fail gcv_ok
+	gcv_set_cmd="eval"
+	[ "$export_conf" ] && gcv_set_cmd="export"
 
-	unset gcv_entries gcv_from_var gcv_var _exp
-	[ "$export_conf" ] && _exp="export "
-
-	[ "$1" = '-v' ] && { gcv_from_var=1; gcv_var="$2"; shift; }
-
-	gcv_type="$1"
-
-	if [ -n "$gcv_from_var" ]; then
-		eval "gcv_entries=\"\$${gcv_var}\""
-		[ "$gcv_entries" ] || return 1
-		gcv_src_pr="variable '$gcv_var'"
+	if [ "$1" = '-v' ]; then
+		gcv_from_var=1
+		gcv_src="$2"
+		gcv_type="$3"
+		gcv_req_pairs="$4"
+		eval "gcv_lines=\"\$${gcv_src}\""
 	else
-		gcv_f="${2:-"$CONF_FILE"}"
-		gcv_src_pr="file '$gcv_f'"
-		read_conf_file gcv_entries "$gcv_type" "$gcv_f" "$gcv_keys" || {
-			echolog -err "$FAIL get config from '$gcv_f'."
-			[ ! "$nodie" ] && die
-			return 1
-		}
+		gcv_type="$1"
+		gcv_src="$2"
+		gcv_req_pairs="$3"
 	fi
 
-	newifs "$_nl" gcv
-	for gcv_entry in $gcv_entries; do
-		case "$gcv_entry" in
+	get_valid_keys gcv_all_keys "$gcv_type" || { [ ! "$nodie" ] && die; return 1; }
+
+	if [ -n "$gcv_from_var" ]; then
+		gcv_src_pr="variable '$gcv_var'"
+		eval "gcv_lines=\"\$${gcv_src}\""
+	else
+		gcv_f="${gcv_src:-"$CONF_FILE"}"
+		gcv_src_pr="file '$gcv_f'"
+		read_conf_file gcv_lines "$gcv_f" "$gcv_all_keys"
+	fi &&
+	[ "$gcv_lines" ] &&
+	newifs "$_nl" gcv &&
+	for gcv_line in $gcv_lines; do
+		oldifs gcv
+		case "$gcv_line" in
 			'') continue ;;
-			*=*=*) { inval_e; return 1; } ;;
-			*=*) ;;
-			*) { inval_e; return 1; } ;;
-		esac
-		key_conf="${gcv_entry%=*}"
-		! is_alphanum "$key_conf" || [ ${#key_conf} -gt 128 ] && { inval_e; return 1; }
-		eval "$_exp$key_conf"='${gcv_entry#${key_conf}=}'
-	done
+			*=*=*) false ;;
+			*=*) : ;;
+			*) false
+		esac &&
+		gcv_key="${gcv_line%%=*}" &&
+		[ -n "$gcv_key" ] || { [ -n "$GCV_QUIET" ] || echolog -err "Invalid line '$gcv_line' in $gcv_src_pr."; gcv_fail=1; break; }
+
+		if [ -z "$gcv_req_pairs" ]; then
+			gcv_var="$gcv_key"
+		else
+			case "$gcv_req_pairs" in
+				*"=${gcv_key}")
+					gcv_var="${gcv_req_pairs%%"=$gcv_key"}" ;;
+				*"=${gcv_key} "*)
+					gcv_var="${gcv_req_pairs%%"=${gcv_key} "*}" ;;
+				*) false
+			esac || continue
+			gcv_var="${gcv_var##*" "}"
+			[ -n "$gcv_var" ]
+		fi &&
+		is_alphanum "$gcv_var" &&
+		case "$gcv_set_cmd" in
+			eval) eval "${gcv_var}"='${gcv_line#*=}' ;;
+			export) export "${gcv_var}=${gcv_line#*=}" ;;
+		esac || { [ -n "$GCV_QUIET" ] || echolog -err "Failed to parse line '$gcv_line'."; gcv_fail=1; break; }
+		gcv_ok=1
+	done || gcv_fail=1
+
 	oldifs gcv
+
+	[ -n "$gcv_ok" ] || {
+		[ -z "$gcv_fail" ] && [ -z "$GCV_QUIET" ] && echolog -err "No valid entries in $gcv_src_pr."
+		gcv_fail=1
+	}
+
+	[ -z "$gcv_fail" ] || {
+		[ ! "$nodie" ] && die
+		return 1
+	}
 	:
 }
 
@@ -614,13 +679,17 @@ set_main_config() { setconfig main "$@"; }
 # if no '=' included, gets value of var with named the same as the key
 # if one of the value pairs is "target_file=[file]" then writes to $file instead
 setconfig() {
-	unset args_lines args_target_file keys_test_str newconfig
+	unset args_lines sc_args_target_f sc_target_f keys_test_str oldconfig newconfig
 	sc_type="$1"
 	shift
-	newifs "$_nl" sc
+
+	get_valid_keys sc_all_keys "$sc_type" || { sc_failed; return 1; }
+
 	for argument_conf in "$@"; do
 		# separate by newline and process each line (support for multi-line args)
+		newifs "$_nl" sc
 		for line in $argument_conf; do
+			oldifs sc
 			[ ! "$line" ] && continue
 			case "$line" in
 				'') continue ;;
@@ -630,22 +699,25 @@ setconfig() {
 			esac
 			case "$key_conf" in
 				'') ;;
-				target_file) args_target_file="$value_conf" ;;
+				target_file) sc_args_target_f="$value_conf" ;;
 				*) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
 					keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
 			esac
 		done
 	done
+	oldifs sc
 	keys_test_str="${keys_test_str%\|}"
 	[ ! "$keys_test_str" ] && { sc_failed "no valid args passed."; return 1; }
-	target_file="${args_target_file:-$inst_root_gs$CONF_FILE}"
+	sc_target_f="${sc_args_target_f:-$inst_root_gs$CONF_FILE}"
 
-	[ ! "$target_file" ] && { sc_failed "'\$target_file' variable is not set."; return 1; }
+	[ ! "$sc_target_f" ] && { sc_failed "'\$sc_target_f' variable is not set."; return 1; }
 
-	[ -f "$target_file" ] && {
-		read_conf_file oldconfig "$sc_type" "$target_file" || { sc_failed "$FAIL read '$target_file'."; return 1; }
+	[ -s "$sc_target_f" ] && {
+		RCF_IGNORE_MISSING=1 read_conf_file oldconfig "$sc_target_f" "$sc_all_keys" || { sc_failed "$FAIL read '$sc_target_f'."; return 1; }
 	}
+
 	# join old and new config
+	newifs "$_nl" sc
 	for config_line in $oldconfig; do
 		eval "case \"\$config_line\" in
 				''|$keys_test_str) ;;
@@ -655,14 +727,14 @@ setconfig() {
 	oldifs sc
 	newconfig="$newconfig$args_lines"
 	# don't write to file if config didn't change
-	[ -f "$target_file" ] && old_conf_exists=1 || old_conf_exists=
-	if [ ! "$old_conf_exists" ] || ! compare_file2str "$target_file" "$newconfig"; then
-		[ "$target_file" = "$CONF_FILE" ] && printf %s "Updating the config file... " >&2
-		printf %s "$newconfig" > "$target_file" || { sc_failed "$FAIL write to '$target_file'"; return 1; }
-		[ "$target_file" = "$CONF_FILE" ] && OK >&2
+	[ -f "$sc_target_f" ] && old_conf_exists=1 || old_conf_exists=
+	if [ ! "$old_conf_exists" ] || ! compare_file2str "$sc_target_f" "$newconfig"; then
+		[ "$sc_target_f" = "$CONF_FILE" ] && printf %s "Updating the config file... " >&2
+		printf %s "$newconfig" > "$sc_target_f" || { sc_failed "$FAIL write to '$sc_target_f'"; return 1; }
+		[ "$sc_target_f" = "$CONF_FILE" ] && OK >&2
 	fi
 
-	[ "$target_file" = "$CONF_FILE" ] && {
+	[ "$sc_target_f" = "$CONF_FILE" ] && {
 		export main_config="$newconfig"
 		[ ! "$old_conf_exists" ] && {
 			chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" ||
@@ -677,7 +749,6 @@ set_all_config() {
 }
 
 sc_failed() {
-	oldifs sc
 	echolog -err "setconfig: $1"
 	[ ! "$nodie" ] && die
 }
@@ -693,28 +764,29 @@ bad_args() {
 
 # utilizes getconfig() but intended for reading status from status files
 # 1: type
-# 2: status file
+# 2: file path
 getstatus() {
 	[ -n "$1" ] && [ -n "$2" ] || {
 		bad_args getstatus "$@"
 		[ ! "$nodie" ] && die
 		return 1
 	}
-	nodie=1 get_config_vars "$1" "$2"
+	RCF_IGNORE_MISSING=1 nodie=1 get_config_vars "$1" "$2"
 }
 
 # utilizes setconfig() for writing to status files
-# 1 - path to the status file
+# 1: type
+# 2: path to the status file
 # extra args are passed as is to setconfig
 setstatus() {
 	st_type="$1" target_file="$2"
-	shift 1
+	shift 2
 	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
 	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}" &&
-		[ "$root_ok" ] && chmod -R 600 "${target_file%/*}"
+		[ "$ROOT_OK" = 1 ] && chmod -R 600 "${target_file%/*}"
 	[ ! -f "$target_file" ] && touch "$target_file" &&
-		[ "$root_ok" ] && chmod 600 "$target_file"
-	setconfig "$st_type" target_file "$@"
+		[ "$ROOT_OK" = 1 ] && chmod 600 "$target_file"
+	setconfig "$st_type" target_file="$target_file" "$@"
 }
 
 awk_cmp() {
@@ -1104,17 +1176,15 @@ check_lists_coherence() {
 
 	debugprint "Verifying IP lists coherence..."
 
-	[ -z "$no_reload_conf" ] && {
-		main_config=
-		nodie=1 get_config_vars main || { r_no_l; return 1; }
-	}
+	[ -n "$no_reload_conf" ] || main_config=
+	nodie=1 get_config_vars main || { r_no_l; return 1; }
 
 	iplists_incoherent=
 	for direction in inbound outbound; do
 		eval "geomode=\"\$${direction}_geomode\""
 		[ "$geomode" = disable ] && continue
 
-		get_main_config exp_iplists "${direction}_iplists"
+		eval "exp_iplists=\${${direction}_iplists}"
 		for family in $families; do
 			[ "$direction" = outbound ] && eval "[ \"\$source_ips_${family}\" ]" && exp_iplists="${exp_iplists} allow_$family"
 			case "$geomode" in
@@ -1152,7 +1222,7 @@ check_lists_coherence() {
 		ignore_allow unexpected_ipsets all_exp_iplists "$direction"
 
 	[ "$unexpected_ipsets" ] && {
-		echolog -warn "Unexpected ipsets detected: '$unexpected_ipsets'."
+		echolog -warn "${_nl}Unexpected ipsets detected: '$unexpected_ipsets'."
 		iplists_incoherent=1
 		debugprint "all_exp_iplists: '$all_exp_iplists'${_nl}ipset_iplists: '$ipset_iplists_sp'"
 	}
@@ -1214,7 +1284,7 @@ rm_iplists_rules() {
 load_exclusions() {
 	[ -n "$EXCL_FILE_LISTS" ] && return 0
 	[ -s "$EXCL_FILE" ] &&
-		nodie=1 getconfig exclusions EXCL_FILE_LISTS exclude_iplists "$EXCL_FILE" &&
+		nodie=1 get_config_vars exclusions "$EXCL_FILE" "EXCL_FILE_LISTS=exclude_iplists" &&
 			export EXCL_FILE_LISTS || { echolog -err "$FAIL read the exclusions file '$EXCL_FILE'."; return 1; }
 }
 
@@ -1560,7 +1630,7 @@ get_counters() {
 	case "$_fw_backend" in
 		ipt) get_counters_ipt ;;
 		nft) get_counters_nft
-	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counters counter_strings && counters_set=1
+	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings counters && counters_set=1
 	# debugprint "counter strings:${_nl}$counter_strings"
 	:
 }
@@ -1574,12 +1644,16 @@ unisleep() {
 ALL_CONF_VARS="inbound_tcp_ports inbound_udp_ports outbound_tcp_ports outbound_udp_ports \
 	inbound_icmp outbound_icmp \
 	inbound_geomode outbound_geomode inbound_iplists outbound_iplists \
-	custom_script geosource lan_ips_ipv4 lan_ips_ipv6 autodetect trusted_ipv4 trusted_ipv6 \
+	_fw_backend geosource \
+	autodetect lan_ips_ipv4 lan_ips_ipv6 \
+	trusted_ipv4 trusted_ipv6 \
 	nft_perf ifaces datadir local_iplists_dir nobackup no_persist noblock user_ccode schedule families \
-	_fw_backend max_attempts reboot_sleep force_cron_persist source_ips_ipv4 source_ips_ipv6 source_ips_policy \
+	max_attempts reboot_sleep force_cron_persist custom_script \
+	source_ips_ipv4 source_ips_ipv6 source_ips_policy \
 	keep_fetched_db \
 	mm_license_type mm_acc_id mm_license_key \
-	ipinfo_license_type ipinfo_token"
+	ipinfo_license_type ipinfo_token \
+	bk_ext"
 
 san_str ALL_CONF_VARS "$ALL_CONF_VARS" " 	" || exit 1
 
@@ -1646,8 +1720,9 @@ export IFS="$default_IFS"
 	fi
 	export awk_cmd
 
-	[ "$CONF_FILE" ] && [ -s "$CONF_FILE" ] && [ "$root_ok" ] && {
-		get_main_config datadir
+	[ "$CONF_FILE" ] && [ -s "$CONF_FILE" ] && [ "$ROOT_OK" = 1 ] && {
+		getconfig main "" datadir &&
+		[ -n "$datadir" ] &&
 		export datadir status_file="$datadir/status"
 	}
 
