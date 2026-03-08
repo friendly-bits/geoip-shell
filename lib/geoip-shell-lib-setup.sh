@@ -16,9 +16,9 @@
 # 2: input
 # 3 (optional): list of delimiters
 normalize_ccodes() {
+	unset nc_ccodes nc_inval
 	nc_in="$2"
 	eval "$1="
-	nc_inval=
 	load_cca2 "$CONF_DIR/cca2.list" || die
 	toupper nc_in
 	nc_out=
