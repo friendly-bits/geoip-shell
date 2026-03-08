@@ -119,7 +119,7 @@ get_nft_list() {
 				esac
 				_res="$_res$1"
 			done ;;
-		*) _res="$_res$1"
+		*) _res="$_res$1" gnl_cache="$gnl_cache$1 "
 	esac
 	eval "$gnl_out_var"='$_res'
 }
@@ -218,20 +218,26 @@ report_fw_state() {
 						esac ;;
 					l4proto)
 						icmp_found=0
-						not_icmp_found=0
+						other_found=0
+						tcp_found=0
+						udp_found=0
 						shift
 						get_nft_list l4proto "$@"
 						newifs ' ,' l4prot
 						for tmp_proto in $l4proto; do
 							case "$tmp_proto" in
 								icmp|ipv6-icmp) icmp_found=1 ;;
-								*) not_icmp_found=1
+								tcp) tcp_found=1 ;;
+								udp) udp_found=1 ;;
+								*) other_found=1
 							esac
 						done
 						oldifs l4prot
-						case "${icmp_found}${not_icmp_found}" in
-							10) prot="icmp" dports="---" ;;
-							00) ;;
+
+						case "${icmp_found}${tcp_found}${udp_found}${other_found}" in
+							1000) prot="icmp" dports="---" ;;
+							0100) prot=tcp ;;
+							0010) prot=udp ;;
 							*) line="${line}l4proto ${gnl_cache}"
 						esac
 						shift "$n" ;;
