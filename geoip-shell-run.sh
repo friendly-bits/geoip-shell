@@ -144,7 +144,7 @@ rm -f "${GS_LOG_FILE}"
 
 #### VARIABLES
 
-export_conf=1 nodie=1 get_config_vars main || run_fail 1
+EXPORT_CONF=1 nodie=1 parse_config main || run_fail 1
 
 CUSTOM_SCRIPT_OK=
 [ -n "$custom_script" ] && [ -n "$daemon_mode" ] && check_custom_script "$custom_script" && CUSTOM_SCRIPT_OK=1
@@ -275,7 +275,7 @@ if [ "$lists_fetch" ]; then
 		case "$?" in 0|254) ;; *) fetch_failed; esac
 
 		# read fetch results from the status file
-		nodie=1 getstatus fetch_res "$FETCH_RES_FILE" 2>/dev/null ||
+		nodie=1 getstatus fetch_res "$FETCH_RES_FILE" ||
 			{ fetch_failed "$FAIL read the fetch results file '$FETCH_RES_FILE'"; failed_lists="$lists_fetch"; }
 
 		add2list all_fetched_lists "$fetched_lists"
