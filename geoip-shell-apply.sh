@@ -188,7 +188,7 @@ debugentermsg
 
 ## VARIABLES
 
-get_config_vars main
+parse_config main
 
 geotag_aux="${geotag}_aux"
 
@@ -458,8 +458,8 @@ echo
 [ "$rv_apply" = 0 ] && {
 	setconf_ips=
 	[ "$autodetect" ] && {
-		[ "$lan_ips_ipv4" ] && setconf_ips=lan_ips_ipv4
-		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6"
+		[ "$lan_ips_ipv4" ] && setconf_ips="lan_ips_ipv4=$lan_ips_ipv4"
+		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6=$lan_ips_ipv6"
 	}
 	[ "$setconf_ips" ] && set_main_config $setconf_ips
 }
