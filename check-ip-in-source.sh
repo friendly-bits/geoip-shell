@@ -109,6 +109,10 @@ san_str ips || die
 
 #### Main
 
+ciis_conf_ok='' ciis_conf_found=''
+[ -s "$CONF_FILE" ] && ciis_conf_found=1
+ciis_cfg_keys="geosource mm_license_type mm_acc_id mm_license_key ipinfo_license_type ipinfo_token"
+
 for ip in $ips; do
 	# populates variables: $families, $val_ipv4s, $val_ipv6s
 	validate_ip "$ip" || add2list invalid_ips "$ip"
@@ -121,45 +125,36 @@ done
 if [ -n "$src_arg" ]; then
 	dl_src="$src_arg"
 	[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one IP list source."; }
-else
-	[ "$root_ok" ] && [ -s "$CONF_FILE" ] && nodie=1 get_main_config geosource &&
-		[ -n "$geosource" ] && dl_src="$geosource"
+elif [ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ]; then
+	if nodie=1 getconfig main "" $ciis_cfg_keys && [ -n "$geosource" ]; then
+		dl_src="$geosource"
+		ciis_conf_ok=1
+	else
+		ciis_conf_ok=0
+	fi
 fi
 : "${dl_src:="$DEF_SRC_COUNTRY"}"
 tolower dl_src
 checkvars dl_src
-is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: $dl_src"; }
+is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: '$dl_src'"; }
+
+case "${dl_src}" in maxmind|ipinfo)
+	[ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ] && [ -z "$ciis_conf_ok" ] &&
+		export_conf=1 nodie=1 getconfig main "" $ciis_cfg_keys
+esac
 
 case "${dl_src}" in
-	maxmind)
-		[ "$root_ok" ] && [ -s "$CONF_FILE" ] && {
-			nodie=1 get_main_config mm_license_type
-			nodie=1 get_main_config mm_acc_id
-			nodie=1 get_main_config mm_license_key
-			nodie=1 get_main_config keep_fetched_db
-			export mm_license_type mm_acc_id mm_license_key keep_fetched_db
-		}
-
-		[ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] ||
-			setup_maxmind || die ;;
-	ipinfo)
-		[ "$root_ok" ] && [ -s "$CONF_FILE" ] && {
-			nodie=1 get_main_config ipinfo_license_type
-			nodie=1 get_main_config ipinfo_token
-			nodie=1 get_main_config keep_fetched_db
-			export ipinfo_license_type ipinfo_token keep_fetched_db
-		}
-
-		[ "$ipinfo_token" ] ||
-			setup_ipinfo || die ;;
-esac
+	maxmind) [ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || setup_maxmind ;;
+	ipinfo) [ "$ipinfo_license_type" ] && [ "$ipinfo_token" ] || setup_ipinfo ;;
+	*) : ;;
+esac || die
 
 
 ### Fetch the IP list file
 
 ciis_dir="${GEOTEMP_DIR:?}/ciis"
 
-if [ -n "$root_ok" ] && [ -n "$GEORUN_DIR" ]; then
+if [ "$ROOT_OK" = 1 ] && [ -n "$GEORUN_DIR" ]; then
 	mk_lock || die_l
 else
 	export GEORUN_DIR="$ciis_dir"
