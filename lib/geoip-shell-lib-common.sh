@@ -198,17 +198,6 @@ pick_opt() {
 	done
 }
 
-# 1 - key
-# 2 - value to add
-add2config_entry() {
-	a2c_type="$1"
-	shift
-	getconfig "$a2c_type" "$1" a2c_e
-	is_included "$2" "$a2c_e" && return 0
-	add2list a2c_e "$2"
-	setconfig "$a2c_type" "$1" "$a2c_e"
-}
-
 # checks if $1 is alphanumeric (underlines allowed)
 # optional '-n' in $2 silences error messages
 is_alphanum() {
@@ -467,94 +456,6 @@ get_matching_line() {
 	return $_rv
 }
 
-# 1: var name for output
-# 2: conf file path
-# 3: list of keys
-read_conf_file() {
-	rcf_is_main=
-	[ "$2" = "$CONF_FILE" ] && rcf_is_main=1
-
-	[ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] || { bad_args read_conf_file "$@"; eval "${1:-_}=''"; return 1; }
-
-	[ ! -f "$2" ] && { echolog -err "Config/status file '$2' is missing!"; eval "${1:-_}=''"; return 1; }
-
-	# Config migration
-	# newline-separated list of options to migrate in the format <old_key=new_key>
-	migrate_opts='
-		keep_mm_db=keep_fetched_db
-	'
-	san_str migrate_opts "" "$_nl" "$delim"
-
-	# check in cache first
-	rcf_conf=
-	[ "$2" = "$CONF_FILE" ] && rcf_conf="$main_config"
-	[ -n "$rcf_conf" ] ||
-	rcf_conf="$(
-		$awk_cmd -v valid_keys="$3" -v is_main="$rcf_is_main" -v migr_opts="$migrate_opts" -v ignore_missing="$RCF_IGNORE_MISSING" -v migr_delim="$delim" "
-			BEGIN{
-				rv=0
-				if (is_main) {
-					# array of migrated options
-					split(migr_opts,migr_tmp,migr_delimt)
-					for (el in migr_tmp) {
-						line=migr_tmp[el]
-						sub(/^${blank}+/, \"\", line)
-						sub(/${blank}+$/, \"\", line)
-						n=split(line,migr_pair,\"=\")
-						if (n == 2) {
-							old_k=migr_pair[1]
-							new_k=migr_pair[2]
-							migr[old_k]=new_k
-						}
-					}
-				}
-				# regex valid keys, array of req keys
-				sub(/^${blanks}/,\"\",valid_keys)
-				sub(/${blanks}\$/,\"\",valid_keys)
-				gsub(/${blanks}/,\"|\",valid_keys)
-				split(valid_keys,t_arr,\"|\")
-				for (el in t_arr) {
-					key=t_arr[el]; if (key && ! index(key,\"*\")) req_keys[key]
-				}
-				valid_keys= \"^(\" valid_keys \")\$\"
-			}
-			/^${blank}*(#|$)/ {next}
-			{
-				sub(/^${blanks}/, \"\")
-				sub(/${blanks}$/, \"\")
-				n=split(\$0,pair,\"=\")
-				key=pair[1]
-				val=pair[2]
-				if (n == 2 && key ~ /^[a-zA-Z0-9_]+$/ && val !~ /.*[\$()'\"\`].*/) {}
-					else {print \"Failed to parse line '\" \$0 \"' in file '$2'.\"; rv=1; exit}
-				if (is_main && key in migr) key=migr[key]
-				if (seen_keys[key] == 1) {print \"Duplicate key '\" key \"' in file '$2'.\"; rv=1; exit}
-				if (key ~ valid_keys) {seen_keys[key] = 1; req_keys[key] = 1; out = out key \"=\" val \"\n\"}
-					else {print \"\nWarning: Ignoring unknown key '\" key \"' in file '$2'.\" > \"/dev/stderr\"}
-			}
-			END {
-				if (rv == 1) exit 1
-				if (ignore_missing) {print out; exit 0}
-				for (key in req_keys) {if (req_keys[key] != 1) {print \"Missing key '\" key \"' in file '$2'.\"; exit 1} }
-				print out
-				exit 0
-			}
-		" "$2"
-	)" || {
-		echolog -err "$rcf_conf"
-		eval "${1:-_}=''"
-		return 1
-	}
-
-	[ -n "$rcf_is_main" ] && {
-		main_config="$rcf_conf"
-		[ "$export_conf" ] && export main_config
-	}
-
-	eval "$1"='$rcf_conf'
-	:
-}
-
 # 1: type
 # 2: path to config file (or defaults to main)
 # 3: key names/var names for output
@@ -570,7 +471,7 @@ getconfig() {
 	done
 
 
-	GCV_QUIET=1 nodie=1 get_config_vars "$gc_type" "$gc_file" "$gc_query" || {
+	SCV_QUIET=1 nodie=1 parse_config "$gc_type" "$gc_file" "$gc_query" || {
 		echolog -err "$FAIL read entries for '$*' from $gc_file."
 		[ ! "$nodie" ] && die
 		return 1
@@ -591,150 +492,278 @@ get_valid_keys() {
 	eval "$1"='$gvk_keys'
 }
 
-# gets all config from file $1 or $CONF_FILE if unsecified, and assigns to vars named same as keys in the file
-# 0: (optional) -v to load from variable $2
-# 1: type
-# 2: var name or path to config/status file or empty for main cfg file
-# 3 (optional): list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
-# if $export_conf is set, exports the vars
-get_config_vars() {
-	unset gcv_lines gcv_from_var gcv_var gcv_fail gcv_ok
-	gcv_set_cmd="eval"
-	[ "$export_conf" ] && gcv_set_cmd="export"
+set_config_vars() {
+	unset scv_ok scv_fail
+	scv_set_cmd="eval"
+	[ "$EXPORT_CONF" ] && scv_set_cmd="export"
 
-	if [ "$1" = '-v' ]; then
-		gcv_from_var=1
-		gcv_src="$2"
-		gcv_type="$3"
-		gcv_req_pairs="$4"
-		eval "gcv_lines=\"\$${gcv_src}\""
-	else
-		gcv_type="$1"
-		gcv_src="$2"
-		gcv_req_pairs="$3"
-	fi
+	scv_src_pr="$1" scv_lines="$2"
 
-	get_valid_keys gcv_all_keys "$gcv_type" || { [ ! "$nodie" ] && die; return 1; }
-
-	if [ -n "$gcv_from_var" ]; then
-		gcv_src_pr="variable '$gcv_var'"
-		eval "gcv_lines=\"\$${gcv_src}\""
-	else
-		gcv_f="${gcv_src:-"$CONF_FILE"}"
-		gcv_src_pr="file '$gcv_f'"
-		read_conf_file gcv_lines "$gcv_f" "$gcv_all_keys"
-	fi &&
-	[ "$gcv_lines" ] &&
+	[ "$scv_lines" ] &&
 	newifs "$_nl" gcv &&
-	for gcv_line in $gcv_lines; do
+	for scv_line in $scv_lines; do
 		oldifs gcv
-		case "$gcv_line" in
+		scv_var=
+		case "$scv_line" in
 			'') continue ;;
 			*=*=*) false ;;
 			*=*) : ;;
 			*) false
 		esac &&
-		gcv_key="${gcv_line%%=*}" &&
-		[ -n "$gcv_key" ] || { [ -n "$GCV_QUIET" ] || echolog -err "Invalid line '$gcv_line' in $gcv_src_pr."; gcv_fail=1; break; }
+		scv_key="${scv_line%%=*}" &&
+		[ -n "$scv_key" ] || { [ -n "$SCV_QUIET" ] || echolog -err "Invalid line '$scv_line' in $scv_src_pr."; scv_fail=1; break; }
 
-		if [ -z "$gcv_req_pairs" ]; then
-			gcv_var="$gcv_key"
+		if [ -z "$scv_req_pairs" ]; then
+			scv_var="$scv_key"
 		else
-			case "$gcv_req_pairs" in
-				*"=${gcv_key}")
-					gcv_var="${gcv_req_pairs%%"=$gcv_key"}" ;;
-				*"=${gcv_key} "*)
-					gcv_var="${gcv_req_pairs%%"=${gcv_key} "*}" ;;
+			case "$scv_req_pairs" in
+				*"=${scv_key}")
+					scv_var="${scv_req_pairs%%"=$scv_key"}" ;;
+				*"=${scv_key} "*)
+					scv_var="${scv_req_pairs%%"=${scv_key} "*}" ;;
 				*) false
 			esac || continue
-			gcv_var="${gcv_var##*" "}"
-			[ -n "$gcv_var" ]
+			scv_var="${scv_var##*" "}"
+			[ -n "$scv_var" ]
 		fi &&
-		is_alphanum "$gcv_var" &&
-		case "$gcv_set_cmd" in
-			eval) eval "${gcv_var}"='${gcv_line#*=}' ;;
-			export) export "${gcv_var}=${gcv_line#*=}" ;;
-		esac || { [ -n "$GCV_QUIET" ] || echolog -err "Failed to parse line '$gcv_line'."; gcv_fail=1; break; }
-		gcv_ok=1
-	done || gcv_fail=1
-
+		is_alphanum "$scv_var" &&
+		case "$scv_set_cmd" in
+			eval) eval "${scv_var}"='${scv_line#*=}' ;;
+			export) export "${scv_var}=${scv_line#*=}" ;;
+		esac || { [ -n "$SCV_QUIET" ] || echolog -err "Failed to parse line '$scv_line'."; scv_fail=1; break; }
+		scv_ok=1
+	done || scv_fail=1
 	oldifs gcv
 
-	[ -n "$gcv_ok" ] || {
-		[ -z "$gcv_fail" ] && [ -z "$GCV_QUIET" ] && echolog -err "No valid entries in $gcv_src_pr."
-		gcv_fail=1
+	[ -n "$scv_ok" ] || {
+		[ -z "$scv_fail" ] && [ -z "$SCV_QUIET" ] && echolog -err "No valid entries in $scv_src_pr."
+		scv_fail=1
 	}
 
-	[ -z "$gcv_fail" ] || {
+	[ -z "$scv_fail" ]
+}
+
+# Env vars:
+# EXPORT_CONF
+#
+# gets all config from file $1 or $CONF_FILE if unsecified, and assigns to vars named same as keys in the file
+# 0: (optional) -v to load from variable $2
+# 1: type
+# 2: var name or path to config/status file or empty for main cfg file
+# 3 (optional): list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
+parse_config() {
+	parse_fail() { echolog -err "$FAIL parse config $pco_src_pr."; }
+	unset pco_lines pco_from_var
+
+	if [ "$1" = '-v' ]; then
+		pco_from_var=1
+		pco_src="$2"
+		pco_type="$3"
+		pco_req_pairs="$4"
+		pco_src_pr="variable '$pco_src'"
+	else
+		pco_type="$1"
+		pco_src="$2"
+		pco_req_pairs="$3"
+		pco_f="${pco_src:-"$CONF_FILE"}"
+		pco_src_pr="file '$pco_f'"
+	fi
+
+	get_valid_keys pco_all_keys "$pco_type" || { parse_fail; die; }
+
+	if [ -n "$pco_from_var" ]; then
+		eval "pco_lines=\"\$${pco_src}\""
+	else
+		read_conf_file "" pco_lines "$pco_f" "$pco_all_keys"
+	fi &&
+	set_config_vars "$pco_src_pr" "$pco_lines" ||
+	{
+		parse_fail
 		[ ! "$nodie" ] && die
 		return 1
 	}
+
 	:
 }
 
-set_main_config() { setconfig main "$@"; }
+# Env vars:
+# RCF_IGNORE_MISSING_FILE
+# RCF_IGNORE_MISSING_KEYS
+#
+# 1: var name for old config output
+# 2: var name for new config output
+# 3: conf file path
+# 4: list of keys
+# extra args (optional): new key=value pairs to override old config
+read_conf_file() {
+	rcf_fail() { eval "${rcf_new_conf_var:-_}=''"; }
 
-# 1: type
-# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $CONF_FILE
-# if no '=' included, gets value of var with named the same as the key
-# if one of the value pairs is "target_file=[file]" then writes to $file instead
-setconfig() {
-	unset args_lines sc_args_target_f sc_target_f keys_test_str oldconfig newconfig
-	sc_type="$1"
-	shift
+	rcf_old_conf_var="$1" rcf_new_conf_var="$2" rcf_path="$3" rcf_valid_keys="$4"
 
-	get_valid_keys sc_all_keys "$sc_type" || { sc_failed; return 1; }
+	[ $# -ge 4 ] &&
+	case "$*" in *"$_nl"*|*"$delim"*) false ;; *) :; esac &&
+	[ -n "$rcf_new_conf_var" ] && [ -n "$rcf_path" ] && [ -n "$rcf_valid_keys" ] || { bad_args read_conf_file "$@"; rcf_fail; die; }
 
-	for argument_conf in "$@"; do
-		# separate by newline and process each line (support for multi-line args)
-		newifs "$_nl" sc
-		for line in $argument_conf; do
-			oldifs sc
-			[ ! "$line" ] && continue
-			case "$line" in
-				'') continue ;;
-				*[!A-Za-z0-9_]*=*) sc_failed "bad config line '$line'." ;;
-				*=*) key_conf="${line%%=*}"; value_conf="${line#*=}" ;;
-				*) key_conf="$line"; eval "value_conf=\"\$$line\"" || sc_failed "bad key '$line'."
-			esac
-			case "$key_conf" in
-				'') ;;
-				target_file) sc_args_target_f="$value_conf" ;;
-				*) args_lines="${args_lines}${key_conf}=$value_conf$_nl"
-					keys_test_str="${keys_test_str}\"${key_conf}=\"*|"
-			esac
-		done
+	shift 4
+
+	rcf_override_opts=
+	for rcf_opt in "$@"; do
+		[ -n "$rcf_opt" ] || continue
+		rcf_override_opts="${rcf_override_opts}${rcf_opt}${delim}"
 	done
-	oldifs sc
-	keys_test_str="${keys_test_str%\|}"
-	[ ! "$keys_test_str" ] && { sc_failed "no valid args passed."; return 1; }
-	sc_target_f="${sc_args_target_f:-$inst_root_gs$CONF_FILE}"
 
-	[ ! "$sc_target_f" ] && { sc_failed "'\$sc_target_f' variable is not set."; return 1; }
+	rcf_is_main=
+	[ "$rcf_path" = "$CONF_FILE" ] && rcf_is_main=1
 
-	[ -s "$sc_target_f" ] && {
-		RCF_IGNORE_MISSING=1 read_conf_file oldconfig "$sc_target_f" "$sc_all_keys" || { sc_failed "$FAIL read '$sc_target_f'."; return 1; }
+	[ ! -f "$rcf_path" ] && { echolog -err "Config/status file '$rcf_path' is missing!"; rcf_fail; return 1; }
+
+	# Config migration
+	# newline-separated list of options to migrate in the format <old_key=new_key>
+	rcf_migr_opts='
+		keep_mm_db=keep_fetched_db
+	'
+	[ -n "$rcf_is_main" ] && san_str rcf_migr_opts "" "$_nl" "$delim"
+
+	# check in cache first
+	rcf_conf=
+	[ "$rcf_path" = "$CONF_FILE" ] && rcf_conf="$main_config"
+
+	{ [ -n "$rcf_conf" ] || rcf_conf="$(cat "$rcf_path")" || [ -n "$RCF_IGNORE_MISSING_FILE" ]; } &&
+	{ [ -z "$rcf_old_conf_var" ] || eval "${rcf_old_conf_var:-_}"='$rcf_conf'; } &&
+
+	rcf_conf="$(
+		printf '%s\n' "$rcf_conf" |
+		$awk_cmd \
+				-v curr_conf="$rcf_conf" \
+				-v valid_keys="$rcf_valid_keys" \
+				-v is_main="$rcf_is_main" \
+				-v override_opts="$rcf_override_opts" \
+				-v migr_opts="$rcf_migr_opts" \
+				-v ignore_missing="$RCF_IGNORE_MISSING_KEYS" \
+				-v delim="$delim" \
+				-v path="$rcf_path" \
+			'
+			function san_spaces(line,san_delim) {
+				if (!san_delim) san_delim=" "
+				sub(/^[ 	]+/, "", line); sub(/[ 	]+$/, "", line); gsub(/[ 	]+/,san_delim,line); return line
+			}
+
+			BEGIN{
+				in_path_pr=" in file \"" path "\"."
+				rv=0
+
+				# array of override options
+				split(override_opts,override_tmp,delim)
+				for (el in override_tmp) {
+					line=san_spaces(override_tmp[el])
+					n=split(line,override_pair,"=")
+					if (n == 2) {
+						key=override_pair[1]
+						val=override_pair[2]
+						if (!key) continue
+						override_arr[key]=val
+					}
+				}
+
+				if (is_main) {
+					# array of migrated options
+					split(migr_opts,migr_tmp,delim)
+					for (el in migr_tmp) {
+						line=san_spaces(migr_tmp[el])
+						n=split(line,migr_pair,"=")
+						if (n == 2) {
+							old_k=migr_pair[1]
+							new_k=migr_pair[2]
+							if (!old_k || !new_k) continue
+							migr[old_k]=new_k
+						}
+					}
+				}
+
+				# regex valid keys, array of req keys
+				valid_keys=san_spaces(valid_keys, "|")
+				split(valid_keys,t_arr,"|")
+				for (el in t_arr) {
+					key=t_arr[el]; if (key && ! index(key,"*")) req_keys[key]
+				}
+				valid_keys= "^(" valid_keys ")$"
+
+			}
+
+			/^[ 	]*(#|$)/ {next}
+			{
+				$0=san_spaces($0)
+				n=split($0,pair,"=")
+
+				key=pair[1]
+				if (is_main && key in migr) key=migr[key]
+				key_pr=" key \"" key "\""
+
+				val=pair[2]
+				if (key in override_arr) { override_seen[key]=1; val=override_arr[key] }
+
+				if (n == 2 && key ~ /^[a-zA-Z0-9_]+$/ && val !~ /.*[$()"`'\''].*/) {}
+					else {print "Failed to parse line \"" $0 "\"" in_path_pr; rv=1; exit}
+				if (seen_keys[key] == 1) {print "Duplicate" key_pr in_path_pr; rv=1; exit}
+				if (key ~ valid_keys) {seen_keys[key]=1; req_keys[key]=1; out = out key "=" val "\n"}
+					else {print "\nWarning: Ignoring unknown" key_pr in_path_pr > "/dev/stderr"}
+			}
+
+			END {
+				if (rv == 1) exit 1
+				for (key in override_arr) { if (! override_seen[key]) out = out key "=" override_arr[key] "\n" }
+				if (ignore_missing) {print out; exit 0}
+				for (key in req_keys) {if (req_keys[key] != 1) {print "Missing key \"" key "\"" in_path_pr; exit 1} }
+				print out
+				exit 0
+			}
+		'
+	)" || {
+		echolog -err "$rcf_conf"
+		rcf_fail
+		return 1
 	}
 
-	# join old and new config
-	newifs "$_nl" sc
-	for config_line in $oldconfig; do
-		eval "case \"\$config_line\" in
-				''|$keys_test_str) ;;
-				*) newconfig="'$newconfig$config_line$_nl'"
-			esac"
-	done
-	oldifs sc
-	newconfig="$newconfig$args_lines"
+	[ -n "$rcf_is_main" ] && {
+		main_config="$rcf_conf"
+		[ "$EXPORT_CONF" ] && export main_config
+	}
+
+	eval "$rcf_new_conf_var"='$rcf_conf'
+	:
+}
+
+set_main_config() { setconfig main "" "$@"; }
+
+# 1: type
+# 2: file path
+# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $CONF_FILE
+setconfig() {
+	sc_failed() { echolog -err "setconfig failed${1:+": $1"}"; [ ! "$nodie" ] && die; }
+
+	unset oldconfig newconfig
+	sc_type="$1" sc_path="$2"
+	shift 2
+
+	: "${sc_path:=$inst_root_gs$CONF_FILE}"
+
+	[ "$sc_path" ] || { sc_failed "'\$sc_path' variable is not set."; die; }
+
+	get_valid_keys sc_all_keys "$sc_type" || { sc_failed; die; }
+
+	RCF_IGNORE_MISSING_FILE=1 RCF_IGNORE_MISSING_KEYS=1 read_conf_file oldconfig newconfig "$sc_path" "$sc_all_keys" "$@" &&
+	[ "$sc_path" != "${CONF_FILE}" ] || set_config_vars "file '$sc_path'" "$newconfig" ||
+		{ sc_failed "$FAIL process config from file '$sc_path'."; return 1; }
+
 	# don't write to file if config didn't change
-	[ -f "$sc_target_f" ] && old_conf_exists=1 || old_conf_exists=
-	if [ ! "$old_conf_exists" ] || ! compare_file2str "$sc_target_f" "$newconfig"; then
-		[ "$sc_target_f" = "$CONF_FILE" ] && printf %s "Updating the config file... " >&2
-		printf %s "$newconfig" > "$sc_target_f" || { sc_failed "$FAIL write to '$sc_target_f'"; return 1; }
-		[ "$sc_target_f" = "$CONF_FILE" ] && OK >&2
+	[ -f "$sc_path" ] && old_conf_exists=1 || old_conf_exists=
+	if [ ! "$old_conf_exists" ] || ! compare_file2str "$sc_path" "$newconfig"; then
+		[ "$sc_path" = "$CONF_FILE" ] && printf_s "Updating the config file... " >&2
+		printf '%s\n' "$newconfig" > "$sc_path" || { sc_failed "$FAIL write to '$sc_path'"; return 1; }
+		[ "$sc_path" = "$CONF_FILE" ] && OK >&2
 	fi
 
-	[ "$sc_target_f" = "$CONF_FILE" ] && {
+	[ "$sc_path" = "$CONF_FILE" ] && {
 		export main_config="$newconfig"
 		[ ! "$old_conf_exists" ] && {
 			chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" ||
@@ -745,12 +774,14 @@ setconfig() {
 }
 
 set_all_config() {
-	set_main_config $ALL_CONF_VARS
-}
-
-sc_failed() {
-	echolog -err "setconfig: $1"
-	[ ! "$nodie" ] && die
+	for sac_var in $ALL_CONF_VARS; do
+		eval "sac_val=\"\${$sac_var}\""
+		sac_entries="${sac_entries}${sac_var}=${sac_val}${_nl}"
+	done
+	newifs "$_nl" sac
+	set -- ${sac_entries%"$_nl"}
+	oldifs sac
+	set_main_config "$@"
 }
 
 bad_args() {
@@ -771,7 +802,7 @@ getstatus() {
 		[ ! "$nodie" ] && die
 		return 1
 	}
-	RCF_IGNORE_MISSING=1 nodie=1 get_config_vars "$1" "$2"
+	RCF_IGNORE_MISSING_KEYS=1 nodie=1 parse_config "$1" "$2"
 }
 
 # utilizes setconfig() for writing to status files
@@ -779,14 +810,16 @@ getstatus() {
 # 2: path to the status file
 # extra args are passed as is to setconfig
 setstatus() {
-	st_type="$1" target_file="$2"
+	st_type="$1" st_file="$2"
 	shift 2
-	[ ! "$target_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
-	[ ! -d "${target_file%/*}" ] && mkdir -p "${target_file%/*}" &&
-		[ "$ROOT_OK" = 1 ] && chmod -R 600 "${target_file%/*}"
-	[ ! -f "$target_file" ] && touch "$target_file" &&
-		[ "$ROOT_OK" = 1 ] && chmod 600 "$target_file"
-	setconfig "$st_type" target_file="$target_file" "$@"
+	[ ! "$st_file" ] && { echolog -err "setstatus: target file not specified!"; [ ! "$nodie" ] && die; return 1; }
+	[ ! -d "${st_file%/*}" ] && mkdir -p "${st_file%/*}" &&
+		[ "$ROOT_OK" = 1 ] && chmod -R 600 "${st_file%/*}"
+	[ -f "$st_file" ] || touch "$st_file" &&
+		[ "$ROOT_OK" = 1 ] && chmod 600 "$st_file"
+	setconfig "$st_type" "$st_file" "$@" && return 0
+	rm -f "$st_file"
+	return 1
 }
 
 awk_cmp() {
@@ -1177,7 +1210,7 @@ check_lists_coherence() {
 	debugprint "Verifying IP lists coherence..."
 
 	[ -n "$no_reload_conf" ] || main_config=
-	nodie=1 get_config_vars main || { r_no_l; return 1; }
+	nodie=1 parse_config main || { r_no_l; return 1; }
 
 	iplists_incoherent=
 	for direction in inbound outbound; do
@@ -1284,7 +1317,7 @@ rm_iplists_rules() {
 load_exclusions() {
 	[ -n "$EXCL_FILE_LISTS" ] && return 0
 	[ -s "$EXCL_FILE" ] &&
-		nodie=1 get_config_vars exclusions "$EXCL_FILE" "EXCL_FILE_LISTS=exclude_iplists" &&
+		nodie=1 parse_config exclusions "$EXCL_FILE" "EXCL_FILE_LISTS=exclude_iplists" &&
 			export EXCL_FILE_LISTS || { echolog -err "$FAIL read the exclusions file '$EXCL_FILE'."; return 1; }
 }
 
@@ -1296,7 +1329,7 @@ load_cca2() {
 	done
 	[ -n "$cca2_found" ] || { echolog -err "Can not find cca2.list or it is empty."; return 1; }
 
-	export_conf=1 getstatus cca2 "$cca2_path" || return 1
+	EXPORT_CONF=1 getstatus cca2 "$cca2_path" || return 1
 	export ${VALID_REGISTRIES?} \
 		ALL_CCODES="$RIPENCC $ARIN $APNIC $AFRINIC $LACNIC"
 }
@@ -1630,7 +1663,7 @@ get_counters() {
 	case "$_fw_backend" in
 		ipt) get_counters_ipt ;;
 		nft) get_counters_nft
-	esac && [ "$counter_strings" ] && export_conf=1 nodie=1 get_config_vars -v counter_strings counters && counters_set=1
+	esac && [ "$counter_strings" ] && EXPORT_CONF=1 nodie=1 parse_config -v counter_strings counters && counters_set=1
 	# debugprint "counter strings:${_nl}$counter_strings"
 	:
 }
