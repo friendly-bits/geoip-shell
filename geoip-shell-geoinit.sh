@@ -10,7 +10,7 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.8.0-pre4"
+curr_ver="0.8.0-pre5"
 
 set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
 set -f
@@ -25,12 +25,12 @@ export default_IFS="	 $_nl"
 check_common_deps
 check_shell
 
-if [ "$root_ok" ] || [ "$(id -u)" = 0 ]; then
-	export root_ok=1 \
+if [ "$ROOT_OK" = 1 ] || [ "$(id -u)" = 0 ]; then
+	export ROOT_OK=1 \
 		GEOTEMP_DIR="/tmp/$p_name-tmp" \
 		GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run"}"
 else
-	export \
+	export ROOT_OK=0 \
 		GEOTEMP_DIR="/tmp/$p_name-tmp-noroot" \
 		GEORUN_DIR="${GEORUN_DIR:-"/tmp/$p_name-run-noroot"}"
 fi
