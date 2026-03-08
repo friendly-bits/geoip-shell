@@ -825,7 +825,7 @@ if [ "$status_file" ]; then
 	get_a_arr_keys list_date_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val list_date_arr "$list_id" prev_date
-		list_dates_str="${list_dates_str}prev_date_${list_id}_${dl_src}=$prev_date$_nl"
+		list_dates_str="${list_dates_str}prev_date_${list_id}_${dl_src}=${prev_date}${_nl}"
 	done
 
 	ips_cnt_str=
@@ -833,15 +833,14 @@ if [ "$status_file" ]; then
 	get_a_arr_keys entries_cnt_arr list_ids
 	for list_id in $list_ids; do
 		get_a_arr_val entries_cnt_arr "$list_id" entries_cnt
-		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}_${dl_src}=$entries_cnt$_nl"
+		ips_cnt_str="${ips_cnt_str}prev_ips_cnt_${list_id}_${dl_src}=${entries_cnt}${_nl}"
 	done
 
 	[ "$ips_cnt_str" ] || [ "$list_dates_str" ] && {
-		setstatus main_status "$status_file" "$list_dates_str" "$ips_cnt_str" || die_f "$FAIL write to file '$status_file'."
-		[ "$ROOT_OK" = 1 ] && [ "$datadir" ] &&
-			case "$status_file" in "$datadir"*)
-				chmod 600 "$status_file" && chown -R root:root "$status_file"
-			esac
+		newifs "$_nl" fetch
+		set -- ${ips_cnt_str}${list_dates_str}
+		oldifs fetch
+		setstatus main_status "$status_file" "$@" || die_f "$FAIL write to file '$status_file'."
 	}
 fi
 
