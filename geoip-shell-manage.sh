@@ -371,7 +371,7 @@ restore_from_config() {
 		prev_config_try=1
 		export main_config="$prev_config"
 
-		if nodie=1 export_conf=1 get_config_vars main && _prev="previous " &&
+		if nodie=1 EXPORT_CONF=1 parse_config main && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
 				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
 					restore_from_config && { set_all_config; return 0; }
@@ -383,7 +383,7 @@ restore_from_config() {
 	# recover from backup
 	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && {
 		unset main_config
-		get_config_vars main
+		parse_config main
 		check_lists_coherence && return 0
 	}
 
@@ -518,7 +518,7 @@ rm_conf=
 
 #### Load config
 [ "$conf_file_found" ] && [ ! "$rm_conf" ] &&
-	nodie=1 export_conf=1 get_config_vars main || {
+	nodie=1 EXPORT_CONF=1 parse_config main || {
 		rm -f "$CONF_FILE"
 		rm_data
 		main_config=
@@ -715,7 +715,7 @@ case "$conf_act" in
 		call_script "$i_script-apply.sh" restore
 		rv_conf=$?
 		main_config=
-		nodie=1 export_conf=1 get_config_vars main || rv_conf=1
+		nodie=1 EXPORT_CONF=1 parse_config main || rv_conf=1
 		;;
 	'') rv_conf=0 ;;
 esac
@@ -752,7 +752,7 @@ case "$rv_conf" in
 	254)
 		echolog "Restoring previous config."
 		main_config="$prev_config"
-		nodie=1 export_conf=1 get_config_vars main && check_lists_coherence ||
+		nodie=1 EXPORT_CONF=1 parse_config main && check_lists_coherence ||
 			{
 				_prev="previous "
 				prev_config_try=1
