@@ -41,11 +41,12 @@ done || _fw_backend=''
 [ "$_fw_backend" ] && source_lib "$_fw_backend" ||
 	echolog -err "$FAIL load the firewall-specific library. Cannot remove firewall rules."
 
-: "${CONF_DIR:=/etc/$p_name}"
+: "${CONF_DIR:="/etc/$p_name"}"
+: "${GEORUN_DIR:="/tmp/$p_name-run"}"
 [ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
-[ -s "$CONF_FILE" ] && nodie=1 get_main_config datadir
-: "${datadir:="$GEORUN_DIR/data"}"
-[ -s "$CONF_FILE" ] && nodie=1 get_main_config local_iplists_dir
+
+[ -s "$CONF_FILE" ] && nodie=1 getconfig main "" datadir local_iplits_dir
+: "${datadir:="${GEORUN_DIR}/data"}"
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
 rm_setupdone
