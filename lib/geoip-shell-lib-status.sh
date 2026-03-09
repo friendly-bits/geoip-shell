@@ -287,7 +287,7 @@ report_status() {
 		report_fw_state "$direction"
 
 		[ "$verb_mode" ] && {
-			load_exclusions
+			get_exclusions excl_lists country
 			printf %s "  IP ranges count in active $direction geoblocking sets: "
 			case "$active_ccodes" in
 				'') printf '%s\n' "${red}None $_X"; incr_issues ;;
@@ -302,7 +302,7 @@ report_status() {
 							list_empty=
 							eval "el_cnt=\"\${${list_id}_el_cnt}\""
 							[ "$el_cnt" = 0 ] && {
-								if is_included "$list_id" "$EXCL_FILE_LISTS"; then
+								if is_included "$list_id" "$excl_lists"; then
 									list_empty=" (excluded)"
 								else
 									list_empty=" $_X"
