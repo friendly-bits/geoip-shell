@@ -33,6 +33,7 @@ report_proto() {
 					icmp) ports="${green}all ${1} traffic" ;;
 				esac ;;
 			*"!dport"*) p_sel="${yellow}only destination ports "; ports="${blue}${ports}${n_c}" ;;
+			'') proto_act="${red}UNKNOWN ${_X}"; incr_issues ;;
 			*) p_sel="${yellow}all destination ports except "; ports="${blue}${ports}${n_c}"
 		esac
 
@@ -40,7 +41,7 @@ report_proto() {
 			debugprint "\$proto_exp: '$proto_exp', \$proto_act: '$proto_act', \$ports: '$ports$n_c'."
 			die "$FAIL get ports from the config, or the config is invalid."
 		}
-		[ ! "$proto_act" ] && proto_act="Geoblocking "
+		: "${proto_act="Geoblocking "}"
 		printf '%s\n' "  ${proto}: ${spacer}${proto_act}${p_sel}${ports}${n_c}"
 	done
 }
@@ -57,21 +58,21 @@ report_status() {
 
 	case "$_fw_backend" in
 		ipt|nft) _fw="$blue${_fw_backend}ables$n_c" ;;
-		*) _fw="${red}Not set $_X"; incr_issues
+		*) _fw="${red}UNKNOWN $_X"; incr_issues
 	esac
 
 	printf '\n%s\n%s\n' "Firewall backend: $_fw" "IP lists source: ${blue}${geosource}${n_c}"
 
 	check_lists_coherence && lists_coherent=" $_V" || { incr_issues; lists_coherent=" $_Q"; }
 
-	[ "$ifaces" ] && _ifaces_r="${blue}$ifaces$n_c" || { _ifaces_r="${red}Not set $_X"; incr_issues; }
+	[ "$ifaces" ] && _ifaces_r="${blue}$ifaces$n_c" || { _ifaces_r="${red}UNKNOWN $_X"; incr_issues; }
 	printf '%s\n' "Geoblocking rules applied to network interfaces: $_ifaces_r"
 
 	blocking_disabled=
 	[ "$inbound_geomode" = disable ] && [ "$outbound_geomode" = disable ] && blocking_disabled=1
 
 	if [ "$_fw_backend" = nft ]; then
-		[ ! "$nft_perf" ] && { nft_perf="${red}Not set $_X"; incr_issues; }
+		[ ! "$nft_perf" ] && { nft_perf="${red}UNKNOWN $_X"; incr_issues; }
 		printf '%s\n' "nftables sets optimization policy: ${blue}$nft_perf$n_c"
 	fi
 
