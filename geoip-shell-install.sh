@@ -79,11 +79,11 @@ check_files() {
 	err=0
 	for dep_file in $1; do
 		if [ "$dep_file" ] && [ ! -s "$dep_file" ]; then
-			missing_files="${missing_files}'$dep_file', "
+			missing_files="${missing_files}${dep_file}${_nl}"
 			err=$((err+1))
 		fi
 	done
-	missing_files="${missing_files%, }"
+	missing_files="${missing_files%"${_nl}"}"
 	return "$err"
 }
 
@@ -398,7 +398,7 @@ elif [ \"\$posix_o_set\" = 1 ]; then
 	set -o posix
 fi"
 
-	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_common_deps${_nl}check_shell"
+	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_shell"
 	_fw_backend_def=all
 }
 
@@ -429,12 +429,13 @@ for f in "$owrt_init" "$owrt_fw_include" "$owrt_mk_fw_inc"; do
 	owrt_script_files="$owrt_script_files${script_dir}/${f} "
 done
 
-
 #### CHECKS
-printf %s "Checking files... "
-check_files "$script_files $lib_files $script_dir/cca2.list $owrt_script_files" ||
-	die "missing files: $missing_files."
+printf_s "Checking files... "
+check_files "$script_files $lib_files $script_dir/cca2.list $owrt_script_files" || {
+	die "missing files:${_nl}${missing_files}."
+}
 OK
+
 
 #### MAIN
 
@@ -451,7 +452,10 @@ add_file "$tmp_dir/${p_name}.const" "$CONF_DIR/${p_name}.const" 600
 
 export PATH initsys use_shell="$curr_sh_g"
 
+
 # create the -geoinit script
+common_deps="grep tr cut sort wc awk sed logger pgrep pidof"
+
 cat <<EOF > "$tmp_dir/$p_name-geoinit.sh" || preinstall_failed "$FAIL create file '$tmp_dir/$p_name-geoinit.sh'."
 #!$curr_sh_g
 
@@ -469,17 +473,23 @@ export default_IFS="	 \$_nl" \\
 	CONF_DIR="/etc/\$p_name" \\
 	INSTALL_DIR="/usr/bin" \\
 	LIB_DIR="/usr/lib/\$p_name"
+IFS="\$default_IFS"
 
 export _lib="\$LIB_DIR/\$p_name-lib" i_script="\$INSTALL_DIR/\$p_name"
+
+for dep in $common_deps; do
+	hash "\$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
+done
+
 ${init_non_owrt:+"${_nl}${init_non_owrt}"}
 
 if [ "\$ROOT_OK" = 1 ] || [ "\$(id -u)" = 0 ]; then
-	export ROOT_OK=1 \
-		GEOTEMP_DIR="/tmp/\$p_name-tmp" \
+	export ROOT_OK=1 \\
+		GEOTEMP_DIR="/tmp/\$p_name-tmp" \\
 		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run"}"
 else
-	export ROOT_OK=0 \
-		GEOTEMP_DIR="/tmp/\$p_name-tmp-noroot" \
+	export ROOT_OK=0 \\
+		GEOTEMP_DIR="/tmp/\$p_name-tmp-noroot" \\
 		GEORUN_DIR="\${GEORUN_DIR:-"/tmp/\$p_name-run-noroot"}"
 fi
 
@@ -494,7 +504,7 @@ export LOCK_FILE="\$GEORUN_DIR/lock" \\
 
 export _fw_backend
 in_configure=
-${set_owrt_install:+"${_nl}${set_owrt_uninstall}"}
+${set_owrt_install:+"${_nl}${set_owrt_install}"}
 . "\${_lib}-common.sh" || exit 1
 
 [ "\$fwbe_ok" ] || [ "\$ROOT_OK" != 1 ] && return 0
