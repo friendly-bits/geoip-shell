@@ -10,7 +10,7 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.8.0-pre6"
+curr_ver="0.8.0-pre7"
 
 set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
 set -f
