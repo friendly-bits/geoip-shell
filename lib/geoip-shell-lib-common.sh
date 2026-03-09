@@ -487,16 +487,32 @@ getconfig() {
 	}
 }
 
+# 3 (optional): space-separated list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
 set_config_vars() {
 	unset scv_ok scv_fail
 
-	scv_src_pr="$1" scv_lines="$2"
+	scv_src_pr="$1" scv_lines="$2" scv_req_pairs="$3"
 
 	[ "$scv_lines" ] &&
 	newifs "$_nl" gcv &&
 	for scv_line in $scv_lines; do
+		[ -n "$scv_line" ] || continue
 		oldifs gcv
-		scv_var="${scv_line%%=*}"
+		scv_key="${scv_line%%=*}"
+
+		if [ -z "$scv_req_pairs" ]; then
+			scv_var="$scv_key"
+		else
+			case "$scv_req_pairs" in
+				*"=${scv_key}")
+					scv_var="${scv_req_pairs%%"=$scv_key"}" ;;
+				*"=${scv_key} "*)
+					scv_var="${scv_req_pairs%%"=${scv_key} "*}" ;;
+				*) false
+			esac || continue
+			scv_var="${scv_var##*" "}"
+		fi
+
 		[ -n "$scv_var" ] &&
 		is_alphanum "$scv_var" &&
 		if [ "$EXPORT_CONF" ]; then
@@ -525,7 +541,7 @@ set_config_vars() {
 # 2: var name or path to config/status file or empty for main cfg file
 # 3 (optional): list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
 parse_config() {
-	parse_fail() { echolog -err "$FAIL parse config $pco_src_pr."; }
+	parse_fail() { echolog -err "$FAIL parse $pco_src_pr."; }
 	unset pco_lines pco_from_var
 
 	if [ "$1" = '-v' ]; then
@@ -547,7 +563,7 @@ parse_config() {
 	else
 		read_conf_file "" pco_lines "$pco_f" "$pco_type"
 	fi &&
-	set_config_vars "$pco_src_pr" "$pco_lines" ||
+	set_config_vars "$pco_src_pr" "$pco_lines" "$pco_req_pairs" ||
 	{
 		parse_fail
 		[ ! "$nodie" ] && die
@@ -576,7 +592,7 @@ read_conf_file() {
 	[ -n "$rcf_new_conf_var" ] && [ -n "$rcf_path" ] && [ -n "$rcf_type" ] &&
 	case "$rcf_type" in
 		main) rcf_valid_keys="$ALL_CONF_VARS" ;;
-		exclusions) rcf_valid_keys=exclude_iplists ;;
+		exclusions) rcf_valid_keys="exclude_iplists_country exclude_iplists_asn" ;;
 		cca2) rcf_valid_keys="$VALID_REGISTRIES" ;;
 		main_status) rcf_valid_keys="last_update prev_date_[a-zA-Z0-9_]* prev_ips_cnt_[a-zA-Z0-9_]*" ;;
 		fetch_res) rcf_valid_keys="fetched_lists failed_lists" ;;
@@ -662,12 +678,12 @@ read_conf_file() {
 				}
 
 				# regex valid keys, array of req keys
-				valid_keys=san_spaces(valid_keys, "|")
-				split(valid_keys,t_arr,"|")
+				keys_regex=san_spaces(valid_keys, "|")
+				split(keys_regex,t_arr,"|")
 				for (el in t_arr) {
 					key=t_arr[el]; if (key && ! index(key,"*")) req_keys[key]
 				}
-				valid_keys= "^(" valid_keys ")$"
+				keys_regex= "^(" keys_regex ")$"
 
 			}
 
@@ -686,7 +702,7 @@ read_conf_file() {
 				if (n == 2 && key ~ /^[a-zA-Z0-9_]+$/ && val !~ /.*[$()"`'\''].*/) {}
 					else {print "Failed to parse line \"" $0 "\"" in_path_pr; rv=1; exit}
 				if (seen_keys[key] == 1) {print "Duplicate" key_pr in_path_pr; rv=1; exit}
-				if (key ~ valid_keys) {seen_keys[key]=1; req_keys[key]=1; out = out key "=" val "\n"}
+				if (key ~ keys_regex) {seen_keys[key]=1; req_keys[key]=1; out = out key "=" val "\n"}
 					else {print "\nWarning: Ignoring unknown" key_pr in_path_pr > "/dev/stderr"}
 			}
 
@@ -1145,19 +1161,19 @@ get_active_iplists() {
 	nl2sp ipset_iplists_sp "$ipset_iplists"
 	nl2sp fwrules_iplists_sp "$fwrules_iplists"
 
-	load_exclusions
+	get_exclusions excl_lists country
 
 	inc=0
 	subtract_a_from_b "$ipset_iplists_sp" "$exp_iplists_gai" missing_ipsets ||
 		ignore_allow missing_ipsets ipset_iplists_sp "$direction" ||
-		subtract_a_from_b "$EXCL_FILE_LISTS" "$missing_ipsets" missing_ipsets || inc=1
+		subtract_a_from_b "$excl_lists" "$missing_ipsets" missing_ipsets || inc=1
 
 	subtract_a_from_b "$exp_iplists_gai" "$fwrules_iplists_sp" unexpected_lists ||
 		ignore_allow unexpected_lists exp_iplists_gai "$direction"|| inc=1
 
 	subtract_a_from_b "$fwrules_iplists_sp" "$exp_iplists_gai" missing_lists ||
 		ignore_allow missing_lists fwrules_iplists_sp "$direction" ||
-		subtract_a_from_b "$EXCL_FILE_LISTS" "$missing_lists" missing_lists || inc=1
+		subtract_a_from_b "$excl_lists" "$missing_lists" missing_lists || inc=1
 
 	get_intersection "$ipset_iplists" "$fwrules_iplists" active_iplists_nl "$_nl"
 	nl2sp "$gai_out_var" "$active_iplists_nl"
@@ -1284,11 +1300,17 @@ rm_iplists_rules() {
 	:
 }
 
-load_exclusions() {
-	[ -n "$EXCL_FILE_LISTS" ] && return 0
-	[ -s "$EXCL_FILE" ] &&
-		nodie=1 parse_config exclusions "$EXCL_FILE" "EXCL_FILE_LISTS=exclude_iplists" &&
-			export EXCL_FILE_LISTS || { echolog -err "$FAIL read the exclusions file '$EXCL_FILE'."; return 1; }
+get_exclusions() {
+	case "$2" in country|asn) : ;; *) bad_args get_exclusions "$@"; return 1; esac
+	eval "ge_lists=\${EXCL_LISTS_${2}}"
+	[ "$ge_lists" ] ||
+	{
+		[ -s "$EXCL_FILE" ] &&
+			nodie=1 parse_config exclusions "$EXCL_FILE" "ge_lists=exclude_iplists_${2}"
+	} &&
+	export "EXCL_LISTS_${2}=$ge_lists" &&
+	eval "$1"='$ge_lists' ||
+		{ echolog -err "$FAIL get exclusions from file '$EXCL_FILE'."; return 1; }
 }
 
 load_cca2() {
@@ -1302,18 +1324,6 @@ load_cca2() {
 	EXPORT_CONF=1 getstatus cca2 "$cca2_path" || return 1
 	export ${VALID_REGISTRIES?} \
 		ALL_CCODES="$RIPENCC $ARIN $APNIC $AFRINIC $LACNIC"
-}
-
-is_valid_list() {
-	case "$1" in
-		asn|country) ;;
-		*) bad_args is_valid_list "$@"; die
-	esac
-	case "$2" in
-		[A-Z][A-Z]_ipv[46]) return 0
-	esac
-	echolog -err "Invalid list ID '$2' for type '$1'."
-	return 1
 }
 
 validate_ccode() {
@@ -1337,17 +1347,35 @@ san_list_ids() {
 	eval "$sli_out_var="
 	case "$sli_type" in
 		country)
-			load_exclusions || return 1
 			[ -n "$ALL_CCODES" ] || die "san_list_ids: \$ALL_CCODES is empty."
-			val_prefixes="$ALL_CCODES" ;;
-		asn) val_prefixes="" ;; # TODO
+			val_prefixes="$ALL_CCODES"
+			prefix_case="uc"
+			val_suffixes="ipv[46]"
+			suffix_case="lc"
+			sli_id_delim=_ ;;
+		asn)
+			val_prefixes=""
+			prefix_case="lc"
+			val_suffixes="AS[0-9]+"
+			suffix_case="uc"
+			sli_id_delim='' ;;
 		*) bad_args san_list_ids "$@"; die ;;
 	esac
+	get_exclusions excl_lists "$sli_type" || return 1
 
 	dir_mk -n "${excl_reg_file%/*}" || return 1
 	rm -f "$excl_reg_file"
 	res_ids="$(
-		$awk_cmd -v main_ids_str="$sli_lists" -v val_prefixes="$val_prefixes" -v excl_ids_str="$EXCL_FILE_LISTS" -v excl_reg_file="$excl_reg_file" '
+		$awk_cmd \
+			-v main_ids_str="$sli_lists" \
+			-v val_prefixes="$val_prefixes" \
+			-v prefix_case="$prefix_case" \
+			-v val_suffixes="$val_suffixes" \
+			-v suffix_case="$suffix_case" \
+			-v id_delim="$sli_id_delim" \
+			-v excl_ids_str="$excl_lists" \
+			-v excl_reg_file="$excl_reg_file" \
+			'
 			function san_spaces(line,san_delim) {
 				if (!san_delim) san_delim=" "
 				sub(/^[ 	]+/, "", line); sub(/[ 	]+$/, "", line); gsub(/[ 	]+/,san_delim,line); return line
@@ -1363,12 +1391,22 @@ san_list_ids() {
 				for (i=1; i <= cnt; i++) {
 					uc_id=ids_arr_uc[i]
 					lc_id=ids_arr_lc[i]
-					match(uc_id,"_")
-					prefix=substr(uc_id,1,RSTART-1)
-					fml=substr(lc_id,RSTART+RLENGTH)
-					id = prefix "_" fml
-					if ( prefix !~ val_prefixes || fml !~ /^ipv[46]$/ ) {
-						if (type == "main") {bad_cnt=i; bad_ids[i]=ids_arr_orig[i]; rv=1}
+
+					match(ids_str,id_delim)
+
+					if (prefix_case == "lc") prefix=substr(lc_id,1,RSTART-1)
+					else prefix=substr(uc_id,1,RSTART-1)
+
+					if (suffix_case == "lc") suffix=substr(lc_id,RSTART+RLENGTH)
+					else suffix=substr(uc_id,RSTART+RLENGTH)
+
+					id = prefix id_delim suffix
+					if ( id !~ val_regex ) {
+						if (type == "main") {
+							bad_cnt=i
+							bad_ids[i]=ids_arr_orig[i]
+							rv=1
+						}
 					}
 					else if (!seen[id]) {
 						seen[id]=1
@@ -1385,7 +1423,9 @@ san_list_ids() {
 				i=0
 				e=0
 				main_cnt=0
-				val_prefixes="^" san_spaces(val_prefixes,"|") "$"
+				if (val_prefixes) prefix_regex = "(" san_spaces(val_prefixes,"|") ")"
+				if (val_suffixes) suffix_regex = "(" san_spaces(val_suffixes,"|") ")"
+				val_regex = "^" prefix_regex id_delim suffix_regex "$"
 
 				norm_ids(excl_ids_str,"excl")
 				norm_ids(main_ids_str,"main")
@@ -1421,7 +1461,7 @@ san_list_ids() {
 	}
 	rm -f "$excl_reg_file"
 	res_ids="${res_ids% }"
-	echolog -err "Invalid list ID's '${res_ids:-"$sli_lists"}' or no list ID's specified."
+	echolog -err "Invalid $sli_type list ID's '${res_ids:-"$sli_lists"}' or no list ID's specified."
 	return 1
 }
 
