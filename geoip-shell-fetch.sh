@@ -514,7 +514,7 @@ fetch_ipinfo_maxmind() {
 		preparsed_db="$FETCH_TMP_DIR/${p_name}_preparsed_${dl_src}-${family}.gz.tmp"
 		for ccode in $ccodes_need_update; do
 			list_id="${ccode}_${family}"
-			is_included "$list_id" "$EXCL_FILE_LISTS" && continue
+			is_included "$list_id" "$excl_lists" && continue
 			parsed_list="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
 
@@ -539,7 +539,7 @@ process_ccode() {
 	fetched_path_prefix="${FETCH_TMP_DIR:?}/${p_name}_fetched-"
 	for family in $families; do
 		list_id="${curr_ccode}_${family}"
-		is_included "$list_id" "$EXCL_FILE_LISTS" && continue
+		is_included "$list_id" "$excl_lists" && continue
 
 		rm_fetched_list_id=
 		case "$dl_src" in
@@ -701,8 +701,9 @@ toupper dl_src_cap "$dl_src"
 
 
 #### List ID's
+get_exclusions excl_lists "$src_type"
 [ "$src_type" != country ] || load_cca2 "$script_dir/cca2.list" || die_f
-san_list_ids san_lists "$lists_arg" "$src_type" "$EXCL_FILE_LISTS" || die_f
+san_list_ids san_lists "$lists_arg" "$src_type" "$excl_lists" || die_f
 unset failed_lists fetched_lists
 case "$src_type" in
 	country)
@@ -710,10 +711,6 @@ case "$src_type" in
 		# populates $registries, fetch_lists_arr
 		group_lists_by_registry
 		[ "$registries" ] || die_f "$FAIL determine relevant regions." ;;
-	asn)
-		for list_id in ${lists_arg}; do
-			is_valid_list asn "$list_id" || exit 1
-		done
 esac
 
 #### Output dirs
