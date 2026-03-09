@@ -45,6 +45,8 @@ debugexitmsg() {
 	toupper me_short_cap "$me_short"
 	printf '%s\n' "${yellow}Back to *$blue$me_short_cap$yellow*...${n_c}" >&2
 }
+
+is_def_ifs() { idi_rv=$?; [ "$IFS" = "$default_IFS" ] && echo "${1}${1:+: }DEF_IFS:YES" || echo "${1}${1:+: }DEF_IFS:NO"; return $idi_rv; }
 #@
 
 bad_args() {
@@ -110,6 +112,7 @@ newifs() {
 # restore IFS value from variable tagged $1
 oldifs() {
 	eval "IFS=\"\$IFS_OLD_$1\""
+	[ -n "$IFS" ] || { IFS="$default_IFS"; echolog -err "Internal error: old IFS for '$1' is not set."; }
 }
 
 is_root_ok() {
@@ -140,7 +143,7 @@ checkutil() {
 checkvars() {
 	for chkvar; do
 		eval "[ -n \"\$$chkvar\" ]" || {
-			logger -s -t "${me:-"$p_name"}" -p user.err "Error: The '\$$chkvar' variable is unset."
+			echolog -err "The '\$$chkvar' variable is unset."
 			exit 1
 		}
 	done
@@ -303,11 +306,16 @@ call_script() {
 
 source_lib() {
 	[ -n "$1" ] || { bad_args source_lib "$@"; return 1; }
-	src_file="${p_name}-lib-${1}.sh"
+	sl_name="$1"
+	is_included "$sl_name" "$SL_SOURCED" && { debugprint "Already sourced: '$sl_name'"; return 0; }
+	src_file="${p_name}-lib-${sl_name}.sh"
 	shift
 	[ -n "$*" ] || set -- "$LIB_DIR"
 	for dir in "$@"; do
-		[ -f "$dir/$src_file" ] && . "$dir/$src_file" && return 0
+		[ -f "$dir/$src_file" ] && {
+			debugprint "Sourcing '$sl_name'"
+			. "$dir/$src_file" && { add2list SL_SOURCED "$sl_name"; return 0; }
+		}
 	done
 	echolog -err "Failed to source '$src_file'."
 	return 1
@@ -479,7 +487,6 @@ getconfig() {
 		gc_query="${gc_query}${gc_query:+ }${gc_var}=${gc_var}"
 	done
 
-
 	nodie=1 parse_config "$gc_type" "$gc_file" "$gc_query" || {
 		echolog -err "$FAIL read entries for '$*' from $gc_file."
 		[ ! "$nodie" ] && die
@@ -493,11 +500,11 @@ set_config_vars() {
 
 	scv_src_pr="$1" scv_lines="$2" scv_req_pairs="$3"
 
+	newifs "$_nl" scv
 	[ "$scv_lines" ] &&
-	newifs "$_nl" gcv &&
 	for scv_line in $scv_lines; do
 		[ -n "$scv_line" ] || continue
-		oldifs gcv
+		oldifs scv
 		scv_key="${scv_line%%=*}"
 
 		if [ -z "$scv_req_pairs" ]; then
@@ -522,7 +529,7 @@ set_config_vars() {
 		fi || { echolog -err "set_config_vars: Invalid line '$scv_line' in $scv_src_pr."; scv_fail=1; break; }
 		scv_ok=1
 	done || scv_fail=1
-	oldifs gcv
+	oldifs scv
 
 	[ -n "$scv_ok" ] || {
 		[ -z "$scv_fail" ] && echolog -err "set_config_vars: No valid entries in $scv_src_pr."
@@ -616,14 +623,19 @@ read_conf_file() {
 
 	# Config migration
 	# newline-separated list of options to migrate in the format <old_key=new_key>
-	rcf_migr_opts='
+	rcf_migr_opts=
+	rcf_migr_opts_raw='
 		keep_mm_db=keep_fetched_db
 	'
-	[ -n "$rcf_is_main" ] && san_str rcf_migr_opts "" "$_nl" "$delim"
+	[ -n "$rcf_is_main" ] && san_str rcf_migr_opts "${rcf_migr_opts_raw}" "$_nl" "$delim"
 
 	# check in cache first
 	rcf_conf=
 	[ "$rcf_path" = "$CONF_FILE" ] && rcf_conf="$main_config"
+
+	rcf_warn_file="${GEOTEMP_DIR:-"/tmp"}/rcf_warn"
+	mkdir -p "${rcf_warn_file%/*}"
+	rm -f "$rcf_warn_file"
 
 	{ [ -n "$rcf_conf" ] || rcf_conf="$(cat "$rcf_path")" || [ -n "$RCF_IGNORE_MISSING_FILE" ]; } &&
 	{ [ -z "$rcf_old_conf_var" ] || eval "${rcf_old_conf_var:-_}"='$rcf_conf'; } &&
@@ -631,22 +643,21 @@ read_conf_file() {
 	rcf_conf="$(
 		printf '%s\n' "$rcf_conf" |
 		$awk_cmd \
-				-v curr_conf="$rcf_conf" \
 				-v valid_keys="$rcf_valid_keys" \
 				-v is_main="$rcf_is_main" \
 				-v override_opts="$rcf_override_opts" \
 				-v migr_opts="$rcf_migr_opts" \
 				-v ignore_missing="$RCF_IGNORE_MISSING_KEYS" \
 				-v delim="$delim" \
-				-v path="$rcf_path" \
+				-v yellow="$yellow" -v n_c="$n_c" \
 			'
+			function WARN(msg) {print yellow msg n_c > "/dev/stderr"}
 			function san_spaces(line,san_delim) {
 				if (!san_delim) san_delim=" "
 				sub(/^[ 	]+/, "", line); sub(/[ 	]+$/, "", line); gsub(/[ 	]+/,san_delim,line); return line
 			}
 
 			BEGIN{
-				in_path_pr=" in file \"" path "\"."
 				rv=0
 
 				# array of override options
@@ -689,7 +700,7 @@ read_conf_file() {
 
 			/^[ 	]*(#|$)/ {next}
 			{
-				$0=san_spaces($0)
+				$0=$0
 				n=split($0,pair,"=")
 
 				key=pair[1]
@@ -700,26 +711,47 @@ read_conf_file() {
 				if (key in override_arr) { override_seen[key]=1; val=override_arr[key] }
 
 				if (n == 2 && key ~ /^[a-zA-Z0-9_]+$/ && val !~ /.*[$()"`'\''].*/) {}
-					else {print "Failed to parse line \"" $0 "\"" in_path_pr; rv=1; exit}
-				if (seen_keys[key] == 1) {print "Duplicate" key_pr in_path_pr; rv=1; exit}
+					else {print "Failed to parse line \"" $0 "\"."; rv=1; exit}
+				if (seen_keys[key] == 1) {WARN("Duplicate" key_pr)}
 				if (key ~ keys_regex) {seen_keys[key]=1; req_keys[key]=1; out = out key "=" val "\n"}
-					else {print "\nWarning: Ignoring unknown" key_pr in_path_pr > "/dev/stderr"}
+					else {WARN("Ignoring unknown" key_pr)}
 			}
 
 			END {
 				if (rv == 1) exit 1
 				for (key in override_arr) { if (! override_seen[key]) out = out key "=" override_arr[key] "\n" }
 				if (ignore_missing) {print out; exit 0}
-				for (key in req_keys) {if (req_keys[key] != 1) {print "Missing key \"" key "\"" in_path_pr; exit 1} }
+				for (key in req_keys)
+					{if (req_keys[key] != 1) {
+						WARN("Missing key \"" key "\"")
+						if (is_main) rv=157
+						else rv=1
+					}
+				}
 				print out
-				exit 0
+				exit rv
 			}
-		'
+		' 2>"$rcf_warn_file"
 	)" || {
-		echolog -err "$rcf_conf"
-		rcf_fail
-		return 1
+		rcf_rv=$?
+
+		rcf_w_msg="$(cat "$rcf_warn_file" 2>/dev/null)"
+		[ "$rcf_w_msg" ] && [ "$rcf_w_msg" != "$RCF_WARNED" ] && {
+			echolog -warn "Config parser for file '$rcf_path':${_nl}${rcf_w_msg}"
+			[ "$rcf_rv" = 157 ] && echolog "${yellow}Missing config entries will be reset to defaults and re-added to the config at next config file update.${n_c}"
+			printf '\n'
+		}
+		rm -f "$rcf_warn_file"
+		export RCF_WARNED="$rcf_w_msg"
+
+		if [ "$rcf_rv" = 1 ]; then
+			echolog -err "$rcf_conf"
+			rcf_fail
+			return 1
+		fi
 	}
+
+	rm -f "$rcf_warn_file"
 
 	[ -n "$rcf_is_main" ] && {
 		main_config="$rcf_conf"
@@ -1765,11 +1797,11 @@ export IFS="$default_IFS"
 	fi
 	export awk_cmd
 
-	[ "$CONF_FILE" ] && [ -s "$CONF_FILE" ] && [ "$ROOT_OK" = 1 ] && {
-		getconfig main "" datadir &&
+	[ "$CONF_FILE" ] && [ -s "$CONF_FILE" ] && [ "$ROOT_OK" = 1 ] &&
+		nodie=1 getconfig main "" datadir &&
 		[ -n "$datadir" ] &&
-		export datadir status_file="$datadir/status"
-	}
+		export datadir status_file="$datadir/status" ||
+	first_setup=1
 
 	export geotag="$p_name"
 }
