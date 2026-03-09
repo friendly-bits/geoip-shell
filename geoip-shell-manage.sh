@@ -528,16 +528,22 @@ rm_conf=
 		set_first_setup
 	}
 
-[ "$_fw_backend" ] && [ -f "$_lib-$_fw_backend.sh" ] && source_lib "$_fw_backend" || {
-	[ "$action" != configure ] && echolog "Firewall backend is not set."
-	_fw_backend=
+for opt_spec in \
+	"_fw_backend${delim}Firewall backend" \
+	"inbound_geomode outbound_geomode${delim}Geoblocking mode" \
+	"geosource${delim}IP list source"
+do
+	alt_check_opts="${opt_spec%"${delim}"*}"
+	for alt_check_opt in $alt_check_opts; do
+		eval "check_val=\"\${$alt_check_opt}\""
+		[ -n "$check_val" ] && continue 2
+	done
+	check_desc="${opt_spec##*"${delim}"}"
+	[ "$action" != configure ] && echolog "$check_desc is not set."
 	set_first_setup
-}
+	break
+done
 
-[ -z "$inbound_geomode$outbound_geomode" ] && {
-	[ "$action" != configure ] && echolog "${_nl}Geoblocking mode is not set for both inbound and outbound connections."
-	set_first_setup
-}
 
 # check for valid geomode
 for direction in inbound outbound; do
@@ -650,10 +656,6 @@ conf_act=
 [ "$run_add_req" ] && conf_act=run_add
 [ "$reset_req" ] && conf_act=reset
 
-[ -z "$conf_act" ] && { check_lists_coherence -nr || conf_act=run_restore; }
-
-debugprint "config action: '$conf_act'"
-
 if [ "$_fw_backend_change" ]; then
 	if [ "$_fw_backend_prev" ]; then
 		(
@@ -665,9 +667,13 @@ if [ "$_fw_backend_change" ]; then
 			:
 		) || die_m "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
 	fi
-	# source library for the new backend
-	source_lib "$_fw_backend" "$LIB_DIR" || die_m
 fi
+
+source_lib "$_fw_backend" "$LIB_DIR" || die_m
+
+[ -z "$conf_act" ] && { check_lists_coherence -nr || conf_act=run_restore; }
+
+debugprint "config action: '$conf_act'"
 
 case "$conf_act" in run_add|reset|apply)
 	# create backup if rules exist and no backup exists yet
