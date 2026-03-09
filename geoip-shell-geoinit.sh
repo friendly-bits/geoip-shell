@@ -20,9 +20,14 @@ export p_name=geoip-shell \
 	_nl='
 '
 export default_IFS="	 $_nl"
+IFS="$default_IFS"
+
+for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
+	hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
+done
 
 . "$script_dir/lib/${p_name}-lib-non-owrt.sh" || exit 1
-check_common_deps
+
 check_shell
 
 if [ "$ROOT_OK" = 1 ] || [ "$(id -u)" = 0 ]; then
