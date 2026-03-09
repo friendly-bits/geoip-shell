@@ -3,17 +3,10 @@
 
 # geoip-shell-lib-non-owrt.sh
 
-# checks for supported shell and presence of some other required utilities
+# checks for supported shell and crontab
 
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
-
-# check for common deps
-check_common_deps() {
-	for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
-		hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
-	done
-}
 
 check_shell() {
 	if [ -n "$curr_sh_g" ]; then return 0; fi
