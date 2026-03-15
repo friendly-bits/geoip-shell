@@ -10,7 +10,7 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.8.0-pre7"
+curr_ver="0.8.0-pre8"
 
 set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
 set -f
@@ -22,13 +22,15 @@ export p_name=geoip-shell \
 export default_IFS="	 $_nl"
 IFS="$default_IFS"
 
+[ -n "$GS_DEPS_CHECKED" ] ||
 for dep in grep tr cut sort wc awk sed logger pgrep pidof; do
 	hash "$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
 done
 
 . "$script_dir/lib/${p_name}-lib-non-owrt.sh" || exit 1
 
-check_shell
+[ -n "$GS_DEPS_CHECKED" ] || check_shell
+export GS_DEPS_CHECKED=1
 
 if [ "$ROOT_OK" = 1 ] || [ "$(id -u)" = 0 ]; then
 	export ROOT_OK=1 \
