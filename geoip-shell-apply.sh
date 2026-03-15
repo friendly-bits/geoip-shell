@@ -188,14 +188,16 @@ debugentermsg
 
 ## VARIABLES
 
-parse_config main
+load_main_config
 
 geotag_aux="${geotag}_aux"
 
 
 ## CHECKS
 
-checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend noblock IPLIST_DIR
+checkvars datadir inbound_geomode outbound_geomode ifaces _fw_backend no_block IPLIST_DIR
+
+status_file="${datadir:?}/status"
 
 [ "$ifaces" != all ] && {
 	all_ifaces="$(detect_ifaces)" || die "$FAIL detect network interfaces."
@@ -263,7 +265,7 @@ for family in $families; do
 			allow_ipset_type=net
 
 			## load or detect lan IPs
-			if [ "$autodetect" ] && [ ! "$lan_autodetected" ]; then
+			if [ "$lan_autodetect" ] && [ ! "$lan_autodetected" ]; then
 				lan_ips="$(get_lan_addresses "$family")" || die
 				lan_autodetected=1
 				nl2sp "lan_ips_$family" "net:$lan_ips"
@@ -457,13 +459,13 @@ echo
 
 [ "$rv_apply" = 0 ] && {
 	setconf_ips=
-	[ "$autodetect" ] && {
+	[ "$lan_autodetect" ] && {
 		[ "$lan_ips_ipv4" ] && setconf_ips="lan_ips_ipv4=$lan_ips_ipv4"
 		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6=$lan_ips_ipv6"
 	}
 	[ "$setconf_ips" ] && set_main_config $setconf_ips
 }
 
-[ "$noblock" = true ] && { echolog -warn "Geoblocking is disabled via config."; echo; }
+[ "$no_block" = true ] && { echolog -warn "Geoblocking is disabled via config."; echo; }
 
 exit $rv_apply
