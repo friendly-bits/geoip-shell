@@ -27,9 +27,7 @@ init_script="/etc/init.d/${p_name}-init"
 	{ logger -s -t "owrt-uninstall" -p user.err "Failed to source essential libraries."; exit 1; }
 }
 
-for lib_f in owrt uninstall; do
-	source_lib "$lib_f"
-done
+source_lib owrt
 
 [ "$_fw_backend" ] ||
 for _fw_backend in ipt nft; do
@@ -45,7 +43,7 @@ done || _fw_backend=''
 : "${GEORUN_DIR:="/tmp/$p_name-run"}"
 [ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
 
-[ -s "$CONF_FILE" ] && nodie=1 getconfig main "" datadir local_iplits_dir
+[ -s "$CONF_FILE" ] && nodie=1 load_config main "" "datadir local_iplists_dir"
 : "${datadir:="${GEORUN_DIR}/data"}"
 : "${local_iplists_dir:="/var/lib/$p_name/local_iplists"}"
 
@@ -57,7 +55,7 @@ rm_lock
 checkutil rm_iplists_rules && rm_iplists_rules
 rm_cron_jobs
 rm_data
-rm_symlink
+rm -f "${INSTALL_DIR}/${p_name}"
 if is_dir_empty "$local_iplists_dir"; then
 	rm_geodir "$local_iplists_dir" "local IP lists"
 	rm_dir_if_empty "$datadir"
