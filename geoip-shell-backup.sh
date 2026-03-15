@@ -82,7 +82,6 @@ rm_bk_tmp() {
 
 rstr_failed() {
 	rm_rstr_tmp
-	export main_config=
 	[ "$1" ] && echolog -err "$1"
 	[ "$2" = reset ] && {
 		echolog -err "*** Geoblocking is not working. Removing geoblocking firewall rules. ***"
@@ -96,32 +95,37 @@ rm_rstr_tmp() {
 	rm_iplists
 }
 
-# detects archive type (if any) of file passed in 1st argument by its extension
-# and sets the $extract_cmd variable accordingly
-set_extract_cmd() {
-	set_extr_cmd() { checkutil "$1" && extract_cmd="$1 -cd" ||
-		die "backup archive type is '$1' but the $1 utility is not found."; }
-
-	case "$1" in
-		bz2 ) set_extr_cmd bzip2 ;;
-		xz ) set_extr_cmd xz ;;
-		gz ) set_extr_cmd gunzip ;;
-		* ) extract_cmd="cat" ;;
-	esac
+get_extract_cmd() {
+	case "$2" in
+		bz2) s_extrutil=bzip2 ;;
+		xz) s_extrutil=xz ;;
+		gz) s_extrutil=gunzip ;;
+		*) s_extrcmd="cat" ;;
+	esac &&
+	{
+		[ -n "$s_extrcmd" ] ||
+		{
+			checkutil "$s_extrutil" && s_extrcmd="$s_extrutil -cd" ||
+				die "backup file extension is '$2' but the $s_extrutil utility is not found."
+		}
+	}
+	eval "$1"='$s_extrcmd'
+	:
 }
 
-# detects the best available archive type and sets $compr_cmd and $bk_ext accordingly
-set_archive_type() {
+# detects the best available archive type
+get_compr_util_spec() {
 	arch_bzip2="bzip2 -zc@bz2"
 	arch_xz="xz -zc@xz"
 	arch_gzip="gzip -c@gz"
-	arch_cat="cat@"
+	arch_cat="cat@bak"
 	for _util in bzip2 xz gzip cat; do
 		checkutil "$_util" && {
-			eval "compr_cmd=\"\${arch_$_util%@*}\"; bk_ext=\"\${arch_$_util#*@}\""
+			eval "ga_compr_cmd=\"\${arch_$_util%@*}\"; ga_bk_ext=\"\${arch_$_util#*@}\""
 			break
 		}
 	done
+	eval "$1"='$ga_compr_cmd' "$2"='$ga_bk_ext'
 }
 
 # checks for diff in new and old config and status files and makes a backup or restores if necessary
@@ -203,14 +207,15 @@ restore_local_lists() {
 
 #### VARIABLES
 
-checkvars _fw_backend datadir
+load_main_config &&
+checkvars _fw_backend datadir &&
 source_lib "$_fw_backend" || die
 
 bk_dir="$datadir/backup"
 bk_dir_new="${GEOTEMP_DIR:?}/bk_new"
 config_file="$CONF_FILE"
 config_file_bak="${p_name}.conf.bak"
-status_file="$datadir/status"
+status_file="${datadir:?}/status"
 status_file_bak="status.bak"
 
 
@@ -231,9 +236,11 @@ case "$action" in
 			die 0
 		}
 
-		getconfig main "" families geosource inbound_iplists outbound_iplists local_iplists_dir
+		[ -f "$CONF_FILE_TMP" ] && config_file="$CONF_FILE_TMP"
 
-		set_archive_type
+		checkvars families geosource local_iplists_dir
+
+		get_compr_util_spec compr_cmd bk_ext
 		dir_mk -n "$bk_dir_new" || die
 
 		bk_local_lists
@@ -260,16 +267,18 @@ case "$action" in
 			bk_conf_file="$config_file"
 			and_config=
 		fi
+		rm -f "$CONF_FILE_TMP"
+		rm -rf "$STAGING_LOCAL_DIR"
 		[ "$only_conf_status" ] && {
 			cp_conf restore || die "$FAIL restore the config and status files."
 			die 0
 		}
 		echolog "${_nl}Preparing to restore $p_name IP lists$and_config from backup..."
 		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
-		nodie=1 getconfig main "$bk_conf_file" inbound_iplists outbound_iplists bk_ext ||
+		nodie=1 load_config main "$bk_conf_file" "inbound_iplists outbound_iplists bk_ext" ||
 			rstr_failed "$FAIL get backup config from file '$bk_conf_file'."
 		san_str iplists "$inbound_iplists $outbound_iplists" || rstr_failed
-		set_extract_cmd "$bk_ext"
+		get_extract_cmd extract_cmd "$bk_ext"
 
 		if [ "$iplists" ]; then
 			get_counters
@@ -284,8 +293,6 @@ case "$action" in
 		rm_all_georules || rstr_failed "$FAIL remove firewall rules and ipsets."
 
 		[ "$restore_conf" ] && { cp_conf restore || rstr_failed; }
-
-		export main_config=
 
 		[ "$_fw_backend" = ipt ] && { restore_ipsets || rstr_failed "$FAIL restore $p_name ipsets from backup." reset; }
 		call_script "$i_script-apply.sh" restore
