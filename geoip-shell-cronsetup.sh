@@ -235,23 +235,23 @@ create_cron_job() {
 	curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
 	case "$job_type" in
 		update)
-			[ -z "$schedule" ] && die "Cron schedule in the config file is empty!"
-			check_cron_job update "$schedule" && return 0
+			[ -z "$upd_schedule" ] && die "Cron schedule in the config file is empty!"
+			check_cron_job update "$upd_schedule" && return 0
 			# Validate cron schedule
-			debugprint "\nValidating cron schedule: '$schedule'."
-			val_cron_exp "$schedule"; rv=$?
+			debugprint "\nValidating cron schedule: '$upd_schedule'."
+			val_cron_exp "$upd_schedule"; rv=$?
 			case "$rv" in
 				0)
-					debugprint "Successfully validated cron schedule: '$schedule'."
+					debugprint "Successfully validated cron schedule: '$upd_schedule'."
 					;;
-				*) die "$FAIL validate cron schedule '$schedule'."
+				*) die "$FAIL validate cron schedule '$upd_schedule'."
 			esac
 
 			# Remove existing update cron job before creating new one
 			rm_cron_job update
 			curr_cron="$(get_curr_cron)" || die "$FAIL read crontab."
-			cron_cmd="$schedule $run_cmd update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
-			w_sch=" with schedule '$schedule'" ;;
+			cron_cmd="$upd_schedule $run_cmd update -a 1>/dev/null 2>/dev/null # ${p_name}-update"
+			w_sch=" with schedule '$upd_schedule'" ;;
 		persistence)
 			check_cron_job persistence "@reboot" && return 0
 
@@ -286,11 +286,11 @@ rm_cron_job() {
 
 #### Variables
 
-parse_config main
+load_main_config
 
 run_cmd="$i_script-run.sh"
 
-schedule="${schedule:-$default_schedule}"
+upd_schedule="${upd_schedule:-$default_upd_schedule}"
 
 
 printf_s "${_nl}Processing cron jobs... "
@@ -304,7 +304,7 @@ checkvars no_persist
 
 
 # update job
-case "$schedule" in
+case "$upd_schedule" in
 	disable) rm_cron_job update ;;
 	*) create_cron_job update
 esac
