@@ -19,8 +19,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 : "${manmode:=1}"
 export manmode first_setup=1 nolog=1
 
-. "$script_dir/$p_name-geoinit.sh" &&
-source_lib uninstall "$script_dir/lib" || exit 1
+. "$script_dir/$p_name-geoinit.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -357,7 +356,7 @@ dir_mk -n "$tmp_dir" || die
 
 	export datadir status_file &&
 	_fw_backend_prev=
-	[ -s "$CONF_FILE"  ] && nodie=1 parse_config main &&
+	[ -s "$CONF_FILE" ] && nodie=1 load_config main &&
 		_fw_backend_prev="$_fw_backend"
 
 	[ -n "$datadir" ] && status_file="$datadir/status"
@@ -398,7 +397,7 @@ elif [ \"\$posix_o_set\" = 1 ]; then
 	set -o posix
 fi"
 
-	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}check_shell"
+	init_non_owrt=". \"\${_lib}-non-owrt.sh\" || exit 1${_nl}[ -n \"\$GS_DEPS_CHECKED\" ] || check_shell"
 	_fw_backend_def=all
 }
 
@@ -419,7 +418,7 @@ for f in fetch apply manage cronsetup run uninstall backup; do
 done
 
 lib_files=
-for f in fetch uninstall common arrays status setup ip-tools lookup $non_owrt $fw_libs; do
+for f in config fetch common arrays status setup ip-tools lookup $non_owrt $fw_libs; do
 	[ "$f" ] && lib_files="${lib_files}${script_dir}/lib/${p_name}-lib-$f.sh "
 done
 lib_files="$lib_files $owrt_comm"
@@ -477,11 +476,13 @@ IFS="\$default_IFS"
 
 export _lib="\$LIB_DIR/\$p_name-lib" i_script="\$INSTALL_DIR/\$p_name"
 
+[ -n "\$GS_DEPS_CHECKED" ] ||
 for dep in $common_deps; do
-	hash "\$dep" 2>/dev/null || { echo "Error: missing dependency: '$dep'" >&2; exit 1; }
+	hash "\$dep" 2>/dev/null || { echo "Error: missing dependency: '\$dep'" >&2; exit 1; }
 done
 
 ${init_non_owrt:+"${_nl}${init_non_owrt}"}
+export GS_DEPS_CHECKED=1
 
 if [ "\$ROOT_OK" = 1 ] || [ "\$(id -u)" = 0 ]; then
 	export ROOT_OK=1 \\
@@ -502,29 +503,18 @@ export LOCK_FILE="\$GEORUN_DIR/lock" \\
 	EXCL_FILE="\$CONF_DIR/iplist-exclusions.conf" \\
 	CONF_FILE="\$CONF_DIR/\$p_name.conf"
 
-export _fw_backend
-in_configure=
 ${set_owrt_install:+"${_nl}${set_owrt_install}"}
 . "\${_lib}-common.sh" || exit 1
 
-[ "\$fwbe_ok" ] || [ "\$ROOT_OK" != 1 ] && return 0
-[ -f "\$CONF_DIR/\${p_name}.const" ] && { . "\$CONF_DIR/\${p_name}.const" || die; } ||
-	{ [ ! "\$in_uninstall" ] && die "\$CONF_DIR/\${p_name}.const is missing. Please reinstall \$p_name."; }
+[ "\$CONST_SOURCED" ] || [ "\$ROOT_OK" != 1 ] && return 0
 
-case "\$me \$1" in "\$p_name configure"|"\${p_name}-manage.sh configure"|*" -h"*|*" -V"*) in_configure=1; esac
+const_file="\$CONF_DIR/\${p_name}.const"
+[ -f "\$const_file" ] && { . "\$const_file" || die; } ||
+	{ [ ! "\$in_uninstall" ] && die "\$const_file not found. Please reinstall \$p_name."; }
+export CONST_SOURCED=1
 
-[ -s "\$CONF_FILE" ] && getconfig main "" _fw_backend
-if [ ! "\$_fw_backend" ]; then
-	rm -f "\$CONF_DIR/setupdone"
-	[ "\$first_setup" ] || [ "\$in_uninstall" ] || [ "\$in_configure" ] && return 0
-	die "Firewall backend is not configured. Please run '\$p_name configure'."
-elif ! check_fw_backend -nolog "\$_fw_backend" 1>/dev/null; then
-	[ "\$in_uninstall" ] || [ "\$in_configure" ] && { rm -f "\$CONF_DIR/setupdone"; _fw_backend=''; return 0; }
-	check_fw_backend "\$_fw_backend"
-	die
-fi
-export fwbe_ok=1
 :
+
 EOF
 
 add_scripts "$tmp_dir/$p_name-geoinit.sh" "$INSTALL_DIR" 444
