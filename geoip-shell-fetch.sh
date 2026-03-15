@@ -747,7 +747,7 @@ esac
 
 #### Fetch util
 get_fetch_util fetch_cmd fetch_cmd_q fetch_cmd_date con_check_cmd con_check_ptrn "$dl_src" "$dl_src_cap"
-[ "$daemon_mode" ] && fetch_cmd="$fetch_cmd_q"
+[ "$GS_DAEMON_MODE" ] && fetch_cmd="$fetch_cmd_q"
 
 
 trap 'trap - INT TERM HUP QUIT; \
@@ -788,6 +788,7 @@ done
 #### Main
 
 # read info about previous fetch from the status file
+[ -n "$datadir" ] && status_file="${datadir}/status"
 if [ "$status_file" ] && [ -s "$status_file" ]; then
 	getstatus main_status "$status_file"
 else
