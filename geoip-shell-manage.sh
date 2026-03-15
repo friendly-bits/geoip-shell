@@ -13,8 +13,7 @@ export inbound_geomode nolog=1 manmode
 
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
 script_dir="$INSTALL_DIR"
-source_lib setup &&
-source_lib uninstall || die
+source_lib setup || die
 
 san_args "$@"
 newifs "$delim"
@@ -186,7 +185,7 @@ status_opts="v"
 import_opts="A|B"
 
 
-die_m() { rm -rf "$GEOTEMP_DIR"; die "$@"; }
+die_m() { rm -rf "$GEOTEMP_DIR"; rm -rf "${STAGING_LOCAL_DIR:-???}"; die "$@"; }
 
 set_opt() {
 	sop_var="$1"
@@ -253,7 +252,7 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; 
 		p) set_opt proto_arg ;;
 
 		f) set_opt families_arg ;;
-		s) set_opt schedule_arg ;;
+		s) set_opt upd_schedule_arg ;;
 		i) set_opt ifaces_arg ;;
 		l) set_opt lan_ips_arg ;;
 		t) set_opt trusted_arg ;;
@@ -268,9 +267,9 @@ while getopts ":D:m:c:f:s:i:l:t:p:r:u:A:B:U:K:a:L:o:w:O:n:N:P:S:I:F:zvdVh" opt; 
 		w) set_opt _fw_backend_arg ;;
 		O) set_opt nft_perf_arg ;;
 
-		o) set_opt nobackup_arg ;;
+		o) set_opt no_backup_arg ;;
 		n) set_opt no_persist_arg ;;
-		N) set_opt noblock_arg ;;
+		N) set_opt no_block_arg ;;
 		P) set_opt force_cron_persist_arg ;;
 		S) set_opt custom_script_arg ;;
 
@@ -367,14 +366,14 @@ restore_from_config() {
 	# Handle failure
 	[ "$first_setup" ] && die_m
 
-	[ ! "$prev_config_try" ] && [ "$prev_config" ] && {
+	[ ! "$prev_config_try" ] && [ -s "$CONF_FILE" ] && {
 		prev_config_try=1
-		export main_config="$prev_config"
+		discard_config_changes
 
-		if nodie=1 EXPORT_CONF=1 parse_config main && _prev="previous " &&
+		if nodie=1 load_main_config && _prev="previous " &&
 			[ ! "$_fw_backend_change" ] ||
 				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
-					restore_from_config && { set_all_config; return 0; }
+			restore_from_config && return 0
 		else
 			echolog -err "$FAIL load the previous config."
 		fi
@@ -382,8 +381,8 @@ restore_from_config() {
 
 	# recover from backup
 	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && {
-		unset main_config
-		parse_config main
+		discard_config_changes
+		load_main_config
 		check_lists_coherence && return 0
 	}
 
@@ -399,18 +398,18 @@ check_for_lockout() {
 	lockout_exp=
 
 	for direction in inbound outbound; do
-		eval "iplists=\"\$${direction}_iplists\"
-			geomode=\"\$${direction}_geomode\"
-			geomode_change=\"\$${direction}_geomode_change\"
-			lists_change=\"\$${direction}_lists_change\""
-		if [ "$first_setup" ] || [ "$geomode_change" ] || [ "$lists_change" ] || [ "$user_ccode_change" ]; then
+		eval "dfl_iplists=\"\$${direction}_iplists\"
+			dfl_geomode=\"\$${direction}_geomode\"
+			dfl_geomode_change=\"\$${direction}_geomode_change\"
+			dfl_lists_change=\"\$${direction}_lists_change\""
+		if [ "$first_setup" ] || [ "$dfl_geomode_change" ] || [ "$dfl_lists_change" ] || [ "$user_ccode_change" ]; then
 			ccode_included=
-			inlist="in the planned $direction geoblocking $geomode"
+			inlist="in the planned $direction geoblocking $dfl_geomode"
 
 			for family in $families; do
-				is_included "${user_ccode}_${family}" "$iplists" && ccode_included=1
+				is_included "${user_ccode}_${family}" "$dfl_iplists" && ccode_included=1
 			done
-			case "$geomode" in
+			case "$dfl_geomode" in
 				whitelist) [ ! "$ccode_included" ] && { lockout_exp=1; echolog -warn "$u_ccode is not included $inlist."; } ;;
 				blacklist) [ "$ccode_included" ] && { lockout_exp=1; echolog -warn "$u_ccode is included $inlist."; }
 			esac
@@ -486,6 +485,9 @@ case "$action" in
 		trap 'die_m' INT TERM HUP QUIT
 esac
 
+in_configure=
+[ "$action" = configure ] && in_configure=1
+
 
 #### Handle first setup and/or missing config
 
@@ -518,20 +520,20 @@ rm_conf=
 
 #### Load config
 [ "$conf_file_found" ] && [ ! "$rm_conf" ] &&
-	nodie=1 EXPORT_CONF=1 parse_config main || {
+	nodie=1 load_main_config || {
 		rm -f "$CONF_FILE"
 		rm_data
-		main_config=
-		for _conf_var in $ALL_CONF_VARS; do
-			eval "$_conf_var="
-		done
+		discard_config_changes
 		set_first_setup
 	}
 
+export datadir status_file="$datadir/status"
+
 for opt_spec in \
-	"_fw_backend${delim}Firewall backend" \
-	"inbound_geomode outbound_geomode${delim}Geoblocking mode" \
-	"geosource${delim}IP list source"
+	"_fw_backend${delim}firewall backend" \
+	"inbound_geomode outbound_geomode${delim}geoblocking mode" \
+	"geosource${delim}IP list source" \
+	"ifaces${delim}network interfaces"
 do
 	alt_check_opts="${opt_spec%"${delim}"*}"
 	for alt_check_opt in $alt_check_opts; do
@@ -539,7 +541,7 @@ do
 		[ -n "$check_val" ] && continue 2
 	done
 	check_desc="${opt_spec##*"${delim}"}"
-	[ "$action" != configure ] && echolog "$check_desc is not set."
+	[ "$action" != configure ] && echolog "Config options '$alt_check_opts' not set. Can not determine $check_desc."
 	set_first_setup
 	break
 done
@@ -555,7 +557,7 @@ for direction in inbound outbound; do
 				'') [ "$action" != configure ] && echolog "Geoblocking mode for direction '$direction' is not set." ;;
 				*) echolog -err "Unexpected $direction geoblocking mode '$dir_geomode'."
 			esac
-			unset "${direction}_geomode"
+			eval "${direction}_geomode="
 			set_first_setup ;;
 	esac
 done
@@ -583,8 +585,8 @@ case "$action" in
 	on|off)
 		case "$action" in
 			on) [ ! "$inbound_iplists$outbound_iplists" ] && die_m "No IP lists registered. Refusing to enable geoblocking."
-				set_main_config "noblock=false" ;;
-			off) set_main_config "noblock=true" ;;
+				set_main_config "no_block=false" ;;
+			off) set_main_config "no_block=true" ;;
 		esac
 		call_script "$i_script-apply.sh" $action
 		die_m $? ;;
@@ -606,15 +608,15 @@ esac
 
 unset run_restore_req run_add_req reset_req backup_req apply_req cron_req coherence_req
 
-[ "$no_persist_change" ] || [ "$schedule_change" ] && cron_req=1
+[ "$no_persist_change" ] || [ "$upd_schedule_change" ] && cron_req=1
 
 [ "$user_ccode_change" ] && backup_req=0
 
-[ "$nobackup_change" ] && [ "$nobackup" = false ] && backup_req=1
+[ "$no_backup_change" ] && [ "$no_backup" = false ] && backup_req=1
 
 [ "$proto_change" ] || [ "$ifaces_change" ] || [ "$geomode_change_g" ] || [ "$source_ips_policy_change" ] ||
-	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] || [ "$noblock_change" ] ||
-	[ "$lists_change" ] && apply_req=1
+	[ "$lan_ips_change" ] || [ "$trusted_change" ] || [ "$source_ips_change" ] || [ "$no_block_change" ] ||
+	[ "$final_lists_change" ] && apply_req=1
 
 [ "$nft_perf_change" ] && run_restore_req=1
 
@@ -624,7 +626,7 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 
 check_for_lockout
 
-[ "$nobackup_change" ] && [ -n "$datadir_prev" ] && {
+[ "$no_backup_change" ] && [ -n "$datadir_prev" ] && {
 	[ -d "$datadir_prev/backup" ] && {
 		printf %s "Removing old backup... "
 		rm -rf "$datadir_prev/backup" || die_m "$FAIL remove old backup."
@@ -639,15 +641,13 @@ if [ "$datadir_change" ]; then
 		rm -rf "$datadir_prev/backup"
 		rm_dir_if_empty "$datadir_prev" || die_m
 	fi
-	status_file="$datadir/status"
+	export datadir status_file="$datadir/status"
 fi
-
-export datadir status_file
 
 [ "$local_iplists_dir_change" ] && dir_mv "$local_iplists_dir_prev" "$local_iplists_dir" "local IP lists"
 
 [ "$run_restore_req" ] &&
-	{ [ "$nobackup_prev" = true ] || [ ! -s "$datadir/backup/$p_name.conf.bak" ] || [ ! -s "$status_file" ]; } &&
+	{ [ "$no_backup_prev" = true ] || [ ! -s "$datadir/backup/$p_name.conf.bak" ] || [ ! -s "$status_file" ]; } &&
 		reset_req=1
 
 conf_act=
@@ -671,13 +671,13 @@ fi
 
 source_lib "$_fw_backend" "$LIB_DIR" || die_m
 
-[ -z "$conf_act" ] && { check_lists_coherence -nr || conf_act=run_restore; }
+[ -n "$conf_act" ] || check_lists_coherence || conf_act=run_restore
 
 debugprint "config action: '$conf_act'"
 
 case "$conf_act" in run_add|reset|apply)
 	# create backup if rules exist and no backup exists yet
-	if [ "$nobackup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ] &&
+	if [ "$no_backup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ] &&
 		checkutil get_fwrules_iplists &&
 		{
 			nolog=1 get_fwrules_iplists inbound | grep . ||
@@ -720,30 +720,31 @@ case "$conf_act" in
 		get_counters
 		call_script "$i_script-apply.sh" restore
 		rv_conf=$?
-		main_config=
-		nodie=1 EXPORT_CONF=1 parse_config main || rv_conf=1
 		;;
 	'') rv_conf=0 ;;
 esac
 
 if [ "$rv_conf" = 0 ]; then
 	# move staging local lists to permanent location
-	[ "$action" = import ] && [ "$lists_change" ] && {
-		for family in ipv4 ipv6; do
-			for local_type in allow block; do
-				filename="local_${local_type}_${family}"
-				if [ -s "$STAGING_LOCAL_DIR/$filename.ip" ] || [ -s "$STAGING_LOCAL_DIR/$filename.net" ]; then
-					set +f
-					rm -f "$local_iplists_dir/$filename".*
-					mv "$STAGING_LOCAL_DIR/$filename".* "$local_iplists_dir/"
-					set -f
-				else
-					continue
-				fi
+	if [ "$action" = import ]; then
+		[ "$final_lists_change" ] && {
+			for family in ipv4 ipv6; do
+				for local_type in allow block; do
+					filename="local_${local_type}_${family}"
+					if [ -s "$STAGING_LOCAL_DIR/$filename.ip" ] || [ -s "$STAGING_LOCAL_DIR/$filename.net" ]; then
+						set +f
+						rm -f "$local_iplists_dir/$filename".*
+						mv "$STAGING_LOCAL_DIR/$filename".* "$local_iplists_dir/"
+						set -f
+					else
+						continue
+					fi
+				done
 			done
-		done
+		}
 		rm -rf "${STAGING_LOCAL_DIR:-???}"
-	}
+		[ -n "$src_local_files" ] && printf '%s\n\n' "${yellow}You can delete source files to free up space:${n_c}${_nl}${src_local_files}"
+	fi
 
 	[ "$coherence_req" ] && [ "$conf_act" != reset ] && {
 		check_lists_coherence || restore_from_config || die_m
@@ -756,16 +757,18 @@ fi
 case "$rv_conf" in
 	0) ;;
 	254)
-		echolog "Restoring previous config."
-		main_config="$prev_config"
-		nodie=1 EXPORT_CONF=1 parse_config main && check_lists_coherence ||
+		[ -s "$CONF_FILE" ] || { echolog "Previous config not found - can not restore."; false; } &&
+		{
+			echolog "Restoring previous config."
+			discard_config_changes
+			nodie=1 load_main_config && check_lists_coherence
+		} ||
 			{
 				_prev="previous "
 				prev_config_try=1
 				restore_from_config
 				die_m $?
 			}
-		set_all_config
 		backup_req=
 		rv_conf=0 ;;
 	*) restore_from_config
@@ -774,7 +777,7 @@ esac || die_m
 [ "$rv_conf" = 0 ] && {
 	bk_conf_only=
 	[ "$backup_req" = 0 ] && bk_conf_only='-s'
-	[ "$backup_req" ] && [ "$nobackup" != true ] && [ "$inbound_iplists$outbound_iplists" ] &&
+	[ "$backup_req" ] && [ "$no_backup" != true ] && [ "$inbound_iplists$outbound_iplists" ] &&
 		call_script -l "$i_script-backup.sh" create-backup "$bk_conf_only"
 
 	[ "$first_setup" ] && touch "$CONF_DIR/setupdone"
