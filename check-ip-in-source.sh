@@ -126,7 +126,7 @@ if [ -n "$src_arg" ]; then
 	dl_src="$src_arg"
 	[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one IP list source."; }
 elif [ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ]; then
-	if nodie=1 getconfig main "" $ciis_cfg_keys && [ -n "$geosource" ]; then
+	if nodie=1 load_config main "" "$ciis_cfg_keys" && [ -n "$geosource" ]; then
 		dl_src="$geosource"
 		ciis_conf_ok=1
 	else
@@ -140,7 +140,7 @@ is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: '$d
 
 case "${dl_src}" in maxmind|ipinfo)
 	[ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ] && [ -z "$ciis_conf_ok" ] &&
-		EXPORT_CONF=1 nodie=1 getconfig main "" $ciis_cfg_keys
+		EXPORT_CONF=1 nodie=1 load_config main "" "$ciis_cfg_keys"
 esac
 
 case "${dl_src}" in
