@@ -1597,7 +1597,7 @@ export IFS="$default_IFS"
 		awk_cmd="awk"
 	fi
 	unisleep_cmd="sleep 1"
-	sleep 0.1 2>/dev/null && unisleep_cmd="sleep 0.1"
+	sleep 0.01 2>/dev/null && unisleep_cmd="sleep 0.1"
 	export awk_cmd
 	export geotag="$p_name"
 }
