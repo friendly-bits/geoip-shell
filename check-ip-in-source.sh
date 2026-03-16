@@ -97,6 +97,8 @@ validate_ip() {
 }
 
 
+load_cca2 "$script_dir/cca2.list" || die
+
 #### Checks
 
 check_deps grepcidr || die
