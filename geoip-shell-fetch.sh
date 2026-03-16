@@ -16,8 +16,7 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 done
 
 . "$geoinit_path" &&
-source_lib arrays "$script_dir/lib" "$LIB_DIR" &&
-source_lib fetch "$script_dir/lib" "$LIB_DIR" || die
+source_lib arrays "$script_dir/lib" "$LIB_DIR" || die
 
 san_args "$@"
 newifs "$delim"
