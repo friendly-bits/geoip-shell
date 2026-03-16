@@ -1,6 +1,6 @@
 ## geoip-shell on OpenWrt
 
-Currently geoip-shell fully supports OpenWrt, both with firewall3 and with firewall4, both iptables and nftables, while providing the same user interface and features as on any other Linux system. So usage is the same as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
+Currently geoip-shell fully supports OpenWrt, both with firewall3 and with firewall4, both iptables and nftables, while providing the same user interface and for the most part same features as on any other Linux system. So usage is the same as described in the main [README.md](/README.md) file, while some parts of the backend (namely persistence implementation), some defaults and the location of the data directory are different.
 
 Installation is possible either via the -install script (as described in the main [README.md](/README.md)), or via a package. 
 
@@ -11,7 +11,7 @@ First, connect to you device [via SSH](https://openwrt.org/docs/guide-quick-star
 
 Next, select the appropriate option below, copy the code and paste in your terminal, then press Enter. The package will be downloaded to `/tmp/`.
 
-<details><summary>IPK for OpenWrt with nftables:</summary>
+<details><summary>IPK for OpenWrt with nftables (OpenWrt 24.10 and older):</summary>
 
 ```
 link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.ipk')"; \
@@ -20,7 +20,7 @@ if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then 
 ```
 </details>
 
-<details><summary>IPK for OpenWrt with iptables:</summary>
+<details><summary>IPK for OpenWrt with iptables (OpenWrt 24.10 and older):</summary>
 
 ```
 link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.ipk')"; \
@@ -29,7 +29,7 @@ if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then 
 ```
 </details>
 
-<details><summary>APK package for OpenWrt with nftables - for OpenWrt snapshots:</summary>
+<details><summary>APK package for OpenWrt with nftables (OpenWrt 25.12 and newer):</summary>
 
 ```
 link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell_[0-9.]+-r[0-9]+\.apk')"; \
@@ -39,7 +39,7 @@ if [ -n "$filename" ] && cd /tmp/ && uclient-fetch -O "$filename" "$link"; then 
 
 </details>
 
-<details><summary>APK package for OpenWrt with iptables - for OpenWrt snapshots:</summary>
+<details><summary>APK package for OpenWrt with iptables (OpenWrt 25.12 and newer):</summary>
 
 ```
 link="$(uclient-fetch https://api.github.com/repos/friendly-bits/geoip-shell/releases -O - | sed 's/\\r//g;s/\\n/\n/g' | grep -m1 -oE 'https://github.com/friendly-bits/geoip-shell/releases/download/v[0-9.]+/geoip-shell-iptables_[0-9.]+-r[0-9]+\.apk')"; \
