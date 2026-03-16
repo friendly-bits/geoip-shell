@@ -96,13 +96,14 @@ report_status() {
 			cron_jobs="$(crontab -u root -l 2>/dev/null)"
 
 			# check for update cron job
+			job_schedule=''
 			get_matching_line "$cron_jobs" "*" "${p_name}-update" "" update_job
 			case "$update_job" in
-				'') upd_job_status="$_X"; upd_schedule=''; incr_issues ;;
-				*) upd_job_status="$_V"; upd_schedule="${update_job%%\/*}"
+				'') upd_job_status="$_X"; incr_issues ;;
+				*) upd_job_status="$_V"; job_schedule="${update_job%%\/*}"
 			esac
 			printf '%s\n' "Update cron job: $upd_job_status"
-			[ "$upd_schedule" ] && printf '%s\n' "Update schedule: '${blue}${upd_schedule% }${n_c}'"
+			[ "$job_schedule" ] && printf '%s\n' "Update schedule: '${blue}${job_schedule% }${n_c}'"
 
 			getstatus main_status "$status_file"
 			[ "$last_update" ] && last_update="$blue$last_update$n_c" || { last_update="${red}Unknown $_X"; incr_issues; }
@@ -147,7 +148,7 @@ report_status() {
 	}
 
 	# check automatic backup
-	[ "$nobackup" = true ] && backup_st="${yellow}Off" || backup_st="${green}On"
+	[ "$no_backup" = true ] && backup_st="${yellow}Off" || backup_st="${green}On"
 
 	printf '%s\n' "Automatic backup of IP lists: $backup_st$n_c"
 
