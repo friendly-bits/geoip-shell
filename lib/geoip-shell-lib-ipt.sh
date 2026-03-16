@@ -785,7 +785,7 @@ apply_rules() {
 	done
 
 	# insert the main blocking rules
-	[ "$noblock" = false ] && geoip_on
+	[ "$no_block" = false ] && geoip_on
 
 	return "$retval"
 }
