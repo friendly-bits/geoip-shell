@@ -511,7 +511,7 @@ mk_apply_cmds() {
 		}
 
 		# add geoblocking enable rule
-		[ "$noblock" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
+		[ "$no_block" = false ] && printf '%s\n' "add rule inet $geotable $base_geochain jump $geochain comment ${geotag}_enable"
 	done
 
 	:
@@ -608,11 +608,15 @@ apply_rules() {
 			unset mp neg
 			case "$proto_exp" in *','*) mp="multiport "; esac
 			case "$proto_exp" in *'!'*) neg='!'; esac
-			ports_conf="$ports_conf${direction}_${proto}_ports=$mp${neg}dport:${proto_exp#*"!="}$_nl"
+			ports_conf="${ports_conf}${direction}_${proto}_ports=${mp}${neg}dport:${proto_exp#*"!="}${delim}"
 		done
 	done
-	[ "$ports_conf" ] && set_main_config "${ports_conf%"$_nl"}"
-
+	[ "$ports_conf" ] && {
+		newifs "$delim" apr
+		set -- $ports_conf
+		oldifs apr
+		set_main_config "${@}"
+	}
 	:
 }
 
