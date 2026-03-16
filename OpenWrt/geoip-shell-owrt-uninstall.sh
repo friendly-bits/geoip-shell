@@ -12,6 +12,7 @@ p_name="geoip-shell"
 manmode=1
 nolog=1
 in_uninstall=1
+export FORCE_SOURCE_LIBS=1
 
 LIB_DIR="/usr/lib/$p_name"
 _lib="$LIB_DIR/$p_name-lib"
