@@ -327,7 +327,7 @@ report_status() {
 	esac
 
 	[ "$issues" != 0 ] && [ -f "$LOCK_FILE" ] &&
-		echo "NOTE: $LOCK_FILE lock file indicates that $p_name is doing something in the background. Wait a bit and check again."
+		echo "${yellow}NOTE: $LOCK_FILE lock file indicates that $p_name is doing something in the background. Wait a bit and check again.${n_c}"
 
 	return $issues
 }
