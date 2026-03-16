@@ -158,7 +158,7 @@ ${purple}Options for the 'import' action${n_c}:
 ${sp8}Specifies local file containing a list of IP addresses or IP ranges to import into geoip-shell (one IP family per file).
 ${sp8}Use '-A' to import into local allowlist, '-B' to import into local blocklist.
 ${sp8}Rules for local IP lists will be applied regardless of whether geoblocking mode is whitelist or blacklist, and regardless of direction.
-${sp8}'remove' removes any previously imported local IP lists of specified type (-A for allowlist, -B for blicklist).
+${sp8}'remove' removes any previously imported local IP lists of specified type (-A for allowlist, -B for blocklist).
 
 ${purple}Options for the 'lookup' action${n_c}:
   ${blue}-I <"ip_addresses">${n_c} : Look up specified IP addresses in loaded IP sets
