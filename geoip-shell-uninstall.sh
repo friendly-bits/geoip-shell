@@ -86,8 +86,6 @@ shift $((OPTIND-1))
 
 is_root_ok || die
 
-source_lib uninstall "$lib_src_dir" || die
-
 ### VARIABLES
 : "${INSTALL_DIR:="/usr/bin"}"
 : "${CONF_DIR:="/etc/$p_name"}"
@@ -106,7 +104,7 @@ INSTALL_DIR="${old_install_dir:-"$INSTALL_DIR"}"
 }
 
 [ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
-[ -s "$CONF_FILE" ] && nodie=1 getconfig main "" datadir local_iplits_dir ||
+[ -s "$CONF_FILE" ] && nodie=1 load_config main "" "datadir firewall_backend=_fw_backend local_iplists_dir" ||
 	{
 		[ ! "$first_setup" ] &&
 			echolog -warn "Config file doesn't exist or failed to read config." \
@@ -134,10 +132,10 @@ if [ -z "$_fw_backend" ] && [ -n "$old_install_dir" ] && detect_fw_backends; the
 		ipt|nft) _fw_backend="$_FW_BACKEND_DEF" ;;
 		ask)
 			# resort to heuristics
-			if [ "$IPT_OK" ]; then
-				_fw_backend=ipt
-			elif [ "$NFT_OK" ]; then
+			if [ "$NFT_OK" ]; then
 				_fw_backend=nft
+			elif [ "$IPT_OK" ]; then
+				_fw_backend=ipt
 			fi
 			# if not re-installing
 			[ "$_fw_backend" ] && [ ! "$keepdata" ] &&
@@ -145,7 +143,7 @@ if [ -z "$_fw_backend" ] && [ -n "$old_install_dir" ] && detect_fw_backends; the
 	esac
 fi
 
-lib_src_dir="$lib_src_dir" rm_iplists_rules
+LIB_SRC_DIR="$lib_src_dir" rm_iplists_rules
 rm_cron_jobs
 
 [ -n "$keepdata" ] && die 0
@@ -157,9 +155,12 @@ rm_cron_jobs
 	reload_owrt_fw
 }
 
-rm_symlink
+rm -f "${INSTALL_DIR}/${p_name}"
 rm_scripts
-rm_config
+
+rm_geodir "$CONF_DIR" config
+
+
 rm_all_data
 
 rm -rf "$GEOTEMP_DIR" "$GEORUN_DIR"
