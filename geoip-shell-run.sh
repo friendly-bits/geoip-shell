@@ -47,7 +47,7 @@ run_success() {
 			gs_success "${session_log:+"Errors/warnings encountered.${_nl}Session log:${_nl}"}${session_log}"
 		)
 	fi
-	rm -f "${GS_LOG_FILE}"
+	rm -f "$GS_LOG_FILE"
 	die 0
 }
 
@@ -71,7 +71,7 @@ Options:
 
   -o : No backup: don't create backup of IP lists and firewall rules after the action.
   -f : Force action
-  -a : Daemon mode (will retry actions \$max_attempts times with growing time intervals)
+  -a : Daemon mode (will retry actions \$max_fetch_attempts times with growing time intervals)
   -d : Debug
   -V : Version
   -h : This help
@@ -82,7 +82,7 @@ EOF
 #### PARSE ARGUMENTS
 
 RM_IPLISTS=
-daemon_mode=
+GS_DAEMON_MODE=
 
 # check for valid action
 tolower action_run "$1"
@@ -99,8 +99,8 @@ while getopts ":l:faodVh" opt; do
 			[ "$lists_arg" ] && run_fail 1 "Option '-l' can not be used twice."
 			lists_arg="$OPTARG" ;;
 		f) force_run="-f" ;;
-		a) export daemon_mode=1 ;;
-		o) nobackup_arg=true ;;
+		a) daemon_mode_args=1 ;;
+		o) no_backup_arg=true ;;
 		d) debugmode_arg=1 ;;
 		V) echo "$curr_ver"; die 0 ;;
 		h) usage; die 0 ;;
@@ -112,7 +112,9 @@ shift $((OPTIND-1))
 extra_args "$@"
 
 is_root_ok
-source_lib "$_fw_backend" || die
+
+[ -n "$daemon_mode_args" ] && export GS_DAEMON_MODE=1
+dir_mk -n "$GEORUN_DIR"
 
 setdebug
 debugentermsg
@@ -132,7 +134,7 @@ fetch_failed() {
 }
 
 resume_geoblocking() {
-	[ "$resume_req" ] && [ "$outbound_geomode" != disable ] && [ "$noblock" = false ] && {
+	[ "$resume_req" ] && [ "$outbound_geomode" != disable ] && [ "$no_block" = false ] && {
 		echolog "Resuming outbound geoblocking."
 		geoip_on outbound
 		echo
@@ -140,16 +142,20 @@ resume_geoblocking() {
 }
 
 
-rm -f "${GS_LOG_FILE}"
+rm -f "$GS_LOG_FILE"
 
 #### VARIABLES
 
-EXPORT_CONF=1 nodie=1 parse_config main || run_fail 1
+nodie=1 load_main_config &&
+checkvars datadir _fw_backend &&
+source_lib "$_fw_backend" || run_fail 1
+
+export status_file="${datadir:?}/status"
 
 CUSTOM_SCRIPT_OK=
-[ -n "$custom_script" ] && [ -n "$daemon_mode" ] && check_custom_script "$custom_script" && CUSTOM_SCRIPT_OK=1
+[ -n "$custom_script" ] && [ -n "$GS_DAEMON_MODE" ] && check_custom_script "$custom_script" && CUSTOM_SCRIPT_OK=1
 
-nobackup="${nobackup_arg:-$nobackup}"
+no_backup="${no_backup_arg:-$no_backup}"
 
 san_str apply_lists_req "$lists_arg" || run_fail 1
 [ ! "$apply_lists_req" ] &&
@@ -188,7 +194,7 @@ mk_lock || die
 trap 'trap - INT TERM HUP QUIT; run_fail 1' INT TERM HUP QUIT
 
 # wait $reboot_sleep seconds after boot, or 0-59 seconds before updating
-[ "$daemon_mode" ] && {
+[ "$GS_DAEMON_MODE" ] && {
 	if [ "$action_run" = restore ]; then
 		IFS='. ' read -r uptime _ < /proc/uptime
 		: "${uptime:=0}"
@@ -199,8 +205,7 @@ trap 'trap - INT TERM HUP QUIT; run_fail 1' INT TERM HUP QUIT
 	fi
 	[ $sl_time -gt 0 ] && {
 		echolog "Sleeping for ${sl_time}s..."
-		sleep $sl_time &
-		wait $!
+		sleep $sl_time
 	}
 }
 
@@ -211,8 +216,8 @@ case "$action_run" in
 	restore)
 		[ ! "$force_run" ] && check_lists_coherence -n 2>/dev/null &&
 			run_success "Geoblocking firewall rules and sets are Ok. Exiting."
-		if [ "$nobackup" = true ]; then
-			echolog "$p_name was configured with 'nobackup' option, changing action to 'update'."
+		if [ "$no_backup" = true ]; then
+			echolog "$p_name was configured with 'no_backup' option, changing action to 'update'."
 			# if backup file doesn't exist, force re-fetch
 			action_run=update force_run="-f"
 		else
@@ -241,8 +246,8 @@ esac
 
 unset all_fetched_lists lists_fetch
 
-[ ! "$daemon_mode" ] && max_attempts=3
-case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_attempts=1; esac
+[ ! "$GS_DAEMON_MODE" ] && max_fetch_attempts=3
+case "$action_run" in add|update) lists_fetch="$apply_lists_req" ;; *) max_fetch_attempts=1; esac
 
 dir_mk "$datadir" || run_fail 1
 
@@ -283,15 +288,14 @@ if [ "$lists_fetch" ]; then
 		[ "$failed_lists" ] && {
 			echolog -err "$FAIL fetch and validate lists '$failed_lists'."
 
-			[ $attempt -ge $max_attempts ] && {
+			[ $attempt -ge $max_fetch_attempts ] && {
 				fetch_rv=1
 				[ "$action_run" = add ] && fetch_rv=254
-				fetch_failed "${fetch_rv}" "Giving up after $max_attempts fetch attempts."
+				fetch_failed "${fetch_rv}" "Giving up after $max_fetch_attempts fetch attempts."
 			}
 			lists_fetch="$failed_lists"
 			echolog "Retrying in $secs seconds"
-			sleep $secs &
-			wait $!
+			sleep $secs
 			secs=$((secs*4))
 			continue
 		}
@@ -340,7 +344,7 @@ esac
 
 if [ ! "$failed_lists" ] && check_lists_coherence; then
 	reg_last_update
-	[ "$nobackup" = false ] && call_script -l "$i_script-backup.sh" create-backup
+	[ "$no_backup" = false ] && call_script -l "$i_script-backup.sh" create-backup
 else
 	run_fail 1
 fi
