@@ -507,7 +507,7 @@ set_defaults() {
 	: "${upd_schedule:="$def_sch_minute 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
-	: "${keep_fetched_db:=false}"
+	: "${keep_fetched_db:="$keep_fetched_db_def"}"
 	: "${_fw_backend:="$_FW_BACKEND_DEF"}"
 	: "${inbound_tcp_ports:=skip}"
 	: "${inbound_udp_ports:=skip}"
