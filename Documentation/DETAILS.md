@@ -139,7 +139,7 @@ These options apply to geoblocking in both directions.
 
 `-f <ipv4|ipv6|"ipv4 ipv6">`: Families (defaults to 'ipv4 ipv6'). Use double quotes for multiple families.
 
-`-u [ripe|ipdeny|maxmind]`: Change IP lists source.
+`-u [ripe|ipdeny|maxmind|ipinfo]`: Change IP lists source.
 
 `-i <[ifaces]|auto|all>`: Change which network interfaces geoip firewall rules are applied to. `auto` will attempt to automatically detect WAN network interfaces. `auto` works correctly in **most** cases but not in **every** case. Don't use `auto` if the machine has no dedicated WAN network interfaces. The automatic detection occurs only when manually triggered by the user via this command.
 
@@ -148,7 +148,7 @@ These options apply to geoblocking in both directions.
 `-t <"[trusted_ips]|none">`: Specify trusted IP addresses or IP ranges (anywhere on the Internet) to exclude from geoip blocking (both ipv4 and ipv6).
 
 `-U <auto|pause|none|"[ip_addresses]">`: Policy for allowing automatic IP list updates when outbound geoblocking is enabled. Use `auto` to detect server IP addresses automatically once and always allow outbound connection to detected addresses. Or use `pause` to always temporarily pause outbound geoblocking before fetching IP list updates.
-Or specify IP addresses for IP lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
+Or specify IP addresses for IP lists source (ripe / ipdeny / maxmind / ipinfo) to allow - for multiple addresses, use double quotes.
 Or use `none` to remove previously assigned server IP addresses and disable this feature.
 
 `-L <path>`: Set custom path to directory where local IP lists will be stored. Default is '/etc/geoip-shell' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
@@ -173,7 +173,7 @@ Or use `none` to remove previously assigned server IP addresses and disable this
 
 `-P <true|false>`: Force cron-based persistence on Busybox-based systems. Depending on compile-time options of Busybox, in some cases Busybox crontab supports the `@reboot` string which is used by geoip-shell to implement persistence and in other cases it doesn't. geoip-shell has no way to tell whether the specific Busybox on your device does or does not support it. For this reason by default geoip-shell refuses to create the persistence cron job when Busybox crontab is detected. This option allows you to override this behavior, so the persistence cron job will be created anyway. You will want to check that it works by restarting your machine, waiting for a minute and running `geoip-shell status`.
 
-`-K <true|false>`: Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
+`-K <true|false>`: Keep and re-use the complete downloaded MaxMind or IPinfo database until it's changed upstream.
 
 ### **Options for the `geoip-shell import` command:**
 `[-A|-B] <path_to_file>`: Specify file containing a list of IP addresses or IP ranges to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`).
@@ -232,7 +232,7 @@ List ID has the format of `<country_code>_<family>`. For example, **US_ipv4** an
 
 
 **geoip-shell-fetch.sh**
-- Fetches IP lists for given list IDs from RIPE or from ipdeny or from MaxMind.
+- Fetches IP lists for given list IDs from one of the supported sources: RIPE, ipdeny, MaxMind, IPinfo.
 - Parses, validates, compiles the downloaded lists, and saves each one to a separate file.
 - Implements extensive sanity checks at each stage (fetching, parsing, validating and saving) and handles errors if they occur.
 
@@ -246,7 +246,7 @@ Options:
 
 `-s <path>`        : Path to a file to register fetch results in.
 
-`-u <ripe|ipdeny|maxmind>` : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind.
+`-u <ripe|ipdeny|maxmind|ipinfo>` : Use this IP list source for download. Supported sources: ripe, ipdeny, maxmind, ipinfo.
 
 Extra options:
 
@@ -281,6 +281,6 @@ Actions: `add`, `update`, `restore`, `on`, `off`
 
 `sh check-ip-in-source.sh -c <country_code> -i <"IP [IP] [IP] ... [IP]"> [-u <source>]`
 
-- Supported sources are `ripe`, `ipdeny` and `maxmind`.
+- Supported sources are `ripe`, `ipdeny`, `maxmind`, `ipinfo`.
 - Any combination of ipv4 and ipv6 addresses is supported.
 - If passing multiple IP addresses, use double quotes around them.
