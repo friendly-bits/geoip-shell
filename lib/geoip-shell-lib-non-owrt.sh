@@ -146,7 +146,7 @@ check_cron() {
 # checks if the cron service is running and if it supports features required by the config
 # if cron service is not running, implements dialog with the user and optional automatic correction
 check_cron_compat() {
-	[ "$schedule" = disable ] && [ "$no_persist" = true ] && return 0
+	[ "$upd_schedule" = disable ] && [ "$no_persist" = true ] && return 0
 	cr_p2="persistence and " cr_p3="automatic IP list updates"
 	i=0
 	while [ $i -le 1 ]; do
