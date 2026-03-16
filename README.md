@@ -106,17 +106,33 @@ _(Note that some commands require root privileges, so you will likely need to ru
 
 **1)** If your system doesn't have `curl`, `wget` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager (for Debian and derivatives: `apt-get install curl`). Systems which only have `iptables` also require the `ipset` utility (`apt-get install ipset`).
 
-**2)** Download the latest realease: https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
-  _<details><summary>**Or download using the command line**:</summary>_
-  - either run `git clone https://github.com/friendly-bits/geoip-shell` - this will include all the latest changes but may not always be stable
-  - or to download the latest release (requires curl):
-
-    `curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://api.github.com/repos/friendly-bits/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz`
+**2)** Download and extract the latest realease:
   
-  - to extract, run: `tar -zxvf geoip-shell.tar.gz`
-  </details>
+  _<details><summary>**To download using the command line**</summary>_
+  - For latest release (requires curl):
 
-**3)** Extract all files included in the release into the same folder somewhere in your home directory and `cd` into that directory in your terminal.
+    ```
+    curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://api.github.com/repos/friendly-bits/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz
+    tar -zxvf geoip-shell.tar.gz
+    ```
+
+  - For current code snapshot (not always stable):
+    ```
+    curl -L https://github.com/friendly-bits/geoip-shell/tarball/main --output geoip-shell.tar.gz
+    tar -zxvf geoip-shell.tar.gz
+    ```
+
+  - Or you can use git to get a copy of the code `git clone https://github.com/friendly-bits/geoip-shell`
+    </details>
+
+    _<details><summary>**To download in your browser**</summary>_
+    https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
+
+    Extract all files included in the release into the same folder somewhere in your home directory.
+    </details>
+
+
+**3)** `cd` into the downloaded distribution directory in your terminal.
 
 **4)** For installation followed by interactive setup, run `sh geoip-shell-install.sh`. For non-interactive installation, run `sh geoip-shell-install.sh -z`.
 
@@ -316,7 +332,7 @@ geoip-shell supports importing custom newline-separated IP lists into locally st
 
 To import a custom IP list, use this command:
 
-`geoip-shell configure [-A|-B] <"[path_to_file]"|remove>`
+`geoip-shell import [-A|-B] <"[path_to_file]"|remove>`
 
 Use `-A` to import the IP list as allowlist. Use `-B` to import the IP list as blocklist.
 
@@ -330,8 +346,10 @@ _<details><summary>Example source file contents</summary>_
 ```
 </details>
 
-_<details><summary>Example command</summary>_
-`geoip-shell configure -A /tmp/my-ip-list.txt` - This will import specified file as an allowlist.
+_<details><summary>Example commands</summary>_
+`geoip-shell import -A /tmp/my-ip-list.txt` - imports specified file into local allowlist.
+`geoip-shell import -B /tmp/my-ip-list.txt` - imports specified file into local blocklist.
+`geoip-shell import -A remove` - removes any IP ranges (of both IP families) you previously imported into local allowlist.
 </details>
 
 You can sequentially import multiple IP lists and geoip-shell will add IP addresses from each file to locally stored IP lists.
@@ -351,7 +369,8 @@ You can sequentially import multiple IP lists and geoip-shell will add IP addres
 - for **iptables**, requires the **ipset** utility - install it using your distribution's package manager
 - standard Unix utilities including **tr**, **cut**, **sort**, **wc**, **awk**, **sed**, **grep**, **pgrep**, **pidof** and **logger** which are included with every server/desktop linux distribution (and with OpenWrt). Both GNU and non-GNU versions are supported, including BusyBox implementation.
 - **wget** or **curl** or **uclient-fetch** (OpenWRT-specific utility).
-- for the autoupdate functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
+- for the automatic IP list update functionality, requires the **cron** service to be enabled. Except on OpenWrt, persistence also requires the cron service.
+- the `lookup` command requires `grepcidr`
 - for the MaxMind source, requires the utilities: `unzip`, `gzip`, `gunzip` (`apt install unzip gzip`)
 
 **Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.

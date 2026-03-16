@@ -95,6 +95,8 @@ Options for `geoip-shell lookup`:
 
 `geoip-shell configure [options]` : changes geoip-shell configuration.
 
+`geoip-shell import [options]` : imports IP ranges from a user-specified file, or removes previously imported IP ranges.
+
 Initial configuration is possible either fully interactively (the -manage script gathers all important config via dialog with the user), partially interactively (you provide some command line arguments, the -manage script processes them and if needed, asks you additional questions), or completely non-interactively by calling the -manage script with the `-z` option which will force the command to fail if any required options are missing or invalid.
 
 **Note** that at initial interactive setup, geoip-shell will only ask questions about **inbound** geoblocking. If you want to have **outbound** geoblocking (in addition to or instead of inbound geoblocking), use the command `geoip-shell configure -D outbound`. This will start interactive setup for that direction.
@@ -149,8 +151,6 @@ These options apply to geoblocking in both directions.
 Or specify IP addresses for IP lists source (ripe or ipdeny or maxmind) to allow - for multiple addresses, use double quotes.
 Or use `none` to remove previously assigned server IP addresses and disable this feature.
 
-`[-A|-B] <"[path_to_file]"|remove>`: Local IP lists. Specify file containing a list of IP addresses or IP ranges to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`). `remove` removes existing local allowlists or blocklists.
-
 `-L <path>`: Set custom path to directory where local IP lists will be stored. Default is '/etc/geoip-shell' for OpenWrt, '/var/lib/geoip-shell' for all other systems.
 
 `-r <[user_country_code]|none>` : Specify user's country code. Used to prevent accidental lockout of a remote machine. `none` disables this feature.
@@ -174,6 +174,12 @@ Or use `none` to remove previously assigned server IP addresses and disable this
 `-P <true|false>`: Force cron-based persistence on Busybox-based systems. Depending on compile-time options of Busybox, in some cases Busybox crontab supports the `@reboot` string which is used by geoip-shell to implement persistence and in other cases it doesn't. geoip-shell has no way to tell whether the specific Busybox on your device does or does not support it. For this reason by default geoip-shell refuses to create the persistence cron job when Busybox crontab is detected. This option allows you to override this behavior, so the persistence cron job will be created anyway. You will want to check that it works by restarting your machine, waiting for a minute and running `geoip-shell status`.
 
 `-K <true|false>`: Keep and re-use the complete downloaded MaxMind database until it's changed upstream.
+
+### **Options for the `geoip-shell import` command:**
+`[-A|-B] <path_to_file>`: Specify file containing a list of IP addresses or IP ranges to import into geoip-shell (one IP family per file) as either allowlist (`-A`) or blocklist (`-B`).
+
+`[-A|-B] remove`: removes any previously imported local IP lists of specified type (`-A` for allowlist, `-B` for blocklist).
+
 
 ### Other options
 `-v`: Verbose status output
