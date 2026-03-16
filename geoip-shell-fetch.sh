@@ -251,7 +251,7 @@ get_src_dates_ipinfo() {
 	:
 }
 
-parse_ripe_json() {
+parse_ripe_country() {
 	in_file="$1" out_file="$2" family_parse="$3"
 	tr ',' '\n' < "$in_file" |
 		sed -n "/\"${family_parse}\":\[/{s/.*\[//;:1 /]/{s/].*//;p;q;};p;n;b1;}" |
@@ -585,7 +585,7 @@ process_ccode() {
 		case "$dl_src" in
 			ripe)
 				printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
-				parse_ripe_json "$fetched_file" "$parsed_list" "$family" ||
+				parse_ripe_country "$fetched_file" "$parsed_list" "$family" ||
 					{ list_failed "$FAIL parse the IP list for '$list_id'."; continue; }
 				OK ;;
 			maxmind|ipinfo|ipdeny) mv "$fetched_file" "$parsed_list"
@@ -656,7 +656,6 @@ process_ccode() {
 }
 
 # Get cmd's and opts for best available DL utility
-# shellcheck disable=SC2034,SC2154
 get_fetch_util() {
 	gfu_src="$6" gfu_src_cap="$7"
 	gfu_main_timeout=16
@@ -833,16 +832,13 @@ esac
 iplist_dir_f="${iplist_dir_f%/}"
 [ "$iplist_dir_f" ] || die_f "Specify iplist directory with '-p <path-to-dir>'."
 
-if [ "$ROOT_OK" = 1 ]; then
-	FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
-else
-	FETCH_TMP_DIR=/tmp/${p_name}-fetch-noroot
-fi
+FETCH_TMP_DIR=${GEOTEMP_DIR:-"/tmp"}/fetch
 
 # Conn check url
 case "$dl_src" in
 	ripe) con_check_url="${ripe_url_api%%/*}" ;;
 	ipdeny) con_check_url="${ipdeny_ipv4_url%%/*}" ;;
+	ipinfo_app) con_check_url="${ipinfo_app_url%%/*}" ;;
 	maxmind)
 		checkvars maxmind_url mm_license_type mm_acc_id mm_license_key
 		con_check_url="${maxmind_url%%/*}"
@@ -858,7 +854,8 @@ case "$dl_src" in
 		case "$ipinfo_license_type" in
 			lite|core|plus) ipinfo_db_name="$ipinfo_license_type" ;;
 			*) die_f "unexpected IPinfo license type '$ipinfo_license_type'"
-		esac
+		esac ;;
+	*) die_f "Unexpected fetch source '$dl_src'."
 esac
 
 #### Fetch util
@@ -875,7 +872,8 @@ trap 'trap - INT TERM HUP QUIT; \
 
 rm -rf "$FETCH_TMP_DIR"
 dir_mk -n "${iplist_dir_f:?}" &&
-dir_mk -n "${FETCH_TMP_DIR:?}" || die_f
+dir_mk -n "${FETCH_TMP_DIR:?}" &&
+dir_mk -n "${FETCH_RES_FILE%/*}" || die_f
 
 printf '\n%s\n' "Using ${fetch_cmd%% *} for download."
 
@@ -896,6 +894,7 @@ $con_check_cmd "https://$con_check_url" 1>"$con_check_file" 2>&1 || {
 OK
 rm -f "$con_check_file"
 
+[ -n "$datadir" ] && status_file="${datadir}/status"
 for f in "$status_file" "$FETCH_RES_FILE"; do
 	[ -z "$f" ] || [ -f "$f" ] || touch "$f" || die_f "$FAIL create file '$f'."
 done
@@ -904,7 +903,6 @@ done
 #### Main
 
 # read info about previous fetch from the status file
-[ -n "$datadir" ] && status_file="${datadir}/status"
 if [ "$status_file" ] && [ -s "$status_file" ]; then
 	getstatus main_status "$status_file"
 else
