@@ -21,18 +21,20 @@
 
 ### Library Scripts
 - lib/geoip-shell-lib-common.sh
+- lib/geoip-shell-lib-config.sh
 - lib/geoip-shell-lib-setup.sh
 - lib/geoip-shell-lib-ipt.sh
 - lib/geoip-shell-lib-nft.sh
 - lib/geoip-shell-lib-status.sh
 - lib/geoip-shell-lib-non-owrt.sh
 - lib/geoip-shell-lib-arrays.sh
-- lib/geoip-shell-lib-uninstall.sh
 - lib/geoip-shell-lib-ip-tools.sh
 - lib/geoip-shell-lib-lookup.sh
 
 
 The **lib-common** script includes a large number of functions used throughout the suite, and assigns some essential variables.
+
+The **lib-config** script implements internal config management.
 
 The **lib-setup** script implements some of the CLI interactive and noninteractive setup and arguments parsing. It is used by the -manage script.
 
@@ -255,7 +257,7 @@ Extra options:
 `-f` : Force using fetched lists even if list timestamp didn't change compared to existing list.
 
 
-**geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes IP sets and firewall rules for specified list IDs. Sources the lib-ipt or lib-nft library script.
+**geoip-shell-apply.sh**:  directly interfaces with the firewall backend (nftables or iptables). Creates or removes IP sets and firewall rules for specified list IDs.
 
 Actions: `add`, `update`, `restore`, `on`, `off`
 
