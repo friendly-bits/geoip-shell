@@ -15,6 +15,7 @@ script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 manmode=1
 nolog=1
 in_uninstall=1
+export FORCE_SOURCE_LIBS=1
 
 case "$script_dir" in
 	"/usr/bin"|'')
