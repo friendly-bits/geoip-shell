@@ -190,8 +190,8 @@ checkutil uci && checkutil procd && for i in 3 4; do
 	[ -x /sbin/fw$i ] && export _OWRTFW="$i"
 done
 
-[ -z "$_OWRTFW" ] && {
-	logger -s -t "$me" -p user.warn "Warning: Detected procd init but no OpenWrt firewall."
+[ -n "$_OWRTFW" ] || {
+	logger -s -t "$me" -p user.warn "Warning: can not find neither OpenWrt firewall3 nor firewall4."
 	return 0
 }
 curr_sh_g="/bin/sh"
