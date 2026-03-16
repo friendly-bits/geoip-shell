@@ -211,7 +211,7 @@ pick_ips() {
 		printf '\n%s\n' "Type in $family addresses for $pi_msg, [s] to skip or [a] to abort."
 		read -r REPLY
 		case "$REPLY" in
-			s|S) unset "$pi_var"; return 1 ;;
+			s|S) eval "$pi_var="; return 1 ;;
 			a|A) die 253
 		esac
 		case "$REPLY" in *[!A-Za-z0-9.:/\ ]*)
@@ -227,13 +227,15 @@ pick_ips() {
 
 pick_lan_ips() {
 	confirm_ips() {
-		unset "lan_ips_$family"
-		[ "$lan_ips" ] && eval "lan_ips_$family"='$ipset_type:$lan_ips'
+		eval "lan_ips_${family}="
+		[ "$lan_ips" ] && eval "lan_ips_${family}"='$ipset_type:$lan_ips'
 	}
 
 	debugprint "Processing lan ips..."
 	lan_picked=1
-	unset autodetect ipset_type lan_ips lan_ips_ipv4 lan_ips_ipv6
+	lan_ips_ipv4=
+	lan_ips_ipv6=
+	unset autodetect ipset_type lan_ips
 	case "$lan_ips_arg" in
 		none) return 0 ;;
 		auto) lan_ips_arg=''; autodetect=1
@@ -287,12 +289,17 @@ pick_lan_ips() {
 
 pick_source_ips() {
 	confirm_ips() {
-		unset "source_ips_$family"
-		[ "$source_ips" ] && eval "source_ips_$family"='$ipset_type:$source_ips'
+		eval "source_ips_${family}="
+		[ "$source_ips" ] && eval "source_ips_${family}"='$ipset_type:$source_ips'
 	}
 
 	debugprint "Processing source ips..."
-	unset source_ips_autodetect source_ips_policy source_ips source_ips_ipv4 source_ips_ipv6 ipset_type
+	source_ips_autodetect=
+	source_ips_policy=
+	source_ips=
+	source_ips_ipv4=
+	source_ips_ipv6=
+	ipset_type=
 	tolower source_ips_arg
 	case "$source_ips_arg" in
 		pause|none) source_ips_policy="$source_ips_arg"; source_ips_arg=''; return 0 ;;
@@ -473,10 +480,10 @@ set_defaults() {
 		esac
 	}
 
-	noblock_def=false no_persist_def=false force_cron_persist_def=false
+	no_block_def=false no_persist_def=false force_cron_persist_def=false
 
 	# randomly select schedule minute between 3 and 27
-	[ ! "$schedule" ] && {
+	[ ! "$upd_schedule" ] && {
 		get_random_int rand_int 24
 		: "${rand_int:=0}"
 		# for the superstitious
@@ -485,19 +492,19 @@ set_defaults() {
 	}
 
 	if [ "$_OWRTFW" ]; then
-		geosource_def=ipdeny datadir_def="$GEORUN_DIR/data" nobackup_def=true
+		geosource_def=ipdeny datadir_def="$GEORUN_DIR/data" no_backup_def=true
 		local_iplists_dir_def="$CONF_DIR/local_iplists"
 		keep_fetched_db_def=false
 	else
-		geosource_def=ripe datadir_def="/var/lib/$p_name" nobackup_def=false
+		geosource_def=ripe datadir_def="/var/lib/$p_name" no_backup_def=false
 		local_iplists_dir_def="$datadir_def/local_iplists"
 		keep_fetched_db_def=true
 	fi
 
-	: "${nobackup:="$nobackup_def"}"
+	: "${no_backup:="$no_backup_def"}"
 	: "${datadir:="$datadir_def"}"
 	: "${local_iplists_dir:="$local_iplists_dir_def"}"
-	: "${schedule:="$def_sch_minute 4 * * *"}"
+	: "${upd_schedule:="$def_sch_minute 4 * * *"}"
 	: "${families:="ipv4 ipv6"}"
 	: "${geosource:="$geosource_def"}"
 	: "${keep_fetched_db:=false}"
@@ -510,8 +517,8 @@ set_defaults() {
 	: "${outbound_icmp:=skip}"
 	: "${nft_perf:=$nft_perf_def}"
 	: "${reboot_sleep:=30}"
-	: "${max_attempts:=5}"
-	: "${noblock:=$noblock_def}"
+	: "${max_fetch_attempts:=5}"
+	: "${no_block:=$no_block_def}"
 	: "${no_persist:=$no_persist_def}"
 	: "${force_cron_persist:=$force_cron_persist_def}"
 }
@@ -598,8 +605,8 @@ get_general_prefs() {
 	esac
 	nft_perf="${nft_perf_arg:-$nft_perf}"
 
-	# nobackup, noblock, no_persist, force_cron_persist, keep_fetched_db
-	for _par in "nobackup o" "noblock N" "no_persist n" "force_cron_persist F" "keep_fetched_db K"; do
+	# no_backup, no_block, no_persist, force_cron_persist, keep_fetched_db
+	for _par in "no_backup o" "no_block N" "no_persist n" "force_cron_persist F" "keep_fetched_db K"; do
 		par_name="${_par% *}" par_opt="${_par#* }"
 		eval "par_val=\"\$$par_name\"
 			par_val_arg=\"\${${par_name}_arg}\"
@@ -613,7 +620,7 @@ get_general_prefs() {
 		case "$par_val" in
 			true)
 				[ "$first_setup" ] && [ "$par_val_arg" != true ] &&
-					case "$par_name" in noblock|no_persist|force_cron_persist)
+					case "$par_name" in no_block|no_persist|force_cron_persist)
 						echolog -warn "${_nl}option '$par_name' is set to 'true' in config."
 					esac ;;
 			false) ;;
@@ -641,13 +648,13 @@ get_general_prefs() {
 	[ "$local_iplists_dir_arg" ] && dir_change local_iplists_dir
 
 	# cron schedule
-	schedule="${schedule_arg:-"$schedule"}"
+	upd_schedule="${upd_schedule_arg:-"$upd_schedule"}"
 
-	{ [ "$schedule" != "$schedule_prev" ] && [ "$schedule" != disable ]; } ||
+	{ [ "$upd_schedule" != "$upd_schedule_prev" ] && [ "$upd_schedule" != disable ]; } ||
 	{ [ "$no_persist" != "$no_persist_prev" ] && [ "$no_persist" = false ]; } &&
 		{ check_cron_compat || die; }
-	[ "$schedule_arg" ] && [ "$schedule_arg" != disable ] && {
-		call_script "$_script-cronsetup.sh" -x "$schedule_arg" || die "$FAIL validate cron schedule '$schedule_arg'."
+	[ "$upd_schedule_arg" ] && [ "$upd_schedule_arg" != disable ] && {
+		call_script "$_script-cronsetup.sh" -x "$upd_schedule_arg" || die "$FAIL validate cron schedule '$upd_schedule_arg'."
 	}
 
 	# families
@@ -672,7 +679,7 @@ get_general_prefs() {
 
 	# process trusted IPs if specified
 	case "$trusted_arg" in
-		none) unset trusted_ipv4 trusted_ipv6 ;;
+		none) trusted_ipv4='' trusted_ipv6='' ;;
 		'') ;;
 		*)
 			validate_arg_ips "$trusted_arg" trusted && return 0
@@ -680,7 +687,7 @@ get_general_prefs() {
 			for family in $families; do
 				ipset_type=net
 				pick_ips trusted "$family" "trusted IP addresses or ranges" || continue
-				unset "trusted_$family"
+				eval "trusted_$family="
 				[ "$trusted" ] && eval "trusted_$family"='$ipset_type:$trusted'
 			done
 	esac
@@ -690,8 +697,6 @@ get_general_prefs() {
 }
 
 do_configure() {
-	prev_config="$main_config"
-
 	[ ! -s "$CONF_FILE" ] && {
 		touch "$CONF_FILE" && chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" || {
 			rm -f "$CONF_FILE"
@@ -702,19 +707,19 @@ do_configure() {
 
 	debugprint "first_setup: '$first_setup'"
 
-	for var_name in datadir local_iplists_dir noblock nobackup schedule no_persist geosource ifaces families _fw_backend nft_perf \
+	for var_name in datadir local_iplists_dir no_block no_backup upd_schedule no_persist geosource ifaces families _fw_backend nft_perf \
 		user_ccode lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
 		eval "${var_name}_prev=\"\$$var_name\""
 	done
 
-	# sets _fw_backend nft_perf nobackup noblock no_persist force_cron_persist datadir local_iplists_dir schedule families
+	# sets _fw_backend nft_perf no_backup no_block no_persist force_cron_persist datadir local_iplists_dir upd_schedule families
 	#   geosource trusted user_ccode keep_fetched_db custom_script
 	# imports local IP lists if specified
 	get_general_prefs || die
 
 	checkvars _fw_backend datadir
 
-	for opt_ch in datadir local_iplists_dir noblock nobackup schedule no_persist geosource families \
+	for opt_ch in datadir local_iplists_dir no_block no_backup upd_schedule no_persist geosource families \
 			_fw_backend nft_perf user_ccode source_ips_policy; do
 		unset "${opt_ch}_change"
 		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
@@ -792,7 +797,8 @@ do_configure() {
 			[ "$proto_arg" ] && die "Option '-p' $contradicts1" "$contradicts2"
 			[ "$ccodes_arg" ] && die "Option '-c' $contradicts1" "$contradicts2"
 			process_args=
-			unset iplists "${direction}_iplists"
+			unset iplists
+			eval "${direction}_iplists="
 			eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_icmp=skip ${direction}_geomode=disable"
 		else
 			process_args=1
@@ -802,13 +808,17 @@ do_configure() {
 
 		eval "${direction}_geomode"='$geomode' "${direction}_geomode_change"='$geomode_change'
 
-		[ -n "$geomode_change" ] && unset iplists "${direction}_iplists"
+		[ -n "$geomode_change" ] && {
+			unset iplists
+			eval "${direction}_iplists="
+		}
 
 		[ "$direction" = outbound ] && ! is_whitelist_present && {
 			[ "$lan_ips_arg" ] && die "Option '-l' can only be used in whitelist geoblocking mode."
 			if [ -n "$lan_ips_ipv4$lan_ips_ipv6" ]; then
 				echolog -warn "Inbound geoblocking mode is '$inbound_geomode', outbound geoblocking mode is '$outbound_geomode'. Removing LAN IPs from config." # TODO: do not remove?
-				unset lan_ips_ipv4 lan_ips_ipv6
+				lan_ips_ipv4=
+				lan_ips_ipv6=
 			fi
 		}
 
@@ -899,7 +909,7 @@ do_configure() {
 
 	[ "$lan_ips_arg" ] &&  [ ! "$lan_picked" ] && pick_lan_ips
 
-	[ "$geosource_change" ] && unset source_ips_ipv4 source_ips_ipv6
+	[ "$geosource_change" ] && source_ips_ipv4='' source_ips_ipv6=''
 
 	# source IPs
 	if [ "$source_ips_arg" ] || {
@@ -927,7 +937,7 @@ do_configure() {
 		iplists="$lists_req"
 
 		! get_difference "$iplists_prev" "$iplists" && {
-			lists_change=1
+			final_lists_change=1
 			eval "${direction}_lists_change=1"
 		}
 		eval "${direction}_iplists"='$iplists'
@@ -956,7 +966,7 @@ import_local_iplists() {
 			remove)
 				printf '%s\n' "Removing local ${iplist_type}lists..."
 				prev_local_file="$(find "${local_iplists_dir}" -name "local_${iplist_type}_*" -exec rm -f {} \; -exec printf '%s\n' {} \; 2>/dev/null)"
-				[ -n "${prev_local_file}" ] && lists_change=1
+				[ -n "${prev_local_file}" ] && final_lists_change=1
 				continue
 		esac
 
@@ -1058,10 +1068,10 @@ import_local_iplists() {
 			mv "$staging_file" "$staging_file.ip"
 		fi
 		rm -f "$STAGING_LOCAL_DIR/net"
-		printf '%s\n' "${yellow}You can delete the file '$file' to free up space.${n_c}"
-		lists_change=1
+		add2list src_local_files "$file" "$_nl"
+		final_lists_change=1
 	done
-	[ -n "$lists_change" ] || die 0
+	[ -n "$final_lists_change" ] || die 0
 }
 
 [ "$script_dir" = "$INSTALL_DIR" ] && _script="$i_script" || _script="$p_script"
