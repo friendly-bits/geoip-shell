@@ -11,9 +11,8 @@ p_name="geoip-shell"
 : "${manmode:=1}"
 export inbound_geomode nolog=1 manmode
 
-. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 script_dir="$INSTALL_DIR"
-source_lib setup || die
+. "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 san_args "$@"
 newifs "$delim"
@@ -295,6 +294,8 @@ debugentermsg
 extra_args "$@"
 
 is_root_ok
+
+source_lib setup || die
 
 
 #### FUNCTIONS
