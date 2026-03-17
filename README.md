@@ -102,14 +102,16 @@ If you find this project useful, please take a second to give it a star on Githu
 </details>
 
 ## **Installation**
+_(NOTE: For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).)_
+
 _(Note that some commands require root privileges, so you will likely need to run them with `sudo`)_
 
 **1)** If your system doesn't have `curl`, `wget` or (OpenWRT utility) `uclient-fetch`, install one of them using your distribution's package manager (for Debian and derivatives: `apt-get install curl`). Systems which only have `iptables` also require the `ipset` utility (`apt-get install ipset`).
 
 **2)** Download and extract the latest realease:
-  
-  _<details><summary>**To download using the command line**</summary>_
-  - For latest release (requires curl):
+
+  _<details><summary>**To download using the command line (requires curl or git)**</summary>_
+  - For latest release:
 
     ```
     curl -L "$(curl -s https://api.github.com/repos/friendly-bits/geoip-shell/releases | grep -m1 -o 'https://api.github.com/repos/friendly-bits/geoip-shell/tarball/[^"]*')" > geoip-shell.tar.gz
@@ -123,13 +125,12 @@ _(Note that some commands require root privileges, so you will likely need to ru
     ```
 
   - Or you can use git to get a copy of the code `git clone https://github.com/friendly-bits/geoip-shell`
-    </details>
+  </details>
 
-    _<details><summary>**To download in your browser**</summary>_
-    https://github.com/friendly-bits/geoip-shell/releases. Unless you are installing on OpenWrt, download **Source code (zip or tar.gz)**. For installation on OpenWrt, read the [OpenWrt README](/OpenWrt/README.md).
-
-    Extract all files included in the release into the same folder somewhere in your home directory.
-    </details>
+  _<details><summary>**To download in your browser**</summary>_
+  - Download **Source code (tar.gz)** attached to the latest release in [Releases](https://github.com/friendly-bits/geoip-shell/releases)
+  - Extract all files included in the release into the same folder somewhere in your home directory.
+  </details>
 
 
 **3)** `cd` into the downloaded distribution directory in your terminal.
