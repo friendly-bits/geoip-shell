@@ -208,7 +208,6 @@ status_file="${datadir:?}/status"
 
 ## MAIN
 
-debugprint "loading the $_fw_backend library..."
 source_lib "$_fw_backend" || die
 
 debugprint "Starting action '$action'..."
