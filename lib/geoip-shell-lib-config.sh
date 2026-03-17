@@ -31,8 +31,8 @@ set_config_vars() {
 
 	scv_src_pr="$1" scv_lines="$2" scv_req_pairs="$3"
 
-	newifs "$_nl" scv
 	[ "$scv_lines" ] || { bad_args set_config_vars "$@"; return 1; }
+	newifs "$_nl" scv
 	for scv_line in $scv_lines; do
 		[ -n "$scv_line" ] || continue
 		oldifs scv
@@ -75,7 +75,7 @@ set_config_vars() {
 # 2: path to config/status file or empty for main cfg file
 # 3 (optional): list of [key]=[var_name] to set (otherwise assigns each key to mapped var name)
 load_config() {
-	unset lcf_lines lcf_f lcf_type lcf_src lcf_req_pairs lcf_src_pr
+	unset lcf_lines lcf_f lcf_type lcf_src lcf_src_pr
 
 	lcf_type="$1"
 	lcf_src="$2"
@@ -118,20 +118,6 @@ ser_cfg() {
 	eval "$ser_out_var"='$ser_opts'
 }
 
-ser_main_cfg() {
-	ser_out_var="$1"
-	shift
-	ser_opts=
-	for ser_pair in $CONF_KEYS_MAP; do
-		[ -n "$ser_opt" ] || continue
-		ser_key="${ser_pair%%=*}"
-		ser_var="${ser_pair#"${ser_key}="}"
-		eval "ser_val=\"\${ser_var}\""
-		ser_opts="${ser_opts}${ser_key}=${ser_val}${delim}"
-	done
-	eval "$ser_out_var"='$ser_opts'
-}
-
 # Env vars:
 # PCF_IGNORE_MISSING_FILE
 # PCF_IGNORE_MISSING_KEYS
@@ -142,10 +128,10 @@ ser_main_cfg() {
 # 3: type
 # extra args (optional): new key=value pairs to override old config
 parse_config() {
-	pcf_fail() { eval "${pcf_new_conf_var:-_}=''"; }
+	pcf_fail() { [ -n "$1" ] && echolog -err "parse_config: $1"; eval "${pcf_new_conf_var:-_}=''"; }
 
 	pcf_new_conf_var="$1" pcf_path="$2" pcf_type="$3"
-	unset pcf_is_main pcf_migr_opts_map pcf_regex pcf_valid_keys pcf_cfg1 pcf_cfg2
+	unset pcf_is_main pcf_migr_opts_map pcf_regex pcf_valid_keys pcf_depr_keys pcf_cfg1 pcf_cfg2
 
 	# cfg1 = config from file
 	# cfg2 = config from args
@@ -196,8 +182,7 @@ parse_config() {
 	}
 
 	[ -n "$pcf_file_found" ] || [ -n "$PCF_IGNORE_MISSING_FILE" ] || {
-		echolog -err "Config/status file '$pcf_path' is missing!"
-		pcf_fail
+		pcf_fail "Config/status file '$pcf_path' is missing!"
 		return 1
 	}
 
@@ -344,8 +329,7 @@ parse_config() {
 	}
 
 	[ -n "$pcf_err" ] && {
-		echolog -err "$FAIL parse config."
-		pcf_fail
+		pcf_fail "$FAIL parse config."
 		return 1
 	}
 
@@ -358,7 +342,7 @@ set_main_config() { setconfig main "" "$@"; }
 
 # 1: type
 # 2: file path
-# Accepts key=value pairs and writes them to (or replaces in) config file specified in global variable $CONF_FILE
+# Accepts key=value pairs and writes them to (or replaces in) the config/status file
 setconfig() {
 	sc_failed() { echolog -err "setconfig failed${1:+": $1"}"; [ ! "$nodie" ] && die; }
 
@@ -401,6 +385,7 @@ setconfig() {
 	:
 }
 
+# Writes all values in main config vars to CONF_FILE_TMP
 set_all_config() {
 	for sac_var in $CONF_KEYS_MAP; do
 		sac_key="${sac_var%%=*}"
@@ -443,65 +428,65 @@ setstatus() {
 set_main_conf_opts() {
 	# Map in the format <key[=var_name]>
 	# When var_name is omitted, var_name is same as config key
-	export CONF_KEYS_MAP="
-		inbound_geomode \
-		inbound_iplists \
-		inbound_tcp_ports \
-		inbound_udp_ports \
-		inbound_icmp \
-		outbound_geomode \
-		outbound_iplists \
-		outbound_tcp_ports \
-		outbound_udp_ports \
-		outbound_icmp \
-		lan_ips_ipv4 \
-		lan_ips_ipv6 \
-		autodetect_lan \
-		trusted_ipv4 \
-		trusted_ipv6 \
-		source_ips_ipv4 \
-		source_ips_ipv6 \
-		source_ips_policy \
-		ip_families=families \
-		geosource \
-		firewall_backend=_fw_backend \
-		ifaces \
-		upd_schedule \
-		max_fetch_attempts \
-		reboot_sleep \
-		no_block \
-		no_persist \
-		no_backup \
-		force_cron_persist \
-		nft_sets_policy=nft_perf \
-		keep_fetched_db \
-		user_ccode \
-		mm_license_type \
-		mm_acc_id \
-		mm_license_key \
-		ipinfo_license_type \
-		ipinfo_token \
-		datadir \
-		local_iplists_dir \
-		custom_script \
+	CONF_KEYS_MAP="
+		inbound_geomode
+		inbound_iplists
+		inbound_tcp_ports
+		inbound_udp_ports
+		inbound_icmp
+		outbound_geomode
+		outbound_iplists
+		outbound_tcp_ports
+		outbound_udp_ports
+		outbound_icmp
+		lan_ips_ipv4
+		lan_ips_ipv6
+		autodetect_lan
+		trusted_ipv4
+		trusted_ipv6
+		source_ips_ipv4
+		source_ips_ipv6
+		source_ips_policy
+		ip_families=families
+		geosource
+		firewall_backend=_fw_backend
+		ifaces
+		upd_schedule
+		max_fetch_attempts
+		reboot_sleep
+		no_block
+		no_persist
+		no_backup
+		force_cron_persist
+		nft_sets_policy=nft_perf
+		keep_fetched_db
+		user_ccode
+		mm_license_type
+		mm_acc_id
+		mm_license_key
+		ipinfo_license_type
+		ipinfo_token
+		datadir
+		local_iplists_dir
+		custom_script
 		bk_ext
 	"
 
 	# Config migration
 	# list of options to migrate in the format <old_key=new_key>
-	export MIGR_KEYS_MAP="
-		_fw_backend=firewall_backend \
-		families=ip_families \
-		autodetect=autodetect_lan \
-		keep_mm_db=keep_fetched_db \
-		schedule=upd_schedule \
-		noblock=no_block \
-		nobackup=no_backup \
+	MIGR_KEYS_MAP="
+		_fw_backend=firewall_backend
+		families=ip_families
+		autodetect=autodetect_lan
+		keep_mm_db=keep_fetched_db
+		schedule=upd_schedule
+		noblock=no_block
+		nobackup=no_backup
 		nft_perf=nft_sets_policy
 		max_attempts=max_fetch_attempts
 	"
 
-	export DEPR_KEYS="
+	DEPR_KEYS="
 		http
 	"
 
@@ -510,7 +495,7 @@ set_main_conf_opts() {
 		eval "mco_opts=\"\${$mco_cat}\""
 		set -- $mco_opts
 		IFS=" "
-		eval "$mco_cat"='$*'
+		export "$mco_cat=$*"
 	done
 
 	IFS="$default_IFS"
