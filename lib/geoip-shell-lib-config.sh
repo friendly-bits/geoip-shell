@@ -101,6 +101,7 @@ load_config() {
 # If parent doesn't own the config, set curr script as config owner
 load_main_config() {
 	[ -n "$GS_CONFIG_SET" ] && [ "$1" != '-f' ] && return 0
+	debugprint "Loading main config."
 	EXPORT_CONF=1 load_config main || return 1
 
 	[ -z "$GS_CONFIG_SET" ] && GS_CONFIG_OWNER=1 # identifies the script which owns the exported config vars
