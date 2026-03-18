@@ -574,21 +574,20 @@ done
 
 #### MAIN
 
+source_lib "$_fw_backend" || die_m
+
 # actions which do not require lock
 case "$action" in
 	status)
-		source_lib status "$LIB_DIR" && report_status
+		source_lib status && report_status
 		die $? ;;
 	stop)
 		kill_geo_pids
 		mk_lock -f
 		rm_iplists_rules
-		die_m ;;
-esac
-
-case "$action" in
+		die_m 0 ;;
 	lookup)
-		source_lib lookup "$LIB_DIR" &&
+		source_lib lookup &&
 		lookup "$lookup_addr_arg" "$lookup_addr_file_arg"
 		die_m $? ;;
 	on|off)
@@ -614,6 +613,7 @@ case "$action" in
 	import) import_local_iplists ;;
 	configure) do_configure ;;
 esac
+
 
 unset run_restore_req run_add_req reset_req backup_req apply_req cron_req coherence_req
 
@@ -670,15 +670,14 @@ if [ "$_fw_backend_change" ]; then
 		(
 			# use previous backend to remove existing rules
 			export _fw_backend="$_fw_backend_prev"
-			source_lib "$_fw_backend_prev" "$LIB_DIR" || exit 1
+			source_lib "$_fw_backend_prev" || exit 1
 			rm_iplists_rules
 			rm_data
 			:
 		) || die_m "$FAIL remove firewall rules for backend '$_fw_backend_prev'."
 	fi
+	source_lib "$_fw_backend" || die_m
 fi
-
-source_lib "$_fw_backend" "$LIB_DIR" || die_m
 
 [ -n "$conf_act" ] || check_lists_coherence || conf_act=run_restore
 
