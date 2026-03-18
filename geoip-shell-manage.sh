@@ -337,6 +337,7 @@ dir_mv() {
 # restore iplists from the config file
 # if that fails, restore from backup
 restore_from_config() {
+	_prev="${1}${1:+ }"
 	restore_msg="Restoring $p_name from ${_prev}config... "
 	restore_ok_msg="Successfully restored $p_name from ${_prev}config."
 	[ "$conf_act" = reset ] && {
@@ -347,6 +348,19 @@ restore_from_config() {
 
 	rm_iplists_rules || return 1
 	rm -f "$status_file"
+
+	if [ -n "$_prev" ]; then
+		[ -s "$CONF_FILE" ] || { echolog "Previous config not found."; return 1; }
+		if discard_config_changes &&
+			nodie=1 load_main_config &&
+			[ ! "$_fw_backend_change" ] ||
+				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
+			:
+		else
+			echolog -err "$FAIL restore previous config."
+			return 1
+		fi
+	fi
 
 	# compile run args
 	run_args=
@@ -368,18 +382,11 @@ restore_from_config() {
 	# Handle failure
 	[ "$first_setup" ] && die_m
 
-	[ ! "$prev_config_try" ] && [ -s "$CONF_FILE" ] && {
-		prev_config_try=1
-		discard_config_changes
-
-		if nodie=1 load_main_config && _prev="previous " &&
-			[ ! "$_fw_backend_change" ] ||
-				{ [ "$_fw_backend_change" ] && [ "$_fw_backend" ] && source_lib "$_fw_backend"; }; then
-			restore_from_config && return 0
-		else
-			echolog -err "$FAIL load the previous config."
-		fi
-	}
+	if [ -n "$_prev" ]; then
+		return 1
+	else
+		restore_from_config previous && return 0
+	fi
 
 	# recover from backup
 	[ -f "$datadir/backup/$p_name.conf.bak" ] && call_script -l "$i_script-backup.sh" restore && {
@@ -766,9 +773,7 @@ case "$rv_conf" in
 			nodie=1 load_main_config && check_lists_coherence
 		} ||
 			{
-				_prev="previous "
-				prev_config_try=1
-				restore_from_config
+				restore_from_config previous
 				die_m $?
 			}
 		backup_req=
