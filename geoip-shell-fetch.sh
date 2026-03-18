@@ -135,13 +135,13 @@ get_src_dates_ipdeny() {
 	done
 
 	for list_id in $valid_lists; do
-		curr_ccode="${list_id%%_*}"
+		curr_l_name="${list_id%%_*}"
 		family="${list_id#*_}"
 		server_plaintext_file="${tmp_file_path}_plaintext_${family}.tmp"
 		# picks the line for the correct entry, then picks the 2nd field which is the date
 		# matches that to date in format 'dd-Mon-20yy', then converts to 'yyyymmdd'
 		[ -f "$server_plaintext_file" ] && server_date="$(
-			$awk_cmd -v c="$curr_ccode" '($1==tolower(c)"-aggregated.zone" && $2 ~ /^[0-3][0-9]-...-20[1-9][0-9]$/) {split($2,d,"-");
+			$awk_cmd -v c="$curr_l_name" '($1==tolower(c)"-aggregated.zone" && $2 ~ /^[0-3][0-9]-...-20[1-9][0-9]$/) {split($2,d,"-");
 				date=sprintf("%04d%02d%02d", d[3],index("  JanFebMarAprMayJunJulAugSepOctNovDec",d[2])/3,d[1]); print date}' \
 				"$server_plaintext_file"
 		)"
@@ -262,9 +262,9 @@ parse_ripe_country() {
 }
 
 preparse_maxmind_csv() {
-	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" db_name_parse="$5"
+	in_file="$1" out_file="$2" l_names_parse="$3" family_parse="$4" db_name_parse="$5"
 	mm_countries_tmp_file="$FETCH_TMP_DIR/maxmind_countries.csv"
-	san_str ccodes_parse_regex "$ccodes_parse" " " "|"
+	san_str l_names_parse_regex "$l_names_parse" " " "|"
 
 	unzip -p "$in_file" "*/${db_name_parse}-Country-Locations-en.csv" > "$mm_countries_tmp_file" || {
 		rm -f "$mm_countries_tmp_file"
@@ -273,8 +273,8 @@ preparse_maxmind_csv() {
 
 	unzip -p "$in_file"  "*/${db_name_parse}-Country-Blocks-IPv${family_parse#ipv}.csv" |
 		$awk_cmd -F ',' "
-			NR==FNR { if (\$5~/^($ccodes_parse_regex)$/) {ccodes[\$1]=\$5}; next}
-			\$2 in ccodes {print ccodes[\$2] \" \" \$1}
+			NR==FNR { if (\$5~/^($l_names_parse_regex)$/) {l_names[\$1]=\$5}; next}
+			\$2 in l_names {print l_names[\$2] \" \" \$1}
 		" "$mm_countries_tmp_file" - | gzip -c > "$out_file" &&
 			[ -s "$out_file" ] && {
 				rm -f "$mm_countries_tmp_file"
@@ -285,7 +285,7 @@ preparse_maxmind_csv() {
 }
 
 preparse_ipinfo_csv() {
-	in_file="$1" out_file="$2" ccodes_parse="$3" family_parse="$4" db_name_parse="$5"
+	in_file="$1" out_file="$2" l_names_parse="$3" family_parse="$4" db_name_parse="$5"
 	preparse_regex=
 	case "$family" in
 		ipv4) preparse_regex="${blank}[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*" ;;
@@ -294,9 +294,9 @@ preparse_ipinfo_csv() {
 
 	gzip -cd "$in_file" |
 		sed 's/"[^"]*"//' | # ipinfo has entries with commas enclosed in double-quotes
-		$awk_cmd -F ',' -v c="$ccodes_parse" '
-			BEGIN{split(c,c_arr," "); for (k in c_arr) {ccode=c_arr[k]; if (ccode) ccodes[ccode]} }
-			$3 in ccodes {print $3 " " $1}
+		$awk_cmd -F ',' -v c="$l_names_parse" '
+			BEGIN{split(c,c_arr," "); for (k in c_arr) {l_name=c_arr[k]; if (l_name) l_names[l_name]} }
+			$3 in l_names {print $3 " " $1}
 		' |
 		grep "$preparse_regex" |
 		gzip -c > "$out_file" &&
@@ -305,10 +305,10 @@ preparse_ipinfo_csv() {
 }
 
 parse_ipinfo_maxmind_db() {
-	in_file="$1" out_file="$2" ccode_parse="$3"
+	in_file="$1" out_file="$2" l_name_parse="$3"
 
 	gzip -cd "$in_file" |
-		sed -n "/^$ccode_parse/{s/^$ccode_parse${blanks}//;p;}" > "$out_file" &&
+		sed -n "/^$l_name_parse/{s/^$l_name_parse${blanks}//;p;}" > "$out_file" &&
 		[ -s "$out_file" ] &&
 			return 0
 	return 1
@@ -320,15 +320,15 @@ group_lists_by_registry() {
 	# group lists by registry
 	for registry in $VALID_REGISTRIES; do
 		list_ids=
-		eval "registry_ccodes=\"\${${registry}}\""
+		eval "registry_l_names=\"\${${registry}}\""
 
-		case "$registry_ccodes" in
+		case "$registry_l_names" in
 			''|*[!\ A-Z]*) die_f "Failed to load cca2.list or it has unexpected data."
 		esac
 
 		for list_id in $san_lists; do
-			ccode="${list_id%_*}"
-			is_included "$ccode" "$registry_ccodes" && {
+			l_name="${list_id%_*}"
+			is_included "$l_name" "$registry_l_names" && {
 				add2list list_ids "$list_id"
 			}
 		done
@@ -342,9 +342,9 @@ group_lists_by_registry() {
 	subtract_a_from_b "$valid_lists" "$san_lists" invalid_lists
 	[ "$invalid_lists" ] && {
 		for invalid_list in $invalid_lists; do
-			add2list invalid_ccodes "${invalid_list%_*}"
+			add2list invalid_l_names "${invalid_list%_*}"
 		done
-		die_f "Invalid country codes: '$invalid_ccodes'."
+		die_f "Invalid country codes: '$invalid_l_names'."
 	}
 	[ ! "$valid_lists" ] && die_f "No applicable IP list IDs found in '$lists_arg'."
 	failed_lists="$valid_lists"
@@ -376,7 +376,7 @@ check_prev_list() {
 }
 
 # checks whether any of the IP lists need update
-# and populates $up_to_date_lists, $ccodes_need_update accordingly
+# and populates $up_to_date_lists, $l_names_need_update accordingly
 check_updates() {
 	time_now="$(date +%s)"
 
@@ -387,10 +387,10 @@ check_updates() {
 		ripe) get_src_dates_ripe ;;
 		maxmind) get_src_dates_maxmind ;;
 		ipinfo) get_src_dates_ipinfo ;;
-		*) die_f "Unknown source: '$dl_src'."
+		*) die_f "Unexpected country IP list source: '$dl_src'."
 	esac
 
-	unset up_to_date_lists ccodes_need_update families no_date_lists
+	unset up_to_date_lists l_names_need_update families no_date_lists
 	for list_id in $valid_lists; do
 		get_a_arr_val server_dates_arr "$list_id" src_date_raw
 		date_raw_to_compat "$src_date_raw" src_date_compat
@@ -418,7 +418,7 @@ check_updates() {
 		if [ "$prev_list_reg" ] && [ "$src_date_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$manmode" != 1 ]; then
 			add2list up_to_date_lists "$list_id"
 		else
-			add2list ccodes_need_update "${list_id%_*}"
+			add2list l_names_need_update "${list_id%_*}"
 			add2list families "${list_id##*_}"
 		fi
 	done
@@ -498,7 +498,7 @@ fetch_ipinfo_maxmind() {
 			maxmind) preparse_cmd=preparse_maxmind_csv ;;
 			ipinfo) preparse_cmd=preparse_ipinfo_csv ;;
 		esac
-		$preparse_cmd "$fetched_db_path" "$preparsed_db" "$ccodes_need_update" "$family" "$db_name" || {
+		$preparse_cmd "$fetched_db_path" "$preparsed_db" "$l_names_need_update" "$family" "$db_name" || {
 			FAIL
 			rm -f "$fetched_db_path" "$preparsed_db"
 			echolog -err "$FAIL pre-parse the database from ${dl_src_cap}."
@@ -511,13 +511,13 @@ fetch_ipinfo_maxmind() {
 
 	for family in $families; do
 		preparsed_db="$FETCH_TMP_DIR/${p_name}_preparsed_${dl_src}-${family}.gz.tmp"
-		for ccode in $ccodes_need_update; do
-			list_id="${ccode}_${family}"
+		for l_name in $l_names_need_update; do
+			list_id="${l_name}_${family}"
 			is_included "$list_id" "$excl_lists" && continue
 			parsed_list="$FETCH_TMP_DIR/${p_name}_fetched-${list_id}.tmp"
 			printf %s "Parsing IP list '${purple}$list_id${n_c}':  "
 
-			parse_ipinfo_maxmind_db "$preparsed_db" "$parsed_list" "$ccode" || {
+			parse_ipinfo_maxmind_db "$preparsed_db" "$parsed_list" "$l_name" || {
 				rm -f "$preparsed_db" "$parsed_list"
 				echolog -err "$FAIL parse the IP list for '$list_id'."
 				return 1
@@ -531,20 +531,20 @@ fetch_ipinfo_maxmind() {
 	:
 }
 
-process_ccode() {
-	curr_ccode="$1"
-	tolower curr_ccode_lc "$curr_ccode"
+process_l_name() {
+	curr_l_name="$1"
+	tolower curr_l_name_lc "$curr_l_name"
 	unset list_path fetched_file
 	fetched_path_prefix="${FETCH_TMP_DIR:?}/${p_name}_fetched-"
 	for family in $families; do
-		list_id="${curr_ccode}_${family}"
+		list_id="${curr_l_name}_${family}"
 		is_included "$list_id" "$excl_lists" && continue
 
 		rm_fetched_list_id=
 		case "$dl_src" in
 			ripe)
-				fetched_file="${fetched_path_prefix}${curr_ccode}.tmp"
-				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_ccode}" ;;
+				fetched_file="${fetched_path_prefix}${curr_l_name}.tmp"
+				dl_url="${ripe_url_api}v4_format=prefix&resource=${curr_l_name}" ;;
 			maxmind|ipinfo)
 				fetched_file="${fetched_path_prefix}${list_id}.tmp"
 				rm_fetched_list_id=1
@@ -553,8 +553,8 @@ process_ccode() {
 				fetched_file="${fetched_path_prefix}${list_id}.tmp"
 				rm_fetched_list_id=1
 				case "$family" in
-					ipv4) dl_url="${ipdeny_ipv4_url}/${curr_ccode_lc}-aggregated.zone" ;;
-					*) dl_url="${ipdeny_ipv6_url}/${curr_ccode_lc}-aggregated.zone"
+					ipv4) dl_url="${ipdeny_ipv4_url}/${curr_l_name_lc}-aggregated.zone" ;;
+					*) dl_url="${ipdeny_ipv6_url}/${curr_l_name_lc}-aggregated.zone"
 				esac ;;
 			*) die_f "Unsupported source: '$dl_src'."
 		esac
@@ -568,7 +568,7 @@ process_ccode() {
 
 		if [ ! -s "$fetched_file" ]; then
 			case "$dl_src" in
-				ripe) fetch_subj="IP list for country '${purple}$curr_ccode${n_c}'" ;;
+				ripe) fetch_subj="IP list for country '${purple}$curr_l_name${n_c}'" ;;
 				maxmind|ipinfo) list_failed "Fetched file '$fetched_file' for list ID '$list_id' not found"; return 1 ;;
 				ipdeny) fetch_subj="IP list for '${purple}$list_id${n_c}'"
 			esac
@@ -910,15 +910,19 @@ else
 	:
 fi
 
-check_updates
+if [ "$src_type" = country ]; then
+	check_updates
+else
+	l_names_need_update="$san_lists"
+fi
 
 # process list IDs
-if [ "$ccodes_need_update" ] && { [ "$dl_src" = maxmind ] || [ "$dl_src" = ipinfo ]; }; then
+if [ "$l_names_need_update" ] && { [ "$dl_src" = maxmind ] || [ "$dl_src" = ipinfo ]; }; then
 	fetch_ipinfo_maxmind || { rm_tmp_f; die_f; }
 fi
 
-for ccode in $ccodes_need_update; do
-	process_ccode "$ccode"
+for l_name in $l_names_need_update; do
+	process_l_name "$l_name"
 done
 
 
