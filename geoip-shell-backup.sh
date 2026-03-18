@@ -30,7 +30,7 @@ Actions:
 
 Options:
   -n  : Do not restore config and status files
-  -s  : Only restore or create backup of config and status files
+  -s  : Only create backup of config and status files
   -d  : Debug
   -V  : Version
   -h  : This help
@@ -267,16 +267,17 @@ case "$action" in
 			bk_conf_file="$config_file"
 			and_config=
 		fi
-		rm -f "$CONF_FILE_TMP"
+
 		rm -rf "$STAGING_LOCAL_DIR"
-		[ "$only_conf_status" ] && {
-			cp_conf restore || die "$FAIL restore the config and status files."
-			die 0
-		}
 		echolog "${_nl}Preparing to restore $p_name IP lists$and_config from backup..."
-		[ ! -s "$bk_conf_file" ] && rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
-		nodie=1 load_config main "$bk_conf_file" "inbound_iplists outbound_iplists bk_ext" ||
-			rstr_failed "$FAIL get backup config from file '$bk_conf_file'."
+		if [ -n "$restore_conf" ]; then
+			[ -s "$bk_conf_file" ] || rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
+			discard_config_changes
+			nodie=1 load_config main "$bk_conf_file" || rstr_failed
+		else
+			nodie=1 load_config main "$bk_conf_file" "inbound_iplists outbound_iplists bk_ext" ||
+				rstr_failed "$FAIL get backup config from file '$bk_conf_file'."
+		fi
 		san_str iplists "$inbound_iplists $outbound_iplists" || rstr_failed
 		get_extract_cmd extract_cmd "$bk_ext"
 
