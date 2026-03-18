@@ -555,7 +555,6 @@ do
 	break
 done
 
-
 # check for valid geomode
 for direction in inbound outbound; do
 	eval "dir_geomode=\"\$${direction}_geomode\""
@@ -573,6 +572,8 @@ done
 
 
 #### MAIN
+
+[ "$action" = configure ] && do_configure
 
 source_lib "$_fw_backend" || die_m
 
@@ -611,7 +612,6 @@ case "$action" in
 		die_m 0 ;;
 	restore) restore_from_config; die_m $? ;;
 	import) import_local_iplists ;;
-	configure) do_configure ;;
 esac
 
 
