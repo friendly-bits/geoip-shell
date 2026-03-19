@@ -1174,28 +1174,60 @@ load_cca2() {
 		ALL_CCODES="$RIPENCC $ARIN $APNIC $AFRINIC $LACNIC"
 }
 
-validate_ccode() {
-	vc_ccode="$2"
-	eval "${1:-_}="
-	toupper vc_ccode &&
+# validate reg. names or country codes against cca2.list, translate reg. names to country codes
+# 0 (optional): -c to validate as country code exclusively
+# 1: var name for ccodes output
+# 2: var name for ccodes count output
+# 3: input
+# 4 (optional): list of delimiters
+normalize_ccodes() {
+	unset nc_ccodes nc_inval
+	checkvars VALID_REGISTRIES
+	region_names_pr="region names or "
+	[ "$1" = '-c' ] && { ccode_only=1; regions_names_pr=''; shift; }
+	nc_in="$3"
+	eval "$1="
+	nc_cnt=0
 	load_cca2 "$CONF_DIR/cca2.list" || die
-	case "$vc_ccode" in ''|*" "*) false ;; *) :; esac &&
-	is_included "$vc_ccode" "$ALL_CCODES" || {
-		echolog -err "Invalid 2-letter country code: '$vc_ccode'."
+	toupper nc_in
+	nc_out=
+	newifs "${4:- }" ncc
+	for nc_code in $nc_in; do
+		oldifs ncc
+		nc_cnt=$((nc_cnt+1))
+		[ -z "$ccode_only" ] && {
+			[ "$nc_code" = RIPE ] && nc_code=RIPENCC
+			is_included "$nc_code" "$VALID_REGISTRIES" && {
+				eval "nc_reg_ccodes=\"\${$nc_code}\""
+				nc_ccodes="${nc_ccodes}${nc_ccodes:+ }${nc_reg_ccodes}"
+				continue
+			}
+		}
+		is_included "$nc_code" "$ALL_CCODES" && {
+			add2list nc_ccodes "$nc_code"
+			continue
+		}
+		add2list nc_inval "$nc_code"
+	done
+	oldifs ncc
+
+	[ -n "$nc_inval" ] && {
+		echolog -err "'$nc_inval' are not valid ${region_names_pr}2-letter country codes."
 		return 1
 	}
-	eval "${1:-_}"='$vc_ccode'
+
+	eval "$1"='$nc_ccodes' "$2"='$nc_cnt'
 }
 
 # normalizes to 'AA_ipv[4|6]', validates format, validates against prefixes list (country codes), removes excluded list ID's, deduplicates
 # outputs space-separated list
 san_list_ids() {
-	sli_out_var="$1" sli_lists="$2" sli_type="$3"
+	sli_out_var="$1" sli_lists="$2" sli_type="$3" sli_cca2_path="$4"
 	excl_reg_file="${GEOTEMP_DIR:-"/tmp"}/$p_name-excluded"
 	eval "$sli_out_var="
 	case "$sli_type" in
 		country)
-			[ -n "$ALL_CCODES" ] || die "san_list_ids: \$ALL_CCODES is empty."
+			load_cca2 "$sli_cca2_path" && [ -n "$ALL_CCODES" ] || die "Failed to load cca2.list."
 			val_prefixes="$ALL_CCODES"
 			prefix_case="uc"
 			val_suffixes="ipv[46]"
