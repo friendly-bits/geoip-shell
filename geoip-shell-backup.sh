@@ -245,7 +245,6 @@ case "$action" in
 
 		bk_local_lists
 		san_str iplists "$inbound_iplists $outbound_iplists" || die
-		load_cca2 &&
 		san_list_ids iplists "$iplists" "country" || die
 		printf_s "Creating backup of $p_name IP sets... "
 		create_backup "$bk_ext" "$bk_dir_new" "$iplists" && OK
