@@ -374,8 +374,6 @@ done
 
 getstatus main_status "$status_file" || die "$FAIL read the status file '$status_file'."
 
-load_cca2 || die
-
 curr_ipsets="$(get_ipsets)"
 
 nl2sp curr_ipsets_sp "$curr_ipsets"
