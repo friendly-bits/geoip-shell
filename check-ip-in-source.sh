@@ -103,7 +103,8 @@ load_cca2 "$script_dir/cca2.list" || die
 
 check_deps grepcidr || die
 
-validate_ccode ccode "$ccode_arg" || die "Specify one country code with '-c <country_code>'."
+normalize_ccodes -c ccode cnt "$ccode_arg" &&
+	[ "$cnt" = 1 ] || die "Specify only one country code."
 
 san_str ips || die
 [ -z "$ips" ] && { usage; die "Specify IP addresses to check with '-i <\"ip_addresses\">'."; }
