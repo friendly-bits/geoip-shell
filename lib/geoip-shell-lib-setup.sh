@@ -11,42 +11,6 @@
 
 #### FUNCTIONS
 
-# validate reg. names or country codes against cca2.list, translate reg. names to country codes
-# 1: var name for output
-# 2: input
-# 3 (optional): list of delimiters
-normalize_ccodes() {
-	unset nc_ccodes nc_inval
-	nc_in="$2"
-	eval "$1="
-	load_cca2 "$CONF_DIR/cca2.list" || die
-	toupper nc_in
-	nc_out=
-	newifs "${3:- }" ncc
-	for nc_code in $nc_in; do
-		oldifs ncc
-		[ "$nc_code" = RIPE ] && nc_code=RIPENCC
-		is_included "$nc_code" "$VALID_REGISTRIES" && {
-			eval "nc_reg_ccodes=\"\${$nc_code}\""
-			nc_ccodes="${nc_ccodes}${nc_ccodes:+ }${nc_reg_ccodes}"
-			continue
-		}
-		is_included "$nc_code" "$ALL_CCODES" && {
-			add2list nc_ccodes "$nc_code"
-			continue
-		}
-		add2list nc_inval "$nc_code"
-	done
-	oldifs ncc
-
-	[ -n "$nc_inval" ] && {
-		echolog -err "'$nc_inval' are not valid region names or 2-letter country codes."
-		return 1
-	}
-
-	eval "$1"='$nc_ccodes'
-}
-
 # checks country code by asking the user, then validates against known-good list
 pick_user_ccode() {
 	[ "$user_ccode_arg" = none ] || { [ "$nointeract" ] && [ ! "$user_ccode_arg" ]; } && { user_ccode=none; return 0; }
@@ -62,7 +26,10 @@ pick_user_ccode() {
 		case "$REPLY" in
 			'') printf '%s\n\n' "Skipped."; user_ccode=none; return 0 ;;
 			*)
-				validate_ccode REPLY "$REPLY" && { user_ccode="$REPLY"; break; }
+				normalize_ccodes -c REPLY cnt "$REPLY" &&
+				[ "$cnt" = 1 ] || { printf '%s\n' "Specify only one country code."; false; } &&
+				user_ccode="$REPLY" &&
+					break
 				printf '%s\n\n' "Try again or press Enter to skip this check."
 				REPLY=
 		esac
@@ -84,7 +51,7 @@ pick_ccodes() {
 		case "$REPLY" in
 			a|A) die 253 ;;
 			*)
-				normalize_ccodes ok_ccodes "$REPLY" " ;," || {
+				normalize_ccodes ok_ccodes _ "$REPLY" " ;," || {
 					[ "$nointeract" ] && die
 					REPLY=
 					continue
@@ -725,7 +692,6 @@ do_configure() {
 		eval "[ \"\$${opt_ch}\" != \"\$${opt_ch}_prev\" ] && ${opt_ch}_change=1"
 	done
 
-
 	# determine if interactive geomode dialog is needed
 	geomode_set=
 	for direction in inbound outbound; do
@@ -743,8 +709,6 @@ do_configure() {
 			esac
 		}
 	done
-
-	load_cca2 || die
 
 	# set *_ccodes *_ports icmp *_iplists *_geomode
 	unset proto_change geomode_change_g
