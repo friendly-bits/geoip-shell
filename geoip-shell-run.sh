@@ -165,7 +165,6 @@ san_str apply_lists_req "$lists_arg" || run_fail 1
 			san_str apply_lists_req "$inbound_iplists $outbound_iplists" || run_fail 1
 	esac
 
-load_cca2 &&
 san_list_ids apply_lists_req "$apply_lists_req" "country" || run_fail 1
 
 fast_el_cnt "$apply_lists_req" " " lists_cnt
