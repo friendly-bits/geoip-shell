@@ -8,6 +8,7 @@
 
 ## Initial setup
 p_name="geoip-shell"
+GS_ID=apply
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
 source_lib ip-tools &&
 source_lib arrays || die
