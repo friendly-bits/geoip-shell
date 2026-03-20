@@ -26,14 +26,14 @@ debugprint() {
 		__nl="$_nl"
 		dbg_args="${dbg_args#"\n"}"
 	esac
-	printf '%s\n' "${__nl}${yellow}Debug: $blue${me_short}$n_c: $dbg_args" >&2
+	printf '%s\n' "${__nl}${yellow}Debug: $blue${GS_ID}$n_c: $dbg_args" >&2
 }
 
 debugentermsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
+	[ ! "$debugmode" ] || [ ! "$GS_ID" ] && return 0
 	{
-		toupper me_short_cap "$me_short"
-		printf %s "${yellow}Started *$blue$me_short_cap$yellow* with args: "
+		toupper GS_ID_CAP "$GS_ID"
+		printf %s "${yellow}Started *${blue}${GS_ID_CAP}$yellow* with args: "
 		newifs "$delim" dbn
 		for arg in $_args; do printf %s "'$arg' "; done
 		printf '%s\n' "${n_c}"
@@ -42,9 +42,9 @@ debugentermsg() {
 }
 
 debugexitmsg() {
-	[ ! "$debugmode" ] || [ ! "$me_short" ] && return 0
-	toupper me_short_cap "$me_short"
-	printf '%s\n' "${yellow}Back to *$blue$me_short_cap$yellow*...${n_c}" >&2
+	[ ! "$debugmode" ] || [ ! "$GS_ID" ] && return 0
+	[ -n "$GS_ID_CAP" ] || toupper GS_ID_CAP "$GS_ID"
+	printf '%s\n' "${yellow}Back to *${blue}${GS_ID_CAP}${yellow}*...${n_c}" >&2
 }
 
 is_def_ifs() { idi_rv=$?; [ "$IFS" = "$default_IFS" ] && echo "${1}${1:+: }DEF_IFS:YES" || echo "${1}${1:+: }DEF_IFS:NO"; return $idi_rv; }
@@ -411,13 +411,13 @@ get_random_int() {
 # counts elements in input
 # fast but may work incorrectly if too many elements provided as input
 # ignores empty elements
-# 1 - input string
-# 2 - delimiter
-# 3 - var name for output
+# 1: var name for output
+# 2: input string
+# 3 (optional): delimiter
 fast_el_cnt() {
-	el_cnt_var="$3"
-	newifs "$2" cnt
-	set -- $1
+	el_cnt_var="$1"
+	newifs "${3:-"$default_IFS"}" cnt
+	set -- $2
 	eval "$el_cnt_var"='$#'
 	oldifs cnt
 }
@@ -477,9 +477,17 @@ call_script() {
 	use_lock=
 
 	# load cached config
-	if [ -s "$CONF_FILE_TMP" ]; then
-		load_config main "$CONF_FILE_TMP" ||
-			{ rm -f "$CONF_FILE_TMP"; echolog -err "Failed to reload config from file '$CONF_FILE_TMP'."; return 1; }
+	unset conf_present tmp_conf_present del_tmp_conf_present
+	[ -f "$CONF_FILE" ] && conf_present=1
+	[ -f "$CONF_FILE_TMP" ] && tmp_conf_present=1
+	[ -f "${CONF_FILE_TMP}.deleted" ] && del_tmp_conf_present=1
+
+	if [ -n "$tmp_conf_present" ] || [ -n "$del_tmp_conf_present" ]; then
+		{ [ -n "$conf_present" ] && [ -n "$tmp_conf_present" ] && compare_files "$CONF_FILE" "$CONF_FILE_TMP"; } ||
+		{
+			load_main_config -f ||
+				{ rm -f "$CONF_FILE_TMP"; echolog -err "Failed to reload config from file '$CONF_FILE_TMP'."; return 1; }
+		}
 	fi
 
 	return "$call_rv"
@@ -549,7 +557,7 @@ echolog() {
 	set -- $msg_args
 	oldifs ecl
 
-	first_prefix="${nl_print}${highlight}${me_short}${n_c}: "
+	first_prefix="${nl_print}${highlight}${GS_ID}${n_c}: "
 	for arg in "$@"; do
 		[ ! "$noecho" ] && {
 			_msg="${first_prefix}${msg_prefix}${arg}"
@@ -597,7 +605,7 @@ die() {
 		esac
 	done
 
-	if [ -n "$GS_CONFIG_OWNER" ] && [ -s "$CONF_FILE_TMP" ]; then
+	if [ "$GS_CONFIG_OWNER" = "$GS_ID" ] && [ -s "$CONF_FILE_TMP" ]; then
 		[ -s "$CONF_FILE" ] && compare_files "$CONF_FILE_TMP" "$CONF_FILE" ||
 		{
 			printf_s "Updating the config file... "
@@ -1046,7 +1054,7 @@ check_lists_coherence() {
 
 	debugprint "Verifying IP lists coherence..."
 
-	nodie=1 nolog="${_no_l:-"$nolog"}" load_config main || return 1
+	nodie=1 nolog="${_no_l:-"$nolog"}" load_main_config || return 1
 
 	iplists_incoherent=
 	for direction in inbound outbound; do
@@ -1222,12 +1230,12 @@ normalize_ccodes() {
 # normalizes to 'AA_ipv[4|6]', validates format, validates against prefixes list (country codes), removes excluded list ID's, deduplicates
 # outputs space-separated list
 san_list_ids() {
-	sli_out_var="$1" sli_lists="$2" sli_type="$3" sli_cca2_path="$4"
+	sli_out_var="$1" sli_lists="$2" sli_type="$3"
 	excl_reg_file="${GEOTEMP_DIR:-"/tmp"}/$p_name-excluded"
 	eval "$sli_out_var="
 	case "$sli_type" in
 		country)
-			load_cca2 "$sli_cca2_path" && [ -n "$ALL_CCODES" ] || die "Failed to load cca2.list."
+			load_cca2 && [ -n "$ALL_CCODES" ] || die "Failed to load cca2.list."
 			val_prefixes="$ALL_CCODES"
 			prefix_case="uc"
 			val_suffixes="ipv[46]"
@@ -1584,9 +1592,8 @@ ipinfo_app_url=ipinfo.app/api/text/list
 
 # set some vars for debug and logging
 : "${me:="${0##*/}"}"
-me_short="${me#"${p_name}-"}"
-me_short="${me_short%.sh}"
 p_name_cap=GEOIP-SHELL
+[ -n "$GS_ID" ] || { echolog -err "Script '$me' doesn't have \$GS_ID set."; die; }
 
 # vars for common usage() functions
 sp8="        "
