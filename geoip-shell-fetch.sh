@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=fetch
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 geoinit="${p_name}-geoinit.sh"
@@ -112,9 +113,9 @@ get_src_dates_ipdeny() {
 	for list_id in $valid_lists; do
 		f="${list_id#*_}"; case "$_res" in *"$f"*) ;; *) _res="$_res$f "; esac
 	done
-	families="${_res% }"
+	gsd_families="${_res% }"
 
-	for family in $families; do
+	for family in $gsd_families; do
 		case "$family" in
 			ipv4) server_url="$ipdeny_ipv4_url" ;;
 			ipv6) server_url="$ipdeny_ipv6_url"
@@ -149,7 +150,7 @@ get_src_dates_ipdeny() {
 		reg_server_date "$server_date" "$list_id" IPDENY
 	done
 
-	for family in $families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp"; done
+	for family in $gsd_families; do rm -f "${tmp_file_path}_plaintext_${family}.tmp"; done
 }
 
 # get list time based on the filename on the server
@@ -316,7 +317,7 @@ parse_ipinfo_maxmind_db() {
 
 # populates $registries, "fetch_lists_arr" array)
 group_lists_by_registry() {
-	unset valid_lists registries
+	registries=
 	# group lists by registry
 	for registry in $VALID_REGISTRIES; do
 		list_ids=
@@ -326,7 +327,7 @@ group_lists_by_registry() {
 			''|*[!\ A-Z]*) die_f "Failed to load cca2.list or it has unexpected data."
 		esac
 
-		for list_id in $san_lists; do
+		for list_id in $valid_lists; do
 			l_name="${list_id%_*}"
 			is_included "$l_name" "$registry_l_names" && {
 				add2list list_ids "$list_id"
@@ -335,18 +336,9 @@ group_lists_by_registry() {
 		[ -n "$list_ids" ] || continue
 
 		registries="${registries}${registries:+ }${registry}"
-		valid_lists="${valid_lists}${valid_lists:+ }${list_ids}"
 		set_a_arr_el fetch_lists_arr "$registry=$list_ids"
 	done
 
-	subtract_a_from_b "$valid_lists" "$san_lists" invalid_lists
-	[ "$invalid_lists" ] && {
-		for invalid_list in $invalid_lists; do
-			add2list invalid_l_names "${invalid_list%_*}"
-		done
-		die_f "Invalid country codes: '$invalid_l_names'."
-	}
-	[ ! "$valid_lists" ] && die_f "No applicable IP list IDs found in '$lists_arg'."
 	failed_lists="$valid_lists"
 }
 
@@ -380,15 +372,19 @@ check_prev_list() {
 check_updates() {
 	time_now="$(date +%s)"
 
-	printf '\n%s\n' "Checking for IP list updates on the $dl_src_cap server..."
+	if [ "$src_type" = country ]; then
+		printf '\n%s\n' "Checking for IP list updates on the $dl_src_cap server..."
 
-	case "$dl_src" in
-		ipdeny) get_src_dates_ipdeny ;;
-		ripe) get_src_dates_ripe ;;
-		maxmind) get_src_dates_maxmind ;;
-		ipinfo) get_src_dates_ipinfo ;;
-		*) die_f "Unexpected country IP list source: '$dl_src'."
-	esac
+		case "$dl_src" in
+			ipdeny) get_src_dates_ipdeny ;;
+			ripe) get_src_dates_ripe ;;
+			maxmind) get_src_dates_maxmind ;;
+			ipinfo) get_src_dates_ipinfo ;;
+			*) die_f "Unexpected country IP list source: '$dl_src'."
+		esac
+	else
+		:
+	fi
 
 	unset up_to_date_lists l_names_need_update families no_date_lists
 	for list_id in $valid_lists; do
@@ -534,6 +530,7 @@ fetch_ipinfo_maxmind() {
 process_l_name() {
 	curr_l_name="$1"
 	tolower curr_l_name_lc "$curr_l_name"
+	debugprint "Processing list name: '$l_name'"
 	unset list_path fetched_file
 	fetched_path_prefix="${FETCH_TMP_DIR:?}/${p_name}_fetched-"
 	for family in $families; do
@@ -818,7 +815,7 @@ toupper dl_src_cap "$dl_src"
 #### List ID's
 get_exclusions excl_lists "$src_type"
 [ "$src_type" != country ] || load_cca2 "$script_dir/cca2.list" || die_f
-san_list_ids san_lists "$lists_arg" "$src_type" "$excl_lists" || die_f
+san_list_ids valid_lists "$lists_arg" "$src_type" "$excl_lists" || die_f
 unset failed_lists fetched_lists
 case "$src_type" in
 	country)
@@ -910,20 +907,21 @@ else
 	:
 fi
 
-if [ "$src_type" = country ]; then
-	check_updates
-else
-	l_names_need_update="$san_lists"
-fi
+check_updates
 
 # process list IDs
 if [ "$l_names_need_update" ] && { [ "$dl_src" = maxmind ] || [ "$dl_src" = ipinfo ]; }; then
 	fetch_ipinfo_maxmind || { rm_tmp_f; die_f; }
 fi
 
-for l_name in $l_names_need_update; do
-	process_l_name "$l_name"
-done
+if [ -n "$l_names_need_update" ]; then
+	checkvars families
+	for l_name in $l_names_need_update; do
+		process_l_name "$l_name"
+	done
+else
+	echolog "No IP lists to update."
+fi
 
 
 ### Report fetch results via FETCH_RES_FILE
