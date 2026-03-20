@@ -491,6 +491,14 @@ set_defaults() {
 }
 
 get_general_prefs() {
+	debugprint "Start get_general_prefs()"
+	try_get_general_prefs "$@"
+	ggp_rv=$?
+	debugprint "End get_general_prefs()"
+	return $ggp_rv
+}
+
+try_get_general_prefs() {
 	dir_change() {
 		eval "dir_arg=\"\${${1}_arg}\" dir_old=\"\${$1%/}\""
 		dir_new="${dir_arg%/}"
@@ -664,6 +672,7 @@ get_general_prefs() {
 }
 
 do_configure() {
+	debugprint "Started do_configure()"
 	[ ! -s "$CONF_FILE" ] && {
 		touch "$CONF_FILE" && chmod 600 "$CONF_FILE" && chown root:root "$CONF_FILE" || {
 			rm -f "$CONF_FILE"
