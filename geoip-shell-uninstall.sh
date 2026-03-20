@@ -10,6 +10,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=uninstall
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 manmode=1
