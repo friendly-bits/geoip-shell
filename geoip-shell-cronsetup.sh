@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=cronsetup
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 geoinit="${p_name}-geoinit.sh"
 for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
