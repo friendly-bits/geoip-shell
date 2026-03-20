@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=run
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
 
 san_args "$@"
@@ -167,7 +168,7 @@ san_str apply_lists_req "$lists_arg" || run_fail 1
 
 san_list_ids apply_lists_req "$apply_lists_req" "country" || run_fail 1
 
-fast_el_cnt "$apply_lists_req" " " lists_cnt
+fast_el_cnt lists_cnt "$apply_lists_req" " "
 
 failed_lists_cnt=0
 
@@ -299,7 +300,7 @@ if [ "$lists_fetch" ]; then
 			continue
 		}
 
-		fast_el_cnt "$failed_lists" " " failed_lists_cnt
+		fast_el_cnt failed_lists_cnt "$failed_lists" " "
 		[ "$failed_lists_cnt" -ge "$lists_cnt" ] && fetch_failed 254 "All fetch attempts failed."
 		break
 	done
