@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=manage
 : "${manmode:=1}"
 export inbound_geomode nolog=1 manmode
 
@@ -439,6 +440,8 @@ check_for_lockout() {
 			[ ! "$first_setup" ] && report_lists
 			echo
 			echolog "Aborted action '$action'."
+			discard_config_changes
+			load_main_config
 			die_m 130
 	esac
 	:
@@ -493,6 +496,8 @@ case "$action" in
 		mk_lock || die
 		trap 'die_m' INT TERM HUP QUIT
 esac
+
+export GS_CONFIG_OWNER="$GS_ID" # manage always owns the config
 
 in_configure=
 [ "$action" = configure ] && in_configure=1
@@ -573,7 +578,10 @@ done
 
 #### MAIN
 
-[ "$action" = configure ] && do_configure
+[ "$action" = configure ] && {
+	do_configure
+	set_all_config
+}
 
 source_lib "$_fw_backend" || die_m
 
@@ -695,8 +703,6 @@ case "$conf_act" in run_add|reset|apply)
 			call_script -l "$i_script-backup.sh" create-backup || rm_data
 	fi
 esac
-
-set_all_config
 
 case "$conf_act" in
 	run_add|run_restore|reset)
