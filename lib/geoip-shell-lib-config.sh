@@ -8,21 +8,19 @@
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
-GS_CONFIG_OWNER=
-
 CONF_FILE_TMP="${GEORUN_DIR:?}/tmpconfig"
 
 unload_main_config() {
 	for _conf_pair in $CONF_KEYS_MAP; do
 		unset "${_conf_pair##*=}"
 	done
-	unset GS_CONFIG_SET
+	unset GS_CONFIG_LOADED
 }
 
 discard_config_changes() {
 	unload_main_config
 	rm -f "$CONF_FILE_TMP"
-	unset GS_CONFIG_OWNER
+	touch "${CONF_FILE_TMP}.deleted"
 }
 
 # 3 (optional): space-separated list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
@@ -84,6 +82,7 @@ load_config() {
 	[ -z "$lcf_req_pairs" ] && [ "$lcf_type" = "main" ] && lcf_req_pairs="$CONF_KEYS_MAP"
 
 	lcf_f="${lcf_src:-"$CONF_FILE"}"
+
 	lcf_src_pr="file '$lcf_f'"
 
 	parse_config lcf_lines "$lcf_f" "$lcf_type" &&
@@ -99,13 +98,28 @@ load_config() {
 
 # Load main config
 # If parent doesn't own the config, set curr script as config owner
+# 0 (optional): '-f' to force load
+# 1 (optional): path
+# 2 (optional): list of [key]=[var_name] to set (otherwise assigns each key to mapped var name)
 load_main_config() {
-	[ -n "$GS_CONFIG_SET" ] && [ "$1" != '-f' ] && return 0
-	debugprint "Loading main config."
-	EXPORT_CONF=1 load_config main || return 1
+	lmc_force=
+	[ "$1" = '-f' ] && { lmc_force='-f'; shift; }
+	lmc_req_pairs="$1"
+	lmc_path="$2"
 
-	[ -z "$GS_CONFIG_SET" ] && GS_CONFIG_OWNER=1 # identifies the script which owns the exported config vars
-	export GS_CONFIG_SET=1
+	# skip parsing main config if already parsed, unless force
+	{ [ -n "$GS_CONFIG_LOADED" ] && [ -z "$lmc_force" ]; } && return 0
+
+	debugprint "Loading main config."
+	EXPORT_CONF=1 load_config main "${lmc_path:-"$CONF_FILE"}" "$lmc_req_pairs" || return 1
+
+
+	[ -z "$lmc_req_pairs" ] || [ "$lmc_req_pairs" = "$CONF_KEYS_MAP" ] && {
+		# identifies the script which owns the exported config vars
+		[ -z "${GS_CONFIG_OWNER}" ] && export GS_CONFIG_OWNER="$GS_ID"
+		export GS_CONFIG_LOADED=1
+	}
+	:
 }
 
 ser_cfg() {
@@ -339,7 +353,10 @@ parse_config() {
 	:
 }
 
-set_main_config() { setconfig main "" "$@"; }
+set_main_config() {
+	setconfig main "" "$@" &&
+	rm -f "${CONF_FILE_TMP}.deleted"
+}
 
 # 1: type
 # 2: file path
@@ -397,7 +414,7 @@ set_all_config() {
 	newifs "$_nl" sac
 	set -- ${sac_entries%"$_nl"}
 	oldifs sac
-	setconfig main "" "$@"
+	set_main_config "" "$@"
 }
 
 # wrapper for load_config() intended for status files
