@@ -8,6 +8,7 @@
 
 #### Initial setup
 p_name="geoip-shell"
+GS_ID=check-ip-in-source
 export manmode=1 nolog=1 LC_ALL=C POSIXLY_CORRECT=YES
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
@@ -103,7 +104,7 @@ load_cca2 "$script_dir/cca2.list" || die
 
 check_deps grepcidr || die
 
-normalize_ccodes -c ccode cnt "$ccode_arg" &&
+normalize_ccodes -c ccode cnt "$ccode_arg" "" "$script_dir/cca2.list" &&
 	[ "$cnt" = 1 ] || die "Specify only one country code."
 
 san_str ips || die
@@ -111,10 +112,6 @@ san_str ips || die
 
 
 #### Main
-
-ciis_conf_ok='' ciis_conf_found=''
-[ -s "$CONF_FILE" ] && ciis_conf_found=1
-ciis_cfg_keys="geosource mm_license_type mm_acc_id mm_license_key ipinfo_license_type ipinfo_token"
 
 for ip in $ips; do
 	# populates variables: $families, $val_ipv4s, $val_ipv6s
@@ -124,27 +121,32 @@ done
 [ -n "$val_ipv4s$val_ipv6s" ] || die "All IP addresses failed validation."
 [ -n "$families" ] || die "\$families variable is empty."
 
+conf_load_req=
+
 #### DL Source
 if [ -n "$src_arg" ]; then
 	dl_src="$src_arg"
-	[ "$(printf %s "$dl_src" | wc -w)" -gt 1 ] && { usage; die "Specify only one IP list source."; }
-elif [ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ]; then
-	if nodie=1 load_config main "" "$ciis_cfg_keys" && [ -n "$geosource" ]; then
-		dl_src="$geosource"
-		ciis_conf_ok=1
-	else
-		ciis_conf_ok=0
-	fi
-fi
-: "${dl_src:="$DEF_SRC_COUNTRY"}"
-tolower dl_src
-checkvars dl_src
-is_included "$dl_src" "$VALID_SRCS_COUNTRY" || { usage; die "Invalid source: '$dl_src'"; }
+	fast_el_cnt srcs_cnt "$dl_src"
+	[ "${srcs_cnt:-0}" = 1 ] || { usage; die "Specify exactly one IP list source."; }
 
-case "${dl_src}" in maxmind|ipinfo)
-	[ "$ROOT_OK" = 1 ] && [ -n "$ciis_conf_found" ] && [ -z "$ciis_conf_ok" ] &&
-		EXPORT_CONF=1 nodie=1 load_config main "" "$ciis_cfg_keys"
-esac
+	tolower dl_src
+	[ -n "$dl_src" ] &&
+	is_included "$dl_src" "$VALID_SRCS_COUNTRY" ||
+		{ usage; die "Invalid source: '$dl_src'"; }
+
+	case "${dl_src}" in maxmind|ipinfo)
+		conf_load_req=1
+	esac
+else
+	conf_load_req=1
+fi
+
+[ "$ROOT_OK" = 1 ] && [ -n "$conf_load_req" ] && [ -s "$CONF_FILE" ] &&
+	nodie=1 load_main_config "geosource mm_license_type mm_acc_id mm_license_key ipinfo_license_type ipinfo_token" &&
+	[ -n "$geosource" ] &&
+	dl_src="$geosource"
+
+: "${dl_src:="$DEF_SRC_COUNTRY"}"
 
 case "${dl_src}" in
 	maxmind) [ "$mm_license_type" ] && [ "$mm_acc_id" ] && [ "$mm_license_key" ] || setup_maxmind ;;
