@@ -9,6 +9,7 @@
 # github.com/friendly-bits
 
 p_name="geoip-shell"
+GS_ID=owrt_uninstall
 manmode=1
 nolog=1
 in_uninstall=1
