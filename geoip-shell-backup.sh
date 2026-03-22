@@ -208,9 +208,10 @@ restore_local_lists() {
 
 #### VARIABLES
 
-load_main_config &&
-checkvars _fw_backend datadir &&
-source_lib "$_fw_backend" || die
+conf_loaded=
+nodie=1 load_main_config && conf_loaded=1
+
+: "${datadir:="/var/lib/$p_name"}"
 
 bk_dir="$datadir/backup"
 bk_dir_new="${GEOTEMP_DIR:?}/bk_new"
@@ -228,6 +229,9 @@ mk_lock || die
 
 case "$action" in
 	create-backup)
+		checkvars _fw_backend &&
+		source_lib "$_fw_backend" || die
+
 		trap 'trap - INT TERM HUP QUIT; rm_bk_tmp; die' INT TERM HUP QUIT
 		tmp_file="$GEOTEMP_DIR/backup.tmp"
 		[ "$only_conf_status" ] && {
@@ -279,6 +283,8 @@ case "$action" in
 			nodie=1 load_config main "$bk_conf_file" "inbound_iplists outbound_iplists bk_ext" ||
 				rstr_failed "$FAIL get backup config from file '$bk_conf_file'."
 		fi
+		checkvars _fw_backend &&
+		source_lib "$_fw_backend" &&
 		san_str iplists "$inbound_iplists $outbound_iplists" || rstr_failed
 		get_extract_cmd extract_cmd "$bk_ext"
 
