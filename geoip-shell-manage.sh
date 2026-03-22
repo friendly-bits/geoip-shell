@@ -450,6 +450,7 @@ check_for_lockout() {
 set_first_setup() {
 	rm_setupdone
 	[ "$action" = configure ] || die_m 0 "Please run '$p_name configure'."
+	export_main_config
 	export first_setup=1
 	reset_req=1
 }
