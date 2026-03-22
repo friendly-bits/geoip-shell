@@ -270,10 +270,11 @@ case "$action" in
 
 		rm -rf "$STAGING_LOCAL_DIR"
 		echolog "${_nl}Preparing to restore $p_name IP lists$and_config from backup..."
+
 		if [ -n "$restore_conf" ]; then
 			[ -s "$bk_conf_file" ] || rstr_failed "Config file '$bk_conf_file' is empty or doesn't exist."
 			discard_config_changes
-			nodie=1 load_main_config -f "$bk_conf_file" || rstr_failed
+			nodie=1 load_main_config -f "" "$bk_conf_file" || rstr_failed
 		else
 			nodie=1 load_config main "$bk_conf_file" "inbound_iplists outbound_iplists bk_ext" ||
 				rstr_failed "$FAIL get backup config from file '$bk_conf_file'."
