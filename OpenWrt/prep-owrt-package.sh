@@ -6,7 +6,7 @@
 
 : "${pkg_ver:=r1}"
 
-die() {
+die_prep() {
 	# if first arg is a number, assume it's the exit code
 	unset die_args
 	for die_arg in "$@"; do
@@ -27,7 +27,7 @@ die() {
 		'') ;;
 		3|4|all) _OWRTFW="$1" ;;
 		"3 4"|"4 3") _OWRTFW=all ;;
-		*) die "Invalid openwrt firewall version '$1'. Expected '3' or '4' or 'all'."
+		*) die_prep "Invalid openwrt firewall version '$1'. Expected '3' or '4' or 'all'."
 	esac
 case "$_OWRTFW" in "3 4"|"4 3") _OWRTFW=all; esac
 : "${_OWRTFW:=all}"
@@ -61,17 +61,17 @@ printf '\n%s\n\n' "*** Preparing $p_name for OpenWrt... ***"
 rm -rf "$build_dir"
 
 mkdir -p "$files_dir$INSTALL_DIR" "$files_dir$LIB_DIR" "$files_dir$init_dir" ||
-	die "*** Failed to create directories for $p_name build. ***"
+	die_prep "*** Failed to create directories for $p_name build. ***"
 
 
 export PATH="/usr/sbin:/usr/bin:/sbin:/bin" inst_root_gs="$files_dir"
 printf '%s\n' "*** Running '$src_dir/$p_name-install.sh'... ***"
-sh "$src_dir/$p_name-install.sh" || die "*** Failed to run the -install script or it reported an error. ***"
+sh "$src_dir/$p_name-install.sh" || die_prep "*** Failed to run the -install script or it reported an error. ***"
 echo
 export PATH="$PATH_orig"
 
 cp "$script_dir/$p_name-owrt-uninstall.sh" "${files_dir}${LIB_DIR}" ||
-	die "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${LIB_DIR}'. ***"
+	die_prep "*** Failed to copy '$script_dir/$p_name-owrt-uninstall.sh' to '${files_dir}${LIB_DIR}'. ***"
 
 echo "*** Sanitizing the build... ***"
 rm -f "${files_dir}${INSTALL_DIR}/${p_name}-uninstall.sh"
@@ -93,7 +93,7 @@ sed -i -n -e /"#@"/\{:1 -e n\;/"#@"/\{:2 -e n\;p\;b2 -e \}\;b1 -e \}\;p "${files
 
 # prepare Makefile
 printf '%s\n' "*** Creating '$build_dir/Makefile'... ***"
-cd "$files_dir" || die "*** Failed to cd into '$files_dir' ***"
+cd "$files_dir" || die_prep "*** Failed to cd into '$files_dir' ***"
 {
 	awk '{gsub(/\$p_name/,p); gsub(/\$INSTALL_DIR/,i); gsub(/\$CONF_DIR/,c); gsub(/\$curr_ver/,v); gsub(/\$pkg_ver/,r); gsub(/\$LIB_DIR/,L)}1' \
 		p="$p_name" c="$CONF_DIR" v="$curr_ver" r="${pkg_ver#r}" i="$INSTALL_DIR" L="$LIB_DIR" "$script_dir/makefile.tpl"
