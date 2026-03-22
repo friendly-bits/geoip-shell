@@ -476,7 +476,7 @@ call_script() {
 	[ -z "$use_lock" ] || mk_lock -f || return 1
 	use_lock=
 
-	load_main_config || return 1
+	nodie=1 load_main_config || return 1
 
 	return "$call_rv"
 }
