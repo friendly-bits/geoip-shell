@@ -371,7 +371,7 @@ restore_from_config() {
 
 	if [ -n "$run_args" ]; then
 		# call the -run script
-		call_script -l "$i_script-run.sh" add -l "$run_args" -o && {
+		call_script -l "$i_script-run.sh" add -l "$run_args" && {
 			printf '%s\n' "$restore_ok_msg"
 			return 0
 		}
@@ -724,7 +724,7 @@ case "$conf_act" in
 	run_add)
 		[ "$all_add_iplists" ] || die_m "conf_act is 'run_add' but \$all_add_iplists is empty string"
 		get_counters
-		call_script -l "$i_script-run.sh" add -l "$all_add_iplists" -o
+		call_script -l "$i_script-run.sh" add -l "$all_add_iplists"
 		rv_conf=$? ;;
 	run_restore)
 		get_counters
