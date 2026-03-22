@@ -110,19 +110,6 @@ ${sp8}Or use 'none' to remove previously assigned server IP addresses and disabl
 ${sp8}Specify user's country code. Used to prevent accidental lockout of a remote machine.
 ${sp8}'none' disables this feature.
 
-  ${blue}-o <true|false>${n_c} :
-${sp8}No backup. If set to 'true', $p_name will not create a backup of IP lists and firewall rules state after applying changes,
-${sp8}and will automatically re-fetch IP lists after each reboot.
-${sp8}Default is 'true' for OpenWrt, 'false' for all other systems.
-
-  ${blue}-a <"path">${n_c} :
-${sp8}Set custom path to directory where backups and the status file will be stored.
-${sp8}Default is '$GEORUN_DIR/data' for OpenWrt, '/var/lib/$p_name' for all other systems.
-
-  ${blue}-L <"path">${n_c} :
-${sp8}Set custom path to directory where local IP lists will be stored.
-${sp8}Default is '/etc/$p_name' for OpenWrt, '/var/lib/$p_name' for all other systems.
-
   ${blue}-s <"[expression]"|disable>${n_c} :
 ${sp8}Schedule expression for the periodic cron job implementing automatic update of the IP lists, must be inside double quotes.
 ${sp8}Example expression: "15 4 * * *" (at 4:15 [am] every day)
@@ -144,6 +131,19 @@ ${sp8}Everything will be installed and configured but geoblocking will not be en
   ${blue}-n <true|false>${n_c} :
 ${sp8}No Persistence: Skip creating the persistence cron job or init script.
 ${sp8}$p_name will likely not work after reboot. Default is false.
+
+  ${blue}-o <true|false>${n_c} :
+${sp8}No backup. If set to 'true', $p_name will not create backup of IP lists and firewall rules state after applying changes,
+${sp8}and will automatically re-fetch IP lists after each reboot.
+${sp8}Default is 'true' for OpenWrt, 'false' for all other systems.
+
+  ${blue}-a <"path">${n_c} :
+${sp8}Set custom path to directory where backups and the status file will be stored.
+${sp8}Default is '$GEORUN_DIR/data' for OpenWrt, '/var/lib/$p_name' for all other systems.
+
+  ${blue}-L <"path">${n_c} :
+${sp8}Set custom path to directory where local IP lists will be stored.
+${sp8}Default is '/etc/$p_name' for OpenWrt, '/var/lib/$p_name' for all other systems.
 
   ${blue}-S <"path">${n_c} :
 ${sp8}Set path to custom script called on success or failure when $p_name is running automatically, or 'none' to disable.
