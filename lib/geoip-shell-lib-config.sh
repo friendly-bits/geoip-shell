@@ -8,6 +8,13 @@
 # Copyright: antonk (antonk.d3v@gmail.com)
 # github.com/friendly-bits
 
+# Config is exported and propagated to daughter scripts
+# Config changes are saved to file $CONF_FILE_TMP
+# Each config change increments config iterator, reflected in filename cfg_iter_*
+# call_script() calls load_main_config() after daughter script exits
+# load_main_config() compares $CFG_ITER to current iterator in cfg_iter_* and reloads config if needed
+# die() checks if exiting script's $GS_ID matches the ID set in $GS_CONFIG_OWNER and if so, moves tmp config to permanent storage
+
 CONF_FILE_TMP="${GEORUN_DIR:?}/tmpconfig"
 CFG_ITER_BASE_PATH="${GEOTEMP_DIR:?}/cfg_iter_${sc_iter}"
 
@@ -107,10 +114,6 @@ load_main_config() {
 	lmc_path="$2"
 
 	# skip parsing main config if already parsed, unless force
-	{ [ -n "$CFG_ITER" ] && [ -z "$lmc_force" ]; } && return 0
-
-
-	# skip parsing main config if already parsed, unless force
 	if [ -n "$CFG_ITER" ] && [ -z "$lmc_force" ]; then
 		get_tmp_cfg_iter lmc_tmp_iter
 		: "${lmc_tmp_iter:=0}"
@@ -134,7 +137,6 @@ get_tmp_cfg_iter() {
 	gci_rm=
 	[ "$1" = '-rm' ] && { gci_rm=1; shift; }
 	eval "${1:-_}="
-	[ -f "$CONF_FILE_TMP" ] || return 0
 	set +f
 	for gci_f in "$CFG_ITER_BASE_PATH"*; do
 		case "$gci_f" in *'*') break ; esac
@@ -142,7 +144,6 @@ get_tmp_cfg_iter() {
 		[ -n "$gci_rm" ] && rm -f "$gci_f"
 	done
 	set -f
-	[ -n "$gci_n" ] || return 0
 	eval "${1:-_}"='$gci_n'
 }
 
