@@ -18,10 +18,9 @@
 CONF_FILE_TMP="${GEORUN_DIR:?}/tmpconfig"
 CFG_ITER_BASE_PATH="${GEOTEMP_DIR:?}/cfg_iter_${sc_iter}"
 
-unload_main_config() {
-	[ -n "$CFG_ITER" ] || return 0
-	eval "$CFG_UNLOAD_CMD"
-}
+unload_main_config() { eval "$CFG_UNLOAD_CMD"; }
+
+export_main_config() { eval "$CFG_EXPORT_CMD"; }
 
 discard_config_changes() {
 	unload_main_config
@@ -111,7 +110,7 @@ load_main_config() {
 	lmc_force=
 	[ "$1" = '-f' ] && { lmc_force='-f'; shift; }
 	lmc_req_pairs="$1"
-	lmc_path="$2"
+	lmc_path="${2:-"$CONF_FILE"}"
 
 	# skip parsing main config if already parsed, unless force
 	if [ -n "$CFG_ITER" ] && [ -z "$lmc_force" ]; then
@@ -121,8 +120,13 @@ load_main_config() {
 		unload_main_config
 	fi
 
+	[ -z "$CFG_ITER" ] &&
+	case "$GS_ID" in install|uninstall|owrt-uninstall)
+		[ -s "$lmc_path" ] || return 0
+	esac
+
 	debugprint "Loading main config."
-	EXPORT_CONF=1 load_config main "${lmc_path:-"$CONF_FILE"}" "$lmc_req_pairs" || return 1
+	EXPORT_CONF=1 load_config main "${lmc_path}" "$lmc_req_pairs" || return 1
 
 	[ -z "$lmc_req_pairs" ] || [ "$lmc_req_pairs" = "$CONF_KEYS_MAP" ] && {
 		# identifies the script which owns the exported config vars
@@ -547,10 +551,12 @@ set_main_conf_opts() {
 		export "$mco_cat=$*"
 
 		[ "$mco_cat" = "CONF_KEYS_MAP" ] || continue
-		export CFG_UNLOAD_CMD="CFG_ITER="
+		export ALL_CONF_OPTS=
 		for _conf_pair in "$@"; do
-			CFG_UNLOAD_CMD="${CFG_UNLOAD_CMD}${_nl}${_conf_pair##*=}="
+			ALL_CONF_OPTS="${ALL_CONF_OPTS} ${_conf_pair##*=}"
 		done
+		export CFG_EXPORT_CMD="export $ALL_CONF_OPTS"
+		export CFG_UNLOAD_CMD="unset $ALL_CONF_OPTS"
 	done
 
 	IFS="$default_IFS"
