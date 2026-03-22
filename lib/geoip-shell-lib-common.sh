@@ -476,19 +476,7 @@ call_script() {
 	[ -z "$use_lock" ] || mk_lock -f || return 1
 	use_lock=
 
-	# load cached config
-	unset conf_present tmp_conf_present del_tmp_conf_present
-	[ -f "$CONF_FILE" ] && conf_present=1
-	[ -f "$CONF_FILE_TMP" ] && tmp_conf_present=1
-	[ -f "${CONF_FILE_TMP}.deleted" ] && del_tmp_conf_present=1
-
-	if [ -n "$tmp_conf_present" ] || [ -n "$del_tmp_conf_present" ]; then
-		{ [ -n "$conf_present" ] && [ -n "$tmp_conf_present" ] && compare_files "$CONF_FILE" "$CONF_FILE_TMP"; } ||
-		{
-			load_main_config -f ||
-				{ rm -f "$CONF_FILE_TMP"; echolog -err "Failed to reload config from file '$CONF_FILE_TMP'."; return 1; }
-		}
-	fi
+	load_main_config || return 1
 
 	return "$call_rv"
 }
@@ -616,6 +604,7 @@ die() {
 			fi
 		}
 		rm -f "$CONF_FILE_TMP"
+		get_tmp_cfg_iter -rm
 	fi
 
 	[ "$die_unlock" ] && rm_lock
