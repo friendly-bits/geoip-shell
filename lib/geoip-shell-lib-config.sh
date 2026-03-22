@@ -9,18 +9,17 @@
 # github.com/friendly-bits
 
 CONF_FILE_TMP="${GEORUN_DIR:?}/tmpconfig"
+CFG_ITER_BASE_PATH="${GEOTEMP_DIR:?}/cfg_iter_${sc_iter}"
 
 unload_main_config() {
-	for _conf_pair in $CONF_KEYS_MAP; do
-		unset "${_conf_pair##*=}"
-	done
-	unset GS_CONFIG_LOADED
+	[ -n "$CFG_ITER" ] || return 0
+	eval "$CFG_UNLOAD_CMD"
 }
 
 discard_config_changes() {
 	unload_main_config
 	rm -f "$CONF_FILE_TMP"
-	touch "${CONF_FILE_TMP}.deleted"
+	get_tmp_cfg_iter -rm
 }
 
 # 3 (optional): space-separated list of [var_name]=[key] to set (otherwise assigns each key to corresponding var name)
@@ -99,8 +98,8 @@ load_config() {
 # Load main config
 # If parent doesn't own the config, set curr script as config owner
 # 0 (optional): '-f' to force load
-# 1 (optional): path
-# 2 (optional): list of [key]=[var_name] to set (otherwise assigns each key to mapped var name)
+# 1 (optional): list of [key]=[var_name] to set (otherwise assigns each key to mapped var name)
+# 2 (optional): path
 load_main_config() {
 	lmc_force=
 	[ "$1" = '-f' ] && { lmc_force='-f'; shift; }
@@ -108,18 +107,43 @@ load_main_config() {
 	lmc_path="$2"
 
 	# skip parsing main config if already parsed, unless force
-	{ [ -n "$GS_CONFIG_LOADED" ] && [ -z "$lmc_force" ]; } && return 0
+	{ [ -n "$CFG_ITER" ] && [ -z "$lmc_force" ]; } && return 0
+
+
+	# skip parsing main config if already parsed, unless force
+	if [ -n "$CFG_ITER" ] && [ -z "$lmc_force" ]; then
+		get_tmp_cfg_iter lmc_tmp_iter
+		: "${lmc_tmp_iter:=0}"
+		[ "$CFG_ITER" = "$lmc_tmp_iter" ] && return 0 # already loaded
+		unload_main_config
+	fi
 
 	debugprint "Loading main config."
 	EXPORT_CONF=1 load_config main "${lmc_path:-"$CONF_FILE"}" "$lmc_req_pairs" || return 1
 
-
 	[ -z "$lmc_req_pairs" ] || [ "$lmc_req_pairs" = "$CONF_KEYS_MAP" ] && {
 		# identifies the script which owns the exported config vars
 		[ -z "${GS_CONFIG_OWNER}" ] && export GS_CONFIG_OWNER="$GS_ID"
-		export GS_CONFIG_LOADED=1
+		export CFG_ITER="${lmc_tmp_iter:-0}"
 	}
 	:
+}
+
+# 0 (optional): '-rm' to remove current iterator file
+get_tmp_cfg_iter() {
+	gci_rm=
+	[ "$1" = '-rm' ] && { gci_rm=1; shift; }
+	eval "${1:-_}="
+	[ -f "$CONF_FILE_TMP" ] || return 0
+	set +f
+	for gci_f in "$CFG_ITER_BASE_PATH"*; do
+		case "$gci_f" in *'*') break ; esac
+		gci_n="${gci_f#"$CFG_ITER_BASE_PATH"}"
+		[ -n "$gci_rm" ] && rm -f "$gci_f"
+	done
+	set -f
+	[ -n "$gci_n" ] || return 0
+	eval "${1:-_}"='$gci_n'
 }
 
 ser_cfg() {
@@ -354,8 +378,7 @@ parse_config() {
 }
 
 set_main_config() {
-	setconfig main "" "$@" &&
-	rm -f "${CONF_FILE_TMP}.deleted"
+	setconfig main "" "$@"
 }
 
 # 1: type
@@ -368,31 +391,38 @@ setconfig() {
 	sc_type="$1" sc_path="$2"
 	shift 2
 
-	sc_main_conf_path="${inst_root_gs}${CONF_FILE}"
-	[ "$sc_type" = main ] && : "${sc_path:=${sc_main_conf_path}}"
+	[ "$sc_type" = main ] && : "${sc_path:=${CONF_FILE}}"
 
-	[ "$sc_path" ] || { sc_failed "'\$sc_path' variable is not set."; die; }
+	checkvars sc_path
 
 	sc_is_main=
-	[ "$sc_path" = "${sc_main_conf_path}" ] && sc_is_main=1
+	[ "$sc_path" = "${CONF_FILE}" ] && sc_is_main=1
 
 	# Use tmp file when modifying config loaded by a parent
 	sc_load_path="$sc_path"
 	sc_save_path="$sc_path"
 
-	[ "$sc_is_main" ] && {
+	sc_f_found=0
+	if [ "$sc_is_main" ]; then
 		sc_save_path="$CONF_FILE_TMP"
-		[ -f "$CONF_FILE_TMP" ] && sc_load_path="$CONF_FILE_TMP"
-	}
+		[ -f "$CONF_FILE_TMP" ] && { sc_load_path="$CONF_FILE_TMP"; sc_f_found=1; }
+	else
+		[ -f "$sc_save_path" ] && sc_f_found=1
+	fi
 
 	PCF_IGNORE_MISSING_FILE=1 PCF_IGNORE_MISSING_KEYS=1 parse_config newconfig "$sc_load_path" "$sc_type" "$@" ||
 		{ sc_failed "$FAIL process config in file '$sc_load_path'."; return 1; }
 
-	if [ ! -f "$sc_save_path" ] || ! compare_file2str "$sc_save_path" "$newconfig"; then
+	if [ "$sc_f_found" != 1 ] || ! compare_file2str "$sc_save_path" "$newconfig"; then
 		debugprint "Updating config/status at '$sc_save_path'."
 		printf '%s\n' "$newconfig" > "$sc_save_path" || { sc_failed "$FAIL write to '$sc_save_path'"; return 1; }
 
-		[ "$sc_is_main" ] && [ "$sc_save_path" = "$sc_main_conf_path" ] && OK >&2
+		[ -n "$sc_is_main" ] && {
+			get_tmp_cfg_iter -rm sc_iter
+			sc_iter=$(( ${sc_iter:-0} + 1 ))
+			touch "${CFG_ITER_BASE_PATH}${sc_iter}"
+			export CFG_ITER=$sc_iter
+		}
 
 		[ "$ROOT_OK" = 1 ] && {
 			chmod 600 "$sc_save_path" && chown root:root "$sc_save_path" ||
@@ -514,6 +544,12 @@ set_main_conf_opts() {
 		set -- $mco_opts
 		IFS=" "
 		export "$mco_cat=$*"
+
+		[ "$mco_cat" = "CONF_KEYS_MAP" ] || continue
+		export CFG_UNLOAD_CMD="CFG_ITER="
+		for _conf_pair in "$@"; do
+			CFG_UNLOAD_CMD="${CFG_UNLOAD_CMD}${_nl}${_conf_pair##*=}="
+		done
 	done
 
 	IFS="$default_IFS"
