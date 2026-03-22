@@ -202,18 +202,19 @@ pick_lan_ips() {
 	lan_picked=1
 	lan_ips_ipv4=
 	lan_ips_ipv6=
-	unset autodetect ipset_type lan_ips
+	autodetect_lan=
+	unset ipset_type lan_ips
 	case "$lan_ips_arg" in
 		none) return 0 ;;
-		auto) lan_ips_arg=''; autodetect=1
+		auto) lan_ips_arg=''; autodetect_lan=1
 	esac
 
 	[ "$lan_ips_arg" ] && validate_arg_ips "$lan_ips_arg" lan_ips && return 0
 
-	[ "$nointeract" ] && [ ! "$autodetect" ] && die "Specify lan IPs with '-l <\"lan_ips\"|auto|none>'."
+	[ "$nointeract" ] && [ ! "$autodetect_lan" ] && die "Specify lan IPs with '-l <\"lan_ips\"|auto|none>'."
 
 	[ ! "$nointeract" ] && {
-		[ ! "$autodetect" ] && echo "You can specify LAN IP addresses and/or IP ranges to allow."
+		[ ! "$autodetect_lan" ] && echo "You can specify LAN IP addresses and/or IP ranges to allow."
 	}
 
 	source_lib ip-tools || die
@@ -231,7 +232,7 @@ pick_lan_ips() {
 		[ -n "$lan_ips" ] && {
 			nl2sp lan_ips
 			printf '\n%s\n' "Automatically detected $family LAN IP ranges: '$blue$lan_ips$n_c'."
-			[ "$autodetect" ] && { confirm_ips; continue; }
+			[ "$autodetect_lan" ] && { confirm_ips; continue; }
 			printf '%s\n%s\n' "[c]onfirm, c[h]ange, [s]kip or [a]bort?" \
 				"Verify that correct LAN IP ranges have been detected in order to avoid accidental lockout or other problems."
 			pick_opt "c|h|s|a"
@@ -248,10 +249,11 @@ pick_lan_ips() {
 	done
 	echo
 
-	[ "$autodetect" ] || [ "$autodetect_off" ] && return
+	[ "$autodetect_lan" ] || [ "$autodetect_off" ] && return
 	printf '%s\n' "${blue}A[u]tomatically detect LAN IP ranges when updating IP lists or keep this config c[o]nstant?$n_c"
 	pick_opt "u|o"
-	[ "$REPLY" = u ] && autodetect=1
+	[ "$REPLY" = u ] && autodetect_lan=1
+	:
 }
 
 pick_source_ips() {
@@ -492,7 +494,7 @@ set_defaults() {
 
 get_general_prefs() {
 	debugprint "Start get_general_prefs()"
-	try_get_general_prefs "$@"
+	try_get_general_prefs
 	ggp_rv=$?
 	debugprint "End get_general_prefs()"
 	return $ggp_rv
@@ -772,7 +774,7 @@ do_configure() {
 			process_args=
 			unset iplists
 			eval "${direction}_iplists="
-			eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_icmp=skip ${direction}_geomode=disable"
+			eval "${direction}_tcp_ports=skip ${direction}_udp_ports=skip ${direction}_icmp=skip"
 		else
 			process_args=1
 		fi
