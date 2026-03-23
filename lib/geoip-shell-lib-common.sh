@@ -60,6 +60,69 @@ dump_args() {
 	done
 	printf '\n%s\n%s\n\n' "${du_func}():" "$du_args"
 }
+
+get_init_uptime_cs() {
+	get_uptime_cs INIT_UPTIME
+}
+
+# normalize fractional ms to 3 digits
+normalize_time() {
+	case "${2}" in
+		'') n_cs=00 ;;
+		?) n_cs="${2}0" ;;
+		??) n_cs="${2}" ;;
+		??*) n_cs="${2%"${2#??}"}"
+	esac
+	eval "${1}"='$n_cs'
+}
+
+# 1 - var name for ms output
+get_uptime_cs() {
+	unset "${1}" || return 1
+	read -r __uptime _ < /proc/uptime &&
+	case "${__uptime}" in
+		''|*.*.*) false ;;
+		*) :
+	esac &&
+	gu_s="${__uptime%.*}"
+	normalize_time gu_cs "${__uptime##*.}" &&
+	is_uint "${gu_s}" "${gu_cs}" ||
+	{
+		echolog -err "Failed to get uptime from /proc/uptime."
+		eval "${1}"=0
+		return 1
+	}
+	gu_cs="${gu_s:-0}${gu_cs:-00}"
+	gu_cs="${gu_cs#"${gu_cs%%[!0]*}"}"
+	eval "${1}"='${gu_cs:-0}'
+}
+
+# To use, first get initial uptime: 'get_uptime_cs INITIAL_UPTIME_MS'
+# Then call this function to get elapsed time string at desired intervals, e.g.:
+# get_elapsed_time_cs elapsed_time "${INITIAL_UPTIME_MS}"
+# 1 - var name for output
+# 2 - initial uptime in ms
+get_elapsed_time_cs()
+{
+	get_uptime_cs ge_uptime_cs || return 1
+	eval "${1:-_}"='$(( ge_uptime_cs - ${2:-ge_uptime_cs} ))'
+}
+
+pr_time()
+{
+	get_elapsed_time_cs geh_elapsed "${INIT_UPTIME}" || return 1
+	_e_m=$(( geh_elapsed / 6000 ))
+	[ "$_e_m" -gt 0 ] || _e_m=
+	_e_cs=$(( geh_elapsed % 6000 ))
+	_e_s=$(( _e_cs / 100 ))
+	case "${_e_cs}" in
+		'') _e_cs=00 ;;
+		?) _e_cs="0${_e_cs}" ;;
+		??) ;;
+		??*) _e_cs="${_e_cs#"${_e_cs%??}"}"
+	esac
+	# printf '%s\n' "********************************************* $1: ${_e_m:+"${_e_m}m:"}${_e_s:-0}.${_e_cs:-0}s"
+}
 #@
 
 # kills specified pid's and their offspring
@@ -1284,6 +1347,7 @@ san_list_ids() {
 							bad_ids[i]=ids_arr_orig[i]
 							rv=1
 						}
+						else {print "Error: Invalid exclusion ID \"" id "\"" > "/dev/stderr"}
 					}
 					else if (!seen[id]) {
 						seen[id]=1
@@ -1306,10 +1370,7 @@ san_list_ids() {
 
 				norm_ids(excl_ids_str,"excl")
 				norm_ids(main_ids_str,"main")
-				exit
-			}
 
-			END {
 				if (rv == 1 || main_cnt == 0) {
 					for (n=1; n <= bad_cnt; n++) {
 						if (! bad_ids[n]) continue
