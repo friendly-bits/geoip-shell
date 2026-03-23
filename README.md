@@ -380,7 +380,7 @@ You can sequentially import multiple IP lists and geoip-shell will add IP addres
 ## **FAQ**
 This project is entirely coded by hand (no AI used whatsoever) and I intend to keep it this way.
 
-If you are using Let's Encrypt certificates, see issue #66 for information how to enable certificate renewals.
+If you are using Let's Encrypt certificates, see [this issue](https://github.com/friendly-bits/geoip-shell/issues/66) for information how to enable certificate renewals.
 
 ## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
