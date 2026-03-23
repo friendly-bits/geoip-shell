@@ -61,31 +61,28 @@ dump_args() {
 	printf '\n%s\n%s\n\n' "${du_func}():" "$du_args"
 }
 
-get_init_uptime_cs() {
-	get_uptime_cs INIT_UPTIME
+get_init_uptime() {
+	get_uptime INIT_UPTIME
 }
 
-# normalize fractional ms to 3 digits
-normalize_time() {
-	case "${2}" in
-		'') n_cs=00 ;;
-		?) n_cs="${2}0" ;;
-		??) n_cs="${2}" ;;
-		??*) n_cs="${2%"${2#??}"}"
-	esac
-	eval "${1}"='$n_cs'
-}
-
-# 1 - var name for ms output
-get_uptime_cs() {
-	unset "${1}" || return 1
+# 1 - var name for centiseconds output
+get_uptime() {
+	eval "${1}=" || return 1
 	read -r __uptime _ < /proc/uptime &&
+
 	case "${__uptime}" in
 		''|*.*.*) false ;;
-		*) :
+		*.*) ;;
+		*) false ;;
 	esac &&
-	gu_s="${__uptime%.*}"
-	normalize_time gu_cs "${__uptime##*.}" &&
+	i_cs="${__uptime##*.}" &&
+	case "${i_cs}" in
+		'') gu_cs=00 ;;
+		?) gu_cs="${i_cs}0" ;;
+		??) gu_cs="${i_cs}" ;;
+		??*) gu_cs="${i_cs%"${i_cs#??}"}"
+	esac &&
+	gu_s="${__uptime%.*}" &&
 	is_uint "${gu_s}" "${gu_cs}" ||
 	{
 		echolog -err "Failed to get uptime from /proc/uptime."
@@ -97,23 +94,22 @@ get_uptime_cs() {
 	eval "${1}"='${gu_cs:-0}'
 }
 
-# To use, first get initial uptime: 'get_uptime_cs INITIAL_UPTIME_MS'
+# To use, first get initial uptime: 'get_uptime INITIAL_UPTIME'
 # Then call this function to get elapsed time string at desired intervals, e.g.:
-# get_elapsed_time_cs elapsed_time "${INITIAL_UPTIME_MS}"
-# 1 - var name for output
-# 2 - initial uptime in ms
-get_elapsed_time_cs()
-{
-	get_uptime_cs ge_uptime_cs || return 1
-	eval "${1:-_}"='$(( ge_uptime_cs - ${2:-ge_uptime_cs} ))'
+# get_elapsed_time elapsed_time "${INITIAL_UPTIME}"
+# 1 - var name for centiseconds output
+# 2 - initial uptime in centiseconds
+get_elapsed_time() {
+	eval "${1}=" &&
+	get_uptime ge_uptime_cs &&
+	eval "${1}"='$(( ge_uptime_cs - ${2:-ge_uptime_cs} ))'
 }
 
-pr_time()
-{
-	get_elapsed_time_cs geh_elapsed "${INIT_UPTIME}" || return 1
-	_e_m=$(( geh_elapsed / 6000 ))
+print_elapsed_time() {
+	get_elapsed_time _e_elapsed "${INIT_UPTIME}" || return 1
+	_e_m=$(( _e_elapsed / 6000 ))
 	[ "$_e_m" -gt 0 ] || _e_m=
-	_e_cs=$(( geh_elapsed % 6000 ))
+	_e_cs=$(( _e_elapsed % 6000 ))
 	_e_s=$(( _e_cs / 100 ))
 	case "${_e_cs}" in
 		'') _e_cs=00 ;;
@@ -121,7 +117,7 @@ pr_time()
 		??) ;;
 		??*) _e_cs="${_e_cs#"${_e_cs%??}"}"
 	esac
-	# printf '%s\n' "********************************************* $1: ${_e_m:+"${_e_m}m:"}${_e_s:-0}.${_e_cs:-0}s"
+	printf '%s\n' "********************************************* $1: ${_e_m:+"${_e_m}m:"}${_e_s:-0}.${_e_cs:-0}s"
 }
 #@
 
@@ -276,8 +272,7 @@ rm_setupdone() {
 	rm -f "$CONF_DIR/setupdone"
 }
 
-is_uint()
-{
+is_uint() {
 	for _v in "${@}"; do
 		case "${_v}" in
 			''|*[!0-9]*) return 1
