@@ -460,15 +460,16 @@ is_alphanum() {
 # outputs random int between 0 and $2. max 99 with dd, 65535 with hexdump
 # output via var $1
 get_random_int() {
-    gri_int=
-    if checkutil hexdump; then
-        gri_int="$(hexdump -n 2 -e '"%u"' </dev/urandom)"
-        gri_int_scaled=$(( gri_int * $2 / 65535))
-    elif checkutil dd; then
-        gri_int="$(tr -cd 0-9 < /dev/urandom 2>/dev/null | dd bs=2 count=1 2>/dev/null)"
-        gri_int_scaled=$(($(printf "%.0f" "$gri_int") * $2 / 99))
-    fi
-    eval "$1"='${gri_int_scaled:-0}'
+	gri_int=
+	if checkutil hexdump &&
+		gri_int="$(hexdump -n 2 -e '"%u"' </dev/urandom)" &&
+		[ $(( (0 <= gri_int) && (gri_int <= 65535) )) = 1 ]; then
+		gri_int_scaled=$(( gri_int * $2 / 65535))
+	elif checkutil dd; then
+		gri_int="$(tr -cd 0-9 < /dev/urandom 2>/dev/null | dd bs=2 count=1 2>/dev/null)"
+		gri_int_scaled=$(($(printf "%.0f" "$gri_int") * $2 / 99))
+	fi
+	eval "$1"='${gri_int_scaled:-0}'
 }
 
 # counts elements in input
@@ -879,14 +880,14 @@ subtract_a_from_b() {
 # 3 - var name for output
 # input via $4, if not specified then uses current value of $3
 conv_delim() {
-    out_del="$2"
-    var_cd="$3"
-    [ $# -ge 4 ] && _inp="$4" || eval "_inp=\"\$$3\""
-    newifs "$1" cd
-    set -- $_inp
-    IFS="$out_del"
-    eval "$var_cd"='$*'
-    oldifs cd
+	out_del="$2"
+	var_cd="$3"
+	[ $# -ge 4 ] && _inp="$4" || eval "_inp=\"\$$3\""
+	newifs "$1" cd
+	set -- $_inp
+	IFS="$out_del"
+	eval "$var_cd"='$*'
+	oldifs cd
 }
 
 # converts whitespace-separated list to newline-separated list
