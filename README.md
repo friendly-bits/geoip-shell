@@ -16,6 +16,7 @@ If you find this project useful, please take a second to give it a star on Githu
 - [Outbound geoblocking](#outbound-geoblocking)
 - [Local allowlists and blocklists](#local-allowlists-and-blocklists)
 - [Pre-requisites](#pre-requisites)
+- [FAQ](#faq)
 - [Notes](#notes)
 - [In detail](#in-detail)
 - [OpenWrt](#openwrt)
@@ -376,9 +377,12 @@ You can sequentially import multiple IP lists and geoip-shell will add IP addres
 
 **Optional**: the _check-ip-in-source.sh_ optional script requires **grepcidr**. install it with `apt install grepcidr` on Debian and derivatives. For other distros, use their built-in package manager.
 
-## **Notes**
+## **FAQ**
 This project is entirely coded by hand (no AI used whatsoever) and I intend to keep it this way.
 
+If you are using Let's Encrypt certificates, see issue #66 for information how to enable certificate renewals.
+
+## **Notes**
 For some helpful notes about using this suite, read [NOTES.md](/Documentation/NOTES.md).
 
 ## **In detail**
