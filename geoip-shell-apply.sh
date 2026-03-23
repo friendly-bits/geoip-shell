@@ -265,7 +265,7 @@ for family in $families; do
 			allow_ipset_type=net
 
 			## load or detect lan IPs
-			if [ "$lan_autodetect" ] && [ ! "$lan_autodetected" ]; then
+			if [ "$autodetect_lan" ] && [ ! "$lan_autodetected" ]; then
 				lan_ips="$(get_lan_addresses "$family")" || die
 				lan_autodetected=1
 				nl2sp "lan_ips_$family" "net:$lan_ips"
@@ -457,7 +457,7 @@ echo
 
 [ "$rv_apply" = 0 ] && {
 	setconf_ips=
-	[ "$lan_autodetect" ] && {
+	[ "$autodetect_lan" ] && {
 		[ "$lan_ips_ipv4" ] && setconf_ips="lan_ips_ipv4=$lan_ips_ipv4"
 		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6=$lan_ips_ipv6"
 	}
