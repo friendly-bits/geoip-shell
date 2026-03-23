@@ -460,7 +460,7 @@ is_alphanum() {
 # outputs random int between 0 and $2. max 99 with dd, 65535 with hexdump
 # output via var $1
 get_random_int() {
-	gri_int=
+	unset gri_int gri_int_scaled
 	if checkutil hexdump &&
 		gri_int="$(hexdump -n 2 -e '"%u"' </dev/urandom)" &&
 		[ $(( (0 <= gri_int) && (gri_int <= 65535) )) = 1 ]; then
