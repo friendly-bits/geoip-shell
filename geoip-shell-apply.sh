@@ -459,9 +459,14 @@ echo
 	setconf_ips=
 	[ "$autodetect_lan" ] && {
 		[ "$lan_ips_ipv4" ] && setconf_ips="lan_ips_ipv4=$lan_ips_ipv4"
-		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips lan_ips_ipv6=$lan_ips_ipv6"
+		[ "$lan_ips_ipv6" ] && setconf_ips="$setconf_ips${delim}lan_ips_ipv6=$lan_ips_ipv6"
 	}
-	[ "$setconf_ips" ] && set_main_config $setconf_ips
+	[ "$setconf_ips" ] && {
+		newifs "$delim" apply
+		set -- $setconf_ips
+		oldifs apply
+		set_main_config "$@"
+	}
 }
 
 [ "$no_block" = true ] && { echolog -warn "Geoblocking is disabled via config."; echo; }
