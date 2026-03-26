@@ -16,13 +16,18 @@ There is information out there about their IP addresses, e.g., the [LetsEncryptI
 
 ### Using  Caddy's Event Hooks
 
-This assumes that Caddy runs under its own user (a recommended security measure) and has `sudo` privileges.
+> [!TIP]
+> If you run Caddy in an unprivileged LXC (e.g., on Proxmox), skip down to "Using a cron job". Otherwise you'll run into several privilege-related errors ("read-only filesystem").
+>
+> Also skip down if you run into unresolvable errors with this approach.
+
+This assumes that Caddy runs under its own user (a typical setup and recommended security measure) and has `sudo` privileges.
 
 Caddy provides events that fire during the certificate renewal process. Together with the plugin "caddy-events-exec", this allows for an easy configuration in the Caddyfile to switch geoblocking off and on again.
 
 To configure,
 
-- Get the Caddy binary with the plugin by
+- Get the Caddy binary with the "caddy-events-exec" plugin by
   - [selecting it on the download page](https://caddyserver.com/download)
   - **OR** by compiling the binary yourself.
 - Place the binary in the corresponding folder (/usr/bin on most Linuxes)
@@ -51,7 +56,7 @@ One such use case is a Proxmox environment where Caddy runs in an unprivileged L
 
 The basic idea is to have a Shell script that
 
-- runs monthly (or whichever interval you deem necessary),
+- runs weekly (or whichever interval you deem necessary),
 - switches geoblocking off,
 - gives Caddy time to renew the Letsencrypt certs and
 - switches geoblocking on again.
@@ -61,16 +66,24 @@ The basic idea is to have a Shell script that
 Create a script "renew-certs.sh" in the root home folder:
 
 ```bash
-#!/bin/bash
+#!/bin/sh
 # Switch Geoblocking off to allow Caddy to renew TLS certificates
+
+echo "Turning geoip-shell off"
 /usr/bin/geoip-shell off
-mv /var/lib/caddy/.local/share/caddy/certificates/acme-v02.api.letsencrypt.org-directory/*/*.crt /backup/
+
 echo "Restarting Caddy to trigger TLS Cert renewal"
 systemctl restart caddy
-##### Optional part: access your website to trigger an initial TLS handshake
-echo "Triggering first TLS handshake"
-curl --resolve www.example.com:443:127.0.0.1 https://www.example.com 1>/dev/null
-##### END optional part ####################################################
+
+##############################################################################
+### Optional part: access your website to trigger an initial TLS handshake
+### This causes Caddy to obtain a certificate if none exists for this domain
+### Uncomment and change "www.example.com" to your domain
+### (You need curl installed on your system)
+# echo "Triggering first TLS handshake"
+# curl --resolve www.example.com:443:127.0.0.1 https://www.example.com 1>/dev/null
+##### END optional part ######################################################
+
 echo "30s pause to give Caddy time for cert renewal..."
 sleep 30s
 echo "Shields UP!"
@@ -80,9 +93,9 @@ echo "Shields UP!"
 Then add a cron job to root's crontab (e.g., with `crontab -e`):
 
 ```text
-6 6 6 * * /root/renew_certs.sh 1>/tmp/renew_certs.log 2>&1 # ACME Cert renewal
+6 6 * * 6 /root/renew_certs.sh 1>/tmp/renew_certs.log 2>&1 # ACME Cert renewal
 ```
 
-The above example runs the shell script every 6th of the month at 06:06 in the morning.
+The above example runs the shell script every Sunday at 06:06 in the morning.
 
 Check the log file "/tmp/renew_certs.log" for successful execution.
