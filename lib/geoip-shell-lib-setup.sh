@@ -631,7 +631,7 @@ try_get_general_prefs() {
 	{ [ "$no_persist" != "$no_persist_prev" ] && [ "$no_persist" = false ]; } &&
 		{ check_cron_compat || die; }
 	[ "$upd_schedule_arg" ] && [ "$upd_schedule_arg" != disable ] && {
-		call_script "$_script-cronsetup.sh" -x "$upd_schedule_arg" || die "$FAIL validate cron schedule '$upd_schedule_arg'."
+		call_script "$i_script-cronsetup.sh" -x "$upd_schedule_arg" || die "$FAIL validate cron schedule '$upd_schedule_arg'."
 	}
 
 	# families
@@ -1048,7 +1048,5 @@ import_local_iplists() {
 	done
 	[ -n "$final_lists_change" ] || die 0
 }
-
-[ "$script_dir" = "$INSTALL_DIR" ] && _script="$i_script" || _script="$p_script"
 
 :
