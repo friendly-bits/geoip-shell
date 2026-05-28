@@ -223,7 +223,10 @@ parse_config() {
 
 	[ -s "$pcf_path" ] && {
 		pcf_file_found=1
-		pcf_cfg1="$(cat "$pcf_path" | tr '\n' "$delim")"
+		pcf_cfg1="$(tr '\n' "$delim" < "$pcf_path")" || {
+			pcf_fail "Failed to read file '$pcf_path'."
+			return 1
+		}
 	}
 
 	[ -n "$pcf_file_found" ] || [ -n "$PCF_IGNORE_MISSING_FILE" ] || {
