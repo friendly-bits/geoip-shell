@@ -549,6 +549,7 @@ source_lib() {
 	shift
 	[ -n "$*" ] || set -- "$LIB_DIR"
 	for dir in "$@"; do
+		[ -n "${dir}" ] || continue
 		[ -f "$dir/$src_file" ] && {
 			debugprint "Sourcing '$sl_name'"
 			. "$dir/$src_file" && return 0
@@ -1688,6 +1689,6 @@ export IFS="$default_IFS"
 }
 
 add2list GS_SOURCED "common" " "
-source_lib config "$script_dir/lib" "$LIB_DIR" || return 1
+source_lib config "${script_dir:+"$script_dir/lib"}" "$LIB_DIR" || return 1
 
 :
