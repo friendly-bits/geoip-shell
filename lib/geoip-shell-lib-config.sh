@@ -123,7 +123,7 @@ load_main_config() {
 	[ -z "$CFG_ITER" ] &&
 	case "$GS_ID" in
 		install|uninstall|owrt-uninstall) [ -s "$lmc_path" ] || return 0 ;;
-		*) [ -s "$lmc_path" ] || { [ -n "${first_setup}" ] && return 0; }
+		*) [ -s "$lmc_path" ] || { [ -n "${FIRST_SETUP}" ] && return 0; }
 	esac
 
 	debugprint "Loading main config."

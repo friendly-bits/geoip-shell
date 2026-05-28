@@ -13,9 +13,9 @@ p_name="geoip-shell"
 GS_ID=uninstall
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-manmode=1
-nolog=1
-in_uninstall=1
+MANMODE=1
+NOLOG=1
+IN_UNINSTALL=1
 export FORCE_SOURCE_LIBS=1
 
 case "$script_dir" in
@@ -108,7 +108,7 @@ INSTALL_DIR="${old_install_dir:-"$INSTALL_DIR"}"
 [ -d "$CONF_DIR" ] && : "${CONF_FILE:="$CONF_DIR/$p_name.conf"}"
 [ -s "$CONF_FILE" ] && nodie=1 load_config main "" "datadir firewall_backend=_fw_backend local_iplists_dir" ||
 	{
-		[ ! "$first_setup" ] &&
+		[ ! "$FIRST_SETUP" ] &&
 			echolog -warn "Config file doesn't exist or failed to read config." \
 				"Firewall rules may not be removed by the uninstaller. Please restart the machine after uninstallation."
 	}

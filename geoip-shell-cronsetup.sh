@@ -16,7 +16,7 @@ for geoinit_path in "$script_dir/$geoinit" "/usr/bin/$geoinit"; do
 done
 . "$geoinit_path" || exit 1
 
-nolog=1
+NOLOG=1
 
 
 #### USAGE

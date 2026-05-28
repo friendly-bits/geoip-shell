@@ -9,8 +9,8 @@
 #### Initial setup
 p_name="geoip-shell"
 GS_ID=manage
-: "${manmode:=1}"
-export inbound_geomode nolog=1 manmode
+: "${MANMODE:=1}"
+export inbound_geomode NOLOG=1 MANMODE
 
 script_dir="$INSTALL_DIR"
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
@@ -381,7 +381,7 @@ restore_from_config() {
 	fi
 
 	# Handle failure
-	[ "$first_setup" ] && die_m
+	[ "$FIRST_SETUP" ] && die_m
 
 	if [ -n "$_prev" ]; then
 		return 1
@@ -412,7 +412,7 @@ check_for_lockout() {
 			dfl_geomode=\"\$${direction}_geomode\"
 			dfl_geomode_change=\"\$${direction}_geomode_change\"
 			dfl_lists_change=\"\$${direction}_lists_change\""
-		if [ "$first_setup" ] || [ "$dfl_geomode_change" ] || [ "$dfl_lists_change" ] || [ "$user_ccode_change" ]; then
+		if [ "$FIRST_SETUP" ] || [ "$dfl_geomode_change" ] || [ "$dfl_lists_change" ] || [ "$user_ccode_change" ]; then
 			ccode_included=
 			inlist="in the planned $direction geoblocking $dfl_geomode"
 
@@ -437,7 +437,7 @@ check_for_lockout() {
 			outbound_geomode="$outbound_geomode_prev"
 			inbound_iplists="$inbound_iplists_prev"
 			outbound_iplists="$outbound_iplists_prev"
-			[ ! "$first_setup" ] && report_lists
+			[ ! "$FIRST_SETUP" ] && report_lists
 			echo
 			echolog "Aborted action '$action'."
 			discard_config_changes
@@ -448,10 +448,10 @@ check_for_lockout() {
 }
 
 set_first_setup() {
+	export FIRST_SETUP=1
 	rm_setupdone
 	[ "$action" = configure ] || die_m 0 "Please run '$p_name configure'."
 	export_main_config
-	export first_setup=1
 	reset_req=1
 }
 
@@ -512,8 +512,7 @@ conf_file_found=
 [ -s "$CONF_FILE" ] && conf_file_found=1
 rm_conf=
 
-[ "$action" != stop ] && { [ "$first_setup" ] || [ ! -f "$CONF_DIR/setupdone" ]; } && {
-	export first_setup=1
+[ "$action" != stop ] && { [ "$FIRST_SETUP" ] || [ ! -f "$CONF_DIR/setupdone" ]; } && {
 	[ "$action" = configure ] || echolog "${_nl}Setup has not been completed."
 
 	set_first_setup
@@ -640,7 +639,7 @@ unset run_restore_req run_add_req reset_req backup_req apply_req cron_req cohere
 
 [ "$all_add_iplists" ] && run_add_req=1
 
-[ "$first_setup" ] || [ "$_fw_backend_change" ] || [ "$geosource_change" ] && reset_req=1
+[ "$FIRST_SETUP" ] || [ "$_fw_backend_change" ] || [ "$geosource_change" ] && reset_req=1
 
 check_for_lockout
 
@@ -697,8 +696,8 @@ case "$conf_act" in run_add|reset|apply)
 	if [ "$no_backup" != true ] && [ -s "$status_file" ] && [ ! -s "$datadir/backup/status.bak" ] &&
 		checkutil get_fwrules_iplists &&
 		{
-			nolog=1 get_fwrules_iplists inbound | grep . ||
-			nolog=1 get_fwrules_iplists outbound | grep .
+			NOLOG=1 get_fwrules_iplists inbound | grep . ||
+			NOLOG=1 get_fwrules_iplists outbound | grep .
 		} 1>/dev/null 2>/dev/null; then
 		inbound_iplists="$inbound_iplists_prev" outbound_iplists="$outbound_iplists_prev" \
 			call_script -l "$i_script-backup.sh" create-backup || rm_data
@@ -793,7 +792,7 @@ esac || die_m
 	[ "$backup_req" ] && [ "$no_backup" != true ] && [ "$inbound_iplists$outbound_iplists" ] &&
 		call_script -l "$i_script-backup.sh" create-backup "$bk_conf_only"
 
-	[ "$first_setup" ] && touch "$CONF_DIR/setupdone"
+	[ "$FIRST_SETUP" ] && touch "$CONF_DIR/setupdone"
 	if [ "$cron_req" ]; then
 		call_script "$i_script-cronsetup.sh" || echolog -err "$FAIL update cron jobs."
 		[ "$_OWRTFW" ] && {
@@ -823,7 +822,7 @@ esac || die_m
 		}
 	fi
 
-	[ "$first_setup" ] && [ "$rv_conf" = 0 ] &&
+	[ "$FIRST_SETUP" ] && [ "$rv_conf" = 0 ] &&
 		printf '\n%s\n' "Successfully configured $p_name for firewall backend: ${blue}${_fw_backend}ables${n_c}."
 
 	report_lists

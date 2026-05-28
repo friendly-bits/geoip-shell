@@ -411,7 +411,7 @@ check_updates() {
 
 		check_prev_list "$list_id"
 
-		if [ "$prev_list_reg" ] && [ "$src_date_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$manmode" != 1 ]; then
+		if [ "$prev_list_reg" ] && [ "$src_date_raw" -le "$prev_date_raw" ] && [ ! "$force_update" ] && [ "$MANMODE" != 1 ]; then
 			add2list up_to_date_lists "$list_id"
 		else
 			add2list l_names_need_update "${list_id%_*}"

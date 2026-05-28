@@ -10,9 +10,9 @@
 
 p_name="geoip-shell"
 GS_ID=owrt_uninstall
-manmode=1
-nolog=1
-in_uninstall=1
+MANMODE=1
+NOLOG=1
+IN_UNINSTALL=1
 export FORCE_SOURCE_LIBS=1
 
 LIB_DIR="/usr/lib/$p_name"

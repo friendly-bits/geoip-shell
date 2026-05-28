@@ -350,7 +350,7 @@ oldifs() {
 is_root_ok() {
 	[ "$ROOT_OK" = 1 ] && return 0
 	rv=1
-	[ "$manmode" = 1 ] && { rv=0; tip=" For usage, run '$me -h'."; }
+	[ "$MANMODE" = 1 ] && { rv=0; tip=" For usage, run '$me -h'."; }
 	die $rv "$me needs to be run as root.$tip"
 }
 
@@ -615,7 +615,7 @@ echolog() {
 			esac
 		}
 
-		if [ ! "$nolog" ] && [ ! "$o_nolog" ]; then
+		if [ ! "$NOLOG" ] && [ ! "$o_nolog" ]; then
 			write_entry "$msg_prefix$arg" "$err_l"
 		fi
 		unset first_prefix msg_prefix
@@ -647,7 +647,7 @@ die() {
 
 	for die_arg in "$@"; do
 		case "$die_arg" in
-			-nolog) nolog="1" ;;
+			-nolog) NOLOG="1" ;;
 			'') ;;
 			*) die_args="$die_args$die_arg$delim"
 		esac
@@ -1103,7 +1103,7 @@ check_lists_coherence() {
 
 	debugprint "Verifying IP lists coherence..."
 
-	nodie=1 nolog="${_no_l:-"$nolog"}" load_main_config || return 1
+	nodie=1 NOLOG="${_no_l:-"$NOLOG"}" load_main_config || return 1
 
 	iplists_incoherent=
 	for direction in inbound outbound; do

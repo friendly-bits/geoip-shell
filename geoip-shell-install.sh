@@ -17,8 +17,8 @@ p_name="geoip-shell"
 GS_ID=install
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
-: "${manmode:=1}"
-export manmode first_setup=1 nolog=1
+: "${MANMODE:=1}"
+export MANMODE FIRST_SETUP=1 NOLOG=1
 
 . "$script_dir/$p_name-geoinit.sh" || exit 1
 
@@ -511,7 +511,7 @@ ${set_owrt_install:+"${_nl}${set_owrt_install}"}
 
 const_file="\$CONF_DIR/\${p_name}.const"
 [ -f "\$const_file" ] && { . "\$const_file" || die; } ||
-	{ [ ! "\$in_uninstall" ] && die "\$const_file not found. Please reinstall \$p_name."; }
+	{ [ ! "\$IN_UNINSTALL" ] && die "\$const_file not found. Please reinstall \$p_name."; }
 export CONST_SOURCED=1
 
 :

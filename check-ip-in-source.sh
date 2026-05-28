@@ -9,7 +9,7 @@
 #### Initial setup
 p_name="geoip-shell"
 GS_ID=check-ip-in-source
-export manmode=1 nolog=1 LC_ALL=C POSIXLY_CORRECT=YES
+export MANMODE=1 NOLOG=1 LC_ALL=C POSIXLY_CORRECT=YES
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 get_path() {

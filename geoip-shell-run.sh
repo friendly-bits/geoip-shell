@@ -186,7 +186,7 @@ check_deps "$i_script-fetch.sh" "$i_script-apply.sh" "$i_script-backup.sh" || ru
 
 #### MAIN
 
-[ "$manmode" != 1 ] && echolog "Starting action '$action_run'."
+[ "$MANMODE" != 1 ] && echolog "Starting action '$action_run'."
 
 dir_mk -n "$IPLIST_DIR" || run_fail 1
 
@@ -335,7 +335,7 @@ rm_iplists
 case "$apply_rv" in
 	0) ;;
 	254)
-		[ "$first_setup" ] && run_fail 1
+		[ "$FIRST_SETUP" ] && run_fail 1
 		run_fail 254 "$p_name-apply.sh exited with code '254'. $FAIL execute action '$action_run'." ;;
 	*)
 		debugprint "NOTE: apply exited with code '$apply_rv'."

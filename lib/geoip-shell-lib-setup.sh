@@ -596,13 +596,13 @@ try_get_general_prefs() {
 		par_val="${par_val_arg:-"$par_val"}"
 		case "$par_val" in
 			true)
-				[ "$first_setup" ] && [ "$par_val_arg" != true ] &&
+				[ "$FIRST_SETUP" ] && [ "$par_val_arg" != true ] &&
 					case "$par_name" in no_block|no_persist|force_cron_persist)
 						echolog -warn "${_nl}option '$par_name' is set to 'true' in config."
 					esac ;;
 			false) ;;
 			*)
-				[ ! "$first_setup" ] &&
+				[ ! "$FIRST_SETUP" ] &&
 					echolog -warn "Config has invalid value for parameter '$par_name': '$par_val'. Resetting to default: '$def_val'."
 				par_val="$def_val"
 		esac
@@ -683,7 +683,7 @@ do_configure() {
 		[ "$_fw_backend" ] && rm_iplists_rules
 	}
 
-	debugprint "first_setup: '$first_setup'"
+	debugprint "FIRST_SETUP: '$FIRST_SETUP'"
 
 	for var_name in datadir local_iplists_dir no_block no_backup upd_schedule no_persist geosource ifaces families _fw_backend nft_perf \
 		user_ccode lan_ips_ipv4 lan_ips_ipv6 trusted_ipv4 trusted_ipv6 source_ips_ipv4 source_ips_ipv6 source_ips_policy; do
@@ -865,7 +865,7 @@ do_configure() {
 			case "$ifaces_arg" in
 				all) ifaces=all
 					is_whitelist_present && [ ! "$lan_picked" ] &&
-						{ [ "$first_setup" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
+						{ [ "$FIRST_SETUP" ] || [ "$geomode_change" ] || [ "$ifaces_change" ]; } &&
 							{ warn_lockout; pick_lan_ips; } ;;
 				auto) ifaces_arg=''; pick_ifaces -a ;;
 				*) pick_ifaces
