@@ -10,13 +10,14 @@
 
 # the install script makes a new version of this file
 
-curr_ver="0.8.3"
+curr_ver="0.8.4-pre1"
 
 set -o | grep '^posix[ 	]' 1>/dev/null && set -o posix
 set -f
 
 export p_name=geoip-shell \
-	LC_ALL=C POSIXLY_CORRECT=YES \
+	LC_ALL=C \
+	POSIXLY_CORRECT=YES \
 	_nl='
 '
 export default_IFS="	 $_nl"
