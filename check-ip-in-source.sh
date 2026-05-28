@@ -104,8 +104,12 @@ load_cca2 "$script_dir/cca2.list" || die
 
 check_deps grepcidr || die
 
-normalize_ccodes -c ccode cnt "$ccode_arg" "" "$script_dir/cca2.list" &&
-	[ "$cnt" = 1 ] || die "Specify only one country code."
+normalize_ccodes -c ccode cnt "$ccode_arg" "" "$script_dir/cca2.list" || die
+case "${cnt}" in
+	0) die "Specify country code with '-c <country_code>'." ;;
+	1) ;;
+	*) die "Specify only one country code."
+esac
 
 san_str ips || die
 [ -z "$ips" ] && { usage; die "Specify IP addresses to check with '-i <\"ip_addresses\">'."; }
