@@ -12,8 +12,8 @@ GS_ID=manage
 : "${MANMODE:=1}"
 export inbound_geomode NOLOG=1 MANMODE
 
-script_dir="$INSTALL_DIR"
 . "/usr/bin/${p_name}-geoinit.sh" || exit 1
+script_dir="$INSTALL_DIR"
 
 san_args "$@"
 newifs "$delim"
