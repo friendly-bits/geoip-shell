@@ -661,9 +661,9 @@ get_fetch_util() {
 		ripe) gfu_main_timeout=22 # ripe api may be slow at processing initial request for a non-ripe region
 	esac
 
-	wget_con_check_ptrn="HTTP/.* (302 Moved Temporarily|403 Forbidden|301 Moved Permanently)"
-	ucl_con_check_ptrn="HTTP error (301|302|403)"
-	curl_con_check_ptrn="(301|302|403)"
+	wget_con_check_ptrn="HTTP/.* (403|301|302) "
+	ucl_con_check_ptrn="HTTP error (301|302|403)($| )"
+	curl_con_check_ptrn="(301|302|403)($| )"
 
 	ucl_cmd="uclient-fetch -O -"
 	curl_cmd="curl -f --retry 2"
@@ -672,6 +672,7 @@ get_fetch_util() {
 	unset gfu_cmd_main gfu_cmd_date gfu_cmd_q gfu_cmd_con_check gfu_con_check_ptrn
 
 	for util in curl wget uclient-fetch; do
+		[ -z "${GS_FORCE_FETCH_UTIL}" ] || [ "${util}" = "${GS_FORCE_FETCH_UTIL}" ] || continue
 		checkutil "$util" || continue
 		unset ssl_util
 		util_path="$(readlink -f "$(command -v "$util")")"
