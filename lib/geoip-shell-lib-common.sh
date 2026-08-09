@@ -344,7 +344,7 @@ newifs() {
 # restore IFS value from variable tagged $1
 oldifs() {
 	eval "IFS=\"\$IFS_OLD_$1\""
-	[ -n "$IFS" ] || { IFS="$default_IFS"; echolog -err "Internal error: old IFS for '$1' is not set."; }
+	[ -n "$IFS" ] || { IFS="$default_IFS"; printf '%s\n' "${red}Internal error${n_c}: old IFS for '$1' is not set."; }
 }
 
 is_root_ok() {
@@ -576,12 +576,6 @@ check_libs() {
 # outputs args to stdout and writes them to syslog
 # if one of the args is '-err' or '-warn' then redirect output to stderr
 echolog() {
-	write_entry() {
-		el_msg="$(printf %s "$1" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
-		[ -n "$GS_DAEMON_MODE" ] && date +"[%b %d %Y %H:%M:%S] ${el_msg}" >> "${GS_LOG_FILE}"
-		logger -t "$me" -p "user.$2" "$el_msg"
-	}
-
 	unset msg_args nl_print msg_prefix o_nolog el_msg
 
 	highlight="$blue"; err_l=info
@@ -616,7 +610,9 @@ echolog() {
 		}
 
 		if [ ! "$NOLOG" ] && [ ! "$o_nolog" ]; then
-			write_entry "$msg_prefix$arg" "$err_l"
+			el_msg="$(printf %s "$1" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
+			[ -n "$GS_DAEMON_MODE" ] && date +"[%b %d %Y %H:%M:%S] ${el_msg}" >> "${GS_LOG_FILE}"
+			logger -t "$me" -p "user.$2" "$el_msg"
 		fi
 		unset first_prefix msg_prefix
 		err_l=info
@@ -1238,7 +1234,7 @@ load_cca2() {
 # 3: input
 # 4 (optional): list of delimiters
 normalize_ccodes() {
-	unset nc_ccodes nc_inval
+	unset nc_ccodes nc_inval ccode_only
 	checkvars VALID_REGISTRIES
 	region_names_pr="region names or "
 	[ "$1" = '-c' ] && { ccode_only=1; regions_names_pr=''; shift; }
