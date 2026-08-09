@@ -18,9 +18,9 @@
 CONF_FILE_TMP="${GEORUN_DIR:?}/tmpconfig"
 CFG_ITER_BASE_PATH="${GEOTEMP_DIR:?}/cfg_iter_${sc_iter}"
 
-unload_main_config() { eval "$CFG_UNLOAD_CMD"; }
+unload_main_config() { unset ${ALL_CONF_OPTS:-_}; }
 
-export_main_config() { eval "$CFG_EXPORT_CMD"; }
+export_main_config() { export ${ALL_CONF_OPTS:-_}; }
 
 discard_config_changes() {
 	unload_main_config
@@ -559,8 +559,6 @@ set_main_conf_opts() {
 		for _conf_pair in "$@"; do
 			ALL_CONF_OPTS="${ALL_CONF_OPTS} ${_conf_pair##*=}"
 		done
-		export CFG_EXPORT_CMD="export $ALL_CONF_OPTS"
-		export CFG_UNLOAD_CMD="unset $ALL_CONF_OPTS"
 	done
 
 	IFS="$default_IFS"
@@ -573,5 +571,6 @@ set_main_conf_opts() {
 }
 
 [ -n "$CONF_KEYS_MAP" ] || set_main_conf_opts
+[ -n "$CFG_ITER" ] || unload_main_config # reset config vars
 
 :
