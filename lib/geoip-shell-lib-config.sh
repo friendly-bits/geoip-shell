@@ -469,16 +469,17 @@ getstatus() {
 }
 
 # wrapper for setconfig()
-# 1: path to file
+# 1: section label
+# 2: path to file
 # args are passed as is to setconfig
 setstatus() {
-	[ "$1" ] || { bad_args setstatus "$@"; die; }
-	[ -d "${1%/*}" ] || mkdir -p "${1%/*}" || return 1
-	# 	[ "$ROOT_OK" = 1 ] && chmod -R 600 "${1%/*}"
-	# [ -f "$1" ] || touch "$1" &&
-	# 	[ "$ROOT_OK" = 1 ] && chmod 600 "$1"
+	[ "$1" ] && [ "$2" ] || { bad_args setstatus "$@"; die; }
+	[ -d "${2%/*}" ] || mkdir -p "${2%/*}" || return 1
+	# 	[ "$ROOT_OK" = 1 ] && chmod -R 600 "${2%/*}"
+	# [ -f "$2" ] || touch "$2" &&
+	# 	[ "$ROOT_OK" = 1 ] && chmod 600 "$2"
 	setconfig "$@" && return 0
-	rm -f "$1"
+	rm -f "$2"
 	return 1
 }
 
