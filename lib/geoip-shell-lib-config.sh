@@ -469,7 +469,7 @@ getstatus() {
 }
 
 # wrapper for setconfig()
-# 1: section label
+# 1: type
 # 2: path to file
 # args are passed as is to setconfig
 setstatus() {
