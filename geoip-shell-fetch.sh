@@ -613,7 +613,7 @@ process_l_name() {
 		if [ "$failed_s_cnt" != 0 ]; then
 			failed_s="$(grep -Ev  "$addr_regex" "$parsed_list")"
 
-			list_failed "${_nl}out of $parsed_s_cnt entries in IP list '${purple}$list_id${n_c}, $failed_s_cnt entries ${red}failed validation${n_c}'."
+			list_failed "${_nl}out of $parsed_s_cnt entries in IP list '${purple}$list_id${n_c}', $failed_s_cnt entries ${red}failed validation${n_c}."
 			if [ $failed_s_cnt -gt 10 ]; then
 					echo "First 10 failed entries:"
 					printf '%s\n' "$failed_s" | head -n10
