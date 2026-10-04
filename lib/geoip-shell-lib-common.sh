@@ -1653,9 +1653,9 @@ export ipv4_regex='((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])\.){3}(25[0-5]|(2[0-4]|
 	maskbits_regex_ipv6='(12[0-8]|((1[0-1]|[1-9])[0-9])|[6-9])'
 export \
 	ip_or_range_regex_ipv4="${ipv4_regex}(/${maskbits_regex_ipv4}){0,1}" \
-	ip_or_range_regex_ipv6="${ipv6_regex}(/${maskbits_regex_ipv6}){0,1}"\
+	ip_or_range_regex_ipv6="${ipv6_regex}(/${maskbits_regex_ipv6}){0,1}" \
 	range_regex_ipv4="${ipv4_regex}/${maskbits_regex_ipv4}" \
-	range_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}"\
+	range_regex_ipv6="${ipv6_regex}/${maskbits_regex_ipv6}" \
 	inbound_geochain="${p_name_cap}_IN" outbound_geochain="${p_name_cap}_OUT" \
 	inbound_dir_short=in outbound_dir_short=out
 
