@@ -8,6 +8,14 @@
 
 
 lookup() {
+	is_gs_ipset() {
+		case "$1" in
+			*[A-Z][A-Z]_${2}_*|*allow_in_${2}|*allow_out_${2}|*allow_${2}*|*block_${2}*) : ;;
+			*) return 1
+		esac
+		:
+	}
+
 	finalize_lookup() {
 		rm -rf "$dumped_ipsets_file"
 		die "$@"
@@ -15,9 +23,8 @@ lookup() {
 
 	dump_ipsets() {
 		for ipset in $1; do
-			case "$ipset" in *[A-Z][A-Z]_${2}_*|*allow_in_${2}|*allow_out_${2}|*allow_${2}*|block_${2}*)
-				print_ipset_elements "$ipset" "$1"
-			esac
+			is_gs_ipset "$ipset" || continue
+			print_ipset_elements "$ipset" "$1"
 		done > "$3" || { echolog -err "Failed to get ipset elements for ipsets '$1'."; return 1; }
 	}
 
@@ -78,10 +85,7 @@ lookup() {
 		printf '%s\n' "Matching IP's:"
 		for f in $lookup_families; do
 			for ipset in $ipsets; do
-				case "$ipset" in
-					*[A-Z][A-Z]_${f}_*|*allow_in_${f}|*allow_out_${f}|*allow_${f}*|block_${f}*) ;;
-					*) continue
-				esac
+				is_gs_ipset "$ipset" || continue
 				dump_ipsets "$ipset" "$f" "$dumped_ipsets_file" || finalize_lookup 1
 				ips="$(lookup_ips "$1" "$2" "$f" "$dumped_ipsets_file")" || continue
 				printf '\n%s\n%s\n' "IP set '$ipset':" "$ips"
