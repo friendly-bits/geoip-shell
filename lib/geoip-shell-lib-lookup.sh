@@ -85,7 +85,7 @@ lookup() {
 		printf '%s\n' "Matching IP's:"
 		for f in $lookup_families; do
 			for ipset in $ipsets; do
-				is_gs_ipset "$ipset" "$2" || continue
+				is_gs_ipset "$ipset" "$f" || continue
 				dump_ipsets "$ipset" "$f" "$dumped_ipsets_file" || finalize_lookup 1
 				ips="$(lookup_ips "$1" "$2" "$f" "$dumped_ipsets_file")" || continue
 				printf '\n%s\n%s\n' "IP set '$ipset':" "$ips"
