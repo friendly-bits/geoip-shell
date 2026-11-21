@@ -43,6 +43,7 @@ ${purple}Actions${n_c}:
   ${blue}on|off${n_c}     :  enable or disable the geoblocking chain (via a rule in the base geoip chain)
   ${blue}lookup${n_c}     :  look up given IP addresses in IP sets loaded by geoip-shell
   ${blue}stop${n_c}       :  kill any running geoip-shell processes, remove geoip-shell firewall rules and unload IP sets
+  ${blue}import${n_c}     :  import IP ranges from a file into a local blocklist or allowlist, or remove previously imported IP ranges
 
 ${purple}'configure' action${n_c}:
   General syntax: ${blue}configure [options] [-D $direction_syn <options>]${n_c}
