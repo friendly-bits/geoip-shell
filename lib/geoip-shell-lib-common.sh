@@ -612,7 +612,7 @@ echolog() {
 		if [ ! "$NOLOG" ] && [ ! "$o_nolog" ]; then
 			el_msg="$(printf %s "$1" | awk '{gsub(/\033\[[0-9;]*m/,"")};1' ORS=' ')"
 			[ -n "$GS_DAEMON_MODE" ] && date +"[%b %d %Y %H:%M:%S] ${el_msg}" >> "${GS_LOG_FILE}"
-			logger -t "$me" -p "user.$2" "$el_msg"
+			logger -t "$me" -p "user.$err_l" "$el_msg"
 		fi
 		unset first_prefix msg_prefix
 		err_l=info
